@@ -1,0 +1,7 @@
+.env
+*.apk
+*.aab
+*.ipa
+build/
+node_modules/
+.dart_tool/
