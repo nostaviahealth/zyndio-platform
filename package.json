@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "lint": "tsc -p tsconfig.lint.json --noEmit",
+    "test": "vitest run",
     "setup:all": "tsx scripts/setup-all.ts",
     "setup:db": "tsx scripts/setup-database.ts",
     "admin:setup": "tsx scripts/supabase-admin-setup.ts",
@@ -30,6 +32,7 @@
     "@vitejs/plugin-react": "^5.0.0",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "vite": "^6.2.0",
+    "vitest": "^4.1.12"
   }
 }

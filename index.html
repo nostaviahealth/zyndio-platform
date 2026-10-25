@@ -10,28 +10,15 @@
   <script>
     tailwind.config = {
       theme: {
-        extend: {
-          colors: {
-            brand: {
-              dark: '#1e1b4b', // Indigo 950
-              blue: '#4338ca', // Indigo 700
-              sage: '#ede9fe', // Violet 100
-              sageDark: '#8b5cf6', // Violet 500
-              gold: '#f59e0b', // Amber 500
-              goldLight: '#fef3c7', // Amber 100
-              bg: '#f8fafc', // Slate 50
-              card: '#ffffff',
+        extend: Object.assign(
+          {
+            boxShadow: {
+              'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+              'glow': '0 0 15px rgba(139, 92, 246, 0.3)',
             }
           },
-          fontFamily: {
-            sans: ['Inter', 'sans-serif'],
-            serif: ['Poppins', 'sans-serif'],
-          },
-          boxShadow: {
-            'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
-            'glow': '0 0 15px rgba(139, 92, 246, 0.3)',
-          }
-        }
+          /*ZYNDIO_BRAND_THEME*/{}
+        )
       }
     }
   </script>
