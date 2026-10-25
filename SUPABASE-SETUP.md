@@ -1,135 +1,71 @@
-# 🚀 Supabase Setup - Quick Start Guide
+# Supabase Setup
 
-## Step 1: Create Supabase Project (5 minutes)
+Steps to stand up a fresh Zyndio dev Supabase project and point this repo at it.
 
-1. Go to: **https://supabase.com/dashboard**
+## 1. Create the project
 
-2. Click **"New Project"**
+1. Go to https://supabase.com/dashboard and click **New Project**.
+2. Pick an org, name it (e.g. `zyndio-dev`), set a database password, and choose a region.
+3. Wait for provisioning to finish.
 
-3. Fill in:
-   - **Organization:** Create new or select existing
-   - **Name:** `Zyndio`
-   - **Database Password:** Choose a strong password (SAVE THIS!)
-   - **Region:** Choose closest to you (e.g., `US East`)
-   - **Pricing Plan:** Free
+## 2. Get your credentials
 
-4. Click **"Create new project"**
+In **Settings → API**, copy:
 
-5. Wait 2-3 minutes for setup to complete
+- **Project URL**
+- **anon/public key**
+- **service_role/secret key** — never commit this; it's server-side only
 
----
+## 3. Configure environment variables
 
-## Step 2: Get Your Credentials
-
-1. Once the project is ready, go to: **Settings → API**
-
-2. Copy these three values:
-
-   📋 **Project URL:**
-   ```
-   Example: https://abcdefghijk.supabase.co
-   ```
-
-   📋 **anon/public key:**
-   ```
-   Example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-   ```
-
-   📋 **service_role/secret key:**
-   ```
-   Example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9... (different from anon key)
-   ```
-
-   ⚠️ **IMPORTANT:** The service_role key is SECRET - never commit it to Git!
-
----
-
-## Step 3: Run Database Schema
-
-1. In Supabase Dashboard, go to: **SQL Editor**
-
-2. Click **"New query"**
-
-3. Copy the entire contents of `supabase/schema.sql` file
-
-4. Paste into the SQL editor
-
-5. Click **"Run"** or press `Cmd+Enter`
-
-6. Wait for success message: ✅ "Success. No rows returned"
-
----
-
-## Step 4: Enable Email Auth
-
-1. Go to: **Authentication → Providers**
-
-2. Find **"Email"** in the list
-
-3. Toggle it **ON** (should be on by default)
-
-4. Scroll to **"Email Confirm"** settings
-
-5. **Disable** email confirmations for now:
-   - Uncheck "Enable email confirmations"
-   
-   (You can enable this later with SMTP)
-
----
-
-## Step 5: Configure Site URL
-
-1. Go to: **Authentication → URL Configuration  **
-
-2. Set **"Site URL"**:
-   ```
-   https://zyndio.example
-   ```
-
-3. Add **"Redirect URLs"**:
-   ```
-   https://zyndio.example/**
-   http://localhost:3001/**
-   ```
-
-4. Click **"Save"**
-
----
-
-## Step 6: Send Me Your Credentials
-
-Once you have all three credentials, send them to me in this format:
-
-```
-URL: https://your-project.supabase.co
-ANON_KEY: <your-anon-key>
-SERVICE_KEY: <your-service-key>
+```bash
+cp .env.example .env
 ```
 
----
+Fill in `.env`:
 
-## What Happens Next (I'll do this)
+```
+VITE_SUPABASE_URL=<your project URL>
+VITE_SUPABASE_ANON_KEY=<your anon key>
+SUPABASE_SERVICE_KEY=<your service_role key>
+ADMIN_EMAIL=<email for your local admin account>
+ADMIN_PASSWORD=<strong password>
+```
 
-1. ✅ Update your `.env` file with credentials
-2. ✅ Migrate authentication code
-3. ✅ Update all database access code  
-4. ✅ Create admin user automatically via script (reads `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env`)
-5. ✅ Test everything locally
-6. ✅ Deploy to Vercel
-7. ✅ Test admin login on production
+For the Flutter app, also copy and fill `flutter_app/dart_defines.example.json` →
+`flutter_app/dart_defines.json` (gitignored) with the same `SUPABASE_URL` / `SUPABASE_ANON_KEY` plus
+any third-party keys you need locally.
 
-You'll be able to log in with the `ADMIN_EMAIL` / `ADMIN_PASSWORD` you configured in `.env`.
+## 4. Run the database schema
 
----
+In the Supabase dashboard **SQL Editor**, run the contents of [`supabase/schema.sql`](./supabase/schema.sql).
 
-## ⏱️ Time Estimate
+Alternatively, run the automated setup script, which applies schema and creates the admin user in one
+step:
 
-- **Your Part:** 10 minutes
-- **My Part:** 1-2 hours
-- **Total:** ~2 hours until fully migrated
+```bash
+npm install
+npm run setup:all
+```
 
----
+(`npm run setup:db` applies schema only; `npm run db:check` runs a sanity check against the schema.)
 
-## 🆘 Need Help?
+## 5. Enable email auth
 
-If you get stuck, just tell me where you are and I'll guide you through it!
+**Authentication → Providers → Email**: ensure it's enabled. For local dev, you can disable
+"Enable email confirmations" under **Email** settings so signups work without SMTP configured.
+
+## 6. Configure auth URLs
+
+**Authentication → URL Configuration**:
+
+- **Site URL**: your deployed URL (or `http://localhost:3001` for local-only dev)
+- **Redirect URLs**: add `http://localhost:3001/**` and your deployed URL + `/**`
+
+## 7. Create the admin user
+
+```bash
+npm run admin:setup
+```
+
+See [admin-setup-guide.md](./admin-setup-guide.md) for details and troubleshooting.

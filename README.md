@@ -1,157 +1,95 @@
-# Zyndio - Health & Longevity Platform
+# Zyndio
 
+Zyndio is a health & longevity platform with a Flutter patient app and a React/Vite admin web app, both backed by Supabase.
 
-A comprehensive health and longevity management platform built with React, Supabase, and Vercel.
+## Prerequisites
 
-## 🚀 Quick Start
+- Flutter 3.47.8 (stable channel)
+- JDK 17
+- Android SDK 36 (compileSdk 36, targetSdk 35)
+- Node.js 20+
 
-### Prerequisites
-- Node.js 18+ installed
-- Supabase account
-- Vercel account (for deployment)
+## Repository layout
 
-### Local Development
+```
+flutter_app/        # Flutter patient app (iOS, Android, web)
+packages/            # Shared Flutter packages (e.g. platform_wearables)
+space/               # React/Vite companion web app
+supabase/            # Database schema, migrations, SQL functions
+scripts/             # Node/tsx admin + db scripts, analyze-gate.sh, leak-scan.sh
+components/, pages/, contexts/, lib/, src/   # Root Vite admin web app
+```
 
-1. **Install dependencies:**
+## Setup
+
+1. Copy env files:
+   ```bash
+   cp .env.example .env
+   cp flutter_app/dart_defines.example.json flutter_app/dart_defines.json
+   ```
+   Fill in your own Supabase project values and keys — see [SUPABASE-SETUP.md](./SUPABASE-SETUP.md).
+   `dart_defines.json` is gitignored; never commit it.
+2. Install root web dependencies:
    ```bash
    npm install
    ```
-
-2. **Set up Supabase:**
-   Follow the [Supabase Setup Guide](./SUPABASE-SETUP.md) to:
-   - Create a Supabase project
-   - Run the database schema
-   - Get your credentials
-
-3. **Configure environment variables:**
+3. Fetch Flutter dependencies:
    ```bash
-   cp .env.example .env
-   ```
-   
-   Then edit `.env` with your Supabase credentials:
-   ``bash
-   VITE_SUPABASE_URL=https://your-project.supabase.co
-   VITE_SUPABASE_ANON_KEY=your_anon_key
-   SUPABASE_SERVICE_KEY=your_service_key
+   cd flutter_app && flutter pub get
+   cd ../packages/platform_wearables && flutter pub get
    ```
 
-4. **Run the development server:**
-   ```bash
-   npm run dev
-   ```
+No default credentials are provided anywhere in this repo. Admin access is always bootstrapped from the `ADMIN_EMAIL` / `ADMIN_PASSWORD` environment variables — see [admin-setup-guide.md](./admin-setup-guide.md).
 
-5. **Create admin user:**
-   Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in your `.env` first — the script reads both from the
-   environment and exits with an error if either is missing (no default credentials exist).
-   ```bash
-   npm run admin:setup
-   ```
-
-## 🔐 Admin Access
-
-Access the admin panel after setup:
-
-- **Local:** http://localhost:3001/admin
-- **Production:** https://zyndio.example/admin
-
-Log in with the `ADMIN_EMAIL` / `ADMIN_PASSWORD` you set above.
-
-> ⚠️ **Important:** Use a strong, unique password and never commit it to version control.
-
-## 🏗️ Tech Stack
-
-- **Frontend:** React + TypeScript + Vite
-- **Backend:** Supabase (PostgreSQL + Auth + Storage)
-- **Hosting:** Vercel
-- **UI:** Custom CSS with Tailwind-inspired utilities
-- **Charts:** Recharts
-- **Icons:** Lucide React
-
-## 📁 Project Structure
-
-```
-/
-├── components/        # Reusable UI components
-├── contexts/         # React contexts (Auth, Admin, User)
-├── pages/           # Page components
-│   ├── admin/      # Admin portal pages
-│   └── ...         # User portal pages
-├── lib/            # Core utilities and clients
-│   ├── supabase.ts       # Supabase client
-│   └── supabaseAdmin.ts  # Admin SDK
-├── supabase/       # Database schema and migrations
-├── scripts/        # Utility scripts
-└── types.ts        # TypeScript definitions
-```
-
-## 🗄️ Database Schema
-
-The application uses these main tables:
-- `profiles` - User profiles with roles
-- `patients` - Patient data for admin management
-- `health_journeys` - AI-generated health protocols
-- `meal_plans` - Nutrition plans
-- `intelligence_data` - Health analytics
-
-See [supabase/schema.sql](./supabase/schema.sql) for complete schema.
-
-## 🌐 Deployment
-
-### Vercel
-
-1. **Add environment variables in Vercel:**
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_KEY`
-
-2. **Deploy!** Connect your repository and Vercel auto-deploys
-
-### Production URL
-- **App:** https://zyndio.example
-- **Admin:** https://zyndio.example/admin
-
-## 🧪 Admin Features
-
-- Patient management dashboard
-- Health journey protocol generation
-- Nutrition lab & meal planning
-- Intelligence data analysis
-- Medical notes & consultations
-
-## 👥 User Roles
-
-- **user** - Standard patient access
-- **admin** - Full system access
-- **doctor** - Medical protocol management
-- **nutritionist** - Nutrition planning access
-
-## 📝 Scripts
+## Root admin web app (Vite)
 
 ```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run preview      # Preview production build
-npm run admin:setup  # Create admin user
+npm run dev        # dev server
+npm run lint        # tsc --noEmit
+npm test            # vitest run
+npm run build        # production build
 ```
 
-## 🔒 Security
+## `space/` web app
 
-- Row Level Security (RLS) enabled on all tables
-- Secure authentication via Supabase Auth
-- Service role key kept server-side only
-- Email confirmation available (optional)
+```bash
+cd space
+npm install
+npm run lint
+npm run build
+```
 
-## 📄 License
+## Flutter app
 
-All rights reserved - Zyndio
+```bash
+cd flutter_app
+flutter test
+flutter build apk --debug --dart-define-from-file=dart_defines.json
+flutter build web --dart-define-from-file=dart_defines.json
+```
 
-## 🆘 Support
+Run the analyzer gate (used in CI) from the repo root:
+```bash
+bash scripts/analyze-gate.sh
+```
 
-For setup help or issues:
-1. Check the [Supabase Setup Guide](./SUPABASE-SETUP.md)
-2. Review database schema in `supabase/schema.sql`
-3. Verify environment variables are correct
+## Security checks
 
----
+```bash
+bash scripts/leak-scan.sh          # fails if the old brand name appears anywhere tracked/built
+gitleaks git --config .gitleaks.toml --redact
+```
 
-Built with ❤️ for better health outcomes
+## CI
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every push to `main` and every pull request:
+- `flutter`: analyze gate, `flutter test`, debug APK build, Flutter web build
+- `web`: lint/test/build for the root admin app and `space/`
+- `secrets`: gitleaks scan
+- `leak-scan`: builds all web/APK artifacts and scans them for old-brand references
+
+All changes land via pull request — direct pushes to `main` are not used.
+
+## License
+
+All rights reserved — Zyndio

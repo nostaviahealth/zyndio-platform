@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+flutter_app/dart_defines.json
 *.jks
 *.keystore
 key.properties
