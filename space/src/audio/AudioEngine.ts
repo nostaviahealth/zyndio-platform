@@ -285,7 +285,7 @@ class AudioEngine {
                 this.pannerRight.disconnect();
                 this.pannerRight = null;
             }
-        } catch (e) {
+        } catch {
             // Nodes may already be stopped
         }
     }
@@ -430,7 +430,7 @@ class AudioEngine {
                     this.deepSyncGain.disconnect();
                     this.deepSyncGain = null;
                 }
-            } catch (e) {
+            } catch {
                 // Nodes may already be stopped
             }
         }, 1600);
@@ -726,7 +726,7 @@ class AudioEngine {
                     this.archPannerRight.disconnect();
                     this.archPannerRight = null;
                 }
-            } catch (e) {
+            } catch {
                 // Nodes may already be stopped
             }
         }, 1600);
@@ -883,7 +883,7 @@ class AudioEngine {
                     this.neutralizePannerRight.disconnect();
                     this.neutralizePannerRight = null;
                 }
-            } catch (e) {
+            } catch {
                 // Nodes may already be stopped
             }
         }, 1600);

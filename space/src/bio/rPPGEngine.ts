@@ -99,7 +99,7 @@ class RPPGEngine {
 
                 sample();
             });
-        } catch (error) {
+        } catch {
             this.cleanup();
             throw new Error('Camera access denied or unavailable');
         }
