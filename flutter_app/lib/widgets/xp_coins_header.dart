@@ -115,7 +115,7 @@ class XpCoinsHeader extends ConsumerWidget {
                     ),
                   ),
                   const Center(
-                    child: Text('N', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)),
+                    child: Text('Z', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)),
                   ),
                 ],
               ),
@@ -443,7 +443,7 @@ class CoinsPill extends ConsumerWidget {
                   ),
                 ),
                 const Center(
-                  child: Text('N', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900)),
+                  child: Text('Z', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900)),
                 ),
               ],
             ),
