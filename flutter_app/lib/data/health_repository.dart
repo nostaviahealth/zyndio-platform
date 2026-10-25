@@ -1768,13 +1768,6 @@ class HealthRepository {
     return null;
   }
 
-  /// e^(1.92 × ratio) for Banister TRIMP — avoids importing dart:math in context.
-  double _trimpExp(double ratio) => _mathExp(1.92 * ratio);
-  double _mathExp(double x) {
-    // Taylor series approximation for small x; use dart:math for accuracy.
-    return math.pow(2.71828182845904523536, x).toDouble();
-  }
-
   Future<int?> getUserAge() async {
     try {
       // NOTE: getBirthDate() may not be supported on all platforms or newer health package versions.

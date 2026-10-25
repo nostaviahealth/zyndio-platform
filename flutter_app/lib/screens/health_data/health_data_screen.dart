@@ -142,7 +142,6 @@ class _HealthDataScreenState extends ConsumerState<HealthDataScreen> {
       case 'GGT': return {'base': 22.0, 'unit': 'U/L', 'range': '<60'};
       case 'LDH': return {'base': 160.0, 'unit': 'U/L', 'range': '140-280'};
       case 'Haptoglobin': return {'base': 110.0, 'unit': 'mg/dL', 'range': '30-200'};
-      case 'Transferrin': return {'base': 250.0, 'unit': 'mg/dL', 'range': '200-370'};
 
       // Iron/Blood/Novel
       case 'UIBC': return {'base': 240.0, 'unit': 'ug/dL', 'range': '150-375'};
@@ -1169,35 +1168,6 @@ class _HealthDataScreenState extends ConsumerState<HealthDataScreen> {
     );
   }
 
-  Widget _buildStatRow({required Color color, required String label, required int count, required int total}) {
-    return Row(
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          "$label: ",
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: context.nc.textPrimary,
-          ),
-        ),
-        Text(
-          "$count/$total",
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: context.nc.textSecondary,
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildSegmentedHealthBar(int optimal, int normal, int outliers, int total) {
     if (total == 0) return const SizedBox.shrink();
     
@@ -1350,8 +1320,7 @@ class _HealthDataScreenState extends ConsumerState<HealthDataScreen> {
                 separatorBuilder: (context, index) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final report = reports[index];
-                  final isSelected = _selectedReportId == report.id;
-                  
+
                   return GestureDetector(
                     onTap: () {
                       HapticFeedback.lightImpact();

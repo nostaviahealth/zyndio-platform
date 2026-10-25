@@ -246,6 +246,24 @@ class PatientProfileNotifier extends AsyncNotifier<PatientProfile?> {
     }
   }
 
+  /// Applies gamification XP/coin/league updates to the local state immediately.
+  void applyGamificationUpdate({
+    required int xp,
+    required int coins,
+    required int leagueXp,
+    required String currentLeague,
+  }) {
+    final current = state.value;
+    if (current != null) {
+      state = AsyncData(current.copyWith(
+        xp: xp,
+        coins: coins,
+        leagueXp: leagueXp,
+        currentLeague: currentLeague,
+      ));
+    }
+  }
+
   /// Checks if an admin's manual subscription override has expired.
   /// Reverts the local state to free and mutates the database to match.
   PatientProfile _enforceAdminExpiry(PatientProfile p, SupabaseClient client) {

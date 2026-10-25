@@ -25,7 +25,6 @@ class _LabReportUploadScreenState
 
   // Pulse animation for the "brain" icon during analysis
   late AnimationController _pulseController;
-  late Animation<double> _pulseAnim;
 
   @override
   void initState() {
@@ -34,9 +33,6 @@ class _LabReportUploadScreenState
       vsync: this,
       duration: const Duration(milliseconds: 1800),
     )..repeat(reverse: true);
-    _pulseAnim = Tween<double>(begin: 0.85, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
   }
 
   @override

@@ -167,16 +167,12 @@ class GamificationNotifier extends Notifier<GamificationState> {
     );
 
     // Update the profile provider's local state to stay in sync
-    final profileNotifier = ref.read(patientProfileProvider.notifier);
-    final currentProfile = ref.read(patientProfileProvider).value;
-    if (currentProfile != null) {
-      profileNotifier.state = AsyncData(currentProfile.copyWith(
-        xp: newXp,
-        coins: newCoins,
-        leagueXp: newLeagueXp,
-        currentLeague: newLeague.name,
-      ));
-    }
+    ref.read(patientProfileProvider.notifier).applyGamificationUpdate(
+          xp: newXp,
+          coins: newCoins,
+          leagueXp: newLeagueXp,
+          currentLeague: newLeague.name,
+        );
 
     // Haptic feedback
     if (promoted) {

@@ -7,7 +7,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../config/theme.dart';
 import '../../../models/lab_report.dart';
 import '../../../services/azure_openai_service.dart';
-import '../../../providers/ai_theme_provider.dart'; // Added
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../../wearables/widgets/dashboard_card_style.dart';
 
@@ -556,9 +555,6 @@ class _BiomarkerCardState extends ConsumerState<BiomarkerCard> {
   }
 
   Widget _buildAIContent() {
-      final aiTheme = ref.watch(aiThemeProvider);
-      final isSiri = aiTheme == AIThemeMode.siri;
-
       // STATE 1: RESULT
       if (_aiInsight != null) {
           return Padding(

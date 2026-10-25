@@ -260,7 +260,7 @@ class LensScanNotifier extends Notifier<LensScanState> {
         await MealWatchdogService.startWatching(
           mealLogId: state.uploadedFilePath!,
           foodName: fastResult.foodName,
-          foodScore: fastResult.score ?? 0,
+          foodScore: fastResult.score,
           predictedEnergyCurve: fastResult.metabolicImpact.energyCurve,
           baselineHR: wearableSync.lastHr ?? wearableSync.snapshot?.rhr ?? 60,
           baselineHRV: wearableSync.lastHrv ?? wearableSync.snapshot?.hrv,

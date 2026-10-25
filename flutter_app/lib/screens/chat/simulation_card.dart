@@ -455,11 +455,7 @@ class _SimulationCardState extends State<SimulationCard> {
 
   Widget _buildTimeTravelSlider(List<CurvePoint> currentCurve, double baseline) {
     final mult = _circadianMultiplier(_selectedHour);
-    final origHour = DateTime.now().hour.toDouble();
-    final origMult = _circadianMultiplier(origHour);
 
-    double currentPeak = currentCurve.isEmpty ? 0 : currentCurve.map((p) => p.value).reduce(max);
-    
     String riskLabel;
     Color riskColor;
     if (mult <= 0.9) { riskLabel = "Optimal Window"; riskColor = const Color(0xFF34C759); }

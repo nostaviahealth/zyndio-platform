@@ -120,23 +120,23 @@ class SimulationResult {
   String toMarkdown() {
     final buffer = StringBuffer();
     buffer.writeln('# Digital Twin Simulation');
-    buffer.writeln('_Risk Level: \${riskLevel.toUpperCase()}_\\n');
-    buffer.writeln('**Verdict:** \$verdict\\n');
+    buffer.writeln('_Risk Level: ${riskLevel.toUpperCase()}_\n');
+    buffer.writeln('**Verdict:** $verdict\n');
     if (summary.isNotEmpty) {
-      buffer.writeln('\$summary\\n');
+      buffer.writeln('$summary\n');
     }
-    
-    buffer.writeln('## Projected Impact (\$timescale)');
-    buffer.writeln('- **Glucose:** \${glucose.prediction} (\${glucose.severity})');
-    buffer.writeln('- **Insulin:** \${insulin.prediction} (\${insulin.severity})');
-    buffer.writeln('- **Energy:** \${energy.prediction} (\${energy.severity})');
-    buffer.writeln('- **Sleep:** \${sleep.prediction} (\${sleep.severity})');
-    buffer.writeln('- **Inflammation:** \${inflammation.prediction} (\${inflammation.severity})\\n');
+
+    buffer.writeln('## Projected Impact ($timescale)');
+    buffer.writeln('- **Glucose:** ${glucose.prediction} (${glucose.severity})');
+    buffer.writeln('- **Insulin:** ${insulin.prediction} (${insulin.severity})');
+    buffer.writeln('- **Energy:** ${energy.prediction} (${energy.severity})');
+    buffer.writeln('- **Sleep:** ${sleep.prediction} (${sleep.severity})');
+    buffer.writeln('- **Inflammation:** ${inflammation.prediction} (${inflammation.severity})\n');
 
     if (causalDrivers.isNotEmpty) {
       buffer.writeln('## Causal Drivers');
       for (final driver in causalDrivers) {
-        buffer.writeln('- **\${driver.label}:** \${driver.value} (_\${driver.impact}_ from \${driver.source})');
+        buffer.writeln('- **${driver.label}:** ${driver.value} (_${driver.impact}_ from ${driver.source})');
       }
       buffer.writeln('');
     }
@@ -144,14 +144,14 @@ class SimulationResult {
     if (recommendations.isNotEmpty) {
       buffer.writeln('## Recommendations');
       for (final rec in recommendations) {
-        buffer.writeln('- \$rec');
+        buffer.writeln('- $rec');
       }
       buffer.writeln('');
     }
 
     if (reasoning.isNotEmpty) {
       buffer.writeln('## Clinical Reasoning');
-      buffer.writeln('\$reasoning\\n');
+      buffer.writeln('$reasoning\n');
     }
 
     return buffer.toString().trim();

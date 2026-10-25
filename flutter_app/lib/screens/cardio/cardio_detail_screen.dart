@@ -31,7 +31,6 @@ class CardioDetailScreen extends StatefulWidget {
 }
 
 class _CardioDetailScreenState extends State<CardioDetailScreen> {
-  int _expandedPillar = -1; // -1 means none expanded
   int _selectedTrendDays = 30; // 30, 60, 90
   int _selectedNightIndex = 0; // Selected historical overnight scan index
   int _selectedSignalDays = 30; // 7, 30, 90, 365 (Default to 30)
@@ -304,7 +303,7 @@ class _CardioDetailScreenState extends State<CardioDetailScreen> {
                   const SizedBox(height: 24),
                   _buildSignalChart('Resting Heart Rate', widget.syncState.rhrHistory, const Color(0xFFF59E0B), false),
                   const SizedBox(height: 24),
-                  _buildSignalChart('Nightly SpO2', widget.syncState.spo2History ?? [], const Color(0xFF3B82F6), true, isBarChart: true),
+                  _buildSignalChart('Nightly SpO2', widget.syncState.spo2History, const Color(0xFF3B82F6), true, isBarChart: true),
                   
                   const SizedBox(height: 48),
                   const Text('Lab Intelligence', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
