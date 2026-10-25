@@ -328,11 +328,11 @@ class BrandWearablesDashboard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _buildSignalRow('Heart Rate Variability', '\${snapshot.hrv?.round() ?? '--'}', 'ms'),
+          _buildSignalRow('Heart Rate Variability', '${snapshot.hrv?.round() ?? '--'}', 'ms'),
           _buildDivider(),
-          _buildSignalRow('Resting Heart Rate', '\${snapshot.rhr ?? '--'}', 'bpm'),
+          _buildSignalRow('Resting Heart Rate', '${snapshot.rhr ?? '--'}', 'bpm'),
           _buildDivider(),
-          _buildSignalRow('VO2 Max', '\${snapshot.vo2Max?.toStringAsFixed(1) ?? '--'}', 'mL/kg/min'),
+          _buildSignalRow('VO2 Max', '${snapshot.vo2Max?.toStringAsFixed(1) ?? '--'}', 'mL/kg/min'),
           _buildDivider(),
           _buildSignalRow('Sleep Duration', '\${snapshot.sleepHours.toStringAsFixed(1)}', 'hrs'),
           _buildDivider(),
