@@ -613,7 +613,7 @@ const Home: React.FC = () => {
                     </div>
                     <button
                         onClick={() => navigate('/protocol')}
-                        className="text-xs font-medium text-brand-dark hover:text-zyndio-blue transition-colors"
+                        className="text-xs font-medium text-brand-dark hover:text-brand-blue transition-colors"
                     >
                         View Full Schedule
                     </button>

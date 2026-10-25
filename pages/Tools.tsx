@@ -398,7 +398,7 @@ const Tools: React.FC = () => {
                         </button>
                     </div>
                     <div className="relative w-40 h-40 flex-shrink-0">
-                        <div className="absolute inset-0 bg-gradient-to-tr from-brand-sageDark to-zyndio-blue rounded-full opacity-50 blur-2xl animate-pulse"></div>
+                        <div className="absolute inset-0 bg-gradient-to-tr from-brand-sageDark to-brand-blue rounded-full opacity-50 blur-2xl animate-pulse"></div>
                         <div className="relative z-10 w-full h-full bg-slate-800/50 backdrop-blur-sm rounded-full border border-white/10 flex items-center justify-center">
                             <Activity className="w-16 h-16 text-white" />
                         </div>
