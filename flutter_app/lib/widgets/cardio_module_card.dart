@@ -9,7 +9,6 @@ import '../providers/wearable_sync_provider.dart';
 import '../providers/lab_reports_provider.dart';
 import '../providers/patient_provider.dart';
 import '../screens/cardio/cardio_detail_screen.dart';
-import '../services/vo2_max_service.dart';
 
 class CardioModuleCard extends ConsumerWidget {
   const CardioModuleCard({super.key});
@@ -52,77 +51,7 @@ class CardioModuleCard extends ConsumerWidget {
     double vo2Score = (syncState.vo2Max?.toDouble() ?? 40) / 60 * 25;
     int adaptabilityIndex = (hrvScore + rhrScore + vo2Score + 15).clamp(0, 100).round();
 
-    // ── 3.5. Soma Heart Age Calculation Preview ──
     final int chronologicalAge = profile?.age ?? 30;
-    
-    // RHR Delta
-    double rhrDelta = (currentRhr - 58.0) * 0.25;
-    rhrDelta = rhrDelta.clamp(-4.0, 6.0);
-    
-    // HRV Delta
-    final double hrvBase = 65.0 - (0.35 * chronologicalAge);
-    double hrvDelta = (hrvBase - currentHrv) * 0.15;
-    hrvDelta = hrvDelta.clamp(-5.0, 5.0);
-    
-    // VO2 Delta
-    bool isMale = true;
-    if (profile?.questionnaireData != null) {
-      final gender = profile!.questionnaireData!['gender'];
-      if (gender == 'Female') {
-        isMale = false;
-      }
-    }
-
-    final vo2Class = Vo2MaxService.classifyFitness(
-      syncState.vo2Max?.toDouble() ?? 42.5,
-      age: chronologicalAge,
-      isMale: isMale,
-    );
-    double vo2Delta = 1.0;
-    final String vo2Level = vo2Class.level.toLowerCase();
-    if (vo2Level.contains('superior')) {
-      vo2Delta = -5.0;
-    } else if (vo2Level.contains('excellent')) {
-      vo2Delta = -3.5;
-    } else if (vo2Level.contains('good')) {
-      vo2Delta = -2.0;
-    } else if (vo2Level.contains('fair')) {
-      vo2Delta = 1.0;
-    } else if (vo2Level.contains('poor')) {
-      vo2Delta = 3.5;
-    } else if (vo2Level.contains('very poor')) {
-      vo2Delta = 6.0;
-    }
-    
-    // Lipid / Metabolic Load Delta
-    double vascularDelta = 0.0;
-    if (labReports != null && labReports.isNotEmpty) {
-      final report = labReports.first;
-      double? tgVal;
-      double? hdlVal;
-      
-      for (var m in report.markers) {
-        final name = m.name.toLowerCase();
-        if (name.contains('triglycerides')) {
-          tgVal = double.tryParse(m.value.replaceAll(RegExp(r'[^\d\.]'), ''));
-        }
-        if (name.contains('hdl') && !name.contains('non-hdl') && !name.contains('non hdl')) {
-          hdlVal = double.tryParse(m.value.replaceAll(RegExp(r'[^\d\.]'), ''));
-        }
-      }
-      
-      if (tgVal != null && hdlVal != null && hdlVal > 0) {
-        vascularDelta = ((tgVal / hdlVal) - 1.5) * 1.5;
-        vascularDelta = vascularDelta.clamp(-3.0, 5.0);
-      }
-    }
-    
-    int heartAge = (chronologicalAge + rhrDelta + hrvDelta + vo2Delta + vascularDelta)
-        .clamp(chronologicalAge - 12.0, chronologicalAge + 15.0)
-        .round();
-        
-    final int ageDiff = heartAge - chronologicalAge;
-    final bool isYounger = ageDiff < 0;
 
     // ── 4. UI Mutating States ──
     String statusText = hasStrain ? 'Under Strain' : 'Resilient';

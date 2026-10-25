@@ -81,11 +81,11 @@ class WatchService {
       final snapshot = state.snapshot!;
       
       final metrics = {
-        'longevityScore': snapshot.energyScore ?? 0,
-        'recoveryScore': snapshot.recoveryScore ?? 0,
-        'stressScore': snapshot.stressScore ?? 0,
-        'sleepScore': snapshot.sleepScore ?? 0,
-        'energyScore': snapshot.energyScore ?? 0,
+        'longevityScore': snapshot.energyScore,
+        'recoveryScore': snapshot.recoveryScore,
+        'stressScore': snapshot.stressScore,
+        'sleepScore': snapshot.sleepScore,
+        'energyScore': snapshot.energyScore,
         'hrv': snapshot.hrv,
         'rhr': snapshot.rhr,
         'steps': snapshot.steps,

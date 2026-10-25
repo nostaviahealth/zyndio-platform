@@ -422,8 +422,9 @@ class HealthIntelligenceService {
       }
       
       // Combine and scale
-      // baseEnergy is typically 0-100. We want to oscillate around the homeostatic decay (s).
-      double energy = (baseEnergy * s) + (20 * sin(2 * pi * (hoursSinceWake - 2.0) / 12.0));
+      // baseEnergy is typically 0-100. We want to oscillate around the homeostatic decay (s),
+      // modulated by the circadian process (c).
+      double energy = (baseEnergy * s) + (100 * c);
       
       // Add some subtle "jitter" for a real-world feel
       final jitter = (sin(i * 0.5) * 0.3);

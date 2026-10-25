@@ -43,8 +43,7 @@ class _RhythmCardState extends ConsumerState<RhythmCard> {
     // 1. Watch the state
     final rhythmState = ref.watch(dailyRhythmProvider);
     final rhythmAsync = rhythmState.rhythm;
-    final wearableState = ref.watch(wearableSyncProvider);
-    final wearable = wearableState.value?.snapshot;
+    ref.watch(wearableSyncProvider);
     final profileAsync = ref.watch(patientProfileProvider);
     final profile = profileAsync.value;
     final questionnaire = ref.watch(questionnaireProvider);

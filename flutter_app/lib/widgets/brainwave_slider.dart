@@ -159,9 +159,7 @@ class _BrainwaveSliderState extends State<BrainwaveSlider>
                   final localY = box.globalToLocal(details.globalPosition).dy;
                   // Invert: top = 1.0, bottom = 0.0
                   final normalized = 1.0 - (localY / box.size.height).clamp(0.0, 1.0);
-                  
-                  // Check for zone boundary crossing
-                  final oldZone = _currentZone;
+
                   widget.onChanged(normalized);
                   
                   // Haptic on zone change would happen in parent

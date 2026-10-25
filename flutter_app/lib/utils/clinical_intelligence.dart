@@ -303,9 +303,8 @@ class ClinicalIntelligence {
 
     // 2. Fallback for missing range string
     String finalRange = marker.range;
-    if ((finalRange == '--' || finalRange.isEmpty) && (def.minRange != null || def.maxRange != null)) {
+    if (finalRange == '--' || finalRange.isEmpty) {
       finalRange = "${def.minRange} - ${def.maxRange}";
-
     }
 
     return LabMarker(
@@ -376,14 +375,6 @@ class ClinicalIntelligence {
     return result;
   }
 
-  static String _determineStatus(String valueStr, MarkerDefinition def) {
-    final val = double.tryParse(valueStr.replaceAll(RegExp(r'[^0-9.]'), ''));
-    if (val == null) return 'Normal';
-
-    if (val >= def.minOptimal && val <= def.maxOptimal) return 'Optimal';
-    if (val >= def.minRange && val <= def.maxRange) return 'Normal';
-    return val < def.minRange ? 'Low' : 'High';
-  }
 }
 
 class MarkerDefinition {

@@ -1,10 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class LiveActivityService {
-  final Ref _ref;
-
-  LiveActivityService(this._ref);
-
   /// 🧬 LENS ANALYSIS ACTIVITY
   Future<void> startLensActivity({required String foodName}) async {
     // Feature disabled
@@ -37,5 +33,5 @@ class LiveActivityService {
 }
 
 final liveActivityServiceProvider = Provider<LiveActivityService>((ref) {
-  return LiveActivityService(ref);
+  return LiveActivityService();
 });
