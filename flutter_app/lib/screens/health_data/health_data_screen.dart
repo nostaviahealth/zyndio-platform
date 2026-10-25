@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../config/theme.dart';
-import '../../providers/auth_provider.dart';
 import '../../providers/lab_analysis_provider.dart';
 import '../../providers/lab_reports_provider.dart';
 import '../../providers/patient_provider.dart';
@@ -16,7 +15,6 @@ import './widgets/health_widgets.dart'; // Shared Widgets
 import '../../providers/theme_provider.dart';
 import '../../utils/clinical_intelligence.dart';
 import '../../utils/unit_converter.dart';
-import 'package:fl_chart/fl_chart.dart';
 import '../../data/health_data_repository.dart';
 import '../wearables/widgets/dashboard_card_style.dart';
 import '../../data/mock_panels.dart';

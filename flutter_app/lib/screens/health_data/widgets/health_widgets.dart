@@ -11,12 +11,9 @@ import '../../../providers/ai_theme_provider.dart'; // Added
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../../wearables/widgets/dashboard_card_style.dart';
 
-import '../../../widgets/siri_animated_logo.dart';
 import '../../../widgets/intelligence_glow_wrapper.dart';
 import '../../../widgets/intelligence_analysis_loading.dart';
 import '../../../widgets/ask_intelligence_button.dart';
-import '../../../utils/clinical_intelligence.dart';
-import 'package:url_launcher/url_launcher.dart';
 class ImmersiveWrapper extends StatelessWidget {
   final Widget child;
   final bool isImmersive;

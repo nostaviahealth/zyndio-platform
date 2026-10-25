@@ -5,11 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:animations/animations.dart';
 import '../providers/ai_theme_provider.dart'; 
 import './intelligence_glow_wrapper.dart';
-import '../screens/chat/chat_screen.dart';
-import '../providers/navbar_provider.dart';
 import '../config/theme.dart';
 
 /// Zyndio AI Insight Card - Light Elegant Design

@@ -43,11 +43,9 @@ class PatientProfileNotifier extends AsyncNotifier<PatientProfile?> {
           ),
           callback: (payload) {
              print('DEBUG: Supabase Realtime profile change: ${payload.newRecord}');
-             if (payload.newRecord != null) {
-               var newProfile = PatientProfile.fromJson(payload.newRecord!);
-               newProfile = _enforceAdminExpiry(newProfile, client);
-               state = AsyncData(newProfile);
-             }
+             var newProfile = PatientProfile.fromJson(payload.newRecord);
+             newProfile = _enforceAdminExpiry(newProfile, client);
+             state = AsyncData(newProfile);
           }
         ).subscribe();
 
@@ -120,7 +118,7 @@ class PatientProfileNotifier extends AsyncNotifier<PatientProfile?> {
                             user.userMetadata?['avatarUrl'];
         if (socialAvatar != null) {
             print('DEBUG: Syncing avatar from social provider: $socialAvatar');
-            profile = profile!.copyWith(avatarUrl: socialAvatar);
+            profile = profile.copyWith(avatarUrl: socialAvatar);
             
             // Background sync back to DB if it's currently null there
             final client = SupabaseConfig.client;

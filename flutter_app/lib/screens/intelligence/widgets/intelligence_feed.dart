@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
-import '../../../services/health_intelligence_service.dart';
 import '../../../config/theme.dart';
 import '../../../widgets/intelligence_glow_wrapper.dart';
 import '../../../widgets/ask_intelligence_button.dart';

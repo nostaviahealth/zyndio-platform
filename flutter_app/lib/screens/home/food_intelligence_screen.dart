@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
-import '../../config/theme.dart';
 import '../../providers/nutrition_goals_provider.dart';
 import '../../providers/lens_provider.dart';
 import '../../providers/navbar_provider.dart';

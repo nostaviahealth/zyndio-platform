@@ -27,7 +27,6 @@ import '../../services/conversion_service.dart';
 import 'simulation_card.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../config/theme.dart';
-import '../../widgets/advanced_voice_mode.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final String? initialMessage;

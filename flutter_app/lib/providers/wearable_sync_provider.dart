@@ -8,7 +8,6 @@ import '../services/health_intelligence_service.dart';
 import '../services/vo2_max_service.dart';
 import '../services/hrr_service.dart';
 import '../providers/intelligence_provider.dart';
-import '../providers/activity_goals_provider.dart';
 import '../services/notification_scheduler.dart';
 import '../services/user_habit_service.dart';
 import '../services/gamification_service.dart';

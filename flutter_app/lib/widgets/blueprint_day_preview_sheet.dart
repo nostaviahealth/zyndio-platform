@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import '../config/theme.dart';
 import '../models/protocol_blueprint.dart';
 import '../models/daily_rhythm.dart';
 

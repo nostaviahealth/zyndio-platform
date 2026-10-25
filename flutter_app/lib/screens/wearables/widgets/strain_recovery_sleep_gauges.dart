@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'dashboard_card_style.dart';
-import '../../../widgets/intelligence_glow_wrapper.dart';
 import '../../../../config/theme.dart';
 
 /// A combined card showing Strain, Recovery, and Sleep circular gauges,

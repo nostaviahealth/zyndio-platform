@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
 import '../../config/theme.dart';
-import '../../providers/chat_provider.dart';
 import './widgets/lens_shared_widgets.dart';
 import '../../providers/intelligence_provider.dart';
 import '../../providers/lens_provider.dart';

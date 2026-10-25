@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/gamification_provider.dart';
-import '../services/gamification_service.dart';
 
 /// Minimal XP & Coins display for the home screen header.
 ///

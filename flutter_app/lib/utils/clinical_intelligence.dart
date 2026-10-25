@@ -295,8 +295,8 @@ class ClinicalIntelligence {
     // Only promote to Optimal if the lab says it is healthy (In-range/Normal)
     final isHealthy = marker.status.toLowerCase() == 'in-range' || marker.status.toLowerCase() == 'normal';
     
-    if (isHealthy && val != null && def.minOptimal != null && def.maxOptimal != null) {
-      if (val >= def.minOptimal! && val <= def.maxOptimal!) {
+    if (isHealthy && val != null) {
+      if (val >= def.minOptimal && val <= def.maxOptimal) {
         finalStatus = 'Optimal';
       }
     }
@@ -304,13 +304,8 @@ class ClinicalIntelligence {
     // 2. Fallback for missing range string
     String finalRange = marker.range;
     if ((finalRange == '--' || finalRange.isEmpty) && (def.minRange != null || def.maxRange != null)) {
-      if (def.minRange != null && def.maxRange != null) {
-        finalRange = "${def.minRange} - ${def.maxRange}";
-      } else if (def.minRange != null) {
-        finalRange = "> ${def.minRange}";
-      } else if (def.maxRange != null) {
-        finalRange = "< ${def.maxRange}";
-      }
+      finalRange = "${def.minRange} - ${def.maxRange}";
+
     }
 
     return LabMarker(

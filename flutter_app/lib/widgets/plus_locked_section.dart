@@ -1,7 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../screens/settings/paywall_screen.dart';
-import '../services/revenue_cat_service.dart';
 
 /// A reusable widget that gates content behind a Plus subscription.
 /// Redesigned with a "white minimal" aesthetic to match the app theme.

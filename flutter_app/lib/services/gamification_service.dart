@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../config/supabase_config.dart';
 
 /// Reward type definitions with their XP and Coin values.

@@ -16,8 +16,6 @@ import '../screens/health_data/lab_report_upload_screen.dart';
 
 import '../screens/protocol/protocol_screen.dart';
 import '../screens/protocol/protocols_list_screen.dart';
-import '../screens/intelligence/disease_risk_detail_screen.dart';
-import '../screens/intelligence/health_domains_detail_screen.dart';
 import '../screens/intelligence/digital_twin_screen.dart'; // <--- Added Import
 import '../screens/settings/settings_screen.dart';
 import '../screens/settings/legal_screens.dart';
@@ -39,10 +37,8 @@ import '../screens/common/coming_soon_screen.dart'; // <--- Added Import
 import '../screens/wearables/wearable_dashboard_screen.dart'; // <--- Added Import
 import '../screens/settings/timeline_history_screen.dart';
 import '../screens/settings/nutrition_goals_screen.dart';
-import '../screens/settings/meal_detail_screen.dart';
 import '../screens/settings/ai_memories_screen.dart';
 import '../screens/home/cycle_tracking_screen.dart';
-import '../models/food_log.dart';
 import '../services/ai_consent_service.dart';
 import '../services/analytics_service.dart';
 import '../screens/shop/shop_home_screen.dart';

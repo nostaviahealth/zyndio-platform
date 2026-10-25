@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:ui';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
@@ -12,17 +11,13 @@ import '../../config/theme.dart';
 import '../../widgets/app_card.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/patient_provider.dart';
-import '../../providers/theme_provider.dart'; 
-import '../../providers/ai_theme_provider.dart'; // <--- Added Import
-import '../../providers/dark_mode_provider.dart';
+// <--- Added Import
 import '../../providers/module_order_provider.dart';
 import '../../widgets/onboarding_overlay.dart'; // <--- Added
 import '../health_data/my_lab_records_screen.dart';
-import '../../services/ai_consent_service.dart';
 import '../../providers/purchase_provider.dart';
 import 'paywall_screen.dart';
 import '../../widgets/dynamic_branding_icon.dart';
-import '../../providers/timeline_view_provider.dart';
 import '../../services/branding_service.dart';
 import '../../services/notification_service.dart';
 import '../../providers/organization_provider.dart';

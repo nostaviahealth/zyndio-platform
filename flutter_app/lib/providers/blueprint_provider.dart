@@ -4,7 +4,6 @@ import '../config/supabase_config.dart';
 import '../data/protocol_repository.dart';
 import '../models/protocol_blueprint.dart';
 import '../services/azure_openai_service.dart';
-import 'chat_provider.dart';
 import 'protocol_provider.dart';
 
 /// State for the Blueprint system

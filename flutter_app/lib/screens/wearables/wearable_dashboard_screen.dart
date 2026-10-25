@@ -29,7 +29,6 @@ import 'widgets/activity_summary_card.dart';
 import 'widgets/activity_calendar_heatmap.dart';
 import 'widgets/strain_performance_card.dart';
 import 'widgets/vo2_max_card.dart';
-import 'stress_detail_screen.dart';
 import 'activity_summary_detail_screen.dart';
 
 class WearableDashboardScreen extends ConsumerStatefulWidget {
@@ -680,7 +679,7 @@ class _WearableDashboardScreenState extends ConsumerState<WearableDashboardScree
           label: 'Exercise',
           valueStr: wearable?.exerciseMinutes != null ? '${wearable!.exerciseMinutes}' : '--',
           unit: 'min',
-          numericValue: wearable?.exerciseMinutes?.toDouble(),
+          numericValue: wearable?.exerciseMinutes.toDouble(),
           minBound: 0,
           maxBound: 90,
           normalMin: 30,

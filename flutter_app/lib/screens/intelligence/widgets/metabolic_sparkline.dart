@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../config/theme.dart';
 import '../../../config/supabase_config.dart';
 import '../../wearables/widgets/dashboard_card_style.dart';

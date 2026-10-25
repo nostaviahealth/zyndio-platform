@@ -3,7 +3,6 @@ import '../config/supabase_config.dart';
 import '../data/health_repository.dart';
 import '../models/intelligence_data.dart';
 import '../services/correlation_engine.dart';
-import '../services/health_intelligence_service.dart';
 import 'lab_reports_provider.dart';
 import 'patient_provider.dart';
 import 'wearable_sync_provider.dart';

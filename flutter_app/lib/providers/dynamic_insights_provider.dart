@@ -6,7 +6,6 @@ import 'intelligence_provider.dart';
 import 'lab_reports_provider.dart';
 import '../data/health_repository.dart';
 import '../services/correlation_engine.dart';
-import 'dart:math';
 
 enum InsightType { standard, summary, graph, mission, status, energyForecast }
 

@@ -8,8 +8,6 @@ import '../../config/theme.dart';
 import '../../providers/patient_provider.dart';
 import '../../providers/lab_analysis_provider.dart';
 import '../../providers/lab_reports_provider.dart';
-import '../../widgets/intelligence_glow_wrapper.dart';
-import '../wearables/widgets/dashboard_card_style.dart';
 import './lab_report_verification_screen.dart';
 
 class LabReportUploadScreen extends ConsumerStatefulWidget {

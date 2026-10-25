@@ -14,48 +14,31 @@ import '../../providers/lab_reports_provider.dart'; // <--- Added Import
 import '../../utils/bio_age_calculator.dart'; 
 import '../../models/lab_report.dart';
 import '../../providers/intelligence_provider.dart';
-import '../../providers/notification_provider.dart';
 import '../../providers/wearable_sync_provider.dart';
 import '../../providers/purchase_provider.dart';
 import '../settings/paywall_screen.dart';
 import '../../providers/navbar_provider.dart';
-import 'package:badges/badges.dart' as badges;
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import 'food_intelligence_screen.dart';
 import '../../providers/theme_provider.dart'; // <--- Added Import
-import '../../widgets/intelligence_glow_wrapper.dart'; // <--- Added Import
+// <--- Added Import
 import '../../widgets/rhythm_card.dart';
 import '../../services/tutorial_service.dart';
 import '../../services/ai_consent_service.dart';
-import '../../data/health_repository.dart';
 import '../../data/health_data_repository.dart';
-import '../../services/health_intelligence_service.dart';
-import '../../providers/lab_reports_provider.dart';
 import 'package:intl/intl.dart';
 import '../../models/food_log.dart';
 import '../../models/food_analysis.dart';
 import '../../providers/nutrition_goals_provider.dart';
 import '../settings/lens_history_screen.dart'; // To get foodLogsProvider
 import '../../providers/lens_provider.dart';
-import '../settings/meal_detail_screen.dart';
-import '../wearables/widgets/strain_recovery_sleep_gauges.dart';
-import '../wearables/widgets/stress_energy_card.dart';
-import '../wearables/widgets/dashboard_card_style.dart';
 import '../../providers/module_order_provider.dart';
 import '../../widgets/cardio_module_card.dart';
 import '../../widgets/performance_module_card.dart';
-import '../../providers/daily_feed_provider.dart';
 import '../settings/nutrition_trends_screen.dart';
-import 'widgets/daily_feed_card.dart';
-import 'widgets/swipeable_timeline.dart';
-import '../../providers/timeline_view_provider.dart';
 import '../../widgets/onboarding_overlay.dart'; 
-import '../../widgets/ask_intelligence_button.dart';
-import '../../services/feature_gate_service.dart';
-import '../../providers/protocol_progress_provider.dart';
 import '../../services/vo2_max_service.dart';
-import '../../providers/consistency_provider.dart';
 import '../../providers/gamification_provider.dart';
 import '../../providers/alert_provider.dart';
 import '../../providers/activity_goals_provider.dart';

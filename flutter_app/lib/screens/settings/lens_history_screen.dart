@@ -9,7 +9,6 @@ import '../../config/supabase_config.dart';
 import '../../models/food_log.dart';
 import '../../models/food_analysis.dart';
 import '../../widgets/app_card.dart';
-import 'meal_detail_screen.dart';
 
 /// Provider for Food Logs
 final foodLogsProvider = FutureProvider.autoDispose<List<FoodLog>>((ref) async {

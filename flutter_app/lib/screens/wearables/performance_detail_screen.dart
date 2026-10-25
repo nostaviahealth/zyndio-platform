@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:zyndio_patient/providers/rhythm_provider.dart';
-import 'package:zyndio_patient/models/daily_rhythm.dart';
 import '../../services/health_intelligence_service.dart';
 import 'metric_detail_screen.dart';
 import '../../data/health_repository.dart';

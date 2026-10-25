@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import '../models/discovered_correlation.dart';
 import '../services/user_habit_service.dart';
 import '../services/notification_scheduler.dart';

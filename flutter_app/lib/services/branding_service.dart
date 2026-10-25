@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../providers/purchase_provider.dart';
 
 /// Service responsible for managing the app's branding, 
 /// specifically switching the launcher icon based on user tier.

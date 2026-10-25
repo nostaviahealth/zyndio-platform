@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../config/theme.dart';
 
 class MacroGauge extends StatelessWidget {
   final double protein;

@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../models/meal_plan.dart';
-import '../config/theme.dart';
 import '../providers/chat_provider.dart';
 import 'macro_gauge.dart';
 

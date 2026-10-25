@@ -12,7 +12,6 @@ import '../providers/patient_provider.dart';
 import '../providers/questionnaire_provider.dart';
 import '../providers/purchase_provider.dart';
 import '../screens/settings/paywall_screen.dart';
-import '../screens/wearables/widgets/strain_recovery_sleep_gauges.dart';
 import 'loading_skeleton.dart';
 import 'package:go_router/go_router.dart';
 import '../config/theme.dart';
@@ -488,7 +487,6 @@ class _RhythmCategoryCard extends StatefulWidget {
   final List<RhythmTask> items; // Use real model
 
   const _RhythmCategoryCard({
-    super.key,
     required this.title,
     required this.subtitle,
     required this.icon,

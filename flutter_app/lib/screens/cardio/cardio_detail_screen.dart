@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import '../../config/theme.dart';
 import '../../models/lab_report.dart';
 import '../../providers/wearable_sync_provider.dart';
 import '../../services/vo2_max_service.dart';

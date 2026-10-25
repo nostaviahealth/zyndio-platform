@@ -5,11 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:speech_to_text/speech_to_text.dart';
-import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/chat_provider.dart';
 import '../services/voice_service.dart';
-import '../config/theme.dart';
 
 class AdvancedVoiceOverlay extends ConsumerStatefulWidget {
   const AdvancedVoiceOverlay({super.key});

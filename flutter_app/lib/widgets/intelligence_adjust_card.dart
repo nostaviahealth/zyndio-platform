@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/rhythm_provider.dart';
 import '../providers/purchase_provider.dart';
 import '../screens/settings/paywall_screen.dart';
-import '../config/theme.dart';
 
 /// A premium, high-impact trigger for Intelligence Adapt.
 /// - Version 3: Supreme Gradient Typography.

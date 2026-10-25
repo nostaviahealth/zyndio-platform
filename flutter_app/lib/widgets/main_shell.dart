@@ -7,19 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:speech_to_text/speech_to_text.dart';
-import 'package:speech_to_text/speech_recognition_result.dart';
-import 'dart:ui' as ui;
 import '../config/theme.dart';
 import '../providers/theme_provider.dart';
 import '../providers/navbar_provider.dart';
-import '../providers/intelligence_provider.dart';
 import '../providers/cycle_provider.dart';
-import '../providers/wearable_sync_provider.dart';
 import '../providers/lens_provider.dart';
 import '../services/conversion_service.dart';
-import '../services/tutorial_service.dart';
-import '../providers/organization_provider.dart';
 import 'voice_log_dialog.dart';
 
 /// Navigation icon paths

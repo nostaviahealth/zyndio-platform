@@ -391,7 +391,6 @@ String _generateSummary({
   double? hrv,
   required double activeEnergy,
   int? restingHeartRate,
-  int exerciseMinutes = 0,
   double distanceKm = 0,
   String? workoutType,
   required bool isPersonalBest,
@@ -461,13 +460,13 @@ final dailyFeedProvider = FutureProvider.autoDispose<List<DaySnapshot>>((ref) as
     repo.getWorkoutHistory(days: 7), // 6 — NEW: workout data for highlights
   ]);
 
-  final weeklySteps = results[0] as List<Map<String, dynamic>>;
-  final weeklySleep = results[1] as List<Map<String, dynamic>>;
-  final hrvHistory = results[2] as List<Map<String, dynamic>>;
-  final energyHistory = results[3] as List<Map<String, dynamic>>;
-  final rhrHistory = results[4] as List<Map<String, dynamic>>;
-  final spo2History = results[5] as List<Map<String, dynamic>>;
-  final workoutHistory = results[6] as List<Map<String, dynamic>>;
+  final weeklySteps = results[0];
+  final weeklySleep = results[1];
+  final hrvHistory = results[2];
+  final energyHistory = results[3];
+  final rhrHistory = results[4];
+  final spo2History = results[5];
+  final workoutHistory = results[6];
 
   // Index by date for quick lookup
   final hrvByDate = <String, double>{};
