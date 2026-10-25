@@ -5,6 +5,9 @@ import '../config/theme.dart';
 import 'demo_ready_web.dart' if (dart.library.io) 'demo_ready_io.dart'
     as ready;
 import 'router/demo_state.dart';
+import 'screens/consent/consent_controller.dart';
+import 'screens/consent/consent_state.dart';
+import 'screens/consent/consent_view.dart';
 import 'screens/signin/signin_controller.dart';
 import 'screens/signin/signin_state.dart';
 import 'screens/signin/signin_view.dart';
@@ -65,6 +68,12 @@ class _DemoHomeState extends State<_DemoHome> {
       }
       return const _InteractiveSignIn();
     }
+    if (screen == 'consent') {
+      if (widget.params.state != null) {
+        return ConsentView(state: consentStateForQueryState(widget.params.state));
+      }
+      return const _InteractiveConsent();
+    }
 
     final colors = Theme.of(context).extension<ZyndioColors>()!;
     final label = screen == null
@@ -97,6 +106,22 @@ class _InteractiveSignIn extends ConsumerWidget {
       onContinue: controller.submitCode,
       onSendNewCode: controller.sendCode,
       onBack: controller.backToEmail,
+    );
+  }
+}
+
+class _InteractiveConsent extends ConsumerWidget {
+  const _InteractiveConsent();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(consentControllerProvider);
+    final controller = ref.read(consentControllerProvider.notifier);
+    return ConsentView(
+      state: state,
+      onToggleDoc: controller.toggleDoc,
+      onTogglePartner: controller.togglePartnerSharing,
+      onSubmit: controller.submit,
     );
   }
 }
