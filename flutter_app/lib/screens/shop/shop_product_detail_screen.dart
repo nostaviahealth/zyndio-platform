@@ -33,7 +33,6 @@ class _ShopProductDetailScreenState
   // Premium Luxury Dark-Themed Color System (Matched exactly with Shop module)
   static const Color _bgDark = Color(0xFF2C3039);
   static const Color _bgDarker = Color(0xFF1F2228);
-  static const Color _borderDark = Color(0xFF3A3F4A);
   static const Color _textWhite = Colors.white;
   static const Color _textMuted = Color(0xFFA0A5AE);
   static const Color _textGrey = Color(0xFF7A7F88);

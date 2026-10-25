@@ -55,7 +55,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final patientProfile = ref.watch(patientProfileProvider).value;
+    ref.watch(patientProfileProvider);
 
     return Scaffold(
       backgroundColor: context.nc.scaffoldBg,
@@ -494,8 +494,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           Consumer(
             builder: (context, ref, _) {
-              final isPlus = ref.watch(purchaseProvider).isPlus;
-              
+              ref.watch(purchaseProvider);
+
               return FutureBuilder<String>(
                 future: BrandingService().getActiveIconName(),
                 builder: (context, snapshot) {
@@ -709,17 +709,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   // --- Handlers ---
   
-  Future<void> _launchURL(String urlString) async {
-    final url = Uri.parse(urlString);
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication); // Open in real browser
-    } else {
-       if (mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not open $urlString')));
-       }
-    }
-  }
-
   Future<void> _sendEmail(String email, String subject) async {
       final Uri emailLaunchUri = Uri(
         scheme: 'mailto',
@@ -1081,65 +1070,6 @@ class _SettingsSwitchCard extends StatelessWidget {
               onChanged: onChanged,
               activeThumbColor: BrandColors.emerald500,
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ThemeOptionCard extends StatelessWidget {
-  final String title;
-  final Color? color;
-  final Gradient? gradient;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _ThemeOptionCard({
-    required this.title,
-    this.color,
-    this.gradient,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: context.nc.cardSurface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? context.nc.textPrimary : context.nc.divider,
-            width: isSelected ? 2 : 1,
-          ),
-          boxShadow: isSelected 
-              ? [BoxShadow(color: context.nc.shadowColor, blurRadius: 8, offset: const Offset(0, 4))]
-              : [],
-        ),
-        child: Column(
-          children: [
-            Container(
-              width: 48, height: 48,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: color,
-                gradient: gradient,
-              ),
-              child: isSelected 
-                  ? Icon(LucideIcons.check, color: Colors.white)
-                  : null,
-            ),
-            const SizedBox(height: 12),
-            Text(title, style: TextStyle(
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-              color: isSelected ? context.nc.textPrimary : context.nc.textSecondary,
-              fontSize: 13,
-            ))
           ],
         ),
       ),

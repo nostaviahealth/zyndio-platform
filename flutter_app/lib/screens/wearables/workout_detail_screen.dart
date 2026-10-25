@@ -265,10 +265,6 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
     );
   }
 
-  Widget _barDivider() {
-    return Container(width: 1, height: 40, color: context.nc.divider.withValues(alpha: 0.2));
-  }
-
   String _formatDate(DateTime d) {
     final months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
     return "${d.day} ${months[d.month - 1]} ${d.year}";

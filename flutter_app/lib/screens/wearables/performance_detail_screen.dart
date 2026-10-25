@@ -161,8 +161,6 @@ class _PerformanceDetailScreenState extends ConsumerState<PerformanceDetailScree
         return is1D ? _calculateIntradayEnergyHistory() : _calculateEnergyScoreHistory();
       case PerformanceType.activity:
         return widget.activeEnergyHistory;
-      default:
-        return [];
     }
   }
 
@@ -406,7 +404,6 @@ class _PerformanceDetailScreenState extends ConsumerState<PerformanceDetailScree
       case PerformanceType.stress: return 'Stress';
       case PerformanceType.activity: return 'Activity';
       case PerformanceType.energy: return 'Body Battery';
-      default: return 'Performance';
     }
   }
 
@@ -418,7 +415,6 @@ class _PerformanceDetailScreenState extends ConsumerState<PerformanceDetailScree
       case PerformanceType.stress: return '';
       case PerformanceType.activity: return 'kcal';
       case PerformanceType.energy: return '%';
-      default: return '';
     }
   }
 
@@ -430,7 +426,6 @@ class _PerformanceDetailScreenState extends ConsumerState<PerformanceDetailScree
       case PerformanceType.stress: return const Color(0xFFF59E0B);
       case PerformanceType.activity: return const Color(0xFFEF4444);
       case PerformanceType.energy: return const Color(0xFF22C55E);
-      default: return const Color(0xFF10B981);
     }
   }
 
@@ -449,8 +444,6 @@ class _PerformanceDetailScreenState extends ConsumerState<PerformanceDetailScree
         return 'Active';
       case PerformanceType.energy:
         return v >= 70 ? 'High Energy' : (v >= 30 ? 'Moderate' : 'Low Battery');
-      default:
-        return 'Balanced';
     }
   }
 
@@ -462,7 +455,6 @@ class _PerformanceDetailScreenState extends ConsumerState<PerformanceDetailScree
       case PerformanceType.stress: return '0 – 40';
       case PerformanceType.activity: return '500+ kcal';
       case PerformanceType.energy: return '70 – 100 %';
-      default: return '--';
     }
   }
 
@@ -1277,8 +1269,6 @@ class _PerformanceDetailScreenState extends ConsumerState<PerformanceDetailScree
           _TrendCardData('Training', '${widget.exerciseMinutes ?? 0}', 'min', true, const [], _primaryColor),
           _TrendCardData('Peak HR', widget.heartRateMax != null ? '${widget.heartRateMax}' : '--', 'bpm', true, widget.hrHistory, _primaryColor),
         ];
-      default:
-        return [];
     }
   }
 

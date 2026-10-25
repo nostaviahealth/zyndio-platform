@@ -219,7 +219,6 @@ class MetricDetailScreen extends StatefulWidget {
 }
 
 class _MetricDetailScreenState extends State<MetricDetailScreen> {
-  final int _selectedTabIndex = 0;
   int _selectedTimeRange = 0; // 0=1M, 1=3M, 2=6M, 3=1Y
 
   final List<String> _timeRangeLabels = ['1M', '3M', '6M', '1Y'];
@@ -309,15 +308,6 @@ class _MetricDetailScreenState extends State<MetricDetailScreen> {
     return _windowEndDate.year < now.year || 
            _windowEndDate.month < now.month || 
            _windowEndDate.day < now.day;
-  }
-
-  double get _avg {
-    if (_displayData.isEmpty) return 0;
-    double sum = 0;
-    for (var d in _displayData) {
-      sum += (d['value'] as num).toDouble();
-    }
-    return sum / _displayData.length;
   }
 
   /// Compute real trend changes from actual historical data

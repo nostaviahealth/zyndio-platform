@@ -138,15 +138,6 @@ class _WearableDashboardScreenState extends ConsumerState<WearableDashboardScree
     return '${start.day} ${months[start.month - 1]} – ${now.day} ${months[now.month - 1]} ${now.year}';
   }
 
-  String _formatDateRange(WearableSyncState state) {
-    final now = DateTime.now();
-    if (_selectedDate.year == now.year && _selectedDate.month == now.month && _selectedDate.day == now.day) {
-      return 'Today';
-    }
-    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return '${_selectedDate.day} ${months[_selectedDate.month - 1]} ${_selectedDate.year}';
-  }
-
   String _formatPreviousTotalTime(WearableSyncState state) {
     return '--';
   }

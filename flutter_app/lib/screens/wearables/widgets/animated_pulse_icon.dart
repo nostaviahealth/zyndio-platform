@@ -93,7 +93,6 @@ class _PulseWavePainter extends CustomPainter {
 
         if (distWrapped < 15) {
             // Heartbeat morphology: P-QRS-T approximation
-            double t = (distWrapped / 15); // 0 to 1
             // Sharp QRS complex
             double qrs = math.exp(-math.pow(distWrapped / 2, 2)) * -20;
             // Smaller T wave
@@ -128,7 +127,6 @@ class _PulseWavePainter extends CustomPainter {
     final double dotX = width * progress;
     // Calculate the Y at dotX (approximate)
     double dotY = midY;
-    double distAtDot = 0; // it's at dotX
     double qrs = math.exp(-math.pow(0 / 2, 2)) * -20;
     dotY += qrs;
 
