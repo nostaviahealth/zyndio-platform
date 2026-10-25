@@ -113,13 +113,24 @@ function App() {
   }, [isScanning]);
 
   // Habit data from localStorage
-  const [habitData, setHabitData] = useState({
-    todayMinutes: 0,
-    currentStreak: 0,
-    lifetimeMinutes: 0,
-    weeklyMinutes: 0,
-    dailyGoal: 10,
-    history: [] as { date: string; minutes: number }[]
+  const [habitData, setHabitData] = useState(() => {
+    const defaults = {
+      todayMinutes: 0,
+      currentStreak: 0,
+      lifetimeMinutes: 0,
+      weeklyMinutes: 0,
+      dailyGoal: 10,
+      history: [] as { date: string; minutes: number }[]
+    };
+    try {
+      const stored = localStorage.getItem('zyndio-space-habits');
+      if (stored) {
+        return { ...defaults, ...JSON.parse(stored) };
+      }
+    } catch (e) {
+      console.error('Failed to load habit data:', e);
+    }
+    return defaults;
   });
 
   // Cloud sync hook
@@ -136,18 +147,6 @@ function App() {
   // Mode swipe gesture refs
   const modeSwipeStartX = useRef(0);
   const modeSwipeStartY = useRef(0);
-
-  // Load habit data from localStorage
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('zyndio-space-habits');
-      if (stored) {
-        setHabitData(JSON.parse(stored));
-      }
-    } catch (e) {
-      console.error('Failed to load habit data:', e);
-    }
-  }, []);
 
   // Load from cloud when user logs in
   useEffect(() => {
