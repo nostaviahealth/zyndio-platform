@@ -1,155 +1,153 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict>
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>$(DEVELOPMENT_LANGUAGE)</string>
-	<key>CFBundleDisplayName</key>
-	<string>Zyndio</string>
-	<key>CFBundleExecutable</key>
-	<string>$(EXECUTABLE_NAME)</string>
-	<key>CFBundleIdentifier</key>
-	<string>com.zyndio.patient</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>zyndio_patient</string>
-	<key>CFBundlePackageType</key>
-	<string>APPL</string>
-	<key>CFBundleShortVersionString</key>
-	<string>$(FLUTTER_BUILD_NAME)</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleURLTypes</key>
-	<array>
+	<dict>
+		<key>CADisableMinimumFrameDurationOnPhone</key>
+		<true/>
+		<key>CFBundleDevelopmentRegion</key>
+		<string>$(DEVELOPMENT_LANGUAGE)</string>
+		<key>CFBundleDisplayName</key>
+		<string>Zyndio</string>
+		<key>CFBundleExecutable</key>
+		<string>$(EXECUTABLE_NAME)</string>
+		<key>CFBundleIdentifier</key>
+		<string>com.zyndio.patient</string>
+		<key>CFBundleInfoDictionaryVersion</key>
+		<string>6.0</string>
+		<key>CFBundleName</key>
+		<string>zyndio_patient</string>
+		<key>CFBundlePackageType</key>
+		<string>APPL</string>
+		<key>CFBundleShortVersionString</key>
+		<string>$(FLUTTER_BUILD_NAME)</string>
+		<key>CFBundleSignature</key>
+		<string>????</string>
+		<key>CFBundleURLTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>com.googleusercontent.apps.742868132720-op8bpk01tjt3npl8m21maabkneps4mbp</string>
+					<string>fb910153241839925</string>
+					<string>zyndiohealth</string>
+				</array>
+			</dict>
+		</array>
+		<key>CFBundleVersion</key>
+		<string>$(FLUTTER_BUILD_NUMBER)</string>
+		<key>GIDClientID</key>
+		<string>742868132720-op8bpk01tjt3npl8m21maabkneps4mbp.apps.googleusercontent.com</string>
+		<key>ITSAppUsesNonExemptEncryption</key>
+		<false/>
+		<key>LSRequiresIPhoneOS</key>
+		<true/>
+		<key>NSAppTransportSecurity</key>
 		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>com.googleusercontent.apps.742868132720-op8bpk01tjt3npl8m21maabkneps4mbp</string>
-				<string>fb910153241839925</string>
-				<string>zyndiohealth</string>
-			</array>
+			<key>NSAllowsArbitraryLoads</key>
+			<true/>
+			<key>NSAllowsLocalNetworking</key>
+			<true/>
 		</dict>
-	</array>
-	<key>CFBundleVersion</key>
-	<string>$(FLUTTER_BUILD_NUMBER)</string>
-	<key>GIDClientID</key>
-	<string>742868132720-op8bpk01tjt3npl8m21maabkneps4mbp.apps.googleusercontent.com</string>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
-	<key>LSRequiresIPhoneOS</key>
-	<true/>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsArbitraryLoads</key>
+		<key>NSBonjourServices</key>
+		<array>
+			<string>_dartvmservice._tcp</string>
+			<string>_dart-vm-service._tcp</string>
+			<string>_dartobservatory._tcp</string>
+			<string>_http._tcp</string>
+		</array>
+		<key>NSCameraUsageDescription</key>
+		<string>Zyndio requires camera access to allow you to scan food barcodes for nutritional analysis and to capture images of your lab reports for the AI Digital Twin.</string>
+		<key>NSMicrophoneUsageDescription</key>
+		<string>Zyndio needs microphone access to record your voice for meal logging.</string>
+		<key>NSSpeechRecognitionUsageDescription</key>
+		<string>Zyndio requires speech recognition to allow you to log meals via voice.</string>
+		<key>NSHealthShareUsageDescription</key>
+		<string>We use your health data to provide personalized coaching and insights.</string>
+		<key>NSHealthUpdateUsageDescription</key>
+		<string>We need permission to save workout data to Apple Health.</string>
+		<key>NSLocalNetworkUsageDescription</key>
+		<string>Zyndio uses the local network to connect to the Dart debugger and enable features like hot reload.</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>Zyndio needs photo library access so you can easily select and upload existing lab reports and meal photos for AI analysis.</string>
+		<key>UIApplicationSupportsIndirectInputEvents</key>
 		<true/>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
-	</dict>
-	<key>NSBonjourServices</key>
-	<array>
-		<string>_dartvmservice._tcp</string>
-		<string>_dart-vm-service._tcp</string>
-		<string>_dartobservatory._tcp</string>
-		<string>_http._tcp</string>
-	</array>
-	<key>NSCameraUsageDescription</key>
-	<string>Zyndio requires camera access to allow you to scan food barcodes for nutritional analysis and to capture images of your lab reports for the AI Digital Twin.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Zyndio needs microphone access to record your voice for meal logging.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Zyndio requires speech recognition to allow you to log meals via voice.</string>
-	<key>NSHealthShareUsageDescription</key>
-	<string>We use your health data to provide personalized coaching and insights.</string>
-	<key>NSHealthUpdateUsageDescription</key>
-	<string>We need permission to save workout data to Apple Health.</string>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>Zyndio uses the local network to connect to the Dart debugger and enable features like hot reload.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Zyndio needs photo library access so you can easily select and upload existing lab reports and meal photos for AI analysis.</string>
-
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>fetch</string>
-		<string>remote-notification</string>
-	</array>
-	<key>UILaunchStoryboardName</key>
-	<string>LaunchScreen</string>
-	<key>UIMainStoryboardFile</key>
-	<string>Main</string>
-	<key>UIStatusBarHidden</key>
-	<false/>
-	<key>UISupportedInterfaceOrientations</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>UISupportedInterfaceOrientations~ipad</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>CFBundleIcons</key>
-	<dict>
-		<key>CFBundleAlternateIcons</key>
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>fetch</string>
+			<string>remote-notification</string>
+		</array>
+		<key>UILaunchStoryboardName</key>
+		<string>LaunchScreen</string>
+		<key>UIMainStoryboardFile</key>
+		<string>Main</string>
+		<key>UIStatusBarHidden</key>
+		<false/>
+		<key>UISupportedInterfaceOrientations</key>
+		<array>
+			<string>UIInterfaceOrientationPortrait</string>
+			<string>UIInterfaceOrientationLandscapeLeft</string>
+			<string>UIInterfaceOrientationLandscapeRight</string>
+		</array>
+		<key>UISupportedInterfaceOrientations~ipad</key>
+		<array>
+			<string>UIInterfaceOrientationPortrait</string>
+			<string>UIInterfaceOrientationPortraitUpsideDown</string>
+			<string>UIInterfaceOrientationLandscapeLeft</string>
+			<string>UIInterfaceOrientationLandscapeRight</string>
+		</array>
+		<key>CFBundleIcons</key>
 		<dict>
-			<key>PremiumBrand</key>
+			<key>CFBundleAlternateIcons</key>
+			<dict>
+				<key>PremiumBrand</key>
+				<dict>
+					<key>CFBundleIconFiles</key>
+					<array>
+						<string>PremiumBrand</string>
+					</array>
+					<key>UIPrerenderedIcon</key>
+					<true/>
+				</dict>
+			</dict>
+			<key>CFBundlePrimaryIcon</key>
 			<dict>
 				<key>CFBundleIconFiles</key>
 				<array>
-					<string>PremiumBrand</string>
+					<string>AppIcon</string>
 				</array>
 				<key>UIPrerenderedIcon</key>
-				<true/>
+				<false/>
 			</dict>
 		</dict>
-		<key>CFBundlePrimaryIcon</key>
-		<dict>
-			<key>CFBundleIconFiles</key>
-			<array>
-				<string>AppIcon</string>
-			</array>
-			<key>UIPrerenderedIcon</key>
-			<false/>
-		</dict>
+		<key>LSApplicationQueriesSchemes</key>
+		<array>
+			<string>fbapi</string>
+			<string>fb-messenger-share-api</string>
+		</array>
+		<key>NSUserTrackingUsageDescription</key>
+		<string>Zyndio uses your device's advertising identifier to accurately measure the effectiveness of our health and longevity ad campaigns, ensuring we reach the users who benefit most from our insights.</string>
+		<key>SKAdNetworkItems</key>
+		<array>
+			<dict>
+				<key>SKAdNetworkIdentifier</key>
+				<string>v9wttpbfk9.skadnetwork</string>
+			</dict>
+			<dict>
+				<key>SKAdNetworkIdentifier</key>
+				<string>n38lu8286q.skadnetwork</string>
+			</dict>
+		</array>
+		<key>FacebookAppID</key>
+		<string>910153241839925</string>
+		<key>FacebookClientToken</key>
+		<string>0723f246609a63e206a141eeb2c013da</string>
+		<key>FacebookDisplayName</key>
+		<string>Zyndio</string>
+		<key>FacebookAdvertiserIDCollectionEnabled</key>
+		<true/>
+		<key>FacebookAutoLogAppEventsEnabled</key>
+		<true/>
 	</dict>
-
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<string>fbapi</string>
-		<string>fb-messenger-share-api</string>
-	</array>
-	<key>NSUserTrackingUsageDescription</key>
-	<string>Zyndio uses your device's advertising identifier to accurately measure the effectiveness of our health and longevity ad campaigns, ensuring we reach the users who benefit most from our insights.</string>
-	<key>SKAdNetworkItems</key>
-	<array>
-		<dict>
-			<key>SKAdNetworkIdentifier</key>
-			<string>v9wttpbfk9.skadnetwork</string>
-		</dict>
-		<dict>
-			<key>SKAdNetworkIdentifier</key>
-			<string>n38lu8286q.skadnetwork</string>
-		</dict>
-	</array>
-	<key>FacebookAppID</key>
-	<string>910153241839925</string>
-	<key>FacebookClientToken</key>
-	<string>0723f246609a63e206a141eeb2c013da</string>
-	<key>FacebookDisplayName</key>
-	<string>Zyndio</string>
-	<key>FacebookAdvertiserIDCollectionEnabled</key>
-	<true/>
-	<key>FacebookAutoLogAppEventsEnabled</key>
-	<true/>
-</dict>
 </plist>
