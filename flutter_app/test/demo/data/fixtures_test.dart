@@ -53,4 +53,25 @@ void main() {
       expect(biomarkerFixture.length, 7);
     });
   });
+
+  group('labReviewValues', () {
+    test('has exactly 6 values and only hsCRP needs review', () {
+      expect(labReviewValues.length, 6);
+      final flagged = labReviewValues.where((v) => v.needsReview).toList();
+      expect(flagged, hasLength(1));
+      expect(flagged.single.name, 'hsCRP');
+      expect(flagged.single.needsReviewReason, 'Hard to read on page 2');
+    });
+
+    test('HbA1c/fasting insulin/ApoB/hsCRP match the biomarker follow-up numbers', () {
+      double followUpOf(String name) =>
+          biomarkerFixture.firstWhere((r) => r.name == name).followUp;
+      String valueOf(String name) =>
+          labReviewValues.firstWhere((v) => v.name == name).value;
+
+      expect(valueOf('HbA1c'), followUpOf('HbA1c').toString());
+      expect(valueOf('ApoB'), followUpOf('ApoB').toStringAsFixed(0));
+      expect(valueOf('hsCRP'), followUpOf('hsCRP').toString());
+    });
+  });
 }

@@ -69,7 +69,7 @@ class BiomarkerRow {
   final String unit;
 }
 
-/// Baseline → follow-up biomarker table for the lab review screen.
+/// Baseline → follow-up biomarker table for the biomarker history screen.
 const List<BiomarkerRow> biomarkerFixture = [
   BiomarkerRow(name: 'Total weight', baseline: 228, followUp: 194, unit: 'lb'),
   BiomarkerRow(name: 'Fat mass', baseline: 82, followUp: 55, unit: 'lb'),
@@ -83,4 +83,48 @@ const List<BiomarkerRow> biomarkerFixture = [
   ),
   BiomarkerRow(name: 'ApoB', baseline: 106, followUp: 84, unit: 'mg/dL'),
   BiomarkerRow(name: 'hsCRP', baseline: 3.8, followUp: 1.7, unit: 'mg/L'),
+];
+
+/// One extracted value on the lab review screen (03 Lab upload -> 04 Lab
+/// review). [needsReviewReason] is null for every value except hsCRP, which
+/// carries the "Needs review" badge.
+class LabReviewValue {
+  const LabReviewValue({
+    required this.name,
+    required this.value,
+    required this.unit,
+    this.needsReviewReason,
+  });
+
+  final String name;
+  final String value;
+  final String unit;
+  final String? needsReviewReason;
+
+  bool get needsReview => needsReviewReason != null;
+
+  LabReviewValue copyWith({String? value}) => LabReviewValue(
+        name: name,
+        value: value ?? this.value,
+        unit: unit,
+        needsReviewReason: needsReviewReason,
+      );
+}
+
+/// The fixture "Metabolic panel" report's 6 extracted values (screens.md
+/// §04). HbA1c/fasting insulin/ApoB/hsCRP line up with [biomarkerFixture]'s
+/// latest follow-up readings; glucose and triglycerides are this report's
+/// own fictional values.
+const List<LabReviewValue> labReviewValues = [
+  LabReviewValue(name: 'HbA1c', value: '5.5', unit: '%'),
+  LabReviewValue(name: 'Glucose, fasting', value: '98', unit: 'mg/dL'),
+  LabReviewValue(name: 'Insulin, fasting', value: '9.4', unit: 'uIU/mL'),
+  LabReviewValue(name: 'ApoB', value: '84', unit: 'mg/dL'),
+  LabReviewValue(
+    name: 'hsCRP',
+    value: '1.7',
+    unit: 'mg/L',
+    needsReviewReason: 'Hard to read on page 2',
+  ),
+  LabReviewValue(name: 'Triglycerides', value: '121', unit: 'mg/dL'),
 ];

@@ -8,6 +8,9 @@ import 'router/demo_state.dart';
 import 'screens/consent/consent_controller.dart';
 import 'screens/consent/consent_state.dart';
 import 'screens/consent/consent_view.dart';
+import 'screens/lab_review/lab_review_controller.dart';
+import 'screens/lab_review/lab_review_state.dart';
+import 'screens/lab_review/lab_review_view.dart';
 import 'screens/lab_upload/lab_upload_controller.dart';
 import 'screens/lab_upload/lab_upload_state.dart';
 import 'screens/lab_upload/lab_upload_view.dart';
@@ -83,6 +86,12 @@ class _DemoHomeState extends State<_DemoHome> {
       }
       return const _InteractiveLabUpload();
     }
+    if (screen == 'lab-review') {
+      if (widget.params.state != null) {
+        return LabReviewView(state: labReviewStateForQueryState(widget.params.state));
+      }
+      return const _InteractiveLabReview();
+    }
 
     final colors = Theme.of(context).extension<ZyndioColors>()!;
     final label = screen == null
@@ -147,5 +156,16 @@ class _InteractiveLabUpload extends ConsumerWidget {
       onUploadAnyway: controller.confirmUploadAnyway,
       onCancelDuplicate: controller.cancelDuplicate,
     );
+  }
+}
+
+class _InteractiveLabReview extends ConsumerWidget {
+  const _InteractiveLabReview();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(labReviewControllerProvider);
+    final controller = ref.read(labReviewControllerProvider.notifier);
+    return LabReviewView(state: state, onSave: controller.save);
   }
 }

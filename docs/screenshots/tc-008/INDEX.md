@@ -42,3 +42,15 @@ test-plan ID of its own (it's still covered by a widget test in the file listed)
 | lab-upload | offline | dark | `lab-upload/offline--dark.png` | T-LAB-05 | `flutter_app/test/demo/lab_upload_test.dart`, `flutter_app/test/demo/screens/lab_upload_controller_test.dart`, `flutter_app/test/demo/logic/upload_queue_test.dart` |
 | lab-upload | error | light | `lab-upload/error--light.png` | none in plan | `flutter_app/test/demo/lab_upload_test.dart` |
 | lab-upload | error | dark | `lab-upload/error--dark.png` | none in plan | `flutter_app/test/demo/lab_upload_test.dart` |
+| lab-review | loading | light | `lab-review/loading--light.png` | none in plan (no time promise) | `flutter_app/test/demo/lab_review_test.dart` |
+| lab-review | loading | dark | `lab-review/loading--dark.png` | none in plan (no time promise) | `flutter_app/test/demo/lab_review_test.dart` |
+| lab-review | default | light | `lab-review/default--light.png` | none in plan | `flutter_app/test/demo/lab_review_test.dart`, `flutter_app/test/demo/data/fixtures_test.dart` |
+| lab-review | default | dark | `lab-review/default--dark.png` | none in plan | `flutter_app/test/demo/lab_review_test.dart`, `flutter_app/test/demo/data/fixtures_test.dart` |
+| lab-review | mismatch | light | `lab-review/mismatch--light.png` | T-LAB-02 | `flutter_app/test/demo/lab_review_test.dart` |
+| lab-review | mismatch | dark | `lab-review/mismatch--dark.png` | T-LAB-02 | `flutter_app/test/demo/lab_review_test.dart` |
+| lab-review | empty | light | `lab-review/empty--light.png` | none in plan | `flutter_app/test/demo/lab_review_test.dart` |
+| lab-review | empty | dark | `lab-review/empty--dark.png` | none in plan | `flutter_app/test/demo/lab_review_test.dart` |
+| lab-review | error | light | `lab-review/error--light.png` | none in plan (edits kept on save failure) | `flutter_app/test/demo/lab_review_test.dart`, `flutter_app/test/demo/screens/lab_review_controller_test.dart` |
+| lab-review | error | dark | `lab-review/error--dark.png` | none in plan (edits kept on save failure) | `flutter_app/test/demo/lab_review_test.dart`, `flutter_app/test/demo/screens/lab_review_controller_test.dart` |
+| lab-review | saved | light | `lab-review/saved--light.png` | none in plan | `flutter_app/test/demo/lab_review_test.dart`, `flutter_app/test/demo/screens/lab_review_controller_test.dart` |
+| lab-review | saved | dark | `lab-review/saved--dark.png` | none in plan | `flutter_app/test/demo/lab_review_test.dart`, `flutter_app/test/demo/screens/lab_review_controller_test.dart` |
