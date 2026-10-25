@@ -8,6 +8,9 @@ import 'router/demo_state.dart';
 import 'screens/consent/consent_controller.dart';
 import 'screens/consent/consent_state.dart';
 import 'screens/consent/consent_view.dart';
+import 'screens/lab_upload/lab_upload_controller.dart';
+import 'screens/lab_upload/lab_upload_state.dart';
+import 'screens/lab_upload/lab_upload_view.dart';
 import 'screens/signin/signin_controller.dart';
 import 'screens/signin/signin_state.dart';
 import 'screens/signin/signin_view.dart';
@@ -74,6 +77,12 @@ class _DemoHomeState extends State<_DemoHome> {
       }
       return const _InteractiveConsent();
     }
+    if (screen == 'lab-upload') {
+      if (widget.params.state != null) {
+        return LabUploadView(state: labUploadStateForQueryState(widget.params.state));
+      }
+      return const _InteractiveLabUpload();
+    }
 
     final colors = Theme.of(context).extension<ZyndioColors>()!;
     final label = screen == null
@@ -122,6 +131,21 @@ class _InteractiveConsent extends ConsumerWidget {
       onToggleDoc: controller.toggleDoc,
       onTogglePartner: controller.togglePartnerSharing,
       onSubmit: controller.submit,
+    );
+  }
+}
+
+class _InteractiveLabUpload extends ConsumerWidget {
+  const _InteractiveLabUpload();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(labUploadControllerProvider);
+    final controller = ref.read(labUploadControllerProvider.notifier);
+    return LabUploadView(
+      state: state,
+      onUploadAnyway: controller.confirmUploadAnyway,
+      onCancelDuplicate: controller.cancelDuplicate,
     );
   }
 }

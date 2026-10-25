@@ -43,40 +43,17 @@ class OptionalCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: ZyndioSpace.s12),
-              ExcludeSemantics(child: _SwitchVisual(value: value, colors: colors)),
+              // A real Switch (not a custom-painted visual) so colour comes
+              // entirely from the app's SwitchThemeData tokens — no
+              // per-widget override, and no risk of a hardcoded white knob
+              // showing up against a dark track in dark mode.
+              ExcludeSemantics(
+                child: IgnorePointer(
+                  child: Switch(value: value, onChanged: (_) {}),
+                ),
+              ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SwitchVisual extends StatelessWidget {
-  const _SwitchVisual({required this.value, required this.colors});
-
-  final bool value;
-  final ZyndioColors colors;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
-      width: ZyndioSize.switchWidth,
-      height: ZyndioSize.switchHeight,
-      padding: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        color: value ? colors.brandPrimary : colors.bgSunken,
-        borderRadius: BorderRadius.circular(ZyndioSize.switchHeight / 2),
-        border: value ? null : Border.all(color: colors.borderStrong, width: ZyndioBorder.hairline),
-      ),
-      child: AnimatedAlign(
-        duration: const Duration(milliseconds: 150),
-        alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-        child: Container(
-          width: ZyndioSize.switchHeight - 4,
-          height: ZyndioSize.switchHeight - 4,
-          decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
         ),
       ),
     );

@@ -26,4 +26,36 @@ void main() {
     await tester.tap(find.text('Share progress with my body composition partner'));
     expect(value, isTrue);
   });
+
+  testWidgets(
+    'dark mode: OFF switch thumb/track/outline colours come from ZyndioColors tokens, never a hardcoded white knob',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: BrandTheme.darkTheme,
+          home: Scaffold(
+            body: OptionalCard(
+              title: 'Share progress',
+              subtitle: 'Optional sharing',
+              value: false,
+            ),
+          ),
+        ),
+      );
+
+      final context = tester.element(find.byType(Switch));
+      final colors = Theme.of(context).extension<ZyndioColors>()!;
+      final switchTheme = Theme.of(context).switchTheme;
+      const offStates = <WidgetState>{};
+
+      final thumbColor = switchTheme.thumbColor!.resolve(offStates);
+      final trackColor = switchTheme.trackColor!.resolve(offStates);
+      final outlineColor = switchTheme.trackOutlineColor!.resolve(offStates);
+
+      expect(thumbColor, colors.bgSurface);
+      expect(thumbColor, isNot(Colors.white));
+      expect(trackColor, colors.bgSunken);
+      expect(outlineColor, colors.borderStrong);
+    },
+  );
 }
