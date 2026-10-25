@@ -1,0 +1,331 @@
+import 'dart:async'; // Added for StreamTransformer
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import '../config/supabase_config.dart';
+import '../services/revenue_cat_service.dart';
+import '../services/notification_service.dart';
+import '../main.dart';
+
+/// Demo mode provider - true when Supabase is not configured
+final isDemoModeProvider = Provider<bool>((ref) {
+  final initialized = ref.watch(supabaseInitializedProvider);
+  return !initialized;
+});
+
+/// Auth state provider - watches the authentication stream
+final authStateProvider = StreamProvider<User?>((ref) {
+  final initialized = ref.watch(supabaseInitializedProvider);
+  
+  // If Supabase is not initialized, return a stream with null (demo mode)
+  if (!initialized) {
+    debugPrint('Auth: Running in demo mode (Supabase not initialized)');
+    return Stream.value(null);
+  }
+  
+  final client = SupabaseConfig.client;
+  if (client == null) {
+    debugPrint('Auth: Supabase client is null');
+    return Stream.value(null);
+  }
+  
+  debugPrint('Auth: Listening to auth state changes');
+  return client.auth.onAuthStateChange.transform(
+    StreamTransformer<AuthState, User?>.fromHandlers(
+      handleData: (event, sink) {
+        debugPrint('Auth state changed: ${event.event}');
+        
+        if (event.session?.user != null) {
+          // Valid session, emit user
+          sink.add(event.session!.user);
+          
+          // Auto-sync FCM Token whenever session is detected/restored
+          NotificationService().syncTokenToSupabase();
+        } else {
+          // Session is null. Check event type.
+          if (event.event == AuthChangeEvent.signedOut || 
+              event.event == AuthChangeEvent.userDeleted) {
+            sink.add(null);
+          } else {
+            debugPrint('Auth: Ignoring transient null session for event: ${event.event}');
+          }
+        }
+      },
+      handleError: (error, stackTrace, sink) {
+        debugPrint('🔴 Auth stream error (recovering gracefully): $error');
+        // Treat stream errors as signed-out to prevent crash
+        sink.add(null);
+      },
+    ),
+  );
+});
+
+/// Current user provider
+final currentUserProvider = Provider<User?>((ref) {
+  return ref.watch(authStateProvider).value;
+});
+
+/// Is admin provider - checks if user has admin role
+final isAdminProvider = FutureProvider<bool>((ref) async {
+  final user = ref.watch(currentUserProvider);
+  final initialized = ref.watch(supabaseInitializedProvider);
+  
+  if (user == null || !initialized) return false;
+
+  try {
+    final client = SupabaseConfig.client;
+    if (client == null) return false;
+    
+    final response = await client
+        .from('profiles')
+        .select('role')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+    return response?['role'] == 'admin';
+  } catch (e) {
+    debugPrint('Error checking admin status: $e');
+    return false;
+  }
+});
+
+/// Auth notifier for sign in/up/out actions
+class AuthNotifier extends Notifier<AsyncValue<void>> {
+  @override
+  AsyncValue<void> build() {
+    return const AsyncValue.data(null);
+  }
+
+  bool get _isInitialized => ref.read(supabaseInitializedProvider);
+
+  /// Sign in with email and password
+  Future<void> signIn(String email, String password) async {
+    // Demo mode - simulate successful login
+    if (!_isInitialized) {
+      debugPrint('Demo mode: Simulating sign in');
+      state = const AsyncValue.loading();
+      await Future.delayed(const Duration(milliseconds: 500));
+      state = const AsyncValue.data(null);
+      return;
+    }
+
+    final client = SupabaseConfig.client;
+    if (client == null) {
+      state = AsyncValue.error('Supabase not available', StackTrace.current);
+      return;
+    }
+
+    state = const AsyncValue.loading();
+    try {
+      debugPrint('Signing in with email: $email');
+      final response = await client.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+      debugPrint('Sign in successful: ${response.user?.email}');
+      
+      // Sync FCM token for push notifications
+      NotificationService().syncTokenToSupabase();
+      
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      debugPrint('Sign in error: $e');
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+
+  /// Sign up with email, password, and name
+  Future<void> signUp(String email, String password, String name) async {
+    // Demo mode - simulate successful signup
+    if (!_isInitialized) {
+      debugPrint('Demo mode: Simulating sign up');
+      state = const AsyncValue.loading();
+      await Future.delayed(const Duration(milliseconds: 500));
+      state = const AsyncValue.data(null);
+      return;
+    }
+
+    final client = SupabaseConfig.client;
+    if (client == null) {
+      state = AsyncValue.error('Supabase not available', StackTrace.current);
+      return;
+    }
+
+    state = const AsyncValue.loading();
+    try {
+      debugPrint('Signing up with email: $email');
+      await client.auth.signUp(
+        email: email,
+        password: password,
+        data: {'name': name},
+      );
+      state = const AsyncValue.data(null);
+      
+      // Sync FCM token for push notifications
+      NotificationService().syncTokenToSupabase();
+    } catch (e, st) {
+      debugPrint('Sign up error: $e');
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+
+  /// Sign out
+  Future<void> signOut() async {
+    if (!_isInitialized) {
+      state = const AsyncValue.data(null);
+      return;
+    }
+
+    final client = SupabaseConfig.client;
+    if (client == null) {
+      state = const AsyncValue.data(null);
+      return;
+    }
+
+    state = const AsyncValue.loading();
+    try {
+      await client.auth.signOut();
+      
+      // CRITICAL: Log out of RevenueCat to prevent entitlement bleed 
+      // where the next user on the same device inherits premium status.
+      await RevenueCatService().logOut();
+      
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      debugPrint('Sign out error: $e');
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+
+  /// Sign in with Google
+  Future<void> signInWithGoogle() async {
+    if (!_isInitialized) {
+      debugPrint('Demo mode: Google sign in not available');
+      throw Exception('Google Sign-In not available in demo mode');
+    }
+
+    final client = SupabaseConfig.client;
+    if (client == null) {
+      throw Exception('Supabase not available');
+    }
+
+    state = const AsyncValue.loading();
+    try {
+      debugPrint('Starting Google Sign-In...');
+      
+      // Use platform-specific Client IDs
+      // Android MUST use the Web Client ID as the serverClientId
+      // iOS can use the iOS Client ID
+      final String? serverClientId = defaultTargetPlatform == TargetPlatform.android
+          ? '742868132720-a4mbp6gc8bt6uav2c1all3jslbroh0lf.apps.googleusercontent.com'
+          : '742868132720-op8bpk01tjt3npl8m21maabkneps4mbp.apps.googleusercontent.com';
+      
+      debugPrint('Initializing Google Sign-In with serverClientId: $serverClientId');
+      
+      // google_sign_in 7.x: Use singleton instance
+      final googleSignIn = GoogleSignIn.instance;
+      await googleSignIn.initialize(serverClientId: serverClientId);
+      
+      final googleUser = await googleSignIn.authenticate();
+      
+      final idToken = googleUser.authentication.idToken;
+      
+      if (idToken == null) {
+        throw Exception('Failed to get Google ID token');
+      }
+      
+      debugPrint('Got Google ID token, extracting nonce...');
+      
+      // Extract nonce from ID token to resolve nonce mismatch error
+      String? nonce;
+      try {
+        final parts = idToken.split('.');
+        if (parts.length > 1) {
+          final String payload = parts[1];
+          final String normalizedPayload = base64Url.normalize(payload);
+          final String decodedPayload = utf8.decode(base64Url.decode(normalizedPayload));
+          final Map<String, dynamic> payloadMap = json.decode(decodedPayload);
+          nonce = payloadMap['nonce'];
+        }
+      } catch (e) {
+        debugPrint('Error extracting nonce: $e');
+      }
+
+      debugPrint('Signing into Supabase with token and nonce: ${nonce != null}');
+      
+      await client.auth.signInWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: idToken,
+        nonce: nonce,
+      );
+      
+      debugPrint('Google Sign-In successful!');
+      
+      // Sync FCM token for push notifications
+      NotificationService().syncTokenToSupabase();
+      
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      debugPrint('Google Sign-In error: $e');
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+
+  /// Sign in with Apple
+  Future<void> signInWithApple() async {
+    if (!_isInitialized) {
+      debugPrint('Demo mode: Apple sign in not available');
+      throw Exception('Apple Sign-In not available in demo mode');
+    }
+
+    final client = SupabaseConfig.client;
+    if (client == null) {
+      throw Exception('Supabase not available');
+    }
+
+    state = const AsyncValue.loading();
+    try {
+      debugPrint('Starting Apple Sign-In...');
+      
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+      
+      final idToken = credential.identityToken;
+      if (idToken == null) {
+        throw Exception('Failed to get Apple identity token');
+      }
+
+      await client.auth.signInWithIdToken(
+        provider: OAuthProvider.apple,
+        idToken: idToken,
+      );
+
+      debugPrint('Apple Sign-In successful!');
+      
+      // Sync FCM token for push notifications
+      NotificationService().syncTokenToSupabase();
+      
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      debugPrint('Apple Sign-In error: $e');
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+}
+
+/// Auth notifier provider
+final authNotifierProvider = NotifierProvider<AuthNotifier, AsyncValue<void>>(() {
+  return AuthNotifier();
+});

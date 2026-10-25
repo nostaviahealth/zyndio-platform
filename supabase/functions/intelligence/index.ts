@@ -1,0 +1,150 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+/**
+ * Supabase Edge Function: intelligence
+ * 
+ * A secure proxy for OpenAI API calls. All AI keys are stored as Supabase
+ * secrets and never exposed to the client. Supports both streaming and
+ * non-streaming completions.
+ * 
+ * Expected request body:
+ * {
+ *   "messages": [...],           // OpenAI chat messages
+ *   "stream": boolean,           // Whether to stream the response
+ *   "max_completion_tokens": number,
+ *   "response_format": object,   // Optional (e.g. { "type": "json_object" })
+ *   "tools": [...],              // Optional tool definitions
+ *   "tool_choice": string,       // Optional tool choice
+ * }
+ */
+serve(async (req) => {
+    // Handle CORS preflight
+    if (req.method === 'OPTIONS') {
+        return new Response('ok', { headers: corsHeaders })
+    }
+
+    try {
+        // Verify user is authenticated
+        const authHeader = req.headers.get('Authorization')
+        if (!authHeader) {
+            return new Response(
+                JSON.stringify({ error: 'Missing authorization header' }),
+                { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+
+        // Read request body
+        const body = await req.json()
+        const {
+            messages,
+            stream = false,
+            max_completion_tokens = 4096,
+            response_format,
+            tools,
+            tool_choice,
+        } = body
+
+        if (!messages || !Array.isArray(messages)) {
+            return new Response(
+                JSON.stringify({ error: 'messages array is required' }),
+                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+
+        // Use Gemini's OpenAI-compatible API
+        const apiKey = Deno.env.get('GEMINI_API_KEY') ?? ''
+
+        if (!apiKey) {
+            console.error('Missing GEMINI_API_KEY secret')
+            return new Response(
+                JSON.stringify({ error: 'AI service not configured' }),
+                { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+
+        const openaiUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+
+        console.log(`Final Gemini API URL: ${openaiUrl}`)
+
+        // Build the request body for OpenAI
+        const openaiBody: Record<string, unknown> = {
+            model: "gemini-3.5-flash",
+            messages,
+            max_tokens: max_completion_tokens,
+        }
+
+        if (stream) openaiBody.stream = true
+        if (response_format) openaiBody.response_format = response_format
+        if (tools && tools.length > 0) {
+            openaiBody.tools = tools
+            openaiBody.tool_choice = tool_choice ?? "auto"
+        }
+
+        console.log(`Calling Gemini OpenAI API: ${openaiUrl}`)
+
+        // Call the Gemini API
+        const openaiResponse = await fetch(openaiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify(openaiBody),
+        })
+
+        if (!openaiResponse.ok) {
+            const errorText = await openaiResponse.text()
+            console.error(`OpenAI API Error: ${openaiResponse.status} - ${errorText}`)
+            
+            // Return a more descriptive error to help debugging
+            let errorMessage = `AI service error: ${openaiResponse.status}`;
+            try {
+                const errorJson = JSON.parse(errorText);
+                if (errorJson.error?.message) {
+                    errorMessage = errorJson.error.message;
+                }
+            } catch (e) {
+                // If not JSON, use raw text or generic status
+                if (errorText.length < 100) errorMessage += ` - ${errorText}`;
+            }
+
+            return new Response(
+                JSON.stringify({ error: errorMessage, details: errorText }),
+                { status: openaiResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+
+        // --- STREAMING MODE ---
+        if (stream) {
+            // Pipe the SSE stream directly from OpenAI to the client
+            return new Response(openaiResponse.body, {
+                headers: {
+                    ...corsHeaders,
+                    'Content-Type': 'text/event-stream',
+                    'Cache-Control': 'no-cache',
+                    'Connection': 'keep-alive',
+                },
+            })
+        }
+
+        // --- NON-STREAMING MODE ---
+        const data = await openaiResponse.json()
+        console.log(`Azure OpenAI Response Status: ${openaiResponse.status}`)
+        return new Response(
+            JSON.stringify(data),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+
+    } catch (error) {
+        console.error('Edge Function Error:', error)
+        return new Response(
+            JSON.stringify({ error: error.message }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+    }
+})

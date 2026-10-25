@@ -1,0 +1,7 @@
+# gitleaks config: default rules plus a narrow allowlist for CocoaPods lockfile checksums.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "CocoaPods Podfile.lock entries are SHA checksums of public pods, not secrets"
+paths = ['''(^|/)Podfile( \d+)?\.lock$''']
