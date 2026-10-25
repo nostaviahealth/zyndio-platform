@@ -2,7 +2,6 @@ plugins {
     id "com.android.application"
     id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
-    id "com.google.gms.google-services"
 }
 
 def localProperties = new Properties()
@@ -81,6 +80,12 @@ android {
 
 flutter {
     source '../..'
+}
+
+// google-services.json is not part of this repo (no Firebase project is configured for dev
+// builds); only apply the plugin when a developer has dropped their own config file in place.
+if (file('google-services.json').exists()) {
+    apply plugin: 'com.google.gms.google-services'
 }
 
 dependencies {

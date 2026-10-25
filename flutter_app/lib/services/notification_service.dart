@@ -4,6 +4,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../config/firebase_config.dart';
 import '../config/supabase_config.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -29,7 +30,7 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  final FirebaseMessaging _fcm = FirebaseMessaging.instance;
+  FirebaseMessaging? get _fcm => firebaseConfigured ? FirebaseMessaging.instance : null;
   final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
 
   bool _isInitialized = false;
@@ -147,50 +148,55 @@ class NotificationService {
       }
     }
 
-    // 3. Set up FCM Handlers
-    
-    // Configure foreground presentation options for Android
-    await _fcm.setForegroundNotificationPresentationOptions(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
-    
-    // Foreground messages
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      debugPrint('Got a message whilst in the foreground!');
-      debugPrint('Message data: ${message.data}');
+    // 3. Set up FCM Handlers (only when Firebase is configured for this build)
+    if (firebaseConfigured) {
+      final fcm = _fcm!;
 
-      if (message.notification != null) {
-        debugPrint('Message also contained a notification: ${message.notification?.title}');
-        showLocalNotification(
-          id: message.hashCode,
-          title: message.notification?.title ?? 'Notification',
-          body: message.notification?.body ?? '',
-          payload: message.data.toString(),
-        );
+      // Configure foreground presentation options for Android
+      await fcm.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+
+      // Foreground messages
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        debugPrint('Got a message whilst in the foreground!');
+        debugPrint('Message data: ${message.data}');
+
+        if (message.notification != null) {
+          debugPrint('Message also contained a notification: ${message.notification?.title}');
+          showLocalNotification(
+            id: message.hashCode,
+            title: message.notification?.title ?? 'Notification',
+            body: message.notification?.body ?? '',
+            payload: message.data.toString(),
+          );
+        }
+      });
+
+      // Background messages handled via top-level function
+      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+      // App opened from background/terminated state
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        debugPrint('App opened from notification!');
+        // Handle navigation based on message.data
+      });
+
+      // Handle initial message if app was terminated
+      RemoteMessage? initialMessage = await fcm.getInitialMessage();
+      if (initialMessage != null) {
+        debugPrint('App opened from terminated state via notification!');
       }
-    });
 
-    // Background messages handled via top-level function
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-    // App opened from background/terminated state
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      debugPrint('App opened from notification!');
-      // Handle navigation based on message.data
-    });
-
-    // Handle initial message if app was terminated
-    RemoteMessage? initialMessage = await _fcm.getInitialMessage();
-    if (initialMessage != null) {
-      debugPrint('App opened from terminated state via notification!');
+      // 4. Listen for token refresh
+      fcm.onTokenRefresh.listen((newToken) {
+        syncTokenToSupabase(newToken);
+      });
+    } else {
+      debugPrint('⚠️ Firebase not configured — push notifications disabled, local notifications only');
     }
-
-    // 4. Listen for token refresh
-    _fcm.onTokenRefresh.listen((newToken) {
-      syncTokenToSupabase(newToken);
-    });
 
     // 5. Initial sync if user is already logged in
     await syncTokenToSupabase();
@@ -228,7 +234,12 @@ class NotificationService {
     }
 
     // 2. FCM/iOS Permission Request
-    NotificationSettings settings = await _fcm.requestPermission(
+    if (!firebaseConfigured) {
+      debugPrint('⚠️ Firebase not configured — skipping FCM permission request');
+      return true;
+    }
+
+    NotificationSettings settings = await _fcm!.requestPermission(
       alert: true,
       badge: true,
       sound: true,
@@ -249,8 +260,9 @@ class NotificationService {
 
   /// Get the current FCM token
   Future<String?> getFcmToken() async {
+    if (!firebaseConfigured) return null;
     try {
-      return await _fcm.getToken();
+      return await _fcm!.getToken();
     } catch (e) {
       debugPrint('Error getting FCM token: $e');
       return null;

@@ -3,6 +3,7 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:facebook_app_events/facebook_app_events.dart';
 import 'package:app_tracking_transparency/app_tracking_transparency.dart';
 import 'package:flutter/foundation.dart';
+import '../config/firebase_config.dart';
 
 class AnalyticsService {
   static final AnalyticsService _instance = AnalyticsService._internal();
@@ -23,11 +24,15 @@ class AnalyticsService {
   Future<void> initialize() async {
     try {
       debugPrint('🚀 Analytics: Initializing...');
-      
-      // Initialize Firebase
-      _analytics = FirebaseAnalytics.instance;
-      await _analytics!.setAnalyticsCollectionEnabled(true);
-      
+
+      // Initialize Firebase (only when this build has Firebase configured)
+      if (firebaseConfigured) {
+        _analytics = FirebaseAnalytics.instance;
+        await _analytics!.setAnalyticsCollectionEnabled(true);
+      } else {
+        debugPrint('⚠️ Analytics: Firebase not configured — Firebase Analytics disabled');
+      }
+
       // Initialize Facebook (Meta) SDK
       // Note: facebook_app_events handles initialization automatically in the native layer
       // but we force these flags here to ensure the Advertiser ID is collected.
