@@ -2130,7 +2130,12 @@ class _HeroMetricCardContent extends StatelessWidget {
 
     return Padding(
       padding: padding,
-      child: Column(
+      // Scrollable (but non-scrolling) wrapper: gives the Column unbounded height so it
+      // never overflows its fixed-height slot on short screens (small rs) instead of
+      // throwing a RenderFlex overflow.
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 1. Header Row
@@ -2210,6 +2215,7 @@ class _HeroMetricCardContent extends StatelessWidget {
             ],
           ),
         ],
+        ),
       ),
     );
   }

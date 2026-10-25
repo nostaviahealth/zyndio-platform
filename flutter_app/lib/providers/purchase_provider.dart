@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -43,6 +44,7 @@ class PurchaseNotifier extends Notifier<PurchaseState> with WidgetsBindingObserv
 
   DateTime? _bootTime;
   bool _iconLocked = true; // 🛡️ Prevent app icon changes during the first 15s of boot
+  Timer? _stabilizationTimer;
 
   @override
   PurchaseState build() {
@@ -50,14 +52,16 @@ class PurchaseNotifier extends Notifier<PurchaseState> with WidgetsBindingObserv
 
     // 🛡️ Unlock icon syncing after 15 seconds to allow background services to stabilize.
     // At this point, we perform a definitive ONE-SHOT sync to ensure the UI and Icon match.
-    Future.delayed(const Duration(seconds: 15), () async {
-      _iconLocked = false; 
+    // Cancelled on dispose so it never fires (or touches a disposed ref) after teardown.
+    _stabilizationTimer = Timer(const Duration(seconds: 15), () async {
+      _iconLocked = false;
       debugPrint('🛡️ PurchaseNotifier: Stabilization period complete - triggering One-Shot Icon Sync');
-      
+
       // Perform a final refresh and FORCE the icon to match the result
       await _refreshStatus();
       ref.read(brandingServiceProvider).syncIconWithTier(state.isPlus);
     });
+    ref.onDispose(() => _stabilizationTimer?.cancel());
 
     // Listen to profile changes for admin overrides
     ref.listen<AsyncValue<PatientProfile?>>(patientProfileProvider, (previous, next) {
