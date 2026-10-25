@@ -99,12 +99,6 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     final monthlyPkg = _getMonthlyPackage(purchaseState);
     final annualPkg = _getAnnualPackage(purchaseState);
 
-    // ── Eligibility Check ──
-    final monthlyEligible = monthlyPkg != null && 
-        purchaseState.introEligibility[monthlyPkg.storeProduct.identifier]?.status == IntroEligibilityStatus.introEligibilityStatusEligible;
-    final annualEligible = annualPkg != null && 
-        purchaseState.introEligibility[annualPkg.storeProduct.identifier]?.status == IntroEligibilityStatus.introEligibilityStatusEligible;
-
     // ── Dynamic labels & pricing ──
     final monthlyPrice = _formatPrice(monthlyPkg, '---');
     final annualPrice = _formatPrice(annualPkg, '---');

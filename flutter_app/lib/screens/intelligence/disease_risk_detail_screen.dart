@@ -86,24 +86,19 @@ class _DiseaseRiskDetailScreenState extends ConsumerState<DiseaseRiskDetailScree
 
   Widget _buildExpandableRiskCard(DiseaseRisk risk, bool isExpanded) {
     Color levelColor;
-    Color levelBgColor;
 
     switch (risk.level.toLowerCase()) {
       case 'low':
         levelColor = const Color(0xFF34C759); // iOS Green
-        levelBgColor = const Color(0xFF34C759).withOpacity(0.15);
         break;
       case 'moderate':
         levelColor = const Color(0xFFFF9500); // iOS Orange
-        levelBgColor = const Color(0xFFFF9500).withOpacity(0.15);
         break;
       case 'high':
         levelColor = const Color(0xFFFF3B30); // iOS Red
-        levelBgColor = const Color(0xFFFF3B30).withOpacity(0.15);
         break;
       default:
         levelColor = const Color(0xFF8E8E93); // iOS Gray
-        levelBgColor = const Color(0xFFE5E5EA);
     }
 
     return Container(
@@ -305,28 +300,4 @@ class _DiseaseRiskDetailScreenState extends ConsumerState<DiseaseRiskDetailScree
     );
   }
 
-  Widget _buildVerificationRow(String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: BrandColors.dark,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 12,
-            color: BrandColors.slate500,
-            fontStyle: FontStyle.italic,
-          ),
-        ),
-      ],
-    );
-  }
 }

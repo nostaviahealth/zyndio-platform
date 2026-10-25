@@ -7,7 +7,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'dart:math' as math;
 import '../../models/intelligence_data.dart';
 import '../../config/theme.dart';
-import '../../widgets/app_card.dart';
 import '../../widgets/ai_card.dart';
 import '../../widgets/health_disclaimer_banner.dart';
 import '../../providers/intelligence_provider.dart';
@@ -287,30 +286,6 @@ class IntelligenceScreen extends ConsumerWidget {
   }
 }
 
-/// Glassmorphic card wrapper
-class _GlassCard extends StatelessWidget {
-  final Widget child;
-  final EdgeInsetsGeometry? padding;
-  final BorderRadius? borderRadius;
-
-  const _GlassCard({
-    required this.child,
-    this.padding,
-    this.borderRadius,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: padding ?? const EdgeInsets.all(24),
-      decoration: DashboardCardStyle.decorationOf(context).copyWith(
-        borderRadius: borderRadius ?? BorderRadius.circular(28),
-      ),
-      child: child,
-    );
-  }
-}
-
 class _OverallScoreCard extends StatelessWidget {
   final bool isImmersive;
   final AsyncValue<IntelligenceData?> intelligenceAsync;
@@ -521,150 +496,6 @@ class _OverallScoreCard extends StatelessWidget {
   }
 }
 
-class _RadarChartCard extends ConsumerWidget {
-  final bool isImmersive;
-  final AsyncValue<IntelligenceData?> intelligenceAsync;
-
-  const _RadarChartCard({
-    required this.isImmersive,
-    required this.intelligenceAsync,
-  });
-
-  // Convert 0-100 score to radar axis value (1-5)
-  double _scoreToAxis(int score) {
-    if (score >= 80) return 5;
-    if (score >= 60) return 4;
-    if (score >= 40) return 3;
-    if (score >= 20) return 2;
-    return 1;
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final wearableAsync = ref.watch(wearableStateProvider);
-    const Color emeraldColor = Color(0xFF10B981);
-    const Color cyanColor = Color(0xFF06B6D4);
-
-    final chartContent = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 40),
-      child: SizedBox(
-        height: 280,
-        child: intelligenceAsync.when(
-        data: (data) {
-          final domains = data?.healthDomains ?? [];
-          final wearable = wearableAsync.value;
-          
-          // Build wearable domain data
-          final bool hasWearable = wearable != null && (wearable.recoveryScore > 0 || wearable.sleepScore > 0 || wearable.steps > 0);
-          final wearableDomains = hasWearable ? [
-            {'name': 'Cardio', 'score': ((100 - (wearable.rhr ?? 65)).clamp(0, 100))},
-            {'name': 'Recovery', 'score': wearable.recoveryScore},
-            {'name': 'Sleep', 'score': wearable.sleepScore},
-            {'name': 'Activity', 'score': wearable.strainScore},
-            {'name': 'Stress Mgmt', 'score': (100 - wearable.stressScore).clamp(0, 100)},
-          ] : <Map<String, dynamic>>[];
-
-          // Case 1: No lab data AND no wearable data → hide component (should be handled by parent)
-          if (domains.isEmpty && !hasWearable) {
-            return const SizedBox.shrink();
-          }
-
-          // Case 2: Wearable-only (no lab data) → show wearable radar
-          if (domains.isEmpty && hasWearable) {
-            return RadarChart(
-              RadarChartData(
-                radarShape: RadarShape.polygon,
-                tickCount: 4,
-                ticksTextStyle: const TextStyle(color: Colors.transparent),
-                tickBorderData: const BorderSide(color: BrandColors.slate200),
-                gridBorderData: const BorderSide(color: BrandColors.slate200),
-                radarBorderData: const BorderSide(color: BrandColors.slate200),
-                getTitle: (index, angle) {
-                  if (index >= wearableDomains.length) return const RadarChartTitle(text: '');
-                  return RadarChartTitle(text: wearableDomains[index]['name'] as String, angle: 0);
-                },
-                titlePositionPercentageOffset: 0.2,
-                dataSets: [
-                  RadarDataSet(
-                    fillColor: cyanColor.withValues(alpha: 0.2),
-                    borderColor: cyanColor,
-                    borderWidth: 2,
-                    entryRadius: 3,
-                    dataEntries: wearableDomains.map((d) => RadarEntry(value: _scoreToAxis(d['score'] as int))).toList(),
-                  ),
-                ],
-                titleTextStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: BrandColors.slate600),
-              ),
-              swapAnimationDuration: const Duration(milliseconds: 400),
-              swapAnimationCurve: Curves.easeInOut,
-            );
-          }
-
-          // Case 3: Lab data available (optionally overlay wearable)
-          // Helper to convert grade to value (1-5)
-          double getGradeValue(String? grade, int score) {
-            String effectiveGrade = grade ?? '';
-            if (effectiveGrade.isEmpty || effectiveGrade == '-') {
-              if (score >= 90) {
-                effectiveGrade = 'A';
-              } else if (score >= 80) effectiveGrade = 'B';
-              else if (score >= 70) effectiveGrade = 'C';
-              else if (score >= 60) effectiveGrade = 'D';
-              else effectiveGrade = 'F';
-            }
-            if (effectiveGrade.startsWith('A')) return 5;
-            if (effectiveGrade.startsWith('B')) return 4;
-            if (effectiveGrade.startsWith('C')) return 3;
-            if (effectiveGrade.startsWith('D')) return 2;
-            return 1;
-          }
-
-          return RadarChart(
-            RadarChartData(
-              radarShape: RadarShape.polygon,
-              tickCount: 4,
-              ticksTextStyle: const TextStyle(color: Colors.transparent),
-              tickBorderData: const BorderSide(color: BrandColors.slate200),
-              gridBorderData: const BorderSide(color: BrandColors.slate200),
-              radarBorderData: const BorderSide(color: BrandColors.slate200),
-              getTitle: (index, angle) {
-                if (index >= domains.length) return const RadarChartTitle(text: '');
-                return RadarChartTitle(text: domains[index].name, angle: 0);
-              },
-              titlePositionPercentageOffset: 0.2,
-              dataSets: [
-                RadarDataSet(
-                  fillColor: emeraldColor.withValues(alpha: 0.2),
-                  borderColor: emeraldColor,
-                  borderWidth: 2,
-                  entryRadius: 3,
-                  dataEntries: domains.map((d) {
-                    return RadarEntry(value: getGradeValue(d.grade, d.score));
-                  }).toList(),
-                ),
-              ],
-              titleTextStyle: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: BrandColors.slate600,
-              ),
-            ),
-            swapAnimationDuration: const Duration(milliseconds: 400),
-            swapAnimationCurve: Curves.easeInOut,
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => Center(child: Text('Error loading chart', style: TextStyle(color: context.nc.textSecondary))),
-      ),
-    ),
-  );
-
-    if (isImmersive) {
-      return _GlassCard(child: chartContent);
-    }
-    return AppCard(child: chartContent);
-  }
-}
 
 class _HealthDomainsSummaryCard extends StatelessWidget {
   final bool isImmersive;

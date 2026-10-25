@@ -298,23 +298,6 @@ class _NotificationCard extends ConsumerWidget {
 
   const _NotificationCard({required this.notification});
 
-  Color _getTypeColor(NotificationType type) {
-    switch (type) {
-      case NotificationType.success:
-        return BrandColors.emerald500;
-      case NotificationType.error:
-        return Colors.redAccent;
-      case NotificationType.warning:
-        return Colors.amber;
-      case NotificationType.alert:
-        return Colors.orangeAccent;
-      case NotificationType.protocol:
-        return BrandColors.blue500;
-      case NotificationType.info:
-        return BrandColors.slate400;
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return GestureDetector(
