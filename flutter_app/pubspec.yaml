@@ -109,14 +109,12 @@ flutter:
     - assets/icons/nav/
     # - assets/meditation/
   
-  # fonts:
-  #   - family: SF Pro Display
-  #     fonts:
-  #       - asset: fonts/SF-Pro-Display-Regular.otf
-  #       - asset: fonts/SF-Pro-Display-Medium.otf
-  #         weight: 500
-  #       - asset: fonts/SF-Pro-Display-Bold.otf
-  #         weight: 700
+  # Inter (SIL Open Font License 1.1, see assets/fonts/OFL.txt). Variable font:
+  # one file covers every weight used by the Zyndio theme.
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-VariableFont_opsz,wght.ttf
 
 flutter_native_splash:
   color: "#FFFFFF"
