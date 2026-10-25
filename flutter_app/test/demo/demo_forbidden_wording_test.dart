@@ -7,6 +7,8 @@ import 'package:zyndio_patient/demo/screens/consent/consent_state.dart';
 import 'package:zyndio_patient/demo/screens/consent/consent_view.dart';
 import 'package:zyndio_patient/demo/screens/lab_review/lab_review_state.dart';
 import 'package:zyndio_patient/demo/screens/lab_review/lab_review_view.dart';
+import 'package:zyndio_patient/demo/screens/lab_trends/lab_trends_state.dart';
+import 'package:zyndio_patient/demo/screens/lab_trends/lab_trends_view.dart';
 import 'package:zyndio_patient/demo/screens/lab_upload/lab_upload_state.dart';
 import 'package:zyndio_patient/demo/screens/lab_upload/lab_upload_view.dart';
 import 'package:zyndio_patient/demo/screens/signin/signin_state.dart';
@@ -107,6 +109,23 @@ void main() {
       ]) {
         testWidgets('$brightness state', (tester) async {
           await tester.pumpWidget(wrap(LabReviewView(state: state), brightness));
+          expectNoForbiddenWording(tester);
+        });
+      }
+    }
+  });
+
+  group('Lab trends (05/06): no forbidden wording in any state/mode', () {
+    for (final brightness in Brightness.values) {
+      for (final state in [
+        LabTrendsState.loading(),
+        LabTrendsState.defaultState(),
+        LabTrendsState.single(),
+        LabTrendsState.error(),
+        LabTrendsState.above(),
+      ]) {
+        testWidgets('$brightness state', (tester) async {
+          await tester.pumpWidget(wrap(LabTrendsView(state: state), brightness));
           expectNoForbiddenWording(tester);
         });
       }

@@ -11,6 +11,9 @@ import 'screens/consent/consent_view.dart';
 import 'screens/lab_review/lab_review_controller.dart';
 import 'screens/lab_review/lab_review_state.dart';
 import 'screens/lab_review/lab_review_view.dart';
+import 'screens/lab_trends/lab_trends_controller.dart';
+import 'screens/lab_trends/lab_trends_state.dart';
+import 'screens/lab_trends/lab_trends_view.dart';
 import 'screens/lab_upload/lab_upload_controller.dart';
 import 'screens/lab_upload/lab_upload_state.dart';
 import 'screens/lab_upload/lab_upload_view.dart';
@@ -92,6 +95,12 @@ class _DemoHomeState extends State<_DemoHome> {
       }
       return const _InteractiveLabReview();
     }
+    if (screen == 'lab-trends') {
+      if (widget.params.state != null) {
+        return LabTrendsView(state: labTrendsStateForQueryState(widget.params.state));
+      }
+      return const _InteractiveLabTrends();
+    }
 
     final colors = Theme.of(context).extension<ZyndioColors>()!;
     final label = screen == null
@@ -167,5 +176,26 @@ class _InteractiveLabReview extends ConsumerWidget {
     final state = ref.watch(labReviewControllerProvider);
     final controller = ref.read(labReviewControllerProvider.notifier);
     return LabReviewView(state: state, onSave: controller.save);
+  }
+}
+
+class _InteractiveLabTrends extends ConsumerStatefulWidget {
+  const _InteractiveLabTrends();
+
+  @override
+  ConsumerState<_InteractiveLabTrends> createState() => _InteractiveLabTrendsState();
+}
+
+class _InteractiveLabTrendsState extends ConsumerState<_InteractiveLabTrends> {
+  @override
+  void initState() {
+    super.initState();
+    ref.read(labTrendsControllerProvider.notifier).refresh();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(labTrendsControllerProvider);
+    return LabTrendsView(state: state);
   }
 }
