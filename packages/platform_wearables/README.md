@@ -1,8 +1,5 @@
 # Zyndio Wearables SDK
 
-[![pub package](https://img.shields.io/pub/v/platform_wearables.svg)](https://pub.dev/packages/platform_wearables)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
 A unified Flutter SDK for aggregating health and fitness data from multiple wearable devices and platforms. Connect users to Apple HealthKit, Google Health Connect, Oura, Whoop, Fitbit, Withings, Polar, Garmin, Dexcom, and Ultrahuman with a single API.
 
 ## Features
