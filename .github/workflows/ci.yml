@@ -38,6 +38,17 @@ jobs:
         working-directory: packages/platform_wearables
         run: flutter pub get
 
+      - name: Gradle memory limits for CI runner
+        run: |
+          mkdir -p ~/.gradle
+          cat >> ~/.gradle/gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError
+          kotlin.daemon.jvmargs=-Xmx1g
+          org.gradle.workers.max=2
+          org.gradle.daemon=false
+          EOF
+          free -h
+
       - name: Analyze gate
         run: bash scripts/analyze-gate.sh
 
@@ -146,6 +157,17 @@ jobs:
       - name: pub get (flutter_app)
         working-directory: flutter_app
         run: flutter pub get
+
+      - name: Gradle memory limits for CI runner
+        run: |
+          mkdir -p ~/.gradle
+          cat >> ~/.gradle/gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError
+          kotlin.daemon.jvmargs=-Xmx1g
+          org.gradle.workers.max=2
+          org.gradle.daemon=false
+          EOF
+          free -h
 
       - name: Build web (root)
         run: |
