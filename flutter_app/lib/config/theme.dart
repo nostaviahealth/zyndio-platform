@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter/services.dart';
 
 /// Zyndio Color Palette
 /// Matches the React web app design system
@@ -52,6 +50,372 @@ class BrandColors {
   static const Color red600 = Color(0xFFDC2626);
   static const Color amber400 = Color(0xFFFBBF24);
   static const Color amber500 = Color(0xFFF59E0B);
+}
+
+// ─────────────────────────────────────────────────────────────
+// ZYNDIO DESIGN TOKENS — generated from design/handoff/tokens/zyndio-site.tokens.json
+// ─────────────────────────────────────────────────────────────
+
+/// Semantic colour tokens (1:1 with color.* in the tokens JSON). Read via
+/// `Theme.of(context).extension<ZyndioColors>()!`.
+@immutable
+class ZyndioColors extends ThemeExtension<ZyndioColors> {
+  const ZyndioColors({required this.bgCanvas, required this.bgSurface, required this.bgSunken, required this.textPrimary, required this.textSecondary, required this.textTertiary, required this.borderSubtle, required this.borderStrong, required this.brandPrimary, required this.brandOnPrimary, required this.brandSubtle, required this.brandOnSubtle, required this.actionSecondary, required this.actionOnSecondary, required this.statusSuccess, required this.statusSuccessSubtle, required this.statusWarning, required this.statusWarningSubtle, required this.statusCritical, required this.statusCriticalSubtle, required this.chartLine, required this.chartRange, required this.focusRing});
+
+  /// Screen background
+  final Color bgCanvas;
+  /// Cards, sheets, inputs, tab bar
+  final Color bgSurface;
+  /// Skeletons, segmented track, inset areas
+  final Color bgSunken;
+  /// Headings, body, values
+  final Color textPrimary;
+  /// Supporting copy
+  final Color textSecondary;
+  /// Meta, captions, units (contrast ratio >= 4.5:1 on surface & sunken)
+  final Color textTertiary;
+  /// Dividers, card hairlines (decorative, no contrast requirement)
+  final Color borderSubtle;
+  /// Input/outline-button borders, unchecked controls (contrast ratio >= 3:1)
+  final Color borderStrong;
+  /// PLACEHOLDER brand: primary buttons, links, active tab, selected controls
+  final Color brandPrimary;
+  /// Text/icons on brand.primary
+  final Color brandOnPrimary;
+  /// PLACEHOLDER brand tint: info banners, brand badge
+  final Color brandSubtle;
+  /// Text on brand.subtle
+  final Color brandOnSubtle;
+  /// Strong secondary button fill (near-black / inverse)
+  final Color actionSecondary;
+  /// Text on action.secondary
+  final Color actionOnSecondary;
+  /// Success text/icon
+  final Color statusSuccess;
+  /// Success banner/badge fill
+  final Color statusSuccessSubtle;
+  /// Warning text/icon
+  final Color statusWarning;
+  /// Warning banner/badge fill, FICTIONAL DATA tag
+  final Color statusWarningSubtle;
+  /// Error text/icon/field border
+  final Color statusCritical;
+  /// Error banner/badge fill
+  final Color statusCriticalSubtle;
+  /// Trend line & points
+  final Color chartLine;
+  /// Default-range band
+  final Color chartRange;
+  /// Keyboard/switch-control focus ring
+  final Color focusRing;
+
+  static const light = ZyndioColors(
+    bgCanvas: Color(0xFFF1F4FC),
+    bgSurface: Color(0xFFFFFFFF),
+    bgSunken: Color(0xFFE6ECFA),
+    textPrimary: Color(0xFF030616),
+    textSecondary: Color(0xFF48556A),
+    textTertiary: Color(0xFF56637B),
+    borderSubtle: Color(0xFFDEE5F5),
+    borderStrong: Color(0xFF7A86A0),
+    brandPrimary: Color(0xFF2C5CF2),
+    brandOnPrimary: Color(0xFFFFFFFF),
+    brandSubtle: Color(0xFFDEEAFC),
+    brandOnSubtle: Color(0xFF2346DD),
+    actionSecondary: Color(0xFF030616),
+    actionOnSecondary: Color(0xFFFFFFFF),
+    statusSuccess: Color(0xFF15784A),
+    statusSuccessSubtle: Color(0xFFE3F5EC),
+    statusWarning: Color(0xFF8A4F00),
+    statusWarningSubtle: Color(0xFFFBEFD8),
+    statusCritical: Color(0xFFB42318),
+    statusCriticalSubtle: Color(0xFFFCE8E6),
+    chartLine: Color(0xFF2C5CF2),
+    chartRange: Color(0xFFE3F5EC),
+    focusRing: Color(0xFF2346DD),
+  );
+
+  static const dark = ZyndioColors(
+    bgCanvas: Color(0xFF070A14),
+    bgSurface: Color(0xFF10141F),
+    bgSunken: Color(0xFF0B0F19),
+    textPrimary: Color(0xFFEEF1F8),
+    textSecondary: Color(0xFFA6B0C3),
+    textTertiary: Color(0xFF8F9AAF),
+    borderSubtle: Color(0xFF222838),
+    borderStrong: Color(0xFF6C7690),
+    brandPrimary: Color(0xFF7C9CFF),
+    brandOnPrimary: Color(0xFF030616),
+    brandSubtle: Color(0xFF18224A),
+    brandOnSubtle: Color(0xFFAFC3FF),
+    actionSecondary: Color(0xFFF1F4FC),
+    actionOnSecondary: Color(0xFF030616),
+    statusSuccess: Color(0xFF5FD39A),
+    statusSuccessSubtle: Color(0xFF0F2A1D),
+    statusWarning: Color(0xFFF2B65A),
+    statusWarningSubtle: Color(0xFF2F220D),
+    statusCritical: Color(0xFFFF8F86),
+    statusCriticalSubtle: Color(0xFF3A1614),
+    chartLine: Color(0xFF7C9CFF),
+    chartRange: Color(0xFF0F2A1D),
+    focusRing: Color(0xFFAFC3FF),
+  );
+
+  @override
+  ZyndioColors copyWith({Color? bgCanvas, Color? bgSurface, Color? bgSunken, Color? textPrimary, Color? textSecondary, Color? textTertiary, Color? borderSubtle, Color? borderStrong, Color? brandPrimary, Color? brandOnPrimary, Color? brandSubtle, Color? brandOnSubtle, Color? actionSecondary, Color? actionOnSecondary, Color? statusSuccess, Color? statusSuccessSubtle, Color? statusWarning, Color? statusWarningSubtle, Color? statusCritical, Color? statusCriticalSubtle, Color? chartLine, Color? chartRange, Color? focusRing}) => ZyndioColors(
+        bgCanvas: bgCanvas ?? this.bgCanvas,
+        bgSurface: bgSurface ?? this.bgSurface,
+        bgSunken: bgSunken ?? this.bgSunken,
+        textPrimary: textPrimary ?? this.textPrimary,
+        textSecondary: textSecondary ?? this.textSecondary,
+        textTertiary: textTertiary ?? this.textTertiary,
+        borderSubtle: borderSubtle ?? this.borderSubtle,
+        borderStrong: borderStrong ?? this.borderStrong,
+        brandPrimary: brandPrimary ?? this.brandPrimary,
+        brandOnPrimary: brandOnPrimary ?? this.brandOnPrimary,
+        brandSubtle: brandSubtle ?? this.brandSubtle,
+        brandOnSubtle: brandOnSubtle ?? this.brandOnSubtle,
+        actionSecondary: actionSecondary ?? this.actionSecondary,
+        actionOnSecondary: actionOnSecondary ?? this.actionOnSecondary,
+        statusSuccess: statusSuccess ?? this.statusSuccess,
+        statusSuccessSubtle: statusSuccessSubtle ?? this.statusSuccessSubtle,
+        statusWarning: statusWarning ?? this.statusWarning,
+        statusWarningSubtle: statusWarningSubtle ?? this.statusWarningSubtle,
+        statusCritical: statusCritical ?? this.statusCritical,
+        statusCriticalSubtle: statusCriticalSubtle ?? this.statusCriticalSubtle,
+        chartLine: chartLine ?? this.chartLine,
+        chartRange: chartRange ?? this.chartRange,
+        focusRing: focusRing ?? this.focusRing,
+      );
+
+  @override
+  ZyndioColors lerp(ThemeExtension<ZyndioColors>? other, double t) {
+    if (other is! ZyndioColors) return this;
+    return ZyndioColors(
+      bgCanvas: Color.lerp(bgCanvas, other.bgCanvas, t)!,
+      bgSurface: Color.lerp(bgSurface, other.bgSurface, t)!,
+      bgSunken: Color.lerp(bgSunken, other.bgSunken, t)!,
+      textPrimary: Color.lerp(textPrimary, other.textPrimary, t)!,
+      textSecondary: Color.lerp(textSecondary, other.textSecondary, t)!,
+      textTertiary: Color.lerp(textTertiary, other.textTertiary, t)!,
+      borderSubtle: Color.lerp(borderSubtle, other.borderSubtle, t)!,
+      borderStrong: Color.lerp(borderStrong, other.borderStrong, t)!,
+      brandPrimary: Color.lerp(brandPrimary, other.brandPrimary, t)!,
+      brandOnPrimary: Color.lerp(brandOnPrimary, other.brandOnPrimary, t)!,
+      brandSubtle: Color.lerp(brandSubtle, other.brandSubtle, t)!,
+      brandOnSubtle: Color.lerp(brandOnSubtle, other.brandOnSubtle, t)!,
+      actionSecondary: Color.lerp(actionSecondary, other.actionSecondary, t)!,
+      actionOnSecondary: Color.lerp(actionOnSecondary, other.actionOnSecondary, t)!,
+      statusSuccess: Color.lerp(statusSuccess, other.statusSuccess, t)!,
+      statusSuccessSubtle: Color.lerp(statusSuccessSubtle, other.statusSuccessSubtle, t)!,
+      statusWarning: Color.lerp(statusWarning, other.statusWarning, t)!,
+      statusWarningSubtle: Color.lerp(statusWarningSubtle, other.statusWarningSubtle, t)!,
+      statusCritical: Color.lerp(statusCritical, other.statusCritical, t)!,
+      statusCriticalSubtle: Color.lerp(statusCriticalSubtle, other.statusCriticalSubtle, t)!,
+      chartLine: Color.lerp(chartLine, other.chartLine, t)!,
+      chartRange: Color.lerp(chartRange, other.chartRange, t)!,
+      focusRing: Color.lerp(focusRing, other.focusRing, t)!,
+    );
+  }
+}
+
+/// Type scale (1:1 with typography.*). height = lineHeight / fontSize; letterSpacing in logical px.
+/// Sizes are the default (Large) Dynamic Type size; Flutter scales them with MediaQuery.textScaler. Do not clamp below 2.0.
+abstract final class ZyndioType {
+  static const String family = 'Inter';
+  static const List<FontFeature> tabular = [FontFeature.tabularFigures()];
+  static const TextStyle display = TextStyle(fontFamily: family, fontSize: 34, height: 40 / 34, fontWeight: FontWeight.w700, letterSpacing: -0.85);
+  static const TextStyle title1 = TextStyle(fontFamily: family, fontSize: 28, height: 36 / 28, fontWeight: FontWeight.w700, letterSpacing: -0.7);
+  static const TextStyle title2 = TextStyle(fontFamily: family, fontSize: 22, height: 28 / 22, fontWeight: FontWeight.w700, letterSpacing: -0.55);
+  static const TextStyle title3 = TextStyle(fontFamily: family, fontSize: 20, height: 24 / 20, fontWeight: FontWeight.w600, letterSpacing: 0);
+  static const TextStyle headline = TextStyle(fontFamily: family, fontSize: 17, height: 24 / 17, fontWeight: FontWeight.w600, letterSpacing: 0);
+  static const TextStyle body = TextStyle(fontFamily: family, fontSize: 17, height: 24 / 17, fontWeight: FontWeight.w400, letterSpacing: 0);
+  static const TextStyle callout = TextStyle(fontFamily: family, fontSize: 16, height: 24 / 16, fontWeight: FontWeight.w400, letterSpacing: 0);
+  static const TextStyle subhead = TextStyle(fontFamily: family, fontSize: 15, height: 20 / 15, fontWeight: FontWeight.w400, letterSpacing: 0);
+  static const TextStyle footnote = TextStyle(fontFamily: family, fontSize: 13, height: 18 / 13, fontWeight: FontWeight.w400, letterSpacing: 0);
+  static const TextStyle caption = TextStyle(fontFamily: family, fontSize: 12, height: 16 / 12, fontWeight: FontWeight.w500, letterSpacing: 0);
+  static const TextStyle numericHero = TextStyle(fontFamily: family, fontSize: 44, height: 48 / 44, fontWeight: FontWeight.w700, letterSpacing: 0, fontFeatures: tabular);
+
+  /// Lab values, dates in tables, deltas: always tabular figures.
+  static TextStyle numeric(TextStyle base) => base.copyWith(fontFeatures: tabular);
+
+  static TextTheme textTheme(Color primary, Color muted) => TextTheme(
+        headlineLarge: display.copyWith(color: primary),
+        headlineMedium: title1.copyWith(color: primary),
+        headlineSmall: title2.copyWith(color: primary),
+        titleLarge: title3.copyWith(color: primary),
+        titleMedium: headline.copyWith(color: primary),
+        bodyLarge: body.copyWith(color: primary),
+        bodyMedium: callout.copyWith(color: primary),
+        labelLarge: subhead.copyWith(color: primary),
+        bodySmall: footnote.copyWith(color: muted),
+        labelSmall: caption.copyWith(color: muted),
+      );
+}
+
+/// 8pt grid (4 allowed for tight inline gaps)
+abstract final class ZyndioSpace {
+  static const double s0 = 0.0;
+  static const double s4 = 4.0;
+  static const double s8 = 8.0;
+  static const double s12 = 12.0;
+  static const double s16 = 16.0;
+  static const double s24 = 24.0;
+  static const double s32 = 32.0;
+  static const double s40 = 40.0;
+  static const double s48 = 48.0;
+  static const double s64 = 64.0;
+}
+
+/// Corner radii; button/pill 999 = StadiumBorder
+abstract final class ZyndioRadius {
+  static const double sm = 10.0;
+  static const double md = 16.0;
+  static const double lg = 16.0;
+  static const double button = 999.0;
+  static const double pill = 999.0;
+}
+
+/// Component sizes; every interactive hit area >= touchMin
+abstract final class ZyndioSize {
+  static const double touchMin = 44.0;
+  static const double buttonHeight = 52.0;
+  static const double buttonSmallHeight = 44.0;
+  static const double fieldHeight = 48.0;
+  static const double rowMin = 56.0;
+  static const double historyRowMin = 48.0;
+  static const double navBarHeight = 44.0;
+  static const double tabBarHeight = 83.0;
+  static const double segmentedHeight = 44.0;
+  static const double otpCellWidth = 48.0;
+  static const double otpCellHeight = 56.0;
+  static const double checkbox = 24.0;
+  static const double switchWidth = 51.0;
+  static const double switchHeight = 31.0;
+  static const double icon = 24.0;
+  static const double iconSmall = 18.0;
+  static const double spinner = 20.0;
+  static const double progressHeight = 4.0;
+  static const double chartHeight = 176.0;
+}
+
+/// Stroke widths
+abstract final class ZyndioBorder {
+  static const double hairline = 1.0;
+  static const double control = 2.0;
+  static const double focus = 3.0;
+}
+
+/// Card shadow (light only; dark = none).
+abstract final class ZyndioShadow {
+  static const List<BoxShadow> card = [
+    BoxShadow(color: Color(0x0A030616), offset: Offset(0, 1), blurRadius: 2, spreadRadius: 0),
+    BoxShadow(color: Color(0x142C5CF2), offset: Offset(0, 8), blurRadius: 24, spreadRadius: 0),
+  ];
+  static List<BoxShadow> cardFor(Brightness b) => b == Brightness.light ? card : const [];
+}
+
+/// Motion. Use [ZyndioMotion.of] so OS Reduce Motion (MediaQuery.disableAnimations) collapses to 0.
+abstract final class ZyndioMotion {
+  static const Duration standard = Duration(milliseconds: 200);
+  static const Duration reduced = Duration(milliseconds: 0);
+  static Duration of(BuildContext context) => MediaQuery.of(context).disableAnimations ? reduced : standard;
+}
+
+/// ThemeData for light/dark built from the Zyndio tokens. Material widgets are themed to the
+/// spec; custom widgets should read colours from [ZyndioColors] (or the legacy [BrandThemeColors]
+/// via `context.nc`), never hex literals.
+ThemeData _zyndioThemeData(Brightness brightness) {
+  final c = brightness == Brightness.light ? ZyndioColors.light : ZyndioColors.dark;
+  final legacy = brightness == Brightness.light ? BrandThemeColors.light : BrandThemeColors.dark;
+  final scheme = ColorScheme(
+    brightness: brightness,
+    primary: c.brandPrimary,
+    onPrimary: c.brandOnPrimary,
+    primaryContainer: c.brandSubtle,
+    onPrimaryContainer: c.brandOnSubtle,
+    secondary: c.actionSecondary,
+    onSecondary: c.actionOnSecondary,
+    error: c.statusCritical,
+    onError: c.brandOnPrimary,
+    errorContainer: c.statusCriticalSubtle,
+    onErrorContainer: c.statusCritical,
+    surface: c.bgSurface,
+    onSurface: c.textPrimary,
+    onSurfaceVariant: c.textSecondary,
+    surfaceContainerHighest: c.bgSunken,
+    outline: c.borderStrong,
+    outlineVariant: c.borderSubtle,
+  );
+  final text = ZyndioType.textTheme(c.textPrimary, c.textTertiary);
+  const pill = StadiumBorder();
+  return ThemeData(
+    useMaterial3: true,
+    brightness: brightness,
+    colorScheme: scheme,
+    scaffoldBackgroundColor: c.bgCanvas,
+    fontFamily: ZyndioType.family,
+    textTheme: text,
+    materialTapTargetSize: MaterialTapTargetSize.padded,
+    visualDensity: VisualDensity.standard,
+    splashFactory: NoSplash.splashFactory,
+    extensions: <ThemeExtension<dynamic>>[c, legacy],
+    dividerTheme: DividerThemeData(color: c.borderSubtle, thickness: ZyndioBorder.hairline, space: ZyndioBorder.hairline),
+    filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(
+      backgroundColor: c.brandPrimary, foregroundColor: c.brandOnPrimary,
+      minimumSize: const Size(ZyndioSize.touchMin, ZyndioSize.buttonHeight), shape: pill,
+      textStyle: ZyndioType.headline, padding: const EdgeInsets.symmetric(horizontal: ZyndioSpace.s24))),
+    outlinedButtonTheme: OutlinedButtonThemeData(style: OutlinedButton.styleFrom(
+      backgroundColor: c.bgSurface, foregroundColor: c.textPrimary, side: BorderSide(color: c.borderStrong),
+      minimumSize: const Size(ZyndioSize.touchMin, ZyndioSize.buttonHeight), shape: pill, textStyle: ZyndioType.headline)),
+    elevatedButtonTheme: ElevatedButtonThemeData(style: ElevatedButton.styleFrom(
+      backgroundColor: c.brandPrimary, foregroundColor: c.brandOnPrimary,
+      padding: const EdgeInsets.symmetric(horizontal: ZyndioSpace.s24, vertical: ZyndioSpace.s16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ZyndioRadius.sm)),
+      textStyle: ZyndioType.headline)),
+    textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(
+      foregroundColor: c.brandPrimary, minimumSize: const Size(ZyndioSize.touchMin, ZyndioSize.touchMin),
+      textStyle: ZyndioType.subhead.copyWith(fontWeight: FontWeight.w600))),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true, fillColor: c.bgSurface,
+      constraints: const BoxConstraints(minHeight: ZyndioSize.fieldHeight),
+      contentPadding: const EdgeInsets.symmetric(horizontal: ZyndioSpace.s16, vertical: ZyndioSpace.s12),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(ZyndioRadius.sm), borderSide: BorderSide(color: c.borderStrong)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(ZyndioRadius.sm), borderSide: BorderSide(color: c.borderStrong)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(ZyndioRadius.sm), borderSide: BorderSide(color: c.focusRing, width: ZyndioBorder.focus)),
+      errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(ZyndioRadius.sm), borderSide: BorderSide(color: c.statusCritical, width: ZyndioBorder.control)),
+      focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(ZyndioRadius.sm), borderSide: BorderSide(color: c.statusCritical, width: ZyndioBorder.focus)),
+      labelStyle: ZyndioType.subhead.copyWith(fontWeight: FontWeight.w600, color: c.textPrimary),
+      errorStyle: ZyndioType.footnote.copyWith(color: c.statusCritical), errorMaxLines: 3,
+      hintStyle: ZyndioType.body.copyWith(color: c.textTertiary)),
+    cardTheme: CardThemeData(color: c.bgSurface, elevation: 0, margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(ZyndioRadius.lg), side: BorderSide(color: c.borderSubtle))),
+    checkboxTheme: CheckboxThemeData(
+      fillColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? c.brandPrimary : c.bgSurface),
+      checkColor: WidgetStatePropertyAll(c.brandOnPrimary),
+      side: BorderSide(color: c.borderStrong, width: ZyndioBorder.control),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))),
+    switchTheme: SwitchThemeData(
+      trackColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? c.brandPrimary : c.bgSunken),
+      trackOutlineColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? c.brandPrimary : c.borderStrong),
+      thumbColor: WidgetStatePropertyAll(c.bgSurface)),
+    segmentedButtonTheme: SegmentedButtonThemeData(style: SegmentedButton.styleFrom(
+      backgroundColor: c.bgSunken, foregroundColor: c.textSecondary,
+      selectedBackgroundColor: c.bgSurface, selectedForegroundColor: c.textPrimary,
+      side: BorderSide.none, minimumSize: const Size(ZyndioSize.touchMin, ZyndioSize.segmentedHeight),
+      textStyle: ZyndioType.footnote.copyWith(fontWeight: FontWeight.w600), shape: pill)),
+    progressIndicatorTheme: ProgressIndicatorThemeData(color: c.brandPrimary, linearTrackColor: c.bgSunken, circularTrackColor: c.brandSubtle),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: c.bgSurface, indicatorColor: Colors.transparent,
+      iconTheme: WidgetStateProperty.resolveWith((s) => IconThemeData(size: ZyndioSize.icon, color: s.contains(WidgetState.selected) ? c.brandPrimary : c.textTertiary)),
+      labelTextStyle: WidgetStateProperty.resolveWith((s) => ZyndioType.caption.copyWith(fontSize: 10, fontWeight: FontWeight.w600, color: s.contains(WidgetState.selected) ? c.brandPrimary : c.textTertiary))),
+    bottomNavigationBarTheme: BottomNavigationBarThemeData(
+      backgroundColor: c.bgSurface, selectedItemColor: c.brandPrimary, unselectedItemColor: c.textTertiary,
+      type: BottomNavigationBarType.fixed, elevation: 0),
+    appBarTheme: AppBarTheme(backgroundColor: c.bgCanvas, foregroundColor: c.brandPrimary, elevation: 0, scrolledUnderElevation: 0,
+      titleTextStyle: ZyndioType.headline.copyWith(color: c.textPrimary), toolbarHeight: ZyndioSize.navBarHeight),
+    snackBarTheme: SnackBarThemeData(backgroundColor: c.actionSecondary, contentTextStyle: ZyndioType.subhead.copyWith(color: c.actionOnSecondary)),
+  );
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -257,345 +621,11 @@ extension BrandThemeX on BuildContext {
 
 /// Zyndio Theme Configuration
 class BrandTheme {
-  static ThemeData get lightTheme {
-    return ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.light,
-      primaryColor: BrandColors.dark,
-      scaffoldBackgroundColor: BrandColors.background,
-      colorScheme: ColorScheme.light(
-        primary: BrandColors.dark,
-        secondary: BrandColors.gold,
-        surface: Colors.white,
-        error: BrandColors.red500,
-      ),
-      appBarTheme: AppBarTheme(
-        backgroundColor: Colors.white,
-        foregroundColor: BrandColors.dark,
-        elevation: 0,
-        centerTitle: false,
-        titleTextStyle: GoogleFonts.inter(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          color: BrandColors.dark,
-        ),
-        systemOverlayStyle: SystemUiOverlayStyle.dark,
-      ),
-      bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: Colors.white,
-        selectedItemColor: BrandColors.sageDark,
-        unselectedItemColor: BrandColors.slate400,
-        type: BottomNavigationBarType.fixed,
-        elevation: 8,
-      ),
-      cardTheme: CardThemeData(
-        color: Colors.white,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-          side: BorderSide(color: BrandColors.slate100),
-        ),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: BrandColors.slate50,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: BrandColors.slate200),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: BrandColors.slate200),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: BrandColors.dark, width: 2),
-        ),
-        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        hintStyle: TextStyle(color: BrandColors.slate400),
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: BrandColors.dark,
-          foregroundColor: Colors.white,
-          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 4,
-          textStyle: GoogleFonts.inter(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-      textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          foregroundColor: BrandColors.dark,
-          textStyle: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
-      textTheme: _lightTextTheme,
-      extensions: const [BrandThemeColors.light],
-    );
-  }
+  /// Light ThemeData built from the Zyndio design tokens. Registers both
+  /// [ZyndioColors] (new semantic tokens) and [BrandThemeColors] (legacy
+  /// `context.nc` tokens still read by existing screens) as extensions.
+  static ThemeData get lightTheme => _zyndioThemeData(Brightness.light);
 
-  static ThemeData get darkTheme {
-    const c = BrandThemeColors.dark;
-    return ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.dark,
-      primaryColor: Colors.white,
-      scaffoldBackgroundColor: c.scaffoldBg,
-      canvasColor: Colors.black,
-      cardColor: c.cardSurface,
-      dialogBackgroundColor: const Color(0xFF0F172A),
-      colorScheme: ColorScheme.dark(
-        primary: Colors.white,
-        secondary: BrandColors.gold,
-        surface: const Color(0xFF1E293B),
-        onSurface: c.textPrimary,
-        error: BrandColors.red500,
-      ),
-      appBarTheme: AppBarTheme(
-        backgroundColor: c.cardSurface,
-        foregroundColor: c.textPrimary,
-        elevation: 0,
-        centerTitle: false,
-        titleTextStyle: GoogleFonts.inter(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          color: c.textPrimary,
-        ),
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-      ),
-      bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: c.navbarBg,
-        selectedItemColor: Colors.white,
-        unselectedItemColor: c.textTertiary,
-        type: BottomNavigationBarType.fixed,
-        elevation: 0,
-      ),
-      cardTheme: CardThemeData(
-        color: c.cardSurface,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-          side: BorderSide(color: c.cardBorder),
-        ),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: c.inputFill,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: c.inputBorder),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: c.inputBorder),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.white, width: 2),
-        ),
-        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        hintStyle: TextStyle(color: c.textTertiary),
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
-          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 0,
-          textStyle: GoogleFonts.inter(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-      textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          foregroundColor: Colors.white,
-          textStyle: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
-      textTheme: _darkTextTheme,
-      extensions: const [BrandThemeColors.dark],
-    );
-  }
-
-  static TextTheme get _lightTextTheme {
-    return TextTheme(
-      displayLarge: GoogleFonts.playfairDisplay(
-        fontSize: 48,
-        fontWeight: FontWeight.bold,
-        color: BrandColors.dark,
-      ),
-      displayMedium: GoogleFonts.playfairDisplay(
-        fontSize: 36,
-        fontWeight: FontWeight.bold,
-        color: BrandColors.dark,
-      ),
-      displaySmall: GoogleFonts.playfairDisplay(
-        fontSize: 28,
-        fontWeight: FontWeight.w600,
-        color: BrandColors.dark,
-      ),
-      headlineLarge: GoogleFonts.inter(
-        fontSize: 24,
-        fontWeight: FontWeight.w600,
-        color: BrandColors.dark,
-      ),
-      headlineMedium: GoogleFonts.inter(
-        fontSize: 20,
-        fontWeight: FontWeight.w600,
-        color: BrandColors.dark,
-      ),
-      headlineSmall: GoogleFonts.inter(
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
-        color: BrandColors.dark,
-      ),
-      titleLarge: GoogleFonts.inter(
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-        color: BrandColors.dark,
-      ),
-      titleMedium: GoogleFonts.inter(
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        color: BrandColors.slate600,
-      ),
-      titleSmall: GoogleFonts.inter(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        color: BrandColors.slate500,
-      ),
-      bodyLarge: GoogleFonts.inter(
-        fontSize: 16,
-        fontWeight: FontWeight.normal,
-        color: BrandColors.slate700,
-      ),
-      bodyMedium: GoogleFonts.inter(
-        fontSize: 14,
-        fontWeight: FontWeight.normal,
-        color: BrandColors.slate600,
-      ),
-      bodySmall: GoogleFonts.inter(
-        fontSize: 12,
-        fontWeight: FontWeight.normal,
-        color: BrandColors.slate500,
-      ),
-      labelLarge: GoogleFonts.inter(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0.5,
-      ),
-      labelMedium: GoogleFonts.inter(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        letterSpacing: 0.5,
-      ),
-      labelSmall: GoogleFonts.inter(
-        fontSize: 10,
-        fontWeight: FontWeight.w500,
-        letterSpacing: 1.0,
-        color: BrandColors.slate400,
-      ),
-    );
-  }
-
-  static TextTheme get _darkTextTheme {
-    const c = BrandThemeColors.dark;
-    return TextTheme(
-      displayLarge: GoogleFonts.playfairDisplay(
-        fontSize: 48,
-        fontWeight: FontWeight.bold,
-        color: c.textPrimary,
-      ),
-      displayMedium: GoogleFonts.playfairDisplay(
-        fontSize: 36,
-        fontWeight: FontWeight.bold,
-        color: c.textPrimary,
-      ),
-      displaySmall: GoogleFonts.playfairDisplay(
-        fontSize: 28,
-        fontWeight: FontWeight.w600,
-        color: c.textPrimary,
-      ),
-      headlineLarge: GoogleFonts.inter(
-        fontSize: 24,
-        fontWeight: FontWeight.w600,
-        color: c.textPrimary,
-      ),
-      headlineMedium: GoogleFonts.inter(
-        fontSize: 20,
-        fontWeight: FontWeight.w600,
-        color: c.textPrimary,
-      ),
-      headlineSmall: GoogleFonts.inter(
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
-        color: c.textPrimary,
-      ),
-      titleLarge: GoogleFonts.inter(
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-        color: c.textPrimary,
-      ),
-      titleMedium: GoogleFonts.inter(
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        color: c.textSecondary,
-      ),
-      titleSmall: GoogleFonts.inter(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        color: c.textTertiary,
-      ),
-      bodyLarge: GoogleFonts.inter(
-        fontSize: 16,
-        fontWeight: FontWeight.normal,
-        color: c.textSecondary,
-      ),
-      bodyMedium: GoogleFonts.inter(
-        fontSize: 14,
-        fontWeight: FontWeight.normal,
-        color: c.textSecondary,
-      ),
-      bodySmall: GoogleFonts.inter(
-        fontSize: 12,
-        fontWeight: FontWeight.normal,
-        color: c.textTertiary,
-      ),
-      labelLarge: GoogleFonts.inter(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0.5,
-        color: c.textPrimary,
-      ),
-      labelMedium: GoogleFonts.inter(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        letterSpacing: 0.5,
-        color: c.textSecondary,
-      ),
-      labelSmall: GoogleFonts.inter(
-        fontSize: 10,
-        fontWeight: FontWeight.w500,
-        letterSpacing: 1.0,
-        color: c.textTertiary,
-      ),
-    );
-  }
+  /// Dark ThemeData built from the Zyndio design tokens. See [lightTheme].
+  static ThemeData get darkTheme => _zyndioThemeData(Brightness.dark);
 }
