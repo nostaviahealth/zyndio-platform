@@ -13,11 +13,16 @@
 
 import { adminHelpers } from '../lib/supabaseAdmin';
 
-const ADMIN_EMAIL = 'support@zyndio.example';
-const ADMIN_PASSWORD = 'admin123'; // Change this in production!
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const ADMIN_NAME = 'Admin User';
 
 async function setupAdmin() {
+    if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+        console.error('❌ Missing required environment variables: ADMIN_EMAIL and ADMIN_PASSWORD must both be set.');
+        process.exit(1);
+    }
+
     console.log('🚀 Zyndio - Supabase Admin Setup\n');
 
     try {
@@ -35,8 +40,7 @@ async function setupAdmin() {
             if (adminUser?.profile?.role === 'admin') {
                 console.log('✅ Admin role confirmed\n');
                 console.log('🎉 Setup complete! You can now log in.');
-                console.log('   Email: support@zyndio.example');
-                console.log('   Password: admin123');
+                console.log(`   Email: ${ADMIN_EMAIL}`);
                 console.log('\n⚠️  Remember to change the password in production!');
                 return;
             } else {
@@ -56,8 +60,8 @@ async function setupAdmin() {
         console.log('🎉 Admin setup complete!\n');
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log('📌 Admin Credentials:');
-        console.log('   Email: support@zyndio.example');
-        console.log('   Password: admin123');
+        console.log(`   Email: ${ADMIN_EMAIL}`);
+        console.log('   Password: (set via ADMIN_PASSWORD, not shown)');
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
         console.log('🌐 Login at:');
         console.log('   Local: http://localhost:3001/login');

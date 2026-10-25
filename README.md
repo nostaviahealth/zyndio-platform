@@ -41,6 +41,8 @@ A comprehensive health and longevity management platform built with React, Supab
    ```
 
 5. **Create admin user:**
+   Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in your `.env` first — the script reads both from the
+   environment and exits with an error if either is missing (no default credentials exist).
    ```bash
    npm run admin:setup
    ```
@@ -52,11 +54,9 @@ Access the admin panel after setup:
 - **Local:** http://localhost:3001/admin
 - **Production:** https://zyndio.example/admin
 
-**Default Credentials:**
-- Email: `support@zyndio.example`
-- Password: `admin123`
+Log in with the `ADMIN_EMAIL` / `ADMIN_PASSWORD` you set above.
 
-> ⚠️ **Important:** Change the default password immediately in production!
+> ⚠️ **Important:** Use a strong, unique password and never commit it to version control.
 
 ## 🏗️ Tech Stack
 

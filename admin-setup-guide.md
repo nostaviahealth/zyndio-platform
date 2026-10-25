@@ -7,12 +7,14 @@ This guide will help you set up and access the admin panel for Zyndio.
 - **Production:** https://zyndio.example/admin
 - **Local Development:** http://localhost:3001/admin
 
-## 🔐 Default Admin Credentials
+## 🔐 Admin Credentials
 
-> **⚠️ IMPORTANT:** These are development credentials. Change them immediately after first login in production!
+> **⚠️ IMPORTANT:** Admin credentials are supplied via the `ADMIN_EMAIL` and `ADMIN_PASSWORD`
+> environment variables — there is no default password. The setup script refuses to run if
+> either is missing.
 
-- **Email:** `support@zyndio.example`
-- **Password:** `admin123`
+- **Email:** value of `ADMIN_EMAIL`
+- **Password:** value of `ADMIN_PASSWORD`
 
 ---
 
@@ -30,7 +32,7 @@ This guide will help you set up and access the admin panel for Zyndio.
 
 ### Step 3: Check if Admin User Exists
 
-1. Look for a user with email: `support@zyndio.example`
+1. Look for a user with the email set in `ADMIN_EMAIL`
 2. If it exists, verify it has the `admin` label (see Step 5)
 3. If it doesn't exist, continue to Step 4
 
@@ -38,8 +40,8 @@ This guide will help you set up and access the admin panel for Zyndio.
 
 1. Click **"Create user"** button
 2. Fill in the form:
-   - **Email:** `support@zyndio.example`
-   - **Password:** `admin123`
+   - **Email:** value of `ADMIN_EMAIL`
+   - **Password:** value of `ADMIN_PASSWORD`
    - **Name:** `Admin User`
 3. Click **"Create"**
 
@@ -67,8 +69,8 @@ This guide will help you set up and access the admin panel for Zyndio.
 2. Open browser and go to: http://localhost:3001/login
 
 3. Sign in with admin credentials:
-   - Email: `support@zyndio.example`
-   - Password: `admin123`
+   - Email: value of `ADMIN_EMAIL`
+   - Password: value of `ADMIN_PASSWORD`
 
 4. You should be automatically redirected to `/admin`
 
@@ -176,8 +178,8 @@ If you encounter issues:
 | Item | Value |
 |------|-------|
 | Production URL | https://zyndio.example/admin |
-| Admin Email | support@zyndio.example |
-| Default Password | admin123 |
+| Admin Email | value of `ADMIN_EMAIL` |
+| Admin Password | value of `ADMIN_PASSWORD` |
 | Required Label | `admin` |
 | Appwrite Project | 692d195a00178732443d |
 

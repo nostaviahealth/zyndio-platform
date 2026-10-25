@@ -113,14 +113,12 @@ SERVICE_KEY: <your-service-key>
 1. ✅ Update your `.env` file with credentials
 2. ✅ Migrate authentication code
 3. ✅ Update all database access code  
-4. ✅ Create admin user automatically via script
+4. ✅ Create admin user automatically via script (reads `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env`)
 5. ✅ Test everything locally
 6. ✅ Deploy to Vercel
 7. ✅ Test admin login on production
 
-You'll be able to log in at:
-- **Email:** `support@zyndio.example`
-- **Password:** `admin123`
+You'll be able to log in with the `ADMIN_EMAIL` / `ADMIN_PASSWORD` you configured in `.env`.
 
 ---
 
