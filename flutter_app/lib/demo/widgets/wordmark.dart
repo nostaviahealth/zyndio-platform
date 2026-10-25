@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../config/theme.dart';
 import '../demo_build_flag.dart';
+import 'dashed_border.dart';
 
 /// C02 Wordmark (PLACEHOLDER). Stands in until Zyndio supplies official
 /// brand assets; swapping the brand means replacing this widget wholesale.
@@ -36,21 +37,21 @@ class Wordmark extends StatelessWidget {
               const SizedBox(width: ZyndioSpace.s8),
               ExcludeSemantics(
                 excluding: !kDemoBuild,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: colors.borderStrong),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    'PLACEHOLDER',
-                    style: const TextStyle(
-                      fontFamily: ZyndioType.family,
-                      fontSize: 10,
-                      height: 16 / 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 10 * 0.08,
-                    ).copyWith(color: colors.textSecondary),
+                child: DashedRoundedBorder(
+                  color: colors.borderStrong,
+                  radius: 4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: Text(
+                      'PLACEHOLDER',
+                      style: const TextStyle(
+                        fontFamily: ZyndioType.family,
+                        fontSize: 10,
+                        height: 16 / 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 10 * 0.08,
+                      ).copyWith(color: colors.textSecondary),
+                    ),
                   ),
                 ),
               ),

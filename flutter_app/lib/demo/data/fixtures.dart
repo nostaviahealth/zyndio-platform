@@ -20,6 +20,21 @@ const demoPatient = DemoPatient(
   labName: 'Fictional Reference Lab',
 );
 
+/// Additional seeded fictional patients, used to prove per-patient isolation
+/// (lockout, codes, consent, lab/file data never leak across accounts).
+const List<DemoPatient> secondaryDemoPatients = [
+  DemoPatient(
+    name: 'Sam Okafor',
+    email: 'sam.okafor@example.com',
+    labName: 'Fictional Reference Lab',
+  ),
+];
+
+/// Every seeded fictional patient (primary + secondary), accounts keyed by
+/// email. There is no self-sign-up API — these are the only accounts the
+/// demo backend ever knows about.
+List<DemoPatient> get allDemoPatients => [demoPatient, ...secondaryDemoPatients];
+
 /// A single HbA1c reading on the trends chart.
 class HbA1cPoint {
   const HbA1cPoint({required this.date, required this.percent});

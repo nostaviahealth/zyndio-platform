@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../data/fixtures.dart';
+import '../../data/zyndio_repository.dart';
 
 enum SignInStage { emailEntry, codeEntry }
 
@@ -16,7 +17,9 @@ String maskEmail(String email) {
 /// [SignInState]. Unknown/missing values fall back to the default state.
 SignInState signInStateForQueryState(String? queryState) => switch (queryState) {
       'sending' => SignInState.sending(),
-      'code' => SignInState.code(),
+      // Partial entry (4 1 7) so the focus/cursor lands in box 4 and the
+      // filled-digit style is visible in the screenshot (Ava's review).
+      'code' => SignInState.code(code: '417'),
       'error' => SignInState.error(email: 'jordan.rivera@exmaple.com'),
       'locked' => SignInState.locked(),
       'offline' => SignInState.offline(),
@@ -36,6 +39,7 @@ class SignInState {
     this.isLocked = false,
     this.emailFieldFocused = false,
     this.errorText,
+    this.session,
   });
 
   factory SignInState.defaultState({String? email}) =>
@@ -71,6 +75,11 @@ class SignInState {
   final bool emailFieldFocused;
   final String? errorText;
 
+  /// Set once [CodeVerifyResult.success] comes back from the repository.
+  /// Downstream screens (consent, labs, trends) read this to scope their own
+  /// repository calls — never another patient's data.
+  final RepoSession? session;
+
   bool get hasError => errorText != null;
 
   /// The info card ("New to Zyndio?...") is shown on the email step only
@@ -89,6 +98,7 @@ class SignInState {
     bool? emailFieldFocused,
     String? errorText,
     bool clearError = false,
+    RepoSession? session,
   }) {
     return SignInState(
       stage: stage ?? this.stage,
@@ -99,6 +109,7 @@ class SignInState {
       isLocked: isLocked ?? this.isLocked,
       emailFieldFocused: emailFieldFocused ?? this.emailFieldFocused,
       errorText: clearError ? null : (errorText ?? this.errorText),
+      session: session ?? this.session,
     );
   }
 }

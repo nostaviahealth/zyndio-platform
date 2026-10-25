@@ -111,8 +111,9 @@ void main() {
       final advanced = controller.submit();
 
       expect(advanced, isTrue);
-      expect(backend.consentRecords, hasLength(3));
-      for (final record in backend.consentRecords) {
+      final session = container.read(currentSessionProvider)!.unwrap<DemoSession>();
+      expect(backend.consentRecordsFor(session), hasLength(3));
+      for (final record in backend.consentRecordsFor(session)) {
         expect(record.version, '0.1');
         expect(record.agreedAt, clock.now());
       }
@@ -131,7 +132,9 @@ void main() {
       final advanced = controller.submit();
 
       expect(advanced, isFalse);
-      expect(backend.consentRecords, isEmpty);
+      // Validation failure returns before the repository/session is ever
+      // touched, so nothing could have been recorded for any patient.
+      expect(container.read(currentSessionProvider), isNull);
       final state = container.read(consentControllerProvider);
       expect(state.docs.firstWhere((d) => d.doc.id == consentDocs[1].id).showRequiredError, isTrue);
       expect(state.docs.firstWhere((d) => d.doc.id == consentDocs[0].id).showRequiredError, isFalse);

@@ -1,17 +1,19 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/demo_backend.dart';
+import '../../data/zyndio_repository.dart';
 import '../../providers/demo_providers.dart';
 import 'consent_state.dart';
 
 /// Drives [ConsentState] for the interactive demo build and the Step 6
 /// end-to-end test: toggling docs/partner sharing, and recording each
-/// agreed doc with the fake backend (version "0.1", clock-timestamped).
+/// agreed doc with the repository (version "0.1", clock-timestamped),
+/// scoped to the signed-in patient's session.
 class ConsentController extends Notifier<ConsentState> {
   @override
   ConsentState build() => ConsentState.unchecked();
 
-  DemoBackend get _backend => ref.read(demoBackendProvider);
+  ZyndioRepository get _repo => ref.read(zyndioRepositoryProvider);
+  RepoSession get _session => requireDemoSession(ref);
 
   void toggleDoc(String docId) {
     state = state.copyWith(
@@ -27,7 +29,7 @@ class ConsentController extends Notifier<ConsentState> {
   }
 
   /// Marks every unchecked required row critical (never disables the
-  /// button). When all are checked, records each with the backend and
+  /// button). When all are checked, records each with the repository and
   /// returns true so the caller can continue.
   bool submit() {
     final hasMissing = state.docs.any((d) => !d.checked);
@@ -40,7 +42,7 @@ class ConsentController extends Notifier<ConsentState> {
       return false;
     }
     for (final d in state.docs) {
-      _backend.agreeToDoc(d.doc.id, version: '0.1');
+      _repo.agreeToDoc(_session, d.doc.id, version: '0.1');
     }
     return true;
   }

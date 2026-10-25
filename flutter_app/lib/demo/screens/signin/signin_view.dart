@@ -4,6 +4,7 @@ import '../../../config/theme.dart';
 import '../../widgets/code_input.dart';
 import '../../widgets/footer_links.dart';
 import '../../widgets/info_card.dart';
+import '../../widgets/rotating_arc_spinner.dart';
 import '../../widgets/wordmark.dart';
 import '../../widgets/zyndio_banner.dart';
 import 'signin_state.dart';
@@ -37,27 +38,29 @@ class SignInView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<ZyndioColors>()!;
+    final content = state.stage == SignInStage.codeEntry
+        ? _codeEntryContent(context)
+        : _emailEntryContent(context);
     return Scaffold(
       backgroundColor: colors.bgCanvas,
+      // The footer lives outside the scroll region, in its own fixed row at
+      // the bottom of the Column, so it's always pinned there; the content
+      // above it scrolls independently in the Expanded region instead of
+      // ever overflowing the screen (e.g. the extra offline banner).
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(
-            ZyndioSpace.s16,
-            ZyndioSpace.s48,
-            ZyndioSpace.s16,
-            28,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (state.stage == SignInStage.codeEntry)
-                ..._codeEntryContent(context)
-              else
-                ..._emailEntryContent(context),
-              const SizedBox(height: ZyndioSpace.s64),
-              const FooterLinks(),
-            ],
-          ),
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(ZyndioSpace.s16, ZyndioSpace.s48, ZyndioSpace.s16, ZyndioSpace.s24),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: content),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(ZyndioSpace.s16, 0, ZyndioSpace.s16, 28),
+              child: FooterLinks(),
+            ),
+          ],
         ),
       ),
     );
@@ -112,11 +115,7 @@ class SignInView extends StatelessWidget {
             ? Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  SizedBox(
-                    width: ZyndioSize.spinner,
-                    height: ZyndioSize.spinner,
-                    child: CircularProgressIndicator(strokeWidth: 3, color: colors.brandOnPrimary),
-                  ),
+                  RotatingArcSpinner(size: ZyndioSize.spinner, color: colors.brandOnPrimary),
                   const SizedBox(width: ZyndioSpace.s8 + 2),
                   const Text('Sending code'),
                 ],
