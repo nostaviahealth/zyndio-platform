@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 // <--- Added Import
 import '../../providers/patient_provider.dart';
@@ -195,8 +194,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Watch Theme Provider
     final isImageTheme = ref.watch(themeProvider);
     
-    // Watch Protocol Provider for current protocol name
-    final protocolState = ref.watch(protocolProvider);
+    // Watch Protocol Provider for current protocol name (rebuild on change)
+    ref.watch(protocolProvider);
 
 
     
@@ -523,10 +522,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               height: currentHeight,
                               child: Consumer(
                                 builder: (context, ref, child) {
-                                  final isPlus = ref.watch(purchaseProvider).isPlus;
+                                  ref.watch(purchaseProvider);
                                   final profile = ref.watch(patientProfileProvider).value;
-                                  final isFree = profile?.subscriptionPlan.toLowerCase() == 'free';
-                                  
+
                                   return _LockedCardOverlay(
                                     isLocked: false, // Unlocked for all users
                                     onTap: () => PaywallScreen.show(context),
@@ -778,38 +776,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Future<void> _pickImage(BuildContext context) async {
-    final ImagePicker picker = ImagePicker();
-    try {
-      final XFile? image = await picker.pickImage(source: ImageSource.camera);
-      if (image != null) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Analyzing Meal... 🍎'),
-              backgroundColor: BrandColors.emerald500,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not open camera: $e'), backgroundColor: Colors.red),
-        );
-      }
-    }
-  }
-
-
-  String _formatTime(DateTime dt) {
-    final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
-    final minute = dt.minute.toString().padLeft(2, '0');
-    final period = dt.hour >= 12 ? 'PM' : 'AM';
-    return "$hour:$minute $period";
-  }
-
   Widget _buildDashboardContent(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -958,17 +924,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         double totalPro = 0;
         double totalCarb = 0;
         double totalFat = 0;
-        double totalFiber = 0;
         double totalScore = 0;
         int mealsScored = 0;
-        
+
         final now = DateTime.now();
         final today = DateTime(now.year, now.month, now.day);
 
         for (final log in logs) {
           final day = _formatDateHeader(log.loggedAt);
           grouped.putIfAbsent(day, () => []).add(log);
-          
+
           // Calculate today's totals
           final logDay = DateTime(log.loggedAt.year, log.loggedAt.month, log.loggedAt.day);
           if (logDay == today) {
@@ -977,7 +942,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             totalPro += analysis.macros.protein.toDouble();
             totalCarb += analysis.macros.carbs.toDouble();
             totalFat += analysis.macros.fat.toDouble();
-            totalFiber += analysis.macros.fiber.toDouble();
             if (analysis.score > 0) {
               totalScore += analysis.score;
               mealsScored++;
@@ -1353,18 +1317,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildTimeLabel(String label) {
-    return Text(
-      label,
-      style: TextStyle(
-        fontSize: 8,
-        fontWeight: FontWeight.w900,
-        color: Colors.white.withOpacity(0.3),
-        letterSpacing: 1,
-      ),
-    );
-  }
-
   Widget _buildMacroMini(String label, String value) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1385,72 +1337,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             fontSize: 20,
             fontWeight: FontWeight.bold,
             color: Colors.white,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTextAction(String label, VoidCallback onTap, {Color? color}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w900,
-          color: color ?? Colors.white.withOpacity(0.4),
-          letterSpacing: 1.5,
-        ),
-      ),
-    );
-  }
-
-  Widget _MacroGaugeItem({
-    required String label,
-    required double current,
-    required double goal,
-    required double percent,
-    required Color color,
-    bool isScore = false,
-  }) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            SizedBox(
-              width: 44,
-              height: 44,
-              child: CustomPaint(
-                painter: _CalorieGaugePainter(
-                  percent: percent,
-                  color: color,
-                  trackColor: context.nc.isDark ? context.nc.divider : BrandColors.slate50,
-                  strokeWidth: 4.5,
-                ),
-              ),
-            ),
-            Text(
-              isScore ? current.round().toString() : '${current.round()}g',
-              style: TextStyle(
-                fontSize: isScore ? 18 : 17,
-                fontWeight: FontWeight.w900,
-                color: context.nc.textPrimary,
-                letterSpacing: -0.2,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Text(
-          label.toUpperCase(),
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w800,
-            color: context.nc.textTertiary,
-            letterSpacing: 1.5,
           ),
         ),
       ],
@@ -1540,65 +1426,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return 'ANABOLIC';
   }
 
-  int _calculateFuelEfficiency(double pro, double carb, double fat, NutritionGoals goals) {
-    if (pro == 0 && carb == 0 && fat == 0) return 0;
-    final total = pro + carb + fat;
-    final proRatio = pro / total;
-    final targetProRatio = goals.proteinGoal / (goals.proteinGoal + goals.carbGoal + goals.fatGoal);
-    final variance = (proRatio - targetProRatio).abs();
-    return (100 - (variance * 100)).clamp(0, 100).round();
-  }
-}
-
-class _CalorieGaugePainter extends CustomPainter {
-  final double percent;
-  final Color color;
-  final Color trackColor;
-  final double strokeWidth;
-
-  _CalorieGaugePainter({
-    required this.percent,
-    required this.color,
-    required this.trackColor,
-    this.strokeWidth = 14.0,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = (size.width - strokeWidth) / 2;
-    
-    // Exact gauge angles from WHOOP/Wearables reference
-    const startAngle = math.pi * 135 / 180;
-    const sweepTotal = math.pi * 270 / 180;
-
-    final rect = Rect.fromCircle(center: center, radius: radius);
-
-    // Track
-    final trackPaint = Paint()
-      ..color = trackColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawArc(rect, startAngle, sweepTotal, false, trackPaint);
-
-    // Progress
-    if (percent > 0) {
-      final valuePaint = Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth
-        ..strokeCap = StrokeCap.round;
-
-      canvas.drawArc(rect, startAngle, sweepTotal * percent.clamp(0.001, 1.0), false, valuePaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _CalorieGaugePainter oldDelegate) {
-    return oldDelegate.percent != percent || oldDelegate.color != color || oldDelegate.trackColor != trackColor;
-  }
 }
 
 class _ActionCircle extends StatelessWidget {
@@ -1670,330 +1497,6 @@ class _ActionCircle extends StatelessWidget {
   }
 }
 
-class _NutritionActions extends StatelessWidget { // Deprecated but keeping class name for safety if used elsewhere, though replaced in build
-  @override
-  Widget build(BuildContext context) { return const SizedBox(); } 
-} 
-
-
-class _ActionCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _ActionCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 21),
-        decoration: BoxDecoration(
-          color: context.nc.cardSurface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: context.nc.cardBorder,
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: BrandColors.slate200.withOpacity(0.5), // Soft diffused shadow
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1), // Colorful accent background
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: color, size: 24), // Colorful icon
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: context.nc.textPrimary,
-                letterSpacing: -0.5,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: context.nc.textTertiary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Today's Rhythm Section (Redesigned: Vertical Stack)
-
-
-
-/// Unified Longevity Status Card (Premium Dark Design)
-class _LongevityCard extends ConsumerWidget {
-  const _LongevityCard();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final intelligence = ref.watch(intelligenceDataProvider).value;
-    final profile = ref.watch(patientProfileProvider).value;
-
-    // --- LOGIC ---
-    int? displayBioAge = intelligence?.biologicalAge;
-    if (displayBioAge == null && intelligence?.overallScore != null && profile?.age != null) {
-      displayBioAge = (profile!.age! - (100 - intelligence!.overallScore!) / 10).round();
-    }
-    final chronAge = profile?.age ?? 30;
-    double pace = 1.0;
-    if (displayBioAge != null && chronAge > 0) {
-      pace = displayBioAge / chronAge;
-    }
-    final isAccelerated = pace > 1.0;
-    
-    // Warmer/Brighter Red
-    final paceColor = isAccelerated ? const Color(0xFFFF5252) : const Color(0xFF10B981); 
-    
-    final bioAgeDiff = (displayBioAge ?? chronAge) - chronAge;
-    final isYounger = bioAgeDiff < 0; 
-
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF1E1B4B), // Dark Navy
-            Color(0xFF0F172A), // Slate 900
-          ],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1E1B4B).withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Icon(LucideIcons.clock, color: Colors.white.withOpacity(0.7), size: 16),
-                    const SizedBox(width: 8),
-                    Text(
-                      'BIOLOGICAL CLOCK', 
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white.withOpacity(0.7),
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ],
-                ),
-                // Status Pill
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isYounger 
-                        ? const Color(0xFF10B981).withOpacity(0.2) 
-                        : paceColor.withOpacity(0.2), 
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isYounger ? const Color(0xFF10B981) : paceColor,
-                      width: 1,
-                    ),
-                  ),
-                  child: Text(
-                    bioAgeDiff != 0 
-                      ? '${bioAgeDiff.abs()} Years ${isYounger ? 'Younger' : 'Older'}'
-                      : 'Optimized',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: isYounger ? const Color(0xFF10B981) : paceColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
-
-            // Main Stats Row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.end, 
-              children: [
-                // Left: Bio Age
-                Expanded( 
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Biological Age',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white.withOpacity(0.6),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        displayBioAge?.toString() ?? '--',
-                        style: TextStyle(
-                          fontSize: 64,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          height: 1,
-                          letterSpacing: -2,
-                        ),
-                      ),
-                      const SizedBox(height: 8), 
-                       Text(
-                        'vs $chronAge Chronological',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.white.withOpacity(0.4),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                
-                const SizedBox(width: 24),
-
-                // Right: Pace
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      'Pace of Aging',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white.withOpacity(0.6),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          pace.toStringAsFixed(1),
-                          style: TextStyle(
-                            fontSize: 48,
-                            fontWeight: FontWeight.bold,
-                            color: paceColor,
-                            height: 1,
-                            letterSpacing: -1,
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 6, left: 2),
-                          child: Text(
-                            'x',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: paceColor.withOpacity(0.8),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${(100 - (pace * 100)).abs().round()}% ${isAccelerated ? 'faster' : 'slower'}',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: paceColor,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 32),
-
-            // Footer
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    isAccelerated ? LucideIcons.trendingUp : LucideIcons.trendingDown,
-                    color: paceColor,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: RichText(
-                      text: TextSpan(
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.white.withOpacity(0.7),
-                          height: 1.4,
-                        ),
-                        children: [
-                          TextSpan(text: isAccelerated ? 'For every year that passes, you age ' : 'For every year, you only age '),
-                          TextSpan(
-                            text: '${(pace * 12).toStringAsFixed(1)} months',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const TextSpan(text: ' biologically.'),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 
 
