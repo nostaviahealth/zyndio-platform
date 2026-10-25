@@ -1,5 +1,5 @@
 buildscript {
-    ext.kotlin_version = '2.2.0'
+    ext.kotlin_version = '2.2.20'
     repositories {
         google()
         mavenCentral()
@@ -28,18 +28,18 @@ allprojects {
     buildscript {
         configurations.all {
             resolutionStrategy {
-                force "org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.0"
+                force "org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.20"
             }
         }
     }
 
     configurations.all {
         resolutionStrategy {
-            force "org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.0"
-            force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.0"
-            force "org.jetbrains.kotlin:kotlin-stdlib:2.2.0"
-            force "org.jetbrains.kotlin:kotlin-build-tools-impl:2.2.0"
-            force "org.jetbrains.kotlin:kotlin-compiler-embeddable:2.2.0"
+            force "org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.20"
+            force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.20"
+            force "org.jetbrains.kotlin:kotlin-stdlib:2.2.20"
+            force "org.jetbrains.kotlin:kotlin-build-tools-impl:2.2.20"
+            force "org.jetbrains.kotlin:kotlin-compiler-embeddable:2.2.20"
         }
     }
 }
@@ -50,11 +50,11 @@ subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
     
     // Inject modern Kotlin version dynamically to override legacy plugins (file_picker 1.8.22)
-    project.ext.set('kotlin_version', '2.2.0')
+    project.ext.set('kotlin_version', '2.2.20')
 
     // Pin AndroidX deps for AGP 8.7.3 compatibility
     afterEvaluate { project ->
-        project.ext.set('kotlin_version', '2.2.0')
+        project.ext.set('kotlin_version', '2.2.20')
         configurations.configureEach {
             resolutionStrategy {
                 force 'androidx.core:core:1.15.0'
