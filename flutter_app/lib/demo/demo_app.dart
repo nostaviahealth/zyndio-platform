@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/theme.dart';
 import 'demo_ready_web.dart' if (dart.library.io) 'demo_ready_io.dart'
     as ready;
 import 'router/demo_state.dart';
+import 'screens/signin/signin_controller.dart';
+import 'screens/signin/signin_state.dart';
+import 'screens/signin/signin_view.dart';
 
-/// True only for the demo entrypoint build; gates the FICTIONAL-DATA tag and
-/// the PLACEHOLDER a11y announce. Never set in the production app.
-const bool kDemoBuild =
-    bool.fromEnvironment('DEMO_BUILD', defaultValue: false);
+export 'demo_build_flag.dart';
 
 class DemoApp extends StatelessWidget {
   const DemoApp({super.key});
@@ -54,8 +55,18 @@ class _DemoHomeState extends State<_DemoHome> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<ZyndioColors>()!;
     final screen = widget.params.screen;
+    if (screen == 'signin') {
+      // A `state` query param (the screenshot harness) renders a fixed
+      // fixture state; otherwise the view is wired to the live controller
+      // so the demo build is actually usable, not just a screenshot target.
+      if (widget.params.state != null) {
+        return SignInView(state: signInStateForQueryState(widget.params.state));
+      }
+      return const _InteractiveSignIn();
+    }
+
+    final colors = Theme.of(context).extension<ZyndioColors>()!;
     final label = screen == null
         ? 'Zyndio demo — coming soon'
         : 'Screen "$screen" coming soon';
@@ -67,6 +78,25 @@ class _DemoHomeState extends State<_DemoHome> {
           style: ZyndioType.body.copyWith(color: colors.textPrimary),
         ),
       ),
+    );
+  }
+}
+
+class _InteractiveSignIn extends ConsumerWidget {
+  const _InteractiveSignIn();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(signInControllerProvider);
+    final controller = ref.read(signInControllerProvider.notifier);
+    return SignInView(
+      state: state,
+      onEmailChanged: controller.updateEmail,
+      onSendCode: controller.sendCode,
+      onCodeChanged: controller.updateCode,
+      onContinue: controller.submitCode,
+      onSendNewCode: controller.sendCode,
+      onBack: controller.backToEmail,
     );
   }
 }
