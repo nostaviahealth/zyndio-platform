@@ -36,7 +36,8 @@ cd space && npm run lint && npm run build
 Security:
 ```bash
 gitleaks git --config .gitleaks.toml --redact
-bash scripts/leak-scan.sh
+bash scripts/leak-scan.sh          # fails (not skips) if a required build output is missing
+bash scripts/test-leak-scan.sh     # self-test proving the above
 ```
 
 ## Rules

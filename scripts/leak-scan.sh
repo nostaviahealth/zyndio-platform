@@ -6,7 +6,8 @@
 #   - web build output (dist/, space/dist/)
 #   - Flutter web build output (flutter_app/build/web)
 #   - an unzipped Flutter debug APK (flutter_app/build/app/outputs/flutter-apk/app-debug.apk)
-# Exits 1 on any hit.
+# Exits 1 on any hit. Also exits 1 if any required build output is missing
+# (missing outputs are treated as a scan failure, not silently skipped).
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
@@ -50,6 +51,9 @@ scan_dir() {
         else
             echo "clean"
         fi
+    else
+        echo "LEAK SCAN FAILED: required build output missing: $dir (build it first; see CLAUDE.md)" >&2
+        FOUND=1
     fi
 }
 
@@ -76,6 +80,9 @@ if [ -f "$APK" ]; then
     fi
     rm -rf "$TMPDIR"
     trap - EXIT
+else
+    echo "LEAK SCAN FAILED: required build output missing: $APK (build it first; see CLAUDE.md)" >&2
+    FOUND=1
 fi
 
 if [ "$FOUND" -ne 0 ]; then

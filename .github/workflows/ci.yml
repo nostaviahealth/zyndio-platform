@@ -117,6 +117,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Leak scan self-test (fails on missing build output)
+        run: bash scripts/test-leak-scan.sh
+
       - name: Install gitleaks
         run: |
           curl -sSfL -o gitleaks.tar.gz \
