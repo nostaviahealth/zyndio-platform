@@ -101,7 +101,12 @@ from (values
   ('00000000-0000-0000-0000-0000000b1001'::uuid, 'patient-b1@example.test'),
   -- not yet a patient row - several test files insert one as a staff actor,
   -- to prove INSERT policies rather than just pre-seeded SELECT visibility.
-  ('00000000-0000-0000-0000-0000000a6002'::uuid, 'patient-a2@example.test')
+  ('00000000-0000-0000-0000-0000000a6002'::uuid, 'patient-a2@example.test'),
+  -- spare, never given an org_members/patients row in global fixtures -
+  -- 200_cross_org_matrix.sql reuses this id as the throwaway target of
+  -- cross-org INSERT attempts into org_members/patients (FK requires a real
+  -- auth.users row; the insert itself is always expected to be denied).
+  ('00000000-0000-0000-0000-0000000a9001'::uuid, 'spare-xorg@example.test')
 ) as u(id, email);
 
 -- ---------------------------------------------------------------------------
@@ -136,7 +141,29 @@ insert into public.consents (id, org_id, patient_id, consent_type, granted) valu
   ('00000000-0000-0000-0000-0000000b4001', '00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000b1001', 'data_sharing', true);
 
 insert into public.invites (id, org_id, email, role, token_hash, invited_by) values
-  ('00000000-0000-0000-0000-0000000a5001', '00000000-0000-0000-0000-00000000000a', 'invitee-a@example.test', 'physician', 'fixturehash-a', '00000000-0000-0000-0000-0000000a0001');
+  ('00000000-0000-0000-0000-0000000a5001', '00000000-0000-0000-0000-00000000000a', 'invitee-a@example.test', 'physician', 'fixturehash-a', '00000000-0000-0000-0000-0000000a0001'),
+  -- org B row, so the cross-org matrix (200_cross_org_matrix.sql) has a real
+  -- invites row in org B to deny org A actors access to.
+  ('00000000-0000-0000-0000-0000000b5001', '00000000-0000-0000-0000-00000000000b', 'invitee-b@example.test', 'physician', 'fixturehash-b', '00000000-0000-0000-0000-0000000b0001');
+
+-- ---------------------------------------------------------------------------
+-- org B rows for the four zero-policy/revoked-grant tables, so the cross-org
+-- matrix has real org B data everywhere it enumerates "every table" over,
+-- even though access to these four is blocked at the grant level regardless
+-- of org (see 070-100_*.sql and 200_cross_org_matrix.sql).
+-- ---------------------------------------------------------------------------
+
+insert into public.mfa_recovery_codes (id, user_id, factor_id, code_hash) values
+  ('00000000-0000-0000-0000-0000000b7001', '00000000-0000-0000-0000-0000000b1001', gen_random_uuid(), 'fixturehash-b');
+
+insert into public.auth_attempt_state (user_id, wrong_count) values
+  ('00000000-0000-0000-0000-0000000b1001', 0);
+
+insert into public.audit_log (actor_user_id, target_user_id, org_id, event_type, metadata) values
+  ('00000000-0000-0000-0000-0000000b0001', '00000000-0000-0000-0000-0000000b1001', '00000000-0000-0000-0000-00000000000b', 'fixture_seed', '{}'::jsonb);
+
+insert into public.notification_outbox (user_id, org_id, type) values
+  ('00000000-0000-0000-0000-0000000b1001', '00000000-0000-0000-0000-00000000000b', 'fixture_seed');
 
 select ok(true, 'fixtures loaded');
 

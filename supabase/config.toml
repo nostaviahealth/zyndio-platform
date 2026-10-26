@@ -38,14 +38,21 @@ additional_redirect_urls = ["http://127.0.0.1:3001"]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
 refresh_token_reuse_interval = 10
-# Invite-only: closes /auth/v1/signup server-side.
+# Invite-only: [auth] enable_signup = false alone closes /auth/v1/signup
+# server-side (no public self-registration), independent of which auth
+# providers are enabled.
 enable_signup = false
 enable_anonymous_sign_ins = false
 minimum_password_length = 12
 password_requirements = ""
 
 [auth.email]
-enable_signup = false
+# This must stay true: it toggles the email/password PROVIDER itself (sign
+# IN with a password, not sign-up). Setting it to false disables password
+# sign-in entirely - a live check showed GoTrue returning 422
+# email_provider_disabled on password sign-in with this at false. Public
+# sign-up is still closed, by [auth] enable_signup above, not by this.
+enable_signup = true
 enable_confirmations = false
 
 [auth.mfa]
