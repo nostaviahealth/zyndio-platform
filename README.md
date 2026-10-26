@@ -39,7 +39,7 @@ components/, pages/, contexts/, lib/, src/   # Root Vite admin web app
    cd ../packages/platform_wearables && flutter pub get
    ```
 
-No default credentials are provided anywhere in this repo. Admin access is always bootstrapped from the `ADMIN_EMAIL` / `ADMIN_PASSWORD` environment variables — see [admin-setup-guide.md](./admin-setup-guide.md).
+No default credentials are provided anywhere in this repo. Admin access is always bootstrapped from the `ADMIN_EMAIL` / `ADMIN_PASSWORD` environment variables — see [admin-setup.md](./admin-setup.md).
 
 ## Root admin web app (Vite)
 

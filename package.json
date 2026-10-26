@@ -12,8 +12,6 @@
     "setup:all": "tsx scripts/setup-all.ts",
     "setup:db": "tsx scripts/setup-database.ts",
     "admin:setup": "tsx scripts/supabase-admin-setup.ts",
-    "admin:fix": "tsx scripts/fix-admin-role.ts",
-    "admin:force": "tsx scripts/force-admin.ts",
     "db:check": "tsx scripts/check-db.ts"
   },
   "dependencies": {

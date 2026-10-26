@@ -68,4 +68,4 @@ npm run setup:all
 npm run admin:setup
 ```
 
-See [admin-setup-guide.md](./admin-setup-guide.md) for details and troubleshooting.
+See [admin-setup.md](./admin-setup.md) for details and troubleshooting.
