@@ -53,9 +53,11 @@ abstract class ZyndioRepository {
 /// Default implementation: wraps the hardened, multi-patient [DemoBackend].
 /// Fully offline, no network, fictional seeded patients only.
 class OfflineDemoRepository implements ZyndioRepository {
-  OfflineDemoRepository(this._backend);
+  OfflineDemoRepository(this._backend, {QueueStore Function(String patientId)? queueStoreFor})
+      : _queueStoreFor = queueStoreFor;
 
   final DemoBackend _backend;
+  final QueueStore Function(String patientId)? _queueStoreFor;
   final Map<String, UploadQueue> _uploadQueuesByPatientId = {};
 
   @override
@@ -89,7 +91,10 @@ class OfflineDemoRepository implements ZyndioRepository {
 
   @override
   UploadQueue uploadQueueFor(RepoSession session) =>
-      _uploadQueuesByPatientId.putIfAbsent(session.patientId, UploadQueue.new);
+      _uploadQueuesByPatientId.putIfAbsent(
+        session.patientId,
+        () => UploadQueue(store: _queueStoreFor?.call(session.patientId)),
+      );
 
   @override
   List<HbA1cPoint> hba1cTrendFor(RepoSession session) {

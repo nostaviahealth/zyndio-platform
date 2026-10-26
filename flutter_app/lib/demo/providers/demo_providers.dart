@@ -5,6 +5,7 @@ import '../data/fixtures.dart';
 import '../data/supabase_repository.dart';
 import '../data/zyndio_repository.dart';
 import '../logic/clock.dart';
+import '../logic/upload_queue.dart';
 
 final demoClockProvider = Provider<Clock>((ref) => const SystemClock());
 
@@ -17,13 +18,22 @@ final demoBackendProvider = Provider<DemoBackend>((ref) {
 /// controllers never see this — they depend only on [zyndioRepositoryProvider].
 const String dataSource = String.fromEnvironment('DATA_SOURCE', defaultValue: 'offline');
 
+/// App-private [QueueStore] factory for the offline repository's upload
+/// queues, keyed by patient id. `null` (the default) keeps the in-memory
+/// store, which is what every existing test runs against; `main_demo.dart`
+/// overrides this on non-web so queued uploads survive an app kill.
+final queueStoreFactoryProvider = Provider<QueueStore Function(String patientId)?>((ref) => null);
+
 final zyndioRepositoryProvider = Provider<ZyndioRepository>((ref) {
   switch (dataSource) {
     case 'supabase':
       return const SupabaseRepository();
     case 'offline':
     default:
-      return OfflineDemoRepository(ref.watch(demoBackendProvider));
+      return OfflineDemoRepository(
+        ref.watch(demoBackendProvider),
+        queueStoreFor: ref.watch(queueStoreFactoryProvider),
+      );
   }
 });
 

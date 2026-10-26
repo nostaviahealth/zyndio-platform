@@ -15,6 +15,10 @@ T-AUTH-01/02/03, T-CONS-01/02, T-LAB-03/05 and T-BIO-01/02 as a single live walk
 instead of) the per-state tests already listed below for each screen. The Henry-gate forbidden-wording
 check (`flutter_app/test/demo/demo_forbidden_wording_test.dart`) also walks this same journey path.
 
+T-LAB-05's "survives an app kill" claim is backed by an app-private file-backed upload queue on mobile
+(`flutter_app/lib/demo/storage/file_queue_store.dart`); the web demo build has no app-private filesystem
+to persist to, so it keeps the in-memory queue and loses it on a page reload.
+
 | Screen | State | Mode | Path | Test/check ID(s) | Test file |
 |---|---|---|---|---|---|
 | signin | default | light | `signin/default--light.png` | none in plan | `flutter_app/test/demo/signin_test.dart` |
@@ -49,8 +53,8 @@ check (`flutter_app/test/demo/demo_forbidden_wording_test.dart`) also walks this
 | lab-upload | uploading | dark | `lab-upload/uploading--dark.png` | none in plan | `flutter_app/test/demo/lab_upload_test.dart` |
 | lab-upload | duplicate | light | `lab-upload/duplicate--light.png` | T-LAB-03 | `flutter_app/test/demo/lab_upload_test.dart`, `flutter_app/test/demo/screens/lab_upload_controller_test.dart`, `flutter_app/test/demo/data/demo_backend_test.dart` |
 | lab-upload | duplicate | dark | `lab-upload/duplicate--dark.png` | T-LAB-03 | `flutter_app/test/demo/lab_upload_test.dart`, `flutter_app/test/demo/screens/lab_upload_controller_test.dart`, `flutter_app/test/demo/data/demo_backend_test.dart` |
-| lab-upload | offline | light | `lab-upload/offline--light.png` | T-LAB-05 | `flutter_app/test/demo/lab_upload_test.dart`, `flutter_app/test/demo/screens/lab_upload_controller_test.dart`, `flutter_app/test/demo/logic/upload_queue_test.dart` |
-| lab-upload | offline | dark | `lab-upload/offline--dark.png` | T-LAB-05 | `flutter_app/test/demo/lab_upload_test.dart`, `flutter_app/test/demo/screens/lab_upload_controller_test.dart`, `flutter_app/test/demo/logic/upload_queue_test.dart` |
+| lab-upload | offline | light | `lab-upload/offline--light.png` | T-LAB-05 | `flutter_app/test/demo/lab_upload_test.dart`, `flutter_app/test/demo/screens/lab_upload_controller_test.dart`, `flutter_app/test/demo/logic/upload_queue_test.dart`, `flutter_app/test/demo/storage/file_queue_store_test.dart`, `flutter_app/test/demo/data/zyndio_repository_test.dart` |
+| lab-upload | offline | dark | `lab-upload/offline--dark.png` | T-LAB-05 | `flutter_app/test/demo/lab_upload_test.dart`, `flutter_app/test/demo/screens/lab_upload_controller_test.dart`, `flutter_app/test/demo/logic/upload_queue_test.dart`, `flutter_app/test/demo/storage/file_queue_store_test.dart`, `flutter_app/test/demo/data/zyndio_repository_test.dart` |
 | lab-upload | error | light | `lab-upload/error--light.png` | none in plan | `flutter_app/test/demo/lab_upload_test.dart` |
 | lab-upload | error | dark | `lab-upload/error--dark.png` | none in plan | `flutter_app/test/demo/lab_upload_test.dart` |
 | lab-review | loading | light | `lab-review/loading--light.png` | none in plan (no time promise) | `flutter_app/test/demo/lab_review_test.dart` |
