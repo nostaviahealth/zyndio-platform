@@ -4,7 +4,9 @@ import { AuthProvider } from './contexts/AuthContext';
 import { AdminProvider } from './contexts/AdminContext';
 import { SidebarProvider } from './contexts/SidebarContext';
 import { UserProvider } from './contexts/UserContext';
+import { PortalAuthProvider } from './contexts/PortalAuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import RequireSession from './components/admin-shell/RequireSession';
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
 import Home from './pages/Home';
@@ -20,7 +22,6 @@ import Chat from './pages/Chat';
 import Tools from './pages/Tools';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
-import Signup from './pages/Signup';
 import HealthQuestionnaire from './pages/HealthQuestionnaire';
 import LabTestUpload from './pages/LabTestUpload';
 import AdminLayout from './components/AdminLayout';
@@ -29,7 +30,11 @@ import CreatePatient from './pages/admin/CreatePatient';
 import PatientDetail from './pages/admin/PatientDetail';
 import NutritionWorkbench from './pages/admin/NutritionWorkbench';
 import NutritionLab from './pages/admin/NutritionLab';
-import AdminLogin from './pages/admin/AdminLogin';
+import SignIn from './pages/admin/SignIn';
+import AcceptInvite from './pages/admin/AcceptInvite';
+import TwoFactorSetup from './pages/admin/TwoFactorSetup';
+import TwoFactorChallenge from './pages/admin/TwoFactorChallenge';
+import RecoverySignIn from './pages/admin/RecoverySignIn';
 import HealthVault from './pages/HealthVault';
 import GutMicrobiomeDetail from './pages/panels/GutMicrobiomeDetail';
 import GeneticPanelDetail from './pages/panels/GeneticPanelDetail';
@@ -45,15 +50,40 @@ const App: React.FC = () => {
     <ErrorBoundary>
       <Router>
         <AuthProvider>
+          <PortalAuthProvider>
           <AdminProvider>
             <SidebarProvider>
               <Routes>
                 {/* Public Routes */}
                 <Route path="/login" element={<Login />} />
-                <Route path="/signup" element={<Signup />} />
 
-                {/* Admin Login - Separate from regular login */}
-                <Route path="/admin/login" element={<AdminLogin />} />
+                {/* Admin auth routes (TC-005): sign-in, invite accept, 2FA setup/challenge/recovery */}
+                <Route path="/admin/login" element={<SignIn />} />
+                <Route path="/admin/invite/:token" element={<AcceptInvite />} />
+                <Route
+                  path="/admin/2fa/setup"
+                  element={
+                    <RequireSession requireAal2={false}>
+                      <TwoFactorSetup />
+                    </RequireSession>
+                  }
+                />
+                <Route
+                  path="/admin/2fa/challenge"
+                  element={
+                    <RequireSession requireAal2={false}>
+                      <TwoFactorChallenge />
+                    </RequireSession>
+                  }
+                />
+                <Route
+                  path="/admin/2fa/recovery"
+                  element={
+                    <RequireSession requireAal2={false}>
+                      <RecoverySignIn />
+                    </RequireSession>
+                  }
+                />
 
                 {/* Admin Portal Routes - Protected */}
                 <Route
@@ -110,6 +140,7 @@ const App: React.FC = () => {
               </Routes>
             </SidebarProvider>
           </AdminProvider>
+          </PortalAuthProvider>
         </AuthProvider>
       </Router>
     </ErrorBoundary>
