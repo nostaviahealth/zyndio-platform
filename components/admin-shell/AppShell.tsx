@@ -4,6 +4,7 @@ import Sidebar from './Sidebar';
 import IdleWarningDialog from './IdleWarningDialog';
 import { useIdleTimer } from '../../hooks/useIdleTimer';
 import { usePortalAuth } from '../../contexts/PortalAuthContext';
+import { ToastProvider } from '../ui/Toast';
 
 // Single app shell for every /admin/* page (clinical + users/roles) -
 // AdminLayout/AdminTopBar are retired, replaced by Sidebar + this idle
@@ -23,19 +24,21 @@ const AppShell: React.FC = () => {
   }, [signOut, navigate]);
 
   return (
-    <div className="flex min-h-screen bg-[#F2F4F7]">
-      <Sidebar />
-      <main className="flex-1 px-10 py-8">
-        <Outlet />
-      </main>
-      {state === 'warning' && (
-        <IdleWarningDialog
-          secondsRemaining={secondsUntilExpire}
-          onStaySignedIn={reset}
-          onSignOut={handleManualSignOut}
-        />
-      )}
-    </div>
+    <ToastProvider>
+      <div className="flex min-h-screen bg-[#F2F4F7]">
+        <Sidebar />
+        <main className="flex-1 px-10 py-8">
+          <Outlet />
+        </main>
+        {state === 'warning' && (
+          <IdleWarningDialog
+            secondsRemaining={secondsUntilExpire}
+            onStaySignedIn={reset}
+            onSignOut={handleManualSignOut}
+          />
+        )}
+      </div>
+    </ToastProvider>
   );
 };
 

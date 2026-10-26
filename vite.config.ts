@@ -24,7 +24,8 @@ export default defineConfig(({ mode }) => {
       plugins: [react(), zyndioThemePlugin()],
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+        __PREVIEW_BUILD__: mode === 'preview',
       },
       resolve: {
         alias: {

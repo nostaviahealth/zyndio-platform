@@ -46,6 +46,13 @@ import BiologicalAgeDetail from './pages/panels/BiologicalAgeDetail';
 import HeavyMetalsDetail from './pages/panels/HeavyMetalsDetail';
 import ToxicityDetail from './pages/panels/ToxicityDetail';
 
+// __PREVIEW_BUILD__ is a build-time literal (false outside `vite build
+// --mode preview` / `npm run build:preview`) - gating both the route and
+// the dynamic import means rollup's dead-code elimination drops the
+// /__preview harness (and its fixture strings) from the default
+// `npm run build` bundle entirely. See tests/preview-harness.test.ts.
+const LazyPreviewHarness = __PREVIEW_BUILD__ ? React.lazy(() => import('./pages/preview/PreviewHarness')) : null;
+
 // Placeholder for missing pages
 const Profile = () => <div className="p-8">Profile Page Coming Soon</div>;
 
@@ -184,6 +191,18 @@ const App: React.FC = () => {
                   <Route path="health-vault/heavy-metals" element={<HeavyMetalsDetail />} />
                   <Route path="health-vault/toxicity" element={<ToxicityDetail />} />
                 </Route>
+
+                {/* Screenshot harness, build:preview only (OVERRIDES #8). */}
+                {__PREVIEW_BUILD__ && LazyPreviewHarness && (
+                  <Route
+                    path="/__preview"
+                    element={
+                      <React.Suspense fallback={null}>
+                        <LazyPreviewHarness />
+                      </React.Suspense>
+                    }
+                  />
+                )}
 
                 {/* Catch all - redirect to home */}
                 <Route path="*" element={<Navigate to="/" replace />} />
