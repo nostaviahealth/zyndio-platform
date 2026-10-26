@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../config/theme.dart';
 import 'demo_card.dart';
+import 'zyndio_switch.dart';
 
 /// C17 Optional consent card: title + body + trailing switch. Hit area is
 /// the whole card, role switch, off by default.
@@ -43,13 +44,13 @@ class OptionalCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: ZyndioSpace.s12),
-              // A real Switch (not a custom-painted visual) so colour comes
-              // entirely from the app's SwitchThemeData tokens — no
-              // per-widget override, and no risk of a hardcoded white knob
-              // showing up against a dark track in dark mode.
+              // A token-driven switch (not Material's Switch) so the off-state
+              // knob stays an outlined, full-height circle in dark mode —
+              // Material's Switch can't draw that and shrinks the off thumb
+              // to a small dot. Colour comes entirely from ZyndioColors.
               ExcludeSemantics(
                 child: IgnorePointer(
-                  child: Switch(value: value, onChanged: (_) {}),
+                  child: ZyndioSwitch(value: value, onChanged: (_) {}),
                 ),
               ),
             ],
