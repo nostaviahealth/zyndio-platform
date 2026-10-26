@@ -2,6 +2,9 @@
 /// never the internal docs these numbers are drawn from.
 library;
 
+import 'dart:convert';
+import 'dart:typed_data';
+
 class DemoPatient {
   const DemoPatient({
     required this.name,
@@ -84,6 +87,14 @@ const List<BiomarkerRow> biomarkerFixture = [
   BiomarkerRow(name: 'ApoB', baseline: 106, followUp: 84, unit: 'mg/dL'),
   BiomarkerRow(name: 'hsCRP', baseline: 3.8, followUp: 1.7, unit: 'mg/L'),
 ];
+
+/// Fictional file name/bytes the journey flow (Step 6) "uploads" in place of
+/// a real file picker. Content is placeholder text only — never a real lab
+/// document.
+const String demoLabFileName = 'metabolic-panel.pdf';
+
+Uint8List demoLabFileBytes() =>
+    Uint8List.fromList(utf8.encode('Fictional Reference Lab — Metabolic panel — Jordan Rivera'));
 
 /// One extracted value on the lab review screen (03 Lab upload -> 04 Lab
 /// review). [needsReviewReason] is null for every value except hsCRP, which

@@ -4,6 +4,13 @@ One row per PNG under `docs/screenshots/tc-008/<screen>/<state>--<light|dark>.pn
 `/workspace/techteam/team3/projects/zyndio/docs/TC-008_TEST_PLAN.md`. "none in plan" means the state has no
 test-plan ID of its own (it's still covered by a widget test in the file listed).
 
+Step 6 adds `flutter_app/test/demo/flow_test.dart`: one end-to-end walk through the real
+sign-in -> consent -> lab upload -> lab review -> lab trends journey (`?flow=journey`), driven by
+taps and the real controllers/`DemoBackend` — not by constructing a screen state. It covers
+T-AUTH-01/02/03, T-CONS-01/02, T-LAB-03/05 and T-BIO-01/02 as a single live walk, on top of (not
+instead of) the per-state tests already listed below for each screen. The Henry-gate forbidden-wording
+check (`flutter_app/test/demo/demo_forbidden_wording_test.dart`) also walks this same journey path.
+
 | Screen | State | Mode | Path | Test/check ID(s) | Test file |
 |---|---|---|---|---|---|
 | signin | default | light | `signin/default--light.png` | none in plan | `flutter_app/test/demo/signin_test.dart` |

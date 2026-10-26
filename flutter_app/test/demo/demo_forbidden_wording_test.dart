@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zyndio_patient/config/theme.dart';
+import 'package:zyndio_patient/demo/data/demo_backend.dart';
+import 'package:zyndio_patient/demo/data/fixtures.dart';
 import 'package:zyndio_patient/demo/demo_app.dart';
+import 'package:zyndio_patient/demo/logic/clock.dart';
+import 'package:zyndio_patient/demo/providers/demo_providers.dart';
+import 'package:zyndio_patient/demo/router/demo_state.dart';
 import 'package:zyndio_patient/demo/screens/consent/consent_state.dart';
 import 'package:zyndio_patient/demo/screens/consent/consent_view.dart';
 import 'package:zyndio_patient/demo/screens/lab_review/lab_review_state.dart';
@@ -136,5 +141,66 @@ void main() {
     await tester.pumpWidget(const ProviderScope(child: DemoApp()));
     await tester.pumpAndSettle();
     expectNoForbiddenWording(tester);
+  });
+
+  testWidgets('DemoApp (?flow=journey): no forbidden wording on any screen reached', (tester) async {
+    tester.view.physicalSize = const Size(800, 2000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final clock = FakeClock(DateTime(2026, 1, 1, 9, 0, 0));
+    final backend = DemoBackend(clock: clock);
+    final container = ProviderContainer(overrides: [
+      demoClockProvider.overrideWithValue(clock),
+      demoBackendProvider.overrideWithValue(backend),
+    ]);
+    addTearDown(container.dispose);
+
+    Future<void> tapByScrollingIntoView(Finder finder) async {
+      await tester.scrollUntilVisible(finder, 200, scrollable: find.byType(Scrollable));
+      await tester.tap(finder);
+    }
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const DemoApp(initialParams: DemoRouteParams(flow: 'journey')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expectNoForbiddenWording(tester); // sign-in, email step
+
+    await tester.enterText(find.byKey(const Key('signin-email-field')), demoPatient.email);
+    await tester.pump();
+    await tester.tap(find.text('Send code'));
+    await tester.pump();
+    expectNoForbiddenWording(tester); // sign-in, code step
+
+    final code = backend.debugLastIssuedCode(demoPatient.email)!;
+    await tester.enterText(find.byType(TextField), code);
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expectNoForbiddenWording(tester); // consent
+
+    await tester.tap(find.text('Terms of Service'));
+    await tester.pump();
+    await tester.tap(find.text('Privacy Notice'));
+    await tester.pump();
+    await tester.tap(find.text('Consent to use my health data'));
+    await tester.pump();
+    await tapByScrollingIntoView(find.text('Agree and continue'));
+    await tester.pumpAndSettle();
+    expectNoForbiddenWording(tester); // lab upload
+
+    await tapByScrollingIntoView(find.text('Choose a PDF'));
+    await tester.pumpAndSettle();
+    expectNoForbiddenWording(tester); // lab review
+
+    await tapByScrollingIntoView(find.text('Save results'));
+    await tester.pumpAndSettle();
+    await tapByScrollingIntoView(find.text('Done'));
+    await tester.pumpAndSettle();
+    expectNoForbiddenWording(tester); // lab trends
   });
 }

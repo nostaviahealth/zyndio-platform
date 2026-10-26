@@ -21,12 +21,16 @@ class LabUploadView extends StatelessWidget {
     this.onUploadAnyway,
     this.onCancelDuplicate,
     this.onRetry,
+    this.onPickPdf,
   });
 
   final LabUploadState state;
   final VoidCallback? onUploadAnyway;
   final VoidCallback? onCancelDuplicate;
   final VoidCallback? onRetry;
+
+  /// Simulates picking "Choose a PDF" (the demo has no real file picker).
+  final VoidCallback? onPickPdf;
 
   @override
   Widget build(BuildContext context) {
@@ -80,18 +84,31 @@ class LabUploadView extends StatelessWidget {
 
   Widget _optionsCard(BuildContext context) {
     final colors = Theme.of(context).extension<ZyndioColors>()!;
-    const options = [
-      (Icons.camera_alt_outlined, 'Scan with camera', 'Multi-page, one photo per page'),
-      (Icons.photo_outlined, 'Choose from Photos', 'Screenshots from a patient portal work too'),
-      (Icons.insert_drive_file_outlined, 'Choose a PDF', 'The file from your lab or patient portal'),
+    final rows = [
+      const _ActionRow(
+        icon: Icons.camera_alt_outlined,
+        title: 'Scan with camera',
+        subtitle: 'Multi-page, one photo per page',
+      ),
+      const _ActionRow(
+        icon: Icons.photo_outlined,
+        title: 'Choose from Photos',
+        subtitle: 'Screenshots from a patient portal work too',
+      ),
+      _ActionRow(
+        icon: Icons.insert_drive_file_outlined,
+        title: 'Choose a PDF',
+        subtitle: 'The file from your lab or patient portal',
+        onTap: onPickPdf,
+      ),
     ];
     return DemoCard(
       padding: EdgeInsets.zero,
       child: Column(
         children: [
-          for (var i = 0; i < options.length; i++) ...[
-            _ActionRow(icon: options[i].$1, title: options[i].$2, subtitle: options[i].$3),
-            if (i != options.length - 1)
+          for (var i = 0; i < rows.length; i++) ...[
+            rows[i],
+            if (i != rows.length - 1)
               Divider(height: 1, color: colors.borderSubtle, indent: ZyndioSpace.s16, endIndent: ZyndioSpace.s16),
           ],
         ],
@@ -206,11 +223,12 @@ class LabUploadView extends StatelessWidget {
 }
 
 class _ActionRow extends StatelessWidget {
-  const _ActionRow({required this.icon, required this.title, required this.subtitle});
+  const _ActionRow({required this.icon, required this.title, required this.subtitle, this.onTap});
 
   final IconData icon;
   final String title;
   final String subtitle;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -218,26 +236,29 @@ class _ActionRow extends StatelessWidget {
     return Semantics(
       button: true,
       label: title,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: ZyndioSize.rowMin),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: ZyndioSpace.s16, vertical: ZyndioSpace.s8),
-          child: Row(
-            children: [
-              Icon(icon, size: ZyndioSize.icon, color: colors.brandPrimary),
-              const SizedBox(width: ZyndioSpace.s12),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: ZyndioType.headline.copyWith(color: colors.textPrimary)),
-                    Text(subtitle, style: ZyndioType.footnote.copyWith(color: colors.textTertiary)),
-                  ],
+      child: InkWell(
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: ZyndioSize.rowMin),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: ZyndioSpace.s16, vertical: ZyndioSpace.s8),
+            child: Row(
+              children: [
+                Icon(icon, size: ZyndioSize.icon, color: colors.brandPrimary),
+                const SizedBox(width: ZyndioSpace.s12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: ZyndioType.headline.copyWith(color: colors.textPrimary)),
+                      Text(subtitle, style: ZyndioType.footnote.copyWith(color: colors.textTertiary)),
+                    ],
+                  ),
                 ),
-              ),
-              Icon(Icons.chevron_right, color: colors.textTertiary),
-            ],
+                Icon(Icons.chevron_right, color: colors.textTertiary),
+              ],
+            ),
           ),
         ),
       ),

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/theme.dart';
+import 'data/fixtures.dart';
 import 'demo_ready_web.dart' if (dart.library.io) 'demo_ready_io.dart'
     as ready;
 import 'router/demo_state.dart';
+import 'screens/flow_router.dart';
 import 'screens/consent/consent_controller.dart';
 import 'screens/consent/consent_state.dart';
 import 'screens/consent/consent_view.dart';
@@ -24,11 +26,15 @@ import 'screens/signin/signin_view.dart';
 export 'demo_build_flag.dart';
 
 class DemoApp extends StatelessWidget {
-  const DemoApp({super.key});
+  const DemoApp({super.key, this.initialParams});
+
+  /// Overrides the params normally parsed from `Uri.base` — lets widget
+  /// tests drive `?flow=journey` without a real browser URL.
+  final DemoRouteParams? initialParams;
 
   @override
   Widget build(BuildContext context) {
-    final params =
+    final params = initialParams ??
         DemoRouteParams.fromQueryParameters(Uri.base.queryParameters);
     return MaterialApp(
       title: 'Zyndio Demo',
@@ -67,6 +73,9 @@ class _DemoHomeState extends State<_DemoHome> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.params.flow == 'journey') {
+      return const DemoJourneyFlow();
+    }
     final screen = widget.params.screen;
     if (screen == 'signin') {
       // A `state` query param (the screenshot harness) renders a fixed
@@ -164,6 +173,7 @@ class _InteractiveLabUpload extends ConsumerWidget {
       state: state,
       onUploadAnyway: controller.confirmUploadAnyway,
       onCancelDuplicate: controller.cancelDuplicate,
+      onPickPdf: () => controller.addFile(demoLabFileName, demoLabFileBytes()),
     );
   }
 }
@@ -190,7 +200,11 @@ class _InteractiveLabTrendsState extends ConsumerState<_InteractiveLabTrends> {
   @override
   void initState() {
     super.initState();
-    ref.read(labTrendsControllerProvider.notifier).refresh();
+    // Deferred past this build/mount: Riverpod disallows writing a provider
+    // from initState (the widget tree is still building at that point).
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => ref.read(labTrendsControllerProvider.notifier).refresh(),
+    );
   }
 
   @override
