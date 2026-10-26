@@ -1,0 +1,812 @@
+{
+  "$description": "PLACEHOLDER brand tokens, direction D \u00b7 Zyndio Site (from C, retuned to zyndio.com). Not Zyndio's brand. Replace brand.*, font.family.* and wordmark when Zyndio's assets arrive; component tokens reference these semantics only.",
+  "meta": {
+    "status": "PLACEHOLDER",
+    "direction": "zyndio-site",
+    "generated": "2026-10-23",
+    "grid": "8pt spacing, 4pt baseline",
+    "minTouchTarget": 44,
+    "wcag": "2.2 AA"
+  },
+  "color": {
+    "bg": {
+      "canvas": {
+        "$type": "color",
+        "$value": {
+          "light": "#F1F4FC",
+          "dark": "#070A14"
+        }
+      },
+      "surface": {
+        "$type": "color",
+        "$value": {
+          "light": "#FFFFFF",
+          "dark": "#10141F"
+        }
+      },
+      "sunken": {
+        "$type": "color",
+        "$value": {
+          "light": "#E6ECFA",
+          "dark": "#0B0F19"
+        }
+      }
+    },
+    "text": {
+      "primary": {
+        "$type": "color",
+        "$value": {
+          "light": "#030616",
+          "dark": "#EEF1F8"
+        }
+      },
+      "secondary": {
+        "$type": "color",
+        "$value": {
+          "light": "#48556A",
+          "dark": "#A6B0C3"
+        }
+      },
+      "tertiary": {
+        "$type": "color",
+        "$value": {
+          "light": "#56637B",
+          "dark": "#8F9AAF"
+        }
+      }
+    },
+    "border": {
+      "subtle": {
+        "$type": "color",
+        "$value": {
+          "light": "#DEE5F5",
+          "dark": "#222838"
+        }
+      },
+      "strong": {
+        "$type": "color",
+        "$value": {
+          "light": "#7A86A0",
+          "dark": "#6C7690"
+        }
+      }
+    },
+    "brand": {
+      "primary": {
+        "$type": "color",
+        "$value": {
+          "light": "#2C5CF2",
+          "dark": "#7C9CFF"
+        }
+      },
+      "onPrimary": {
+        "$type": "color",
+        "$value": {
+          "light": "#FFFFFF",
+          "dark": "#030616"
+        }
+      },
+      "subtle": {
+        "$type": "color",
+        "$value": {
+          "light": "#DEEAFC",
+          "dark": "#18224A"
+        }
+      },
+      "onSubtle": {
+        "$type": "color",
+        "$value": {
+          "light": "#2346DD",
+          "dark": "#AFC3FF"
+        }
+      }
+    },
+    "action": {
+      "secondary": {
+        "$type": "color",
+        "$value": {
+          "light": "#030616",
+          "dark": "#F1F4FC"
+        }
+      },
+      "onSecondary": {
+        "$type": "color",
+        "$value": {
+          "light": "#FFFFFF",
+          "dark": "#030616"
+        }
+      }
+    },
+    "status": {
+      "success": {
+        "$type": "color",
+        "$value": {
+          "light": "#15784A",
+          "dark": "#5FD39A"
+        }
+      },
+      "successSubtle": {
+        "$type": "color",
+        "$value": {
+          "light": "#E3F5EC",
+          "dark": "#0F2A1D"
+        }
+      },
+      "warning": {
+        "$type": "color",
+        "$value": {
+          "light": "#8A4F00",
+          "dark": "#F2B65A"
+        }
+      },
+      "warningSubtle": {
+        "$type": "color",
+        "$value": {
+          "light": "#FBEFD8",
+          "dark": "#2F220D"
+        }
+      },
+      "critical": {
+        "$type": "color",
+        "$value": {
+          "light": "#B42318",
+          "dark": "#FF8F86"
+        }
+      },
+      "criticalSubtle": {
+        "$type": "color",
+        "$value": {
+          "light": "#FCE8E6",
+          "dark": "#3A1614"
+        }
+      }
+    },
+    "chart": {
+      "line": {
+        "$type": "color",
+        "$value": {
+          "light": "#2C5CF2",
+          "dark": "#7C9CFF"
+        }
+      },
+      "range": {
+        "$type": "color",
+        "$value": {
+          "light": "#E3F5EC",
+          "dark": "#0F2A1D"
+        }
+      }
+    },
+    "focus": {
+      "ring": {
+        "$type": "color",
+        "$value": {
+          "light": "#2346DD",
+          "dark": "#AFC3FF"
+        }
+      }
+    }
+  },
+  "font": {
+    "family": {
+      "display": {
+        "$type": "fontFamily",
+        "$value": [
+          "Inter",
+          "system-ui",
+          "-apple-system",
+          "Roboto",
+          "sans-serif"
+        ]
+      },
+      "text": {
+        "$type": "fontFamily",
+        "$value": [
+          "Inter",
+          "system-ui",
+          "-apple-system",
+          "Roboto",
+          "sans-serif"
+        ]
+      },
+      "numeric": {
+        "$type": "fontFamily",
+        "$value": [
+          "Inter",
+          "system-ui",
+          "-apple-system",
+          "Roboto",
+          "sans-serif"
+        ]
+      }
+    },
+    "license": {
+      "Inter": "SIL Open Font License 1.1 (rsms/inter); tabular numerals via font-variant-numeric: tabular-nums"
+    }
+  },
+  "typography": {
+    "display": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "{font.family.display}",
+        "fontSize": "34px",
+        "lineHeight": "40px",
+        "fontWeight": 700
+      }
+    },
+    "title1": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "{font.family.display}",
+        "fontSize": "28px",
+        "lineHeight": "36px",
+        "fontWeight": 700
+      }
+    },
+    "title2": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "{font.family.display}",
+        "fontSize": "22px",
+        "lineHeight": "28px",
+        "fontWeight": 700
+      }
+    },
+    "title3": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": "20px",
+        "lineHeight": "24px",
+        "fontWeight": 600
+      }
+    },
+    "headline": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": "17px",
+        "lineHeight": "24px",
+        "fontWeight": 600
+      }
+    },
+    "body": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": "17px",
+        "lineHeight": "24px",
+        "fontWeight": 400
+      }
+    },
+    "callout": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": "16px",
+        "lineHeight": "24px",
+        "fontWeight": 400
+      }
+    },
+    "subhead": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": "15px",
+        "lineHeight": "20px",
+        "fontWeight": 400
+      }
+    },
+    "footnote": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": "13px",
+        "lineHeight": "18px",
+        "fontWeight": 400
+      }
+    },
+    "caption": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": "12px",
+        "lineHeight": "16px",
+        "fontWeight": 500
+      }
+    },
+    "numeric.hero": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "{font.family.numeric}",
+        "fontSize": "44px",
+        "lineHeight": "48px",
+        "fontWeight": 700
+      }
+    }
+  },
+  "space": {
+    "0": {
+      "$type": "dimension",
+      "$value": "0px"
+    },
+    "1": {
+      "$type": "dimension",
+      "$value": "4px"
+    },
+    "2": {
+      "$type": "dimension",
+      "$value": "8px"
+    },
+    "3": {
+      "$type": "dimension",
+      "$value": "12px"
+    },
+    "4": {
+      "$type": "dimension",
+      "$value": "16px"
+    },
+    "5": {
+      "$type": "dimension",
+      "$value": "24px"
+    },
+    "6": {
+      "$type": "dimension",
+      "$value": "32px"
+    },
+    "7": {
+      "$type": "dimension",
+      "$value": "40px"
+    },
+    "8": {
+      "$type": "dimension",
+      "$value": "48px"
+    },
+    "9": {
+      "$type": "dimension",
+      "$value": "64px"
+    }
+  },
+  "radius": {
+    "sm": {
+      "$type": "dimension",
+      "$value": "10px"
+    },
+    "md": {
+      "$type": "dimension",
+      "$value": "16px"
+    },
+    "lg": {
+      "$type": "dimension",
+      "$value": "16px"
+    },
+    "button": {
+      "$type": "dimension",
+      "$value": "999px"
+    },
+    "pill": {
+      "$type": "dimension",
+      "$value": "999px"
+    }
+  },
+  "size": {
+    "touchTarget": {
+      "$type": "dimension",
+      "$value": "44px"
+    },
+    "control": {
+      "$type": "dimension",
+      "$value": "48px"
+    },
+    "button": {
+      "$type": "dimension",
+      "$value": "52px"
+    }
+  },
+  "contrastAudit": {
+    "light": [
+      {
+        "fg": "text.primary",
+        "bg": "bg.canvas",
+        "ratio": 18.33,
+        "min": 4.5,
+        "pass": true,
+        "use": "body text on canvas"
+      },
+      {
+        "fg": "text.primary",
+        "bg": "bg.surface",
+        "ratio": 20.16,
+        "min": 4.5,
+        "pass": true,
+        "use": "body text on card"
+      },
+      {
+        "fg": "text.secondary",
+        "bg": "bg.canvas",
+        "ratio": 6.86,
+        "min": 4.5,
+        "pass": true,
+        "use": "secondary text on canvas"
+      },
+      {
+        "fg": "text.secondary",
+        "bg": "bg.surface",
+        "ratio": 7.55,
+        "min": 4.5,
+        "pass": true,
+        "use": "secondary text on card"
+      },
+      {
+        "fg": "text.tertiary",
+        "bg": "bg.surface",
+        "ratio": 6.06,
+        "min": 4.5,
+        "pass": true,
+        "use": "captions/timestamps on card"
+      },
+      {
+        "fg": "text.tertiary",
+        "bg": "bg.sunken",
+        "ratio": 5.12,
+        "min": 4.5,
+        "pass": true,
+        "use": "captions on sunken"
+      },
+      {
+        "fg": "brand.onPrimary",
+        "bg": "brand.primary",
+        "ratio": 5.36,
+        "min": 4.5,
+        "pass": true,
+        "use": "primary button label"
+      },
+      {
+        "fg": "brand.primary",
+        "bg": "bg.surface",
+        "ratio": 5.36,
+        "min": 4.5,
+        "pass": true,
+        "use": "link / text button on card"
+      },
+      {
+        "fg": "brand.primary",
+        "bg": "bg.canvas",
+        "ratio": 4.87,
+        "min": 4.5,
+        "pass": true,
+        "use": "link on canvas"
+      },
+      {
+        "fg": "brand.onSubtle",
+        "bg": "brand.subtle",
+        "ratio": 5.78,
+        "min": 4.5,
+        "pass": true,
+        "use": "chip text on brand tint"
+      },
+      {
+        "fg": "status.success",
+        "bg": "status.successSubtle",
+        "ratio": 4.86,
+        "min": 4.5,
+        "pass": true,
+        "use": "success badge"
+      },
+      {
+        "fg": "status.success",
+        "bg": "bg.surface",
+        "ratio": 5.5,
+        "min": 4.5,
+        "pass": true,
+        "use": "success text on card"
+      },
+      {
+        "fg": "status.warning",
+        "bg": "status.warningSubtle",
+        "ratio": 5.76,
+        "min": 4.5,
+        "pass": true,
+        "use": "needs-review badge"
+      },
+      {
+        "fg": "status.warning",
+        "bg": "bg.surface",
+        "ratio": 6.56,
+        "min": 4.5,
+        "pass": true,
+        "use": "warning text on card"
+      },
+      {
+        "fg": "status.critical",
+        "bg": "status.criticalSubtle",
+        "ratio": 5.58,
+        "min": 4.5,
+        "pass": true,
+        "use": "error badge"
+      },
+      {
+        "fg": "status.critical",
+        "bg": "bg.surface",
+        "ratio": 6.57,
+        "min": 4.5,
+        "pass": true,
+        "use": "error text on card"
+      },
+      {
+        "fg": "border.strong",
+        "bg": "bg.surface",
+        "ratio": 3.66,
+        "min": 3.0,
+        "pass": true,
+        "use": "input borders / controls (non-text, 1.4.11)"
+      },
+      {
+        "fg": "chart.line",
+        "bg": "bg.surface",
+        "ratio": 5.36,
+        "min": 3.0,
+        "pass": true,
+        "use": "chart line (non-text, 1.4.11)"
+      },
+      {
+        "fg": "focus.ring",
+        "bg": "bg.surface",
+        "ratio": 7.02,
+        "min": 3.0,
+        "pass": true,
+        "use": "focus indicator (2.4.13 / 1.4.11)"
+      },
+      {
+        "fg": "focus.ring",
+        "bg": "bg.canvas",
+        "ratio": 6.38,
+        "min": 3.0,
+        "pass": true,
+        "use": "focus indicator on canvas"
+      },
+      {
+        "fg": "action.onSecondary",
+        "bg": "action.secondary",
+        "ratio": 20.16,
+        "min": 4.5,
+        "pass": true,
+        "use": "near-black secondary button label"
+      },
+      {
+        "fg": "action.secondary",
+        "bg": "bg.canvas",
+        "ratio": 18.33,
+        "min": 3.0,
+        "pass": true,
+        "use": "secondary button boundary on canvas (1.4.11)"
+      },
+      {
+        "fg": "action.secondary",
+        "bg": "bg.surface",
+        "ratio": 20.16,
+        "min": 3.0,
+        "pass": true,
+        "use": "secondary button boundary on card (1.4.11)"
+      },
+      {
+        "fg": "brand.primary",
+        "bg": "bg.sunken",
+        "ratio": 4.53,
+        "min": 3.0,
+        "pass": true,
+        "use": "primary button boundary on sunken (1.4.11)"
+      },
+      {
+        "fg": "text.secondary",
+        "bg": "bg.sunken",
+        "ratio": 6.38,
+        "min": 4.5,
+        "pass": true,
+        "use": "secondary text on sunken / segmented control"
+      }
+    ],
+    "dark": [
+      {
+        "fg": "text.primary",
+        "bg": "bg.canvas",
+        "ratio": 17.48,
+        "min": 4.5,
+        "pass": true,
+        "use": "body text on canvas"
+      },
+      {
+        "fg": "text.primary",
+        "bg": "bg.surface",
+        "ratio": 16.27,
+        "min": 4.5,
+        "pass": true,
+        "use": "body text on card"
+      },
+      {
+        "fg": "text.secondary",
+        "bg": "bg.canvas",
+        "ratio": 9.05,
+        "min": 4.5,
+        "pass": true,
+        "use": "secondary text on canvas"
+      },
+      {
+        "fg": "text.secondary",
+        "bg": "bg.surface",
+        "ratio": 8.42,
+        "min": 4.5,
+        "pass": true,
+        "use": "secondary text on card"
+      },
+      {
+        "fg": "text.tertiary",
+        "bg": "bg.surface",
+        "ratio": 6.49,
+        "min": 4.5,
+        "pass": true,
+        "use": "captions/timestamps on card"
+      },
+      {
+        "fg": "text.tertiary",
+        "bg": "bg.sunken",
+        "ratio": 6.76,
+        "min": 4.5,
+        "pass": true,
+        "use": "captions on sunken"
+      },
+      {
+        "fg": "brand.onPrimary",
+        "bg": "brand.primary",
+        "ratio": 7.74,
+        "min": 4.5,
+        "pass": true,
+        "use": "primary button label"
+      },
+      {
+        "fg": "brand.primary",
+        "bg": "bg.surface",
+        "ratio": 7.06,
+        "min": 4.5,
+        "pass": true,
+        "use": "link / text button on card"
+      },
+      {
+        "fg": "brand.primary",
+        "bg": "bg.canvas",
+        "ratio": 7.58,
+        "min": 4.5,
+        "pass": true,
+        "use": "link on canvas"
+      },
+      {
+        "fg": "brand.onSubtle",
+        "bg": "brand.subtle",
+        "ratio": 8.83,
+        "min": 4.5,
+        "pass": true,
+        "use": "chip text on brand tint"
+      },
+      {
+        "fg": "status.success",
+        "bg": "status.successSubtle",
+        "ratio": 8.23,
+        "min": 4.5,
+        "pass": true,
+        "use": "success badge"
+      },
+      {
+        "fg": "status.success",
+        "bg": "bg.surface",
+        "ratio": 9.87,
+        "min": 4.5,
+        "pass": true,
+        "use": "success text on card"
+      },
+      {
+        "fg": "status.warning",
+        "bg": "status.warningSubtle",
+        "ratio": 8.57,
+        "min": 4.5,
+        "pass": true,
+        "use": "needs-review badge"
+      },
+      {
+        "fg": "status.warning",
+        "bg": "bg.surface",
+        "ratio": 10.17,
+        "min": 4.5,
+        "pass": true,
+        "use": "warning text on card"
+      },
+      {
+        "fg": "status.critical",
+        "bg": "status.criticalSubtle",
+        "ratio": 7.3,
+        "min": 4.5,
+        "pass": true,
+        "use": "error badge"
+      },
+      {
+        "fg": "status.critical",
+        "bg": "bg.surface",
+        "ratio": 8.34,
+        "min": 4.5,
+        "pass": true,
+        "use": "error text on card"
+      },
+      {
+        "fg": "border.strong",
+        "bg": "bg.surface",
+        "ratio": 4.06,
+        "min": 3.0,
+        "pass": true,
+        "use": "input borders / controls (non-text, 1.4.11)"
+      },
+      {
+        "fg": "chart.line",
+        "bg": "bg.surface",
+        "ratio": 7.06,
+        "min": 3.0,
+        "pass": true,
+        "use": "chart line (non-text, 1.4.11)"
+      },
+      {
+        "fg": "focus.ring",
+        "bg": "bg.surface",
+        "ratio": 10.57,
+        "min": 3.0,
+        "pass": true,
+        "use": "focus indicator (2.4.13 / 1.4.11)"
+      },
+      {
+        "fg": "focus.ring",
+        "bg": "bg.canvas",
+        "ratio": 11.36,
+        "min": 3.0,
+        "pass": true,
+        "use": "focus indicator on canvas"
+      },
+      {
+        "fg": "action.onSecondary",
+        "bg": "action.secondary",
+        "ratio": 18.33,
+        "min": 4.5,
+        "pass": true,
+        "use": "near-black secondary button label"
+      },
+      {
+        "fg": "action.secondary",
+        "bg": "bg.canvas",
+        "ratio": 17.96,
+        "min": 3.0,
+        "pass": true,
+        "use": "secondary button boundary on canvas (1.4.11)"
+      },
+      {
+        "fg": "action.secondary",
+        "bg": "bg.surface",
+        "ratio": 16.71,
+        "min": 3.0,
+        "pass": true,
+        "use": "secondary button boundary on card (1.4.11)"
+      },
+      {
+        "fg": "brand.primary",
+        "bg": "bg.sunken",
+        "ratio": 7.35,
+        "min": 3.0,
+        "pass": true,
+        "use": "primary button boundary on sunken (1.4.11)"
+      },
+      {
+        "fg": "text.secondary",
+        "bg": "bg.sunken",
+        "ratio": 8.77,
+        "min": 4.5,
+        "pass": true,
+        "use": "secondary text on sunken / segmented control"
+      }
+    ]
+  }
+}

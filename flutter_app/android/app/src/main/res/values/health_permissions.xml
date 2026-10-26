@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="health_connect_rationale_title_read_steps">We need step data to calculate your activity score.</string>
+    <string name="health_connect_rationale_read_steps">To provide insights on your daily movement and biological age, Zyndio needs access to your step count.</string>
+
+    <string name="health_connect_rationale_title_read_heart_rate">We need heart rate data to monitor your stress and recovery.</string>
+    <string name="health_connect_rationale_read_heart_rate">Zyndio uses your heart rate to analyze your cardiovascular health and recovery.</string>
+
+    <string name="health_connect_rationale_title_read_sleep">We need sleep data to optimize your circadian rhythm.</string>
+    <string name="health_connect_rationale_read_sleep">Sleep quality is crucial for longevity. Allow access to analyze your rest patterns.</string>
+
+    <string name="health_connect_rationale_title_read_oxygen_saturation">We need oxygen data for deep health insights.</string> 
+    <string name="health_connect_rationale_read_oxygen_saturation">This helps us track your respiratory efficiency and overall vitality.</string>
+
+    <string name="health_connect_rationale_title_read_exercise">We need workout data to track your fitness progress.</string>
+    <string name="health_connect_rationale_read_exercise">Zyndio analyzes your workouts to provide personalized fitness recommendations.</string>
+
+    <string name="health_connect_rationale_title_read_total_calories_burned">We need calorie data for nutritional guidance.</string>
+    <string name="health_connect_rationale_read_total_calories_burned">Total energy expenditure helps us tailor your diet plan.</string>
+</resources>

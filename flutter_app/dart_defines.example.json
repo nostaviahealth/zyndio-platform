@@ -1,0 +1,10 @@
+{
+  "SUPABASE_URL": "https://YOUR-ZYNDIO-DEV-REF.supabase.co",
+  "SUPABASE_ANON_KEY": "example-anon-key-00000000000000000000",
+  "GEMINI_API_KEY": "example-gemini-key-00000000000000000000",
+  "ELEVENLABS_API_KEY": "example-elevenlabs-key-0000000000000000",
+  "SHOPIFY_STOREFRONT_TOKEN": "example-shopify-token-000000000000000",
+  "REVENUECAT_IOS_KEY": "example-revenuecat-ios-key-00000000000",
+  "REVENUECAT_ANDROID_KEY": "example-revenuecat-android-key-0000000",
+  "WEARABLES_API_KEY": "example-wearables-key-000000000000000"
+}

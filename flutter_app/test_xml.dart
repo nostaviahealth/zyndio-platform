@@ -1,0 +1,1 @@
+import 'dart:io'; import 'package:xml/xml.dart'; void main() { try { final file = File('android/app/src/main/AndroidManifest.xml'); final xmlStr = file.readAsStringSync(); XmlDocument.parse(xmlStr); print('Parsed successfully'); } catch (e) { print('Error: $e'); } }

@@ -1,0 +1,27 @@
+name: platform_wearables
+description: Vendored wearable health data plugin. Unified wearable health data SDK for Flutter. Connect Apple Health, Google Health Connect, Oura, Whoop, Fitbit, Withings, Polar, Garmin, Dexcom, and Ultrahuman with a single API.
+version: 0.1.1
+publish_to: none
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  plugin_platform_interface: ^2.0.2
+  http: ^1.0.0
+  crypto: ^3.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.zyndio.wearables
+        pluginClass: BrandWearablesPlugin
+      ios:
+        pluginClass: BrandWearablesPlugin

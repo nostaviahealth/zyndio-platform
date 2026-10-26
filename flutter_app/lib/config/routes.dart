@@ -1,0 +1,406 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../screens/settings/edit_profile_screen.dart';
+import '../screens/settings/connect_wearable_screen.dart';
+import '../screens/settings/connections_screen.dart';
+import '../screens/wearables/sleep_dashboard_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../screens/auth/login_screen.dart';
+import '../screens/auth/signup_screen.dart';
+import '../screens/home/home_screen.dart'; // Preserved but unreferenced
+
+import '../screens/health_data/health_data_screen.dart';
+
+import '../screens/health_data/lab_report_upload_screen.dart';
+
+import '../screens/protocol/protocol_screen.dart';
+import '../screens/protocol/protocols_list_screen.dart';
+import '../screens/intelligence/digital_twin_screen.dart'; // <--- Added Import
+import '../screens/settings/settings_screen.dart';
+import '../screens/settings/legal_screens.dart';
+import '../screens/chat/chat_screen.dart';
+import '../screens/chat/chat_history_screen.dart';
+import '../widgets/main_shell.dart';
+import '../providers/auth_provider.dart';
+import '../screens/protocol/weekly_menu_screen.dart';
+import '../screens/meditation/meditation_hub_screen.dart';
+import '../screens/settings/meditation_stats_screen.dart';
+import '../screens/settings/lens_history_screen.dart';
+import '../screens/settings/questionnaire_screen.dart';
+import '../screens/settings/activity_goals_screen.dart'; // New Import
+import '../screens/settings/export_health_data_screen.dart'; // Export Health Data
+import '../screens/settings/leagues_screen.dart'; // <--- Added Import
+import '../screens/lens/lens_screen.dart';
+import '../screens/notifications/notification_screen.dart';
+import '../screens/common/coming_soon_screen.dart'; // <--- Added Import
+import '../screens/wearables/wearable_dashboard_screen.dart'; // <--- Added Import
+import '../screens/settings/timeline_history_screen.dart';
+import '../screens/settings/nutrition_goals_screen.dart';
+import '../screens/settings/ai_memories_screen.dart';
+import '../screens/home/cycle_tracking_screen.dart';
+import '../services/ai_consent_service.dart';
+import '../services/analytics_service.dart';
+import '../screens/shop/shop_home_screen.dart';
+import '../screens/shop/shop_product_list_screen.dart';
+import '../screens/shop/shop_product_detail_screen.dart';
+import '../screens/appointments/appointments_hub_screen.dart';
+import '../screens/appointments/doctor_detail_screen.dart';
+
+final _rootNavigatorKey = GlobalKey<NavigatorState>();
+
+/// App Router Configuration
+/// Matches the React app routing structure
+final routerProvider = Provider<GoRouter>((ref) {
+  // Use select to only rebuild the router if the user ID or auth state genuinely changes
+  // This prevents sudden "Home" redirects during background token refreshes
+  final isLoggedIn = ref.watch(authStateProvider.select((v) => v.value != null));
+  final isDemoMode = ref.watch(isDemoModeProvider);
+  final aiConsent = ref.watch(aiConsentProvider);
+
+  return GoRouter(
+    navigatorKey: _rootNavigatorKey,
+    initialLocation: '/',
+    debugLogDiagnostics: true,
+    observers: [
+      if (AnalyticsService().observer != null)
+        AnalyticsService().observer!,
+    ],
+    redirect: (context, state) {
+      // In demo mode, always allow access (skip auth check)
+      if (isDemoMode) {
+        return null;
+      }
+
+      final isLoggedInState = isLoggedIn;
+      final isLoggingIn = state.matchedLocation == '/login';
+      final isSigningUp = state.matchedLocation == '/signup';
+      final isAuthPage = isLoggingIn || isSigningUp;
+
+      // If not logged in and not on auth page, redirect to login
+      if (!isLoggedInState && !isAuthPage) {
+        return '/login';
+      }
+
+      // If logged in and on auth page, redirect to home
+      if (isLoggedInState && isAuthPage) {
+        return '/';
+      }
+
+      // ── AI CONSENT CHECK ──
+      // If logged in but hasn't consented to AI, redirect to home to trigger onboarding
+      if (aiConsent.isLoading) return null; // Wait for data before redirecting
+      
+      final hasConsented = aiConsent.value ?? false;
+      
+      if (isLoggedInState && !hasConsented && !isAuthPage) {
+         if (state.uri.toString() != '/?onboarding=true' && state.matchedLocation != '/') {
+           return '/?onboarding=true';
+         }
+      }
+
+      return null;
+    },
+    routes: [
+
+      // Auth routes (no shell)
+      GoRoute(
+        path: '/login',
+        name: 'login',
+        builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/signup',
+        name: 'signup',
+        builder: (context, state) => const SignupScreen(),
+      ),
+
+      // Main app routes with bottom navigation shell
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) => MainShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/',
+                name: 'home',
+                pageBuilder: (context, state) => NoTransitionPage(
+                  child: const HomeScreen(),
+                ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/protocol',
+                name: 'protocol',
+                pageBuilder: (context, state) => NoTransitionPage(
+                  child: const ProtocolScreen(),
+                ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/health_data',
+                name: 'health_data',
+                pageBuilder: (context, state) => NoTransitionPage(
+                  child: const HealthDataScreen(),
+                ),
+                routes: [
+
+                  GoRoute(
+                    path: 'upload',
+                    name: 'upload_report',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (context, state) => const LabReportUploadScreen(),
+                  ),
+                  GoRoute(
+                    path: 'gut-microbiome',
+                    name: 'gut_microbiome_panel',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (context, state) => const HealthDataScreen(reportType: 'Gut Microbiome'),
+                  ),
+                  GoRoute(
+                    path: 'genetic',
+                    name: 'genetic_panel',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (context, state) => const HealthDataScreen(reportType: 'Genetic'),
+                  ),
+                  GoRoute(
+                    path: 'biological-age',
+                    name: 'biological_age_panel',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (context, state) => const HealthDataScreen(reportType: 'Biological Age'),
+                  ),
+                  GoRoute(
+                    path: 'heavy-metals',
+                    name: 'heavy_metals_panel',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (context, state) => const HealthDataScreen(reportType: 'Heavy Metals'),
+                  ),
+                  GoRoute(
+                    path: 'toxicity',
+                    name: 'toxicity_panel',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (context, state) => const HealthDataScreen(reportType: 'Toxicity'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/wearables',
+                name: 'wearables',
+                pageBuilder: (context, state) => NoTransitionPage(
+                  child: const WearableDashboardScreen(),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/settings',
+        name: 'settings',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const SettingsScreen(),
+        routes: [
+          GoRoute(
+            path: 'edit_profile',
+            name: 'edit_profile',
+            builder: (context, state) => const EditProfileScreen(),
+          ),
+          GoRoute(
+            path: 'activity_goals',
+            name: 'activity_goals',
+            builder: (context, state) => const ActivityGoalsScreen(),
+          ),
+          GoRoute(
+            path: 'export_health_data',
+            name: 'export_health_data',
+            builder: (context, state) => const ExportHealthDataScreen(),
+          ),
+          GoRoute(
+            path: 'privacy',
+            name: 'privacy',
+            builder: (context, state) => const PrivacyPolicyScreen(),
+          ),
+          GoRoute(
+            path: 'terms',
+            name: 'terms',
+            builder: (context, state) => const TermsOfServiceScreen(),
+          ),
+          GoRoute(
+            path: 'refund',
+            name: 'refund',
+            builder: (context, state) => const RefundPolicyScreen(),
+          ),
+          GoRoute(
+            path: 'consent',
+            name: 'consent',
+            builder: (context, state) => const InformedConsentScreen(),
+          ),
+          GoRoute(
+            path: 'help',
+            name: 'help',
+            builder: (context, state) => const HelpCenterScreen(),
+          ),
+          GoRoute(
+            path: 'meditation_stats',
+            name: 'meditation_stats',
+            builder: (context, state) => const MeditationStatsScreen(),
+          ),
+          GoRoute(
+            path: 'timeline',
+            name: 'timeline',
+            builder: (context, state) => const TimelineHistoryScreen(),
+          ),
+          GoRoute(
+            path: 'leagues',
+            name: 'leagues',
+            builder: (context, state) => const LeaguesScreen(),
+          ),
+          GoRoute(
+            path: 'memories',
+            name: 'memories',
+            builder: (context, state) => const AIMemoriesScreen(),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/weekly-menu',
+        name: 'weekly_menu',
+        builder: (context, state) => const WeeklyMenuScreen(),
+      ),
+      GoRoute(
+        path: '/protocols',
+        name: 'protocols',
+        builder: (context, state) => const ProtocolsListScreen(),
+      ),
+      GoRoute(
+        path: '/chat',
+        name: 'chat',
+        builder: (context, state) {
+          final initialMessage = state.uri.queryParameters['initialMessage'];
+          return ChatScreen(initialMessage: initialMessage);
+        },
+      ),
+      GoRoute(
+        path: '/chat-history',
+        name: 'chat_history',
+        builder: (context, state) => const ChatHistoryScreen(),
+      ),
+      GoRoute(
+        path: '/lens',
+        name: 'lens',
+        builder: (context, state) => const LensScreen(),
+      ),
+      GoRoute(
+        path: '/food-log',
+        name: 'lens_history',
+        builder: (context, state) => const LensHistoryScreen(),
+      ),
+      GoRoute(
+        path: '/notifications',
+        name: 'notifications',
+        builder: (context, state) => const NotificationScreen(),
+      ),
+      GoRoute(
+        path: '/coming-soon',
+        name: 'coming_soon',
+        builder: (context, state) {
+          final title = state.uri.queryParameters['title'] ?? 'Feature';
+          return ComingSoonScreen(featureName: title);
+        },
+      ),
+      GoRoute(
+        path: '/questionnaire',
+        name: 'questionnaire',
+        builder: (context, state) => const QuestionnaireScreen(),
+      ),
+      GoRoute(
+        path: '/connect-wearable',
+        name: 'connect_wearable',
+        parentNavigatorKey: _rootNavigatorKey, // Force root navigator
+        builder: (context, state) => const ConnectWearableScreen(),
+      ),
+      GoRoute(
+        path: '/settings/connections',
+        name: 'connections',
+        parentNavigatorKey: _rootNavigatorKey, // Force root navigator
+        builder: (context, state) => const ConnectionsScreen(),
+      ),
+      GoRoute(
+        path: '/wearables/sleep_dashboard',
+        name: 'sleep_dashboard',
+        parentNavigatorKey: _rootNavigatorKey, // Force root navigator
+        builder: (context, state) => const SleepDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/settings/digital_twin',
+        name: 'digital_twin',
+        builder: (context, state) => const DigitalTwinScreen(),
+      ),
+      GoRoute(
+        path: '/settings/nutrition_goals',
+        name: 'nutrition_goals',
+        builder: (context, state) => const NutritionGoalsScreen(),
+      ),
+      GoRoute(
+        path: '/meditate',
+        name: 'meditate',
+        builder: (context, state) => const MeditationHubScreen(),
+      ),
+      GoRoute(
+        path: '/cycle',
+        name: 'cycle',
+        builder: (context, state) => const CycleTrackingScreen(),
+      ),
+      GoRoute(
+        path: '/shop',
+        name: 'shop',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const ShopHomeScreen(),
+        routes: [
+          GoRoute(
+            path: 'products/:category',
+            name: 'shop_products',
+            builder: (context, state) => ShopProductListScreen(
+              category: state.pathParameters['category'] ?? 'all',
+            ),
+          ),
+          GoRoute(
+            path: 'product/:id',
+            name: 'shop_product_detail',
+            builder: (context, state) => ShopProductDetailScreen(
+              productId: state.pathParameters['id'] ?? '',
+            ),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/appointments',
+        name: 'appointments',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const AppointmentsHubScreen(),
+        routes: [
+          GoRoute(
+            path: 'doctor/:id',
+            name: 'doctor_detail',
+            builder: (context, state) => DoctorDetailScreen(
+              doctorId: state.pathParameters['id'] ?? '',
+            ),
+          ),
+        ],
+      ),
+    ],
+    errorBuilder: (context, state) => ComingSoonScreen(
+      featureName: 'Page: ${state.uri.path}',
+    ),
+  );
+});
