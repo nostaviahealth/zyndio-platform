@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:zyndio_patient/demo/logic/upload_queue.dart';
 import 'package:zyndio_patient/demo/storage/file_queue_store.dart';
 
 void main() {
@@ -56,6 +57,30 @@ void main() {
 
       expect(store.load, returnsNormally);
       expect(store.load(), isEmpty);
+    });
+
+    test('malformed entry (empty map) -> load() returns empty, UploadQueue does not throw', () {
+      final store = FileQueueStore.forPatient(tempDir, 'patient-0');
+      File('${tempDir.path}/upload_queue_patient-0.json').writeAsStringSync('[{}]');
+
+      expect(store.load, returnsNormally);
+      expect(store.load(), isEmpty);
+
+      expect(() => UploadQueue(store: store), returnsNormally);
+      expect(UploadQueue(store: store).items, isEmpty);
+    });
+
+    test('malformed entry (unknown status) -> load() returns empty, UploadQueue does not throw', () {
+      final store = FileQueueStore.forPatient(tempDir, 'patient-0');
+      File('${tempDir.path}/upload_queue_patient-0.json').writeAsStringSync(
+        '[{"id": "upload-0", "fileName": "lab-report.jpg", "status": "bogus"}]',
+      );
+
+      expect(store.load, returnsNormally);
+      expect(store.load(), isEmpty);
+
+      expect(() => UploadQueue(store: store), returnsNormally);
+      expect(UploadQueue(store: store).items, isEmpty);
     });
 
     test('patient ids are sanitised to a safe file name', () {

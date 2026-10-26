@@ -4,6 +4,14 @@ import 'dart:io';
 
 import '../logic/upload_queue.dart';
 
+bool _isValidEntry(dynamic entry) {
+  if (entry is! Map) return false;
+  for (final key in ['id', 'fileName', 'status']) {
+    if (entry[key] is! String) return false;
+  }
+  return UploadStatus.values.any((s) => s.name == entry['status']);
+}
+
 /// App-private, file-backed [QueueStore]. One JSON file per patient under a
 /// given directory, so a queued item survives an app kill/reopen. A corrupt
 /// or missing file never crashes the app — it's treated as an empty queue.
@@ -29,6 +37,9 @@ class FileQueueStore implements QueueStore {
       final decoded = jsonDecode(_file.readAsStringSync());
       if (decoded is! List) {
         throw const FormatException('upload queue file is not a JSON list');
+      }
+      if (!decoded.every(_isValidEntry)) {
+        throw const FormatException('upload queue file has a malformed entry');
       }
       return decoded.map((e) => Map<String, String>.from(e as Map)).toList();
     } catch (e) {
