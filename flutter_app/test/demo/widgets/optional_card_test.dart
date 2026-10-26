@@ -68,4 +68,30 @@ void main() {
       expect(knobSize, const Size(ZyndioSize.switchKnob, ZyndioSize.switchKnob));
     },
   );
+
+  testWidgets(
+    'dark mode: global SwitchThemeData OFF colours still come from ZyndioColors tokens',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: BrandTheme.darkTheme,
+          home: const Scaffold(body: SizedBox()),
+        ),
+      );
+
+      final context = tester.element(find.byType(SizedBox));
+      final colors = Theme.of(context).extension<ZyndioColors>()!;
+      final switchTheme = Theme.of(context).switchTheme;
+      const offStates = <WidgetState>{};
+
+      final thumbColor = switchTheme.thumbColor!.resolve(offStates);
+      final trackColor = switchTheme.trackColor!.resolve(offStates);
+      final outlineColor = switchTheme.trackOutlineColor!.resolve(offStates);
+
+      expect(thumbColor, colors.bgSurface);
+      expect(thumbColor, isNot(Colors.white));
+      expect(trackColor, colors.bgSunken);
+      expect(outlineColor, colors.borderStrong);
+    },
+  );
 }
