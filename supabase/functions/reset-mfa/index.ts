@@ -1,9 +1,12 @@
-// Org-admin-only. Never the caller's own row (server-enforced, not just a
-// hidden UI button). Removes the target's TOTP factor(s), flags them for
-// mandatory re-enrollment, forces a global sign-out, and audits + notifies.
+// Zyndio-admin-only (Henry ruling: an org admin may only *request* a reset,
+// via the request_mfa_reset() RPC - see recovery-reenrol/requireOrgAdminActor
+// for that path). Never the caller's own row (server-enforced, not just a
+// hidden UI button). Removes the target's TOTP factor(s) and old recovery
+// codes, flags them for mandatory re-enrollment, forces a global sign-out,
+// and audits + notifies.
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
-import { AuthError, requireOrgAdminActor } from '../_shared/requireOrgAdminActor.ts'
+import { AuthError, requireZyndioAdminActor } from '../_shared/requireOrgAdminActor.ts'
 import { writeAuditLog, insertNotification } from '../_shared/auditAndNotify.ts'
 import { isValidUuid } from '../_shared/validation.ts'
 
@@ -11,7 +14,7 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const { actor, admin } = await requireOrgAdminActor(req)
+    const { actor, admin } = await requireZyndioAdminActor(req)
 
     const body = await req.json().catch(() => ({}))
     const targetUserId = body.target_user_id
@@ -30,7 +33,7 @@ serve(async (req) => {
       .eq('user_id', targetUserId)
       .maybeSingle()
 
-    if (!target || target.org_id !== actor.orgId) {
+    if (!target) {
       return jsonResponse({ error: 'not_found' }, 404)
     }
 
@@ -53,6 +56,12 @@ serve(async (req) => {
       }
     }
 
+    const { error: deleteCodesError } = await admin.from('mfa_recovery_codes').delete().eq('user_id', targetUserId)
+    if (deleteCodesError) {
+      console.error('reset-mfa: deleting old recovery codes failed', deleteCodesError)
+      return jsonResponse({ error: 'internal_error' }, 500)
+    }
+
     await admin.from('mfa_reenrollment_required').upsert({ user_id: targetUserId })
 
     const { error: signOutError } = await admin.rpc('force_sign_out', { p_user_id: targetUserId })
@@ -64,12 +73,12 @@ serve(async (req) => {
       eventType: 'mfa_reset',
       actorUserId: actor.userId,
       targetUserId,
-      orgId: actor.orgId,
+      orgId: target.org_id,
     })
 
     await insertNotification(admin, {
       userId: targetUserId,
-      orgId: actor.orgId,
+      orgId: target.org_id,
       type: 'mfa_reset',
     })
 

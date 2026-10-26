@@ -60,14 +60,24 @@ serve(async (req) => {
       return jsonResponse({ error: 'internal_error' }, 500)
     }
 
-    const { error: memberError } = await admin
+    // Only activate if the member is still 'invited' - if an admin
+    // deactivated them while the invite was still live, this must not
+    // silently reverse that (H3). select() + .length lets us see how many
+    // rows actually matched, since an .eq('status','invited') that matches
+    // zero rows otherwise looks identical to success.
+    const { data: activated, error: memberError } = await admin
       .from('org_members')
       .update({ status: 'active' })
       .eq('user_id', invite!.user_id)
       .eq('org_id', invite!.org_id)
+      .eq('status', 'invited')
+      .select('user_id')
     if (memberError) {
       console.error('accept-invite: org_members update failed', memberError)
       return jsonResponse({ error: 'internal_error' }, 500)
+    }
+    if (!activated || activated.length === 0) {
+      return jsonResponse({ error: 'invalid_or_expired_invite' }, 400)
     }
 
     const { error: inviteUpdateError } = await admin

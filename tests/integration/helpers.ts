@@ -186,6 +186,14 @@ export async function deleteUser(userId: string) {
   await adminFetch(`admin/users/${userId}`, { method: 'DELETE' });
 }
 
+// platform_admins has no client grants at all (service-role only) - used to
+// make a test user a Zyndio (platform) admin, the only role reset-mfa
+// accepts (review group A / Henry ruling: org_admin can only *request* a
+// reset via request_mfa_reset()).
+export async function seedPlatformAdmin(userId: string) {
+  await restAdmin('platform_admins', { method: 'POST', body: JSON.stringify({ user_id: userId }) });
+}
+
 export async function auditRows(eventType: string, targetUserId: string) {
   const res = await restAdmin(`audit_log?event_type=eq.${eventType}&target_user_id=eq.${targetUserId}`);
   return (await res.json()) as unknown[];

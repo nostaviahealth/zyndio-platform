@@ -45,6 +45,21 @@ serve(async (req) => {
       return jsonResponse({ error: 'internal_error' }, 500)
     }
 
+    // A deactivated member must not be able to reactivate themselves by
+    // walking in on a still-live invite link (H3) - revoke every pending
+    // invite for them in this org.
+    const { error: revokeInvitesError } = await admin
+      .from('invites')
+      .update({ revoked_at: new Date().toISOString() })
+      .eq('org_id', actor.orgId)
+      .eq('user_id', targetUserId)
+      .is('accepted_at', null)
+      .is('revoked_at', null)
+    if (revokeInvitesError) {
+      console.error('deactivate-user: revoking pending invites failed', revokeInvitesError)
+      return jsonResponse({ error: 'internal_error' }, 500)
+    }
+
     const { error: signOutError } = await admin.rpc('force_sign_out', { p_user_id: targetUserId })
     if (signOutError) {
       console.error('deactivate-user: force_sign_out failed', signOutError)

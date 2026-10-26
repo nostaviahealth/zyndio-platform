@@ -13,6 +13,7 @@ import {
   mfaChallenge,
   mfaVerify,
   restAdmin,
+  seedPlatformAdmin,
   signIn,
 } from './helpers';
 
@@ -64,13 +65,25 @@ describe.skipIf(!integrationEnvReady)('audit-log', () => {
     expect(rows.length).toBe(1);
   });
 
-  it('mfa_reset: exactly one row when an org_admin resets another member', async () => {
+  // Review group A / Henry ruling 1: reset-mfa is Zyndio-admin-only now - an
+  // org_admin calling it is 403 (see tests/integration/admin-actions.test.ts
+  // for that coverage). This test used to drive the reset with the org_admin
+  // token and expect 200; corrected (not weakened) to use a seeded Zyndio
+  // admin instead, which is the only actor that can actually produce an
+  // mfa_reset audit row.
+  it('mfa_reset: exactly one row when a Zyndio admin resets another member', async () => {
     const target = await createOrgAndMember('care_coordinator', 'active', admin.orgId);
     cleanupUserIds.push(target.userId);
     const targetAal1 = await signIn(target.email, target.password);
     await enrollAndVerifyTotp(targetAal1.access_token!);
 
-    const res = await callFn('reset-mfa', adminAal2Token, { target_user_id: target.userId });
+    const zyndioAdmin = await createOrgAndMember('org_admin');
+    cleanupUserIds.push(zyndioAdmin.userId);
+    await seedPlatformAdmin(zyndioAdmin.userId);
+    const zyndioAal1 = await signIn(zyndioAdmin.email, zyndioAdmin.password);
+    const { aal2Token: zyndioAal2Token } = await enrollAndVerifyTotp(zyndioAal1.access_token!);
+
+    const res = await callFn('reset-mfa', zyndioAal2Token!, { target_user_id: target.userId });
     expect(res.status).toBe(200);
     const rows = await auditRows('mfa_reset', target.userId);
     expect(rows.length).toBe(1);

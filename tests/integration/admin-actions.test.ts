@@ -3,7 +3,7 @@
 // `supabase functions serve`.
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { integrationEnvReady, SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_FUNCTIONS_URL } from './setup';
-import { callFn, createOrgAndMember, deleteUser, enrollAndVerifyTotp, restAdmin, signIn } from './helpers';
+import { callFn, createOrgAndMember, deleteUser, enrollAndVerifyTotp, restAdmin, seedPlatformAdmin, signIn } from './helpers';
 
 describe.skipIf(!integrationEnvReady)('admin-actions', () => {
   const cleanupUserIds: string[] = [];
@@ -71,7 +71,14 @@ describe.skipIf(!integrationEnvReady)('admin-actions', () => {
     cleanupUserIds.push(sub);
   });
 
-  it('reset-mfa rejects self (403) and succeeds for another member, with audit + outbox + forced sign-out', async () => {
+  // Review group A / Henry ruling 1: reset-mfa is Zyndio-admin-only now, not
+  // org-admin - an org admin can only *request* a reset (request_mfa_reset()
+  // RPC, covered by supabase/tests/500_review_probes.sql and the schema
+  // migration's RPC itself). This test used to call reset-mfa as the org
+  // admin and expect 200; that's wrong per Henry and is corrected here
+  // (not weakened) to expect 403, plus new coverage for the Zyndio-admin
+  // path that actually performs the reset.
+  it('reset-mfa: org admin gets 403 (request-only); Zyndio admin can reset, signs out, audits + notifies', async () => {
     const selfReset = await callFn('reset-mfa', adminAal2Token, { target_user_id: admin.userId });
     expect(selfReset.status).toBe(403);
 
@@ -80,7 +87,19 @@ describe.skipIf(!integrationEnvReady)('admin-actions', () => {
     const targetAal1 = await signIn(target.email, target.password);
     await enrollAndVerifyTotp(targetAal1.access_token!);
 
-    const resetRes = await callFn('reset-mfa', adminAal2Token, { target_user_id: target.userId });
+    const orgAdminResetRes = await callFn('reset-mfa', adminAal2Token, { target_user_id: target.userId });
+    expect(orgAdminResetRes.status).toBe(403);
+
+    const zyndioAdmin = await createOrgAndMember('org_admin');
+    cleanupUserIds.push(zyndioAdmin.userId);
+    await seedPlatformAdmin(zyndioAdmin.userId);
+    const zyndioAal1 = await signIn(zyndioAdmin.email, zyndioAdmin.password);
+    const { aal2Token: zyndioAal2Token } = await enrollAndVerifyTotp(zyndioAal1.access_token!);
+
+    const zyndioSelfReset = await callFn('reset-mfa', zyndioAal2Token!, { target_user_id: zyndioAdmin.userId });
+    expect(zyndioSelfReset.status).toBe(403);
+
+    const resetRes = await callFn('reset-mfa', zyndioAal2Token!, { target_user_id: target.userId });
     expect(resetRes.status).toBe(200);
 
     const auditRes = await restAdmin(`audit_log?event_type=eq.mfa_reset&target_user_id=eq.${target.userId}`);
@@ -95,6 +114,32 @@ describe.skipIf(!integrationEnvReady)('admin-actions', () => {
       body: JSON.stringify({ refresh_token: targetAal1.refresh_token }),
     });
     expect(refreshRes.status).not.toBe(200);
+  });
+
+  it('request_mfa_reset: an org admin can request a reset (audited), but it resets nothing', async () => {
+    const target = await createOrgAndMember('physician', 'active', admin.orgId);
+    cleanupUserIds.push(target.userId);
+    const targetAal1 = await signIn(target.email, target.password);
+    await enrollAndVerifyTotp(targetAal1.access_token!);
+
+    const rpcRes = await restAdmin('rpc/request_mfa_reset', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminAal2Token}`, apikey: SUPABASE_ANON_KEY! },
+      body: JSON.stringify({ p_target_user_id: target.userId }),
+    });
+    expect(rpcRes.status).toBeLessThan(300);
+
+    const auditRes = await restAdmin(`audit_log?event_type=eq.mfa_reset_requested&target_user_id=eq.${target.userId}`);
+    expect(((await auditRes.json()) as unknown[]).length).toBe(1);
+
+    // request_mfa_reset resets nothing - no mandatory-reenrollment flag was
+    // set for the target, unlike an actual reset-mfa.
+    const reenrolRes = await restAdmin(`mfa_reenrollment_required?user_id=eq.${target.userId}`);
+    expect(((await reenrolRes.json()) as unknown[]).length).toBe(0);
+
+    // the target can still sign in and reach aal2 with their existing factor.
+    const stillWorks = await signIn(target.email, target.password);
+    expect(stillWorks.access_token).toBeTruthy();
   });
 
   it('deactivate-user then reactivate-user round-trips org_members.status', async () => {

@@ -48,9 +48,12 @@ select throws_ok(
 
 select is((select count(*) from public.org_members)::int, 4,
   'org_admin_a x org_members x select: allowed, sees all 4 org A members');
-update public.org_members set status = 'deactivated' where user_id = '00000000-0000-0000-0000-0000000a0003';
-select is((select status from public.org_members where user_id = '00000000-0000-0000-0000-0000000a0003'), 'deactivated',
-  'org_admin_a x org_members x update: allowed (own org, aal2)');
+-- Review group A, H1: no direct UPDATE path exists at all, even for an
+-- org_admin at aal2 on their own org - change_member_role() only.
+select throws_ok(
+  $$ update public.org_members set status = 'deactivated' where user_id = '00000000-0000-0000-0000-0000000a0003' $$,
+  null, null,
+  'org_admin_a x org_members x update: denied (no direct UPDATE path - change_member_role() only)');
 delete from public.org_members where user_id = '00000000-0000-0000-0000-0000000a0002';
 select is((select count(*) from public.org_members where user_id = '00000000-0000-0000-0000-0000000a0002')::int, 1,
   'org_admin_a x org_members x delete: denied, 0 rows (no delete policy)');
@@ -118,9 +121,10 @@ select is((select name from public.organizations where id = '00000000-0000-0000-
 
 select is((select array_agg(user_id) from public.org_members), array['00000000-0000-0000-0000-0000000a0002']::uuid[],
   'physician_a x org_members x select: only own row (not an admin)');
-update public.org_members set status = 'deactivated' where user_id = '00000000-0000-0000-0000-0000000a0002';
-select is((select status from public.org_members where user_id = '00000000-0000-0000-0000-0000000a0002'), 'active',
-  'physician_a x org_members x update: denied, 0 rows (not an admin, even on own row)');
+select throws_ok(
+  $$ update public.org_members set status = 'deactivated' where user_id = '00000000-0000-0000-0000-0000000a0002' $$,
+  null, null,
+  'physician_a x org_members x update: denied (not an admin, even on own row - no UPDATE path at all)');
 select throws_ok(
   $$ insert into public.org_members (user_id, org_id, role, status)
      values ('00000000-0000-0000-0000-0000000a9001', '00000000-0000-0000-0000-00000000000a', 'physician', 'active') $$,
@@ -209,9 +213,12 @@ select is((select data from public.patient_profiles where id = '00000000-0000-00
   'care_coordinator_a x patient_profiles x update: allowed (own org)');
 
 select is((select count(*) from public.lab_reports)::int, 1, 'care_coordinator_a x lab_reports x select: allowed (own org)');
+-- Review group A, Henry ruling 2 (A5): care coordinators can no longer
+-- confirm/edit lab values - only physicians keep the UPDATE policy. This
+-- used to assert the update succeeded; corrected to 0 rows, not weakened.
 update public.lab_reports set report_type = 'updated_by_cc' where id = '00000000-0000-0000-0000-0000000a3001';
-select is((select report_type from public.lab_reports where id = '00000000-0000-0000-0000-0000000a3001'), 'updated_by_cc',
-  'care_coordinator_a x lab_reports x update: allowed (own org)');
+select is((select report_type from public.lab_reports where id = '00000000-0000-0000-0000-0000000a3001'), 'basic_panel',
+  'care_coordinator_a x lab_reports x update: denied, 0 rows (physician-only now)');
 
 select is((select count(*) from public.consents)::int, 1, 'care_coordinator_a x consents x select: allowed (own org)');
 update public.consents set granted = false where id = '00000000-0000-0000-0000-0000000a4001';
@@ -252,20 +259,24 @@ select throws_ok(
      values ('00000000-0000-0000-0000-0000000a9001', '00000000-0000-0000-0000-00000000000a', 'x', 'x') $$,
   null, null, 'read_only_a x patients x insert: denied');
 
-select is((select count(*) from public.patient_profiles)::int, 1, 'read_only_a x patient_profiles x select: allowed (own org)');
+-- Review group A, H2: read_only gets no clinical detail at the DB level -
+-- its SELECT on patient_profiles/lab_reports/consents was dropped entirely.
+-- These three used to assert read access; corrected to 0 rows (not
+-- weakened - the point of the finding is that this access must not exist).
+select is((select count(*) from public.patient_profiles)::int, 0, 'read_only_a x patient_profiles x select: denied - no clinical detail at the DB level');
 update public.patient_profiles set data = '{"hacked":true}' where id = '00000000-0000-0000-0000-0000000a2001';
 select throws_ok(
   $$ insert into public.patient_profiles (id, org_id, patient_id, data)
      values ('00000000-0000-0000-0000-0000000f0007', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', '{}') $$,
   null, null, 'read_only_a x patient_profiles x insert: denied');
 
-select is((select count(*) from public.lab_reports)::int, 1, 'read_only_a x lab_reports x select: allowed (own org)');
+select is((select count(*) from public.lab_reports)::int, 0, 'read_only_a x lab_reports x select: denied - no clinical detail at the DB level');
 select throws_ok(
   $$ insert into public.lab_reports (id, org_id, patient_id, report_type, data)
      values ('00000000-0000-0000-0000-0000000f0008', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', 'x', '{}') $$,
   null, null, 'read_only_a x lab_reports x insert: denied');
 
-select is((select count(*) from public.consents)::int, 1, 'read_only_a x consents x select: allowed (own org)');
+select is((select count(*) from public.consents)::int, 0, 'read_only_a x consents x select: denied - no clinical detail at the DB level');
 select throws_ok(
   $$ insert into public.consents (id, org_id, patient_id, consent_type, granted)
      values ('00000000-0000-0000-0000-0000000f0009', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', 'x', true) $$,

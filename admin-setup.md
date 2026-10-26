@@ -65,14 +65,36 @@ is ever handled by an admin or a script on another person's behalf.
 
 ## Resetting someone's two-factor / deactivating someone
 
-Both are admin-app actions (`reset-mfa`, `deactivate-user`, `reactivate-user` Edge Functions), not
-scripts:
+Deactivate/reactivate are org-admin-app actions (`deactivate-user`, `reactivate-user` Edge
+Functions). Resetting someone's 2FA is split across two roles:
 
-- An org admin can reset another member's 2FA (forces TOTP re-enrollment, signs them out globally,
-  audit-logged). **Resetting your own 2FA is rejected server-side** (403), not just hidden in the
-  UI — use the normal recovery-code flow for yourself instead.
-- Deactivating/reactivating a member is audit-logged and, for deactivation, forces a global sign-out.
-  The last active `org_admin` in an org cannot be deactivated.
+- **An org admin can only *request* a reset**, via the `request_mfa_reset` RPC. This writes an
+  `mfa_reset_requested` audit row and a `notification_outbox` row to every Zyndio (platform) admin.
+  It touches no factor and no recovery code — nothing about the target's 2FA actually changes.
+- **Only a Zyndio admin can perform the reset itself**, via the `reset-mfa` Edge Function: deletes
+  the target's TOTP factor(s) and old recovery codes, forces global sign-out, flags mandatory
+  re-enrollment, and audit-logs + notifies the target. An org admin calling `reset-mfa` directly
+  gets 403.
+- **Resetting your own 2FA is rejected server-side** (403) for a Zyndio admin too, not just hidden
+  in the UI — use the normal recovery-code flow for yourself instead.
+- Deactivating a member also revokes any pending invite for them, so a still-live invite link can't
+  silently reverse the deactivation. Deactivating/reactivating is audit-logged and, for
+  deactivation, forces a global sign-out. The last active `org_admin` in an org cannot be
+  deactivated.
+
+### Zyndio (platform) admin
+
+`platform_admins` is a separate, internal table from `org_members` — being an `org_admin` of an
+organization does **not** make someone a Zyndio admin. There is no in-app action that grants this
+role and no default/seeded row. The only way to create one locally is:
+
+```bash
+ZYNDIO_PLATFORM_ADMIN=true npm run admin:setup
+```
+
+run against the email that should hold it (it can be the same email as the first org admin, or a
+different one — a Zyndio admin does not need to be a member of any organization at all). This is a
+platform-operator concern, not a per-org one; grant it sparingly.
 
 ## Troubleshooting
 

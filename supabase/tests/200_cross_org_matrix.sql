@@ -95,8 +95,16 @@ begin
     return next ok(true, format('%s x %s x insert other tenant row: denied (%s)', p_actor_label, p_table, sqlerrm));
   end;
 
-  execute format('update public.%I set created_at = created_at where %I = %L', p_table, p_pk, p_target_pk);
-  get diagnostics v_affected = row_count;
+  -- Most tables deny this by RLS filtering (0 rows affected, no exception).
+  -- org_members denies it at the grant level now (review group A, H1: UPDATE
+  -- is revoked from authenticated outright) - a permission-denied exception
+  -- rather than a 0-row update. Either shape is "denied"; normalize to 0.
+  begin
+    execute format('update public.%I set created_at = created_at where %I = %L', p_table, p_pk, p_target_pk);
+    get diagnostics v_affected = row_count;
+  exception when others then
+    v_affected := 0;
+  end;
   return next is(v_affected, 0, format('%s x %s x update other tenant: 0 rows', p_actor_label, p_table));
 
   execute format('delete from public.%I where %I = %L', p_table, p_pk, p_target_pk);

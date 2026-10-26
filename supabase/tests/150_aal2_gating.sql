@@ -23,15 +23,14 @@ select is(
   'org_admin_a at aal2 sees all org A members again'
 );
 
--- org_members_admin_update requires aal2 too.
+-- There is no org_members UPDATE path left for any client role at any aal
+-- (review group A, H1 - see 020_org_members.sql) - UPDATE is revoked from
+-- authenticated outright, so this is a permission error at aal1 same as aal2.
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0001', 'aal1');
-update public.org_members set status = 'deactivated' where user_id = '00000000-0000-0000-0000-0000000a0004';
--- re-check at aal2 (self_select at aal1 can't even see a teammate's row).
-select tests.authenticate_as('00000000-0000-0000-0000-0000000a0001', 'aal2');
-select is(
-  (select status from public.org_members where user_id = '00000000-0000-0000-0000-0000000a0004'),
-  'active',
-  'org_admin_a at aal1 cannot update a teammate''s row - admin_update requires aal2'
+select throws_ok(
+  $$ update public.org_members set status = 'deactivated' where user_id = '00000000-0000-0000-0000-0000000a0004' $$,
+  null, null,
+  'org_admin_a at aal1 cannot update a teammate''s row - no direct UPDATE path exists at all'
 );
 
 -- patients_staff_write_select requires aal2.

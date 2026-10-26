@@ -12,7 +12,15 @@
  * that already exists and is already an active org_admin is a no-op.
  *
  * Usage: npm run admin:setup
- * Env:   ADMIN_EMAIL, ADMIN_PASSWORD (required), ORG_NAME (optional)
+ * Env:   ADMIN_EMAIL, ADMIN_PASSWORD (required), ORG_NAME (optional),
+ *        ZYNDIO_PLATFORM_ADMIN=true (optional)
+ *
+ * ZYNDIO_PLATFORM_ADMIN=true additionally seeds this email into
+ * public.platform_admins - the platform-level ("Zyndio admin") role that
+ * reset-mfa requires (org_admin alone is not enough; an org admin can only
+ * *request* a reset via request_mfa_reset()). There is no in-app action
+ * that grants this and no default seed - it is this script, and only this
+ * script, on purpose.
  */
 
 import * as dotenv from 'dotenv'
@@ -24,6 +32,7 @@ dotenv.config()
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD
 const ORG_NAME = process.env.ORG_NAME?.trim() || 'Zyndio'
+const ZYNDIO_PLATFORM_ADMIN = process.env.ZYNDIO_PLATFORM_ADMIN === 'true'
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_KEY
@@ -106,6 +115,7 @@ async function main() {
     console.log(
       `${email} is already a member of org ${existingMember.org_id} as ${existingMember.role} (${existingMember.status}). Nothing to do.`
     )
+    await seedPlatformAdminIfRequested(admin, userId, email)
     console.log('\nSetup complete (no change). Sign in and, if prompted, complete authenticator setup.')
     return
   }
@@ -149,9 +159,25 @@ async function main() {
     process.exit(1)
   }
 
+  await seedPlatformAdminIfRequested(admin, userId, email)
+
   console.log(`\nSetup complete. ${email} is an active org_admin of "${ORG_NAME}".`)
   console.log('No two-factor authenticator is pre-enrolled - sign in and complete the authenticator')
   console.log('setup flow (scan -> verify -> recovery codes) like any invited user would.')
+}
+
+async function seedPlatformAdminIfRequested(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+  email: string
+): Promise<void> {
+  if (!ZYNDIO_PLATFORM_ADMIN) return
+  const { error } = await admin.from('platform_admins').upsert({ user_id: userId })
+  if (error) {
+    console.error('Failed to seed platform_admins row:', error.message)
+    process.exit(1)
+  }
+  console.log(`${email} is now a Zyndio (platform) admin - can perform reset-mfa on any org's staff.`)
 }
 
 main().catch((err) => {

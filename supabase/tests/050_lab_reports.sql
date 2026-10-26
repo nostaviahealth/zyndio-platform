@@ -44,11 +44,15 @@ select is(
   'physician_a (staff) can update a lab report in their own org'
 );
 
+-- Review group A, finding H2 (Clara PR #4 pre-review; Henry's binding
+-- ruling): read_only gets no clinical detail at the DB level - its SELECT on
+-- lab_reports was dropped entirely. This used to assert read_only_a could
+-- read the row; that's wrong per Henry and is corrected here, not weakened.
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0004', 'aal2'); -- read_only_a
 select is(
-  (select report_type from public.lab_reports where id = '00000000-0000-0000-0000-0000000a6004'),
-  'reviewed',
-  'read_only_a can read org A lab reports'
+  (select count(*) from public.lab_reports)::int,
+  0,
+  'read_only_a cannot read any lab_reports row - no clinical detail at the DB level'
 );
 select throws_ok(
   $$ insert into public.lab_reports (id, org_id, patient_id, report_type, data)
