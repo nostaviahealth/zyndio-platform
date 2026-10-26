@@ -122,6 +122,13 @@ jobs:
       - name: Install root dependencies
         run: npm ci
 
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Deno unit tests (Edge Function shared code)
+        run: deno test --config supabase/functions/deno.json supabase/functions/_shared
+
       - uses: supabase/setup-cli@v1
         with:
           version: latest
