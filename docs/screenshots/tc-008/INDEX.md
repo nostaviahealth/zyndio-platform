@@ -1,5 +1,9 @@
 # TC-008 demo screenshot index
 
+**58 PNGs** across the 7 demo screens (signin 01/07, consent 02, lab upload 03, lab review 04, lab
+trends 05/06), one row below per PNG. Journey test: `flutter_app/test/demo/flow_test.dart`.
+Henry's forbidden-wording gate: `flutter_app/test/demo/demo_forbidden_wording_test.dart`.
+
 One row per PNG under `docs/screenshots/tc-008/<screen>/<state>--<light|dark>.png`. Test/check IDs are from
 `/workspace/techteam/team3/projects/zyndio/docs/TC-008_TEST_PLAN.md`. "none in plan" means the state has no
 test-plan ID of its own (it's still covered by a widget test in the file listed).
