@@ -53,6 +53,7 @@ dependencies:
   shared_preferences: ^2.2.0
   
   # Utilities
+  crypto: ^3.0.6
   intl: ^0.20.2
   flutter_svg: ^2.0.10
   image_picker: ^1.1.2
