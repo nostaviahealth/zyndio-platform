@@ -1,0 +1,71 @@
+# Local-only Supabase config for TC-005. No remotes, no project ref, no hosted URL.
+# This project is never linked to a hosted Supabase project (`supabase link` must not be run here).
+project_id = "zyndio-local"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[db.pooler]
+enabled = false
+
+[studio]
+enabled = true
+port = 54323
+
+# CI may start with `-x inbucket,storage,edge-runtime` (or similar) to skip services this card
+# doesn't exercise yet; defaults below are intentionally the stock local-dev set.
+[inbucket]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3001"
+additional_redirect_urls = ["http://127.0.0.1:3001"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+# Invite-only: closes /auth/v1/signup server-side.
+enable_signup = false
+enable_anonymous_sign_ins = false
+minimum_password_length = 12
+password_requirements = ""
+
+[auth.email]
+enable_signup = false
+enable_confirmations = false
+
+[auth.mfa]
+max_enrolled_factors = 1
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[auth.hook.password_verification_attempt]
+enabled = true
+uri = "pg-functions://postgres/auth_hooks/password_verification_attempt"
+
+[auth.hook.mfa_verification_attempt]
+enabled = true
+uri = "pg-functions://postgres/auth_hooks/mfa_verification_attempt"
+
+[edge_runtime]
+enabled = true
+policy = "oneshot"
+
+[analytics]
+enabled = false
