@@ -292,6 +292,7 @@ abstract final class ZyndioSize {
   static const double checkbox = 24.0;
   static const double switchWidth = 51.0;
   static const double switchHeight = 31.0;
+  static const double switchKnob = 25.0;
   static const double icon = 24.0;
   static const double iconSmall = 18.0;
   static const double spinner = 20.0;
