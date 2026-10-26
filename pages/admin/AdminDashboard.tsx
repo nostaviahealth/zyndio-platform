@@ -2,11 +2,16 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, Plus, Search, Trash2, Clock, CheckCircle, AlertCircle, FileText, Activity } from 'lucide-react';
 import { useAdmin } from '../../contexts/AdminContext';
+import { usePortalAuth } from '../../contexts/PortalAuthContext';
 import { OnboardingStage } from '../../types';
 
 const AdminDashboard: React.FC = () => {
     const navigate = useNavigate();
     const { patients, deletePatient, loading } = useAdmin();
+    const { role } = usePortalAuth();
+    // OVERRIDES #11 / Henry: read_only has no patient detail pages, so rows
+    // aren't links for them (and there's nothing destructive to offer either).
+    const canManagePatients = role === 'physician' || role === 'care_coordinator';
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -159,21 +164,25 @@ const AdminDashboard: React.FC = () => {
                                             <div className="text-sm text-slate-500">Bio: {patient.bioAge}</div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={() => navigate(`/admin/patient/${patient.id}`)}
-                                                    className="text-emerald-600 hover:text-emerald-700 font-medium text-sm transition-colors"
-                                                >
-                                                    View Details →
-                                                </button>
-                                                <button
-                                                    onClick={() => setDeleteConfirm(patient.id)}
-                                                    className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                                                    title="Delete patient"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
+                                            {canManagePatients ? (
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => navigate(`/admin/patient/${patient.id}`)}
+                                                        className="text-emerald-600 hover:text-emerald-700 font-medium text-sm transition-colors"
+                                                    >
+                                                        View Details →
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setDeleteConfirm(patient.id)}
+                                                        className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                                        title="Delete patient"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <span className="text-sm text-slate-400">View only</span>
+                                            )}
                                         </td>
                                     </tr>
                                 );

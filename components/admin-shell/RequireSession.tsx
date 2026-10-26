@@ -8,10 +8,12 @@ const RequireSession: React.FC<{ children: React.ReactNode; requireAal2?: boolea
   children,
   requireAal2 = true,
 }) => {
-  const { status } = usePortalAuth();
+  const { status, endedByAdmin } = usePortalAuth();
 
   if (status === 'loading') return null;
-  if (status === 'signed_out') return <Navigate to="/admin/login" replace />;
+  if (status === 'signed_out') {
+    return <Navigate to={endedByAdmin ? '/admin/session-ended' : '/admin/login'} replace />;
+  }
   if (requireAal2 && status !== 'aal2') return <Navigate to="/admin/login" replace />;
 
   return <>{children}</>;

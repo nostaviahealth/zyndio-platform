@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
 export type PortalStatus = 'loading' | 'signed_out' | 'aal1' | 'aal2';
@@ -9,6 +9,11 @@ export interface PortalAuthState {
   role: string | null;
   orgId: string | null;
   hasFactor: boolean;
+  // Set when a SIGNED_OUT event arrives that wasn't preceded by this tab's
+  // own signOut() call - i.e. an admin deactivated/reset/role-changed the
+  // account (or another tab signed out globally) and a token refresh then
+  // failed. Drives the session-expired vs session-ended-by-admin fork.
+  endedByAdmin: boolean;
 }
 
 interface SignInResult {
@@ -59,13 +64,22 @@ export const PortalAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     role: null,
     orgId: null,
     hasFactor: false,
+    endedByAdmin: false,
   });
+  const explicitSignOutRef = useRef(false);
 
   const refresh = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
     const session = data.session;
     if (!session) {
-      setState({ status: 'signed_out', email: null, role: null, orgId: null, hasFactor: false });
+      setState((prev) => ({
+        status: 'signed_out',
+        email: null,
+        role: null,
+        orgId: null,
+        hasFactor: false,
+        endedByAdmin: prev.endedByAdmin,
+      }));
       return;
     }
 
@@ -85,12 +99,17 @@ export const PortalAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       role: (member?.role as string | undefined) ?? null,
       orgId: (member?.org_id as string | undefined) ?? null,
       hasFactor,
+      endedByAdmin: false,
     });
   }, []);
 
   useEffect(() => {
     refresh();
-    const { data: sub } = supabase.auth.onAuthStateChange(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT' && !explicitSignOutRef.current) {
+        setState((prev) => ({ ...prev, endedByAdmin: true }));
+      }
+      explicitSignOutRef.current = false;
       refresh();
     });
     return () => sub.subscription.unsubscribe();
@@ -209,6 +228,7 @@ export const PortalAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, []);
 
   const signOut = useCallback(async () => {
+    explicitSignOutRef.current = true;
     await supabase.auth.signOut();
     await refresh();
   }, [refresh]);
