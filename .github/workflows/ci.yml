@@ -110,6 +110,35 @@ jobs:
         working-directory: space
         run: npm run build
 
+  supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase (studio/storage/inbucket unused this card)
+        run: supabase start -x studio,storage,inbucket
+
+      - name: Reset DB + pgTAP
+        run: |
+          supabase db reset
+          supabase test db
+
+      - name: Run integration tests (CI=true -> hard-fail if env is missing)
+        env:
+          CI: 'true'
+        run: bash scripts/integration-local.sh
+
   secrets:
     runs-on: ubuntu-latest
     steps:

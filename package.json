@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "lint": "tsc -p tsconfig.lint.json --noEmit",
     "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "setup:all": "tsx scripts/setup-all.ts",
     "setup:db": "tsx scripts/setup-database.ts",
     "admin:setup": "tsx scripts/supabase-admin-setup.ts",
