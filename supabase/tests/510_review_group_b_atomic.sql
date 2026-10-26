@@ -15,19 +15,19 @@ select function_returns('public', 'finalize_mfa_reset', array['uuid', 'uuid', 'u
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0001', 'aal2'); -- org_admin_a
 select throws_ok(
   $$ select public.finalize_deactivation('00000000-0000-0000-0000-0000000a0004'::uuid, '00000000-0000-0000-0000-0000000a0001'::uuid, '00000000-0000-0000-0000-00000000000a'::uuid) $$,
-  null, null,
+  '42501', null,
   'an authenticated org_admin cannot execute finalize_deactivation directly - service_role only'
 );
 select throws_ok(
   $$ select public.finalize_mfa_reset('00000000-0000-0000-0000-0000000a0003'::uuid, '00000000-0000-0000-0000-0000000a0001'::uuid, '00000000-0000-0000-0000-00000000000a'::uuid) $$,
-  null, null,
+  '42501', null,
   'an authenticated org_admin cannot execute finalize_mfa_reset directly - service_role only'
 );
 
 select tests.authenticate_as_anon();
 select throws_ok(
   $$ select public.finalize_deactivation('00000000-0000-0000-0000-0000000a0004'::uuid, '00000000-0000-0000-0000-0000000a0001'::uuid, '00000000-0000-0000-0000-00000000000a'::uuid) $$,
-  null, null,
+  '42501', null,
   'anon cannot execute finalize_deactivation'
 );
 reset role;
@@ -41,7 +41,7 @@ select tests.authenticate_as_service_role();
 select is((select count(*)::int from public.audit_log where event_type = 'user_deactivated' and target_user_id = '00000000-0000-0000-0000-0000000b1001'), 0, 'precondition: no prior user_deactivated audit row for patient-b1''s id');
 select throws_ok(
   $$ select public.finalize_deactivation('00000000-0000-0000-0000-0000000b1001'::uuid, '00000000-0000-0000-0000-0000000a0001'::uuid, '00000000-0000-0000-0000-00000000000a'::uuid) $$,
-  null, null,
+  'P0002', null,  -- "member not found in organization" (finalize_deactivation), not a permission error
   'finalize_deactivation on a user not in the given org raises, instead of silently doing nothing'
 );
 select is(
@@ -88,7 +88,7 @@ select is(
 select tests.authenticate_as_service_role();
 select throws_ok(
   $$ select public.finalize_deactivation('00000000-0000-0000-0000-0000000a0001'::uuid, '00000000-0000-0000-0000-0000000a0001'::uuid, '00000000-0000-0000-0000-00000000000a'::uuid) $$,
-  null, null,
+  'P0001', null,  -- enforce_last_admin trigger, not a permission error
   'finalize_deactivation still refuses to deactivate the last active org admin'
 );
 reset role;

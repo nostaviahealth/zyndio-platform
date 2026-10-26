@@ -30,7 +30,7 @@ select tests.authenticate_as('00000000-0000-0000-0000-0000000a0001', 'aal2');
 select throws_ok(
   $$ insert into public.invites (id, org_id, email, role, token_hash)
      values ('00000000-0000-0000-0000-0000000a5002', '00000000-0000-0000-0000-00000000000a', 'another-invitee@example.test', 'physician', 'x') $$,
-  null, null,
+  '42501', null,
   'no INSERT policy exists on invites, even for an org_admin - that path is an Edge Function'
 );
 

@@ -30,12 +30,19 @@ select is(
   array['00000000-0000-0000-0000-0000000a1001']::uuid[],
   'physician_a sees only org A patients, not patient B1 (cross-org denied)'
 );
-insert into public.patients (id, org_id, display_name, mrn)
-  values ('00000000-0000-0000-0000-0000000a6002', '00000000-0000-0000-0000-00000000000a', 'Fictional Patient A2', 'MRN-A2');
+-- Review group C, C1: direct staff INSERT is gone - create_patient_record()
+-- only (see 500_review_probes.sql, P9).
+select throws_ok(
+  $$ insert into public.patients (id, org_id, display_name, mrn)
+     values ('00000000-0000-0000-0000-0000000a6002', '00000000-0000-0000-0000-00000000000a', 'Fictional Patient A2', 'MRN-A2') $$,
+  '42501', null,
+  'physician_a cannot insert a new patient directly - create_patient_record() only'
+);
+select public.create_patient_record('00000000-0000-0000-0000-0000000a6002', 'Fictional Patient A2', 'MRN-A2');
 select is(
   (select display_name from public.patients where id = '00000000-0000-0000-0000-0000000a6002'),
   'Fictional Patient A2',
-  'physician_a can insert a new patient into their own org'
+  'physician_a can create a new patient in their own org via create_patient_record()'
 );
 update public.patients set mrn = 'MRN-A2-UPDATED' where id = '00000000-0000-0000-0000-0000000a6002';
 select is(

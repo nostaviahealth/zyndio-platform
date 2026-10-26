@@ -17,19 +17,19 @@ select no_plan();
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0001', 'aal2'); -- org_admin_a
 select throws_ok(
   $$ select auth_hooks.password_verification_attempt('{"user_id":"00000000-0000-0000-0000-0000000a0002","valid":false}'::jsonb) $$,
-  null, null,
+  '42501', null,
   'authenticated cannot call auth_hooks.password_verification_attempt - execute is supabase_auth_admin only'
 );
 select throws_ok(
   $$ select auth_hooks.mfa_verification_attempt('{"user_id":"00000000-0000-0000-0000-0000000a0002","valid":false}'::jsonb) $$,
-  null, null,
+  '42501', null,
   'authenticated cannot call auth_hooks.mfa_verification_attempt - execute is supabase_auth_admin only'
 );
 
 select tests.authenticate_as_anon();
 select throws_ok(
   $$ select auth_hooks.password_verification_attempt('{"user_id":"00000000-0000-0000-0000-0000000a0002","valid":false}'::jsonb) $$,
-  null, null,
+  '42501', null,
   'anon cannot call auth_hooks.password_verification_attempt'
 );
 

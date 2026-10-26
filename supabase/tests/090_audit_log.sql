@@ -9,13 +9,13 @@ select no_plan();
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0001', 'aal2'); -- org_admin_a
 select throws_ok(
   $$ select count(*) from public.audit_log $$,
-  null, null,
+  '42501', null,
   'org_admin_a cannot read audit_log directly - grants are revoked'
 );
 select throws_ok(
   $$ insert into public.audit_log (actor_user_id, target_user_id, org_id, event_type)
      values ('00000000-0000-0000-0000-0000000a0001', '00000000-0000-0000-0000-0000000a0002', '00000000-0000-0000-0000-00000000000a', 'role_changed') $$,
-  null, null,
+  '42501', null,
   'no client role can insert into audit_log directly - the only path is write_audit_log()'
 );
 
@@ -30,7 +30,7 @@ select lives_ok(
 -- not leak into the caller's own grants.
 select throws_ok(
   $$ select count(*) from public.audit_log $$,
-  null, null,
+  '42501', null,
   'the audit row written via write_audit_log() is still not directly selectable by the caller'
 );
 

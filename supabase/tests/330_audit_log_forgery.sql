@@ -17,7 +17,7 @@ select no_plan();
 select tests.authenticate_as_anon();
 select throws_ok(
   $$ select public.write_audit_log('role_changed', '00000000-0000-0000-0000-0000000a0001', '00000000-0000-0000-0000-0000000a0002', '00000000-0000-0000-0000-00000000000a', '{}'::jsonb) $$,
-  null, null,
+  '42501', null,
   'anon cannot execute write_audit_log()'
 );
 
@@ -29,19 +29,19 @@ select throws_ok(
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0001', 'aal2');
 select throws_ok(
   $$ select public.write_audit_log('role_changed', '00000000-0000-0000-0000-0000000a0002', '00000000-0000-0000-0000-0000000a0001', '00000000-0000-0000-0000-00000000000a', '{}'::jsonb) $$,
-  null, null,
+  '42501', null,
   'authenticated caller cannot assert an actor other than themselves - p_actor_user_id must equal auth.uid()'
 );
 select throws_ok(
   $$ select public.write_audit_log('role_changed', '00000000-0000-0000-0000-0000000a0001', '00000000-0000-0000-0000-0000000a0002', '00000000-0000-0000-0000-00000000000b', '{}'::jsonb) $$,
-  null, null,
+  '42501', null,
   'authenticated caller cannot assert an org they are not an active member of'
 );
 
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0001', 'aal1');
 select throws_ok(
   $$ select public.write_audit_log('role_changed', '00000000-0000-0000-0000-0000000a0001', '00000000-0000-0000-0000-0000000a0002', '00000000-0000-0000-0000-00000000000a', '{}'::jsonb) $$,
-  null, null,
+  '42501', null,
   'write_audit_log() is rejected at aal1 even when actor and org are correct'
 );
 
@@ -55,7 +55,7 @@ update public.org_members set status = 'deactivated' where user_id = '00000000-0
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0003', 'aal2');
 select throws_ok(
   $$ select public.write_audit_log('role_changed', '00000000-0000-0000-0000-0000000a0003', '00000000-0000-0000-0000-0000000a0002', '00000000-0000-0000-0000-00000000000a', '{}'::jsonb) $$,
-  null, null,
+  '42501', null,
   'a deactivated member cannot write an audit row even as themselves - current_org_id() is null for them'
 );
 
@@ -78,14 +78,14 @@ select lives_ok(
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0001', 'aal2');
 select throws_ok(
   $$ select public._audit_log_insert('role_changed', '00000000-0000-0000-0000-0000000a0001', '00000000-0000-0000-0000-0000000a0002', '00000000-0000-0000-0000-00000000000a', '{}'::jsonb) $$,
-  null, null,
+  '42501', null,
   'authenticated cannot execute _audit_log_insert() directly'
 );
 
 select tests.authenticate_as_anon();
 select throws_ok(
   $$ select public._audit_log_insert('role_changed', '00000000-0000-0000-0000-0000000a0001', '00000000-0000-0000-0000-0000000a0002', '00000000-0000-0000-0000-00000000000a', '{}'::jsonb) $$,
-  null, null,
+  '42501', null,
   'anon cannot execute _audit_log_insert() directly'
 );
 

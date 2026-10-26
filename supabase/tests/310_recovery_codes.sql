@@ -20,7 +20,7 @@ values (
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal1');
 select throws_ok(
   $$ select public.generate_recovery_codes() $$,
-  null, null,
+  '42501', null,
   'generate_recovery_codes() is rejected at aal1'
 );
 
@@ -203,7 +203,7 @@ select is(
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0001', 'aal2'); -- org_admin_a
 select throws_ok(
   $$ select count(*) from public.mfa_reenrollment_required $$,
-  null, null,
+  '42501', null,
   'org_admin_a cannot read mfa_reenrollment_required - grants are revoked'
 );
 

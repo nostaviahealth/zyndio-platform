@@ -8,14 +8,14 @@ select no_plan();
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0001', 'aal2'); -- org_admin_a
 select throws_ok(
   $$ select public.find_user_id_by_email('org-admin-a@example.test') $$,
-  null, null,
+  '42501', null,
   'an authenticated caller (even an org_admin) cannot execute find_user_id_by_email - service_role only'
 );
 
 select tests.authenticate_as_anon();
 select throws_ok(
   $$ select public.find_user_id_by_email('org-admin-a@example.test') $$,
-  null, null,
+  '42501', null,
   'anon cannot execute find_user_id_by_email'
 );
 

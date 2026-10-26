@@ -57,7 +57,7 @@ select is(
 select throws_ok(
   $$ insert into public.lab_reports (id, org_id, patient_id, report_type, data)
      values ('00000000-0000-0000-0000-0000000a6005', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', 'x', '{}') $$,
-  null, null,
+  '42501', null,
   'read_only_a cannot insert a lab report'
 );
 

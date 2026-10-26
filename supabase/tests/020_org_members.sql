@@ -41,17 +41,17 @@ select is(
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0001', 'aal2');
 select throws_ok(
   $$ update public.org_members set status = 'deactivated' where user_id = '00000000-0000-0000-0000-0000000a0004' $$,
-  null, null,
+  '42501', null,
   'org_admin_a (aal2) cannot update a same-org teammate''s status via a direct UPDATE'
 );
 select throws_ok(
   $$ update public.org_members set role = 'read_only' where user_id = '00000000-0000-0000-0000-0000000a0004' $$,
-  null, null,
+  '42501', null,
   'org_admin_a (aal2) cannot change a same-org teammate''s role via a direct UPDATE'
 );
 select throws_ok(
   $$ update public.org_members set user_id = '00000000-0000-0000-0000-0000000a9001' where user_id = '00000000-0000-0000-0000-0000000a0004' $$,
-  null, null,
+  '42501', null,
   'org_admin_a (aal2) cannot re-point a membership row at another auth user via a direct UPDATE'
 );
 
@@ -61,7 +61,7 @@ select throws_ok(
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal2'); -- physician_a
 select throws_ok(
   $$ update public.org_members set status = 'deactivated' where user_id = '00000000-0000-0000-0000-0000000a0002' $$,
-  null, null,
+  '42501', null,
   'physician_a (non-admin) cannot update their own org_members row'
 );
 
@@ -70,7 +70,7 @@ select tests.authenticate_as('00000000-0000-0000-0000-0000000a0001', 'aal2');
 select throws_ok(
   $$ insert into public.org_members (user_id, org_id, role, status)
      values ('00000000-0000-0000-0000-0000000a1001', '00000000-0000-0000-0000-00000000000a', 'physician', 'active') $$,
-  null, null,
+  '42501', null,
   'no INSERT policy exists on org_members, even for an org_admin'
 );
 

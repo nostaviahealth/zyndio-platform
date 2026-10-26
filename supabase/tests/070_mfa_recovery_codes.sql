@@ -13,20 +13,20 @@ insert into public.mfa_recovery_codes (id, user_id, factor_id, code_hash)
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0001', 'aal2'); -- org_admin_a
 select throws_ok(
   $$ select count(*) from public.mfa_recovery_codes $$,
-  null, null,
+  '42501', null,
   'org_admin_a cannot read mfa_recovery_codes - grants are revoked, not just RLS-filtered'
 );
 
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal2'); -- the owning patient
 select throws_ok(
   $$ select count(*) from public.mfa_recovery_codes $$,
-  null, null,
+  '42501', null,
   'even the owning user cannot read their own mfa_recovery_codes row directly'
 );
 select throws_ok(
   $$ insert into public.mfa_recovery_codes (id, user_id, factor_id, code_hash)
      values ('00000000-0000-0000-0000-0000000a7002', '00000000-0000-0000-0000-0000000a1001', gen_random_uuid(), 'x') $$,
-  null, null,
+  '42501', null,
   'no client role can insert into mfa_recovery_codes - grants are revoked'
 );
 

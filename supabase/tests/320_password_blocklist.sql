@@ -36,12 +36,12 @@ select ok(
 select tests.authenticate_as_anon();
 select throws_ok(
   $$ select public.password_is_blocked('password1234') $$,
-  null, null,
+  '42501', null,
   'anon cannot call password_is_blocked() (L6) - every legitimate caller uses the service-role client'
 );
 select throws_ok(
   $$ select count(*) from public.password_blocklist $$,
-  null, null,
+  '42501', null,
   'anon cannot read the password_blocklist table directly - only via the function'
 );
 
@@ -53,7 +53,7 @@ select ok(
 );
 select throws_ok(
   $$ select count(*) from public.password_blocklist $$,
-  null, null,
+  '42501', null,
   'authenticated cannot read the password_blocklist table directly either'
 );
 

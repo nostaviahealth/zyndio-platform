@@ -21,14 +21,14 @@ select function_returns('public', 'force_sign_out', array['uuid'], 'void', 'forc
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0001', 'aal2'); -- org_admin_a
 select throws_ok(
   $$ select public.force_sign_out('00000000-0000-0000-0000-0000000a0003'::uuid) $$,
-  null, null,
+  '42501', null,
   'an authenticated caller (even an org_admin) cannot execute force_sign_out directly - service_role only'
 );
 
 select tests.authenticate_as_anon();
 select throws_ok(
   $$ select public.force_sign_out('00000000-0000-0000-0000-0000000a0003'::uuid) $$,
-  null, null,
+  '42501', null,
   'anon cannot execute force_sign_out'
 );
 

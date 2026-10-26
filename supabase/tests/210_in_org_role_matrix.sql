@@ -44,7 +44,7 @@ select is((select name from public.organizations where id = '00000000-0000-0000-
   'org_admin_a x organizations x delete: denied, 0 rows (no policy for anyone)');
 select throws_ok(
   $$ insert into public.organizations (id, name) values ('00000000-0000-0000-0000-0000000f0001', 'x') $$,
-  null, null, 'org_admin_a x organizations x insert: denied (no policy for anyone)');
+  '42501', null, 'org_admin_a x organizations x insert: denied (no policy for anyone)');
 
 select is((select count(*) from public.org_members)::int, 4,
   'org_admin_a x org_members x select: allowed, sees all 4 org A members');
@@ -52,7 +52,7 @@ select is((select count(*) from public.org_members)::int, 4,
 -- org_admin at aal2 on their own org - change_member_role() only.
 select throws_ok(
   $$ update public.org_members set status = 'deactivated' where user_id = '00000000-0000-0000-0000-0000000a0003' $$,
-  null, null,
+  '42501', null,
   'org_admin_a x org_members x update: denied (no direct UPDATE path - change_member_role() only)');
 delete from public.org_members where user_id = '00000000-0000-0000-0000-0000000a0002';
 select is((select count(*) from public.org_members where user_id = '00000000-0000-0000-0000-0000000a0002')::int, 1,
@@ -60,7 +60,7 @@ select is((select count(*) from public.org_members where user_id = '00000000-000
 select throws_ok(
   $$ insert into public.org_members (user_id, org_id, role, status)
      values ('00000000-0000-0000-0000-0000000a9001', '00000000-0000-0000-0000-00000000000a', 'physician', 'active') $$,
-  null, null, 'org_admin_a x org_members x insert: denied (no insert policy - invite-acceptance only)');
+  '42501', null, 'org_admin_a x org_members x insert: denied (no insert policy - invite-acceptance only)');
 
 select is((select count(*) from public.patients)::int, 0, 'org_admin_a x patients x select: denied (admins manage users only)');
 update public.patients set display_name = 'Hacked' where id = '00000000-0000-0000-0000-0000000a1001';
@@ -70,28 +70,28 @@ delete from public.patients where id = '00000000-0000-0000-0000-0000000a1001';
 select throws_ok(
   $$ insert into public.patients (id, org_id, display_name, mrn)
      values ('00000000-0000-0000-0000-0000000a9001', '00000000-0000-0000-0000-00000000000a', 'x', 'x') $$,
-  null, null, 'org_admin_a x patients x insert: denied');
+  '42501', null, 'org_admin_a x patients x insert: denied');
 
 select is((select count(*) from public.patient_profiles)::int, 0, 'org_admin_a x patient_profiles x select: denied');
 update public.patient_profiles set data = '{"hacked":true}' where id = '00000000-0000-0000-0000-0000000a2001';
 select throws_ok(
   $$ insert into public.patient_profiles (id, org_id, patient_id, data)
      values ('00000000-0000-0000-0000-0000000f0003', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', '{}') $$,
-  null, null, 'org_admin_a x patient_profiles x insert: denied');
+  '42501', null, 'org_admin_a x patient_profiles x insert: denied');
 
 select is((select count(*) from public.lab_reports)::int, 0, 'org_admin_a x lab_reports x select: denied');
 update public.lab_reports set report_type = 'hacked' where id = '00000000-0000-0000-0000-0000000a3001';
 select throws_ok(
   $$ insert into public.lab_reports (id, org_id, patient_id, report_type, data)
      values ('00000000-0000-0000-0000-0000000f0004', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', 'x', '{}') $$,
-  null, null, 'org_admin_a x lab_reports x insert: denied');
+  '42501', null, 'org_admin_a x lab_reports x insert: denied');
 
 select is((select count(*) from public.consents)::int, 0, 'org_admin_a x consents x select: denied');
 update public.consents set granted = false where id = '00000000-0000-0000-0000-0000000a4001';
 select throws_ok(
   $$ insert into public.consents (id, org_id, patient_id, consent_type, granted)
      values ('00000000-0000-0000-0000-0000000f0005', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', 'x', true) $$,
-  null, null, 'org_admin_a x consents x insert: denied');
+  '42501', null, 'org_admin_a x consents x insert: denied');
 
 select is((select array_agg(id) from public.invites), array['00000000-0000-0000-0000-0000000a5001']::uuid[],
   'org_admin_a x invites x select: allowed (own org)');
@@ -101,7 +101,7 @@ select is((select role::text from public.invites where id = '00000000-0000-0000-
 select throws_ok(
   $$ insert into public.invites (id, org_id, email, role, token_hash)
      values ('00000000-0000-0000-0000-0000000f0002', '00000000-0000-0000-0000-00000000000a', 'x@example.test', 'physician', 'x') $$,
-  null, null, 'org_admin_a x invites x insert: denied (Edge Function only)');
+  '42501', null, 'org_admin_a x invites x insert: denied (Edge Function only)');
 
 -- (org_admin_a's attempted writes above all matched 0 rows - the a1001/
 -- a2001/a3001/a4001 fixture rows are unchanged, as physician_a's first
@@ -123,19 +123,25 @@ select is((select array_agg(user_id) from public.org_members), array['00000000-0
   'physician_a x org_members x select: only own row (not an admin)');
 select throws_ok(
   $$ update public.org_members set status = 'deactivated' where user_id = '00000000-0000-0000-0000-0000000a0002' $$,
-  null, null,
+  '42501', null,
   'physician_a x org_members x update: denied (not an admin, even on own row - no UPDATE path at all)');
 select throws_ok(
   $$ insert into public.org_members (user_id, org_id, role, status)
      values ('00000000-0000-0000-0000-0000000a9001', '00000000-0000-0000-0000-00000000000a', 'physician', 'active') $$,
-  null, null, 'physician_a x org_members x insert: denied');
+  '42501', null, 'physician_a x org_members x insert: denied');
 
 select is((select display_name from public.patients where id = '00000000-0000-0000-0000-0000000a1001'), 'Fictional Patient A1',
   'physician_a x patients x select: allowed (own org)');
-insert into public.patients (id, org_id, display_name, mrn)
-  values ('00000000-0000-0000-0000-0000000a6002', '00000000-0000-0000-0000-00000000000a', 'Fictional Patient A2', 'MRN-A2');
+-- Review group C, C1: a direct client INSERT on patients is denied for
+-- everyone now, including physician/care_coordinator - patient creation
+-- only goes through create_patient_record() (see 500_review_probes.sql, P9).
+select throws_ok(
+  $$ insert into public.patients (id, org_id, display_name, mrn)
+     values ('00000000-0000-0000-0000-0000000a6002', '00000000-0000-0000-0000-00000000000a', 'Fictional Patient A2', 'MRN-A2') $$,
+  '42501', null, 'physician_a x patients x insert: denied, no direct INSERT policy - create_patient_record() only');
+select public.create_patient_record('00000000-0000-0000-0000-0000000a6002', 'Fictional Patient A2', 'MRN-A2');
 select is((select display_name from public.patients where id = '00000000-0000-0000-0000-0000000a6002'), 'Fictional Patient A2',
-  'physician_a x patients x insert: allowed (own org)');
+  'physician_a x patients x create_patient_record(): creates the row in the caller''s own org');
 update public.patients set display_name = 'Updated A2' where id = '00000000-0000-0000-0000-0000000a6002';
 select is((select display_name from public.patients where id = '00000000-0000-0000-0000-0000000a6002'), 'Updated A2',
   'physician_a x patients x update: allowed (own org)');
@@ -180,7 +186,7 @@ select is((select count(*) from public.invites)::int, 0, 'physician_a x invites 
 select throws_ok(
   $$ insert into public.invites (id, org_id, email, role, token_hash)
      values ('00000000-0000-0000-0000-0000000f0006', '00000000-0000-0000-0000-00000000000a', 'x@example.test', 'physician', 'x') $$,
-  null, null, 'physician_a x invites x insert: denied');
+  '42501', null, 'physician_a x invites x insert: denied');
 
 -- Restore the seed between role blocks (as the table owner, which has
 -- BYPASSRLS) so each role's counts start from the same fixture state; this
@@ -257,7 +263,7 @@ select is((select display_name from public.patients where id = '00000000-0000-00
 select throws_ok(
   $$ insert into public.patients (id, org_id, display_name, mrn)
      values ('00000000-0000-0000-0000-0000000a9001', '00000000-0000-0000-0000-00000000000a', 'x', 'x') $$,
-  null, null, 'read_only_a x patients x insert: denied');
+  '42501', null, 'read_only_a x patients x insert: denied');
 
 -- Review group A, H2: read_only gets no clinical detail at the DB level -
 -- its SELECT on patient_profiles/lab_reports/consents was dropped entirely.
@@ -268,19 +274,19 @@ update public.patient_profiles set data = '{"hacked":true}' where id = '00000000
 select throws_ok(
   $$ insert into public.patient_profiles (id, org_id, patient_id, data)
      values ('00000000-0000-0000-0000-0000000f0007', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', '{}') $$,
-  null, null, 'read_only_a x patient_profiles x insert: denied');
+  '42501', null, 'read_only_a x patient_profiles x insert: denied');
 
 select is((select count(*) from public.lab_reports)::int, 0, 'read_only_a x lab_reports x select: denied - no clinical detail at the DB level');
 select throws_ok(
   $$ insert into public.lab_reports (id, org_id, patient_id, report_type, data)
      values ('00000000-0000-0000-0000-0000000f0008', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', 'x', '{}') $$,
-  null, null, 'read_only_a x lab_reports x insert: denied');
+  '42501', null, 'read_only_a x lab_reports x insert: denied');
 
 select is((select count(*) from public.consents)::int, 0, 'read_only_a x consents x select: denied - no clinical detail at the DB level');
 select throws_ok(
   $$ insert into public.consents (id, org_id, patient_id, consent_type, granted)
      values ('00000000-0000-0000-0000-0000000f0009', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', 'x', true) $$,
-  null, null, 'read_only_a x consents x insert: denied');
+  '42501', null, 'read_only_a x consents x insert: denied');
 
 select is((select count(*) from public.invites)::int, 0, 'read_only_a x invites x select: denied (not an admin)');
 
@@ -305,7 +311,7 @@ select is((select display_name from public.patients where id = '00000000-0000-00
 select throws_ok(
   $$ insert into public.patients (id, org_id, display_name, mrn)
      values ('00000000-0000-0000-0000-0000000a9001', '00000000-0000-0000-0000-00000000000a', 'x', 'x') $$,
-  null, null, 'patient_a1 x patients x insert: denied (no patient-self-insert policy)');
+  '42501', null, 'patient_a1 x patients x insert: denied (no patient-self-insert policy)');
 
 select is((select count(*) from public.patient_profiles)::int, 1, 'patient_a1 x patient_profiles x select: allowed (own row)');
 update public.patient_profiles set data = '{"note":"updated by self"}' where patient_id = '00000000-0000-0000-0000-0000000a1001';
@@ -314,7 +320,7 @@ select is((select data from public.patient_profiles where patient_id = '00000000
 select throws_ok(
   $$ insert into public.patient_profiles (id, org_id, patient_id, data)
      values ('00000000-0000-0000-0000-0000000f0010', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', '{}') $$,
-  null, null, 'patient_a1 x patient_profiles x insert: denied (no patient-self-insert policy)');
+  '42501', null, 'patient_a1 x patient_profiles x insert: denied (no patient-self-insert policy)');
 
 select is((select count(*) from public.lab_reports)::int, 1, 'patient_a1 x lab_reports x select: allowed (own row)');
 insert into public.lab_reports (id, org_id, patient_id, report_type, data)
@@ -383,7 +389,7 @@ select is((select count(*) from public.patients)::int, 0, 'invited (not yet acti
 select throws_ok(
   $$ insert into public.patients (id, org_id, display_name, mrn)
      values ('00000000-0000-0000-0000-0000000a9002', '00000000-0000-0000-0000-00000000000a', 'x', 'x') $$,
-  null, null, 'invited physician_a x patients x insert: denied');
+  '42501', null, 'invited physician_a x patients x insert: denied');
 
 select * from finish();
 rollback;

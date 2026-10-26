@@ -91,7 +91,7 @@ begin
     execute 'reset role';
     execute p_insert_cleanup_sql;
     perform tests.authenticate_as(p_actor_id, p_aal);
-  exception when others then
+  exception when insufficient_privilege then
     return next ok(true, format('%s x %s x insert other tenant row: denied (%s)', p_actor_label, p_table, sqlerrm));
   end;
 
@@ -99,10 +99,13 @@ begin
   -- org_members denies it at the grant level now (review group A, H1: UPDATE
   -- is revoked from authenticated outright) - a permission-denied exception
   -- rather than a 0-row update. Either shape is "denied"; normalize to 0.
+  -- L13: only swallow insufficient_privilege (SQLSTATE 42501) here - any
+  -- other error (a typo, a missing column, a real bug) must still fail the
+  -- test instead of silently reading as "denied".
   begin
     execute format('update public.%I set created_at = created_at where %I = %L', p_table, p_pk, p_target_pk);
     get diagnostics v_affected = row_count;
-  exception when others then
+  exception when insufficient_privilege then
     v_affected := 0;
   end;
   return next is(v_affected, 0, format('%s x %s x update other tenant: 0 rows', p_actor_label, p_table));
@@ -140,10 +143,10 @@ as $fn$
 begin
   execute 'reset role';
   perform tests.authenticate_as(p_actor_id, p_aal);
-  return next throws_ok(format('select count(*) from public.%I', p_table), null, null, format('%s x %s x select: permission denied', p_actor_label, p_table));
-  return next throws_ok(format('insert into public.%I default values', p_table), null, null, format('%s x %s x insert: permission denied', p_actor_label, p_table));
-  return next throws_ok(format('update public.%I set %I = %I', p_table, p_touch_col, p_touch_col), null, null, format('%s x %s x update: permission denied', p_actor_label, p_table));
-  return next throws_ok(format('delete from public.%I', p_table), null, null, format('%s x %s x delete: permission denied', p_actor_label, p_table));
+  return next throws_ok(format('select count(*) from public.%I', p_table), '42501', null, format('%s x %s x select: permission denied', p_actor_label, p_table));
+  return next throws_ok(format('insert into public.%I default values', p_table), '42501', null, format('%s x %s x insert: permission denied', p_actor_label, p_table));
+  return next throws_ok(format('update public.%I set %I = %I', p_table, p_touch_col, p_touch_col), '42501', null, format('%s x %s x update: permission denied', p_actor_label, p_table));
+  return next throws_ok(format('delete from public.%I', p_table), '42501', null, format('%s x %s x delete: permission denied', p_actor_label, p_table));
 end;
 $fn$;
 

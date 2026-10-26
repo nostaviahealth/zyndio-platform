@@ -13,19 +13,19 @@ select no_plan();
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0001', 'aal2');
 select throws_ok(
   $$ update public.org_members set role = 'read_only' where user_id = '00000000-0000-0000-0000-0000000a0002' $$,
-  null, null,
+  '42501', null,
   'P1 denied: org_admin_a cannot set another member''s role via a direct UPDATE'
 );
 select throws_ok(
   $$ update public.org_members set status = 'deactivated' where user_id = '00000000-0000-0000-0000-0000000a0003' $$,
-  null, null,
+  '42501', null,
   'P1b denied: org_admin_a cannot set another member''s status via a direct UPDATE'
 );
 
 -- P2: org_admin_a re-points a membership row at an arbitrary auth user.
 select throws_ok(
   $$ update public.org_members set user_id = '00000000-0000-0000-0000-0000000a9001' where user_id = '00000000-0000-0000-0000-0000000a0004' $$,
-  null, null,
+  '42501', null,
   'P2 denied: org_admin_a cannot re-point a membership row at an arbitrary auth user'
 );
 
@@ -35,22 +35,22 @@ select throws_ok(
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal1');
 select throws_ok(
   $$ update public.patients set org_id = '00000000-0000-0000-0000-00000000000b' where id = '00000000-0000-0000-0000-0000000a1001' $$,
-  null, null,
+  '42501', null,
   'P3 denied: patient_a1 cannot move their own patients.org_id to org B'
 );
 select throws_ok(
   $$ update public.patient_profiles set org_id = '00000000-0000-0000-0000-00000000000b' where patient_id = '00000000-0000-0000-0000-0000000a1001' $$,
-  null, null,
+  '42501', null,
   'P3b denied: patient_a1 cannot move their own patient_profiles.org_id to org B'
 );
 select throws_ok(
   $$ insert into public.lab_reports (org_id, patient_id, report_type) values ('00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000a1001', 'x') $$,
-  null, null,
+  '42501', null,
   'P4 denied: patient_a1 cannot insert a lab_report into org B'
 );
 select throws_ok(
   $$ insert into public.consents (org_id, patient_id, consent_type, granted) values ('00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000a1001', 'x', true) $$,
-  null, null,
+  '42501', null,
   'P4b denied: patient_a1 cannot insert a consent into org B'
 );
 
@@ -94,15 +94,77 @@ select is(
   'P6 control: physician_a can still update lab_reports.data'
 );
 
--- P9: staff creating a patients row for an arbitrary existing auth user id
--- is NOT fixed in this pass (left as a documented TODO - see
--- step4f-summary.md). This assertion documents *current* behaviour (still
--- allowed) so a future fix flips it, rather than silently claiming coverage
--- that doesn't exist.
+-- P9 (review group C, C1): a staff member could create a patients row for
+-- an arbitrary existing auth user id via a direct INSERT. Fixed by dropping
+-- patients_staff_write_insert and replacing it with the
+-- create_patient_record() RPC (not staff anywhere, no existing patients row
+-- anywhere, aal2 + physician/care_coordinator, own org only, audited).
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal2'); -- physician_a
+select throws_ok(
+  $$ insert into public.patients (id, org_id) values ('00000000-0000-0000-0000-0000000a9001', '00000000-0000-0000-0000-00000000000a') $$,
+  '42501', null,
+  'P9 denied: a staff member can no longer create a patients row via a direct INSERT (no policy left)'
+);
+
+-- Positive: physician_a creates a patient record for a9001 (a real,
+-- never-bound auth user) through the RPC, and it's audited. audit_log has
+-- zero client policies and revoked grants (090_audit_log.sql), so it's read
+-- back as the pg_prove superuser, same pattern as 020_org_members.sql.
+reset role;
+select set_config('request.jwt.claims', '', true);
+select is(
+  (select count(*)::int from public.audit_log where event_type = 'patient_created' and target_user_id = '00000000-0000-0000-0000-0000000a9001'),
+  0,
+  'precondition: no prior patient_created audit row for a9001'
+);
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal2'); -- physician_a
 select lives_ok(
-  $$ insert into public.patients (id, org_id) values ('00000000-0000-0000-0000-0000000a9001', '00000000-0000-0000-0000-00000000000a') $$,
-  'P9 TODO (not fixed in review group A): a staff member can still create a patients row for an arbitrary auth user id in their org'
+  $$ select public.create_patient_record('00000000-0000-0000-0000-0000000a9001', 'Fictional Patient A9001', 'MRN-A9001') $$,
+  'P9 RPC positive: physician_a can create a patient record for an unbound account via create_patient_record()'
+);
+select is(
+  (select org_id from public.patients where id = '00000000-0000-0000-0000-0000000a9001'),
+  '00000000-0000-0000-0000-00000000000a',
+  'P9 RPC positive: the new patients row is bound to the caller''s own org'
+);
+reset role;
+select set_config('request.jwt.claims', '', true);
+select is(
+  (select count(*)::int from public.audit_log where event_type = 'patient_created' and target_user_id = '00000000-0000-0000-0000-0000000a9001' and actor_user_id = '00000000-0000-0000-0000-0000000a0002'),
+  1,
+  'P9 RPC positive: create_patient_record() writes exactly one patient_created audit row'
+);
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal2'); -- physician_a
+
+-- Negative: the target is already staff (physician_b) - refused, even
+-- though physician_b is a real, existing auth user.
+select throws_ok(
+  $$ select public.create_patient_record('00000000-0000-0000-0000-0000000b0001') $$,
+  '42501', null,
+  'P9 RPC negative: cannot bind a patient record to an existing staff account'
+);
+
+-- Negative: the target already has a patients row (patient_a1).
+select throws_ok(
+  $$ select public.create_patient_record('00000000-0000-0000-0000-0000000a1001') $$,
+  '42501', null,
+  'P9 RPC negative: cannot create a second patients row for an account that already has one'
+);
+
+-- Negative: caller is read_only (not physician/care_coordinator).
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0004', 'aal2'); -- read_only_a
+select throws_ok(
+  $$ select public.create_patient_record('00000000-0000-0000-0000-0000000a9001') $$,
+  '42501', null,
+  'P9 RPC negative: read_only cannot call create_patient_record()'
+);
+
+-- Negative: caller is physician but only at aal1.
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal1'); -- physician_a
+select throws_ok(
+  $$ select public.create_patient_record('00000000-0000-0000-0000-0000000a9001') $$,
+  '42501', null,
+  'P9 RPC negative: create_patient_record() is rejected at aal1'
 );
 
 select * from finish();

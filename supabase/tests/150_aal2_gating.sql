@@ -29,7 +29,7 @@ select is(
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0001', 'aal1');
 select throws_ok(
   $$ update public.org_members set status = 'deactivated' where user_id = '00000000-0000-0000-0000-0000000a0004' $$,
-  null, null,
+  '42501', null,
   'org_admin_a at aal1 cannot update a teammate''s row - no direct UPDATE path exists at all'
 );
 

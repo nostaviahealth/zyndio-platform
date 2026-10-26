@@ -18,7 +18,7 @@ select is((select count(*) from public.invites)::int, 0, 'anon sees no invites')
 select throws_ok(
   $$ insert into public.patients (id, org_id, display_name, mrn)
      values ('00000000-0000-0000-0000-0000000a1001', '00000000-0000-0000-0000-00000000000a', 'x', 'x') $$,
-  null, null,
+  '42501', null,
   'anon cannot insert into patients'
 );
 

@@ -35,7 +35,7 @@ select is(
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0001');
 select throws_ok(
   $$ insert into public.organizations (id, name) values ('00000000-0000-0000-0000-0000000a9999', 'Rogue Org') $$,
-  null,
+  '42501',
   null,
   'no INSERT policy exists on organizations, even for an org_admin'
 );
