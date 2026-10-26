@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../config/theme.dart';
 import 'demo_card.dart';
+import 'message_care_team_button.dart';
 
 /// C32-adjacent range caveat card (always visible on the default trend
 /// view, T-BIO-02): describes ranges as general defaults the care team will
@@ -19,7 +20,8 @@ class RangeCaveatCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline, size: ZyndioSize.icon, color: colors.textSecondary),
+          Icon(Icons.info_outline,
+              size: ZyndioSize.icon, color: colors.textSecondary),
           const SizedBox(width: ZyndioSpace.s12),
           Expanded(
             child: Column(
@@ -27,23 +29,12 @@ class RangeCaveatCard extends StatelessWidget {
               children: [
                 Text(
                   'These are general default ranges. Your Zyndio care team will confirm the ranges used for your care.',
-                  style: ZyndioType.footnote.copyWith(color: colors.textSecondary),
+                  style:
+                      ZyndioType.footnote.copyWith(color: colors.textSecondary),
                 ),
                 if (onMessageCareTeam != null) ...[
                   const SizedBox(height: ZyndioSpace.s12),
-                  SizedBox(
-                    height: ZyndioSize.buttonSmallHeight,
-                    child: FilledButton(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: colors.actionSecondary,
-                        foregroundColor: colors.actionOnSecondary,
-                        textStyle: ZyndioType.subhead.copyWith(fontWeight: FontWeight.w600),
-                        padding: const EdgeInsets.symmetric(horizontal: ZyndioSpace.s24),
-                      ),
-                      onPressed: onMessageCareTeam,
-                      child: const Text('Message care team'),
-                    ),
-                  ),
+                  MessageCareTeamButton(onPressed: onMessageCareTeam),
                 ],
               ],
             ),

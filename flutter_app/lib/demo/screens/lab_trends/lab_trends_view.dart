@@ -6,6 +6,7 @@ import '../../widgets/demo_tab_bar.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/fictional_data_tag.dart';
 import '../../widgets/history_row.dart';
+import '../../widgets/message_care_team_button.dart';
 import '../../widgets/metric_header.dart';
 import '../../widgets/range_caveat_card.dart';
 import '../../widgets/segmented_control.dart';
@@ -48,7 +49,8 @@ class LabTrendsView extends StatelessWidget {
           children: [
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(ZyndioSpace.s16, ZyndioSpace.s16, ZyndioSpace.s16, ZyndioSpace.s24),
+                padding: const EdgeInsets.fromLTRB(ZyndioSpace.s16,
+                    ZyndioSpace.s16, ZyndioSpace.s16, ZyndioSpace.s24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -63,9 +65,13 @@ class LabTrendsView extends StatelessWidget {
                         const FictionalDataTag(),
                       ],
                     ),
-                    Text(state.title, style: ZyndioType.title1.copyWith(color: colors.textPrimary)),
+                    Text(state.title,
+                        style: ZyndioType.title1
+                            .copyWith(color: colors.textPrimary)),
                     const SizedBox(height: ZyndioSpace.s4 + 4),
-                    Text(state.subtitle, style: ZyndioType.subhead.copyWith(color: colors.textSecondary)),
+                    Text(state.subtitle,
+                        style: ZyndioType.subhead
+                            .copyWith(color: colors.textSecondary)),
                     ..._body(context),
                   ],
                 ),
@@ -114,10 +120,13 @@ class LabTrendsView extends StatelessWidget {
       const EmptyState(
         icon: Icons.science_outlined,
         title: 'Add another report to see a trend',
-        message: 'Your care team usually orders follow-up labs. When the next result arrives, it will show here.',
+        message:
+            'Your care team usually orders follow-up labs. When the next result arrives, it will show here.',
       ),
       const SizedBox(height: ZyndioSpace.s16),
-      FilledButton(onPressed: () => onAddReport?.call(), child: const Text('Add a lab report')),
+      FilledButton(
+          onPressed: () => onAddReport?.call(),
+          child: const Text('Add a lab report')),
     ];
   }
 
@@ -126,7 +135,8 @@ class LabTrendsView extends StatelessWidget {
     return [
       if (state.isCachedError) ...[
         const SizedBox(height: ZyndioSpace.s12),
-        ZyndioBanner(variant: BannerVariant.warning, message: state.cachedErrorMessage),
+        ZyndioBanner(
+            variant: BannerVariant.warning, message: state.cachedErrorMessage),
       ],
       const SizedBox(height: ZyndioSpace.s16),
       MetricHeader(
@@ -146,35 +156,30 @@ class LabTrendsView extends StatelessWidget {
           Container(
             width: 16,
             height: 10,
-            decoration: BoxDecoration(color: colors.chartRange, border: Border.all(color: colors.borderSubtle)),
+            decoration: BoxDecoration(
+                color: colors.chartRange,
+                border: Border.all(color: colors.borderSubtle)),
           ),
           const SizedBox(width: ZyndioSpace.s8),
-          Text(_rangeLegendLabel, style: ZyndioType.caption.copyWith(color: colors.textTertiary, fontWeight: FontWeight.w400)),
+          Text(_rangeLegendLabel,
+              style: ZyndioType.caption.copyWith(
+                  color: colors.textTertiary, fontWeight: FontWeight.w400)),
         ],
       ),
       if (state.isAboveRange) ...[
         const SizedBox(height: ZyndioSpace.s12),
         const ZyndioBanner(
           variant: BannerVariant.warning,
-          message: 'This result is above the default range. Your care team will see it too. If you have questions, message them.',
+          message:
+              'This result is above the default range. Your care team will see it too. If you have questions, message them.',
         ),
         const SizedBox(height: ZyndioSpace.s12),
-        SizedBox(
-          height: ZyndioSize.buttonSmallHeight,
-          child: FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: colors.actionSecondary,
-              foregroundColor: colors.actionOnSecondary,
-              textStyle: ZyndioType.subhead.copyWith(fontWeight: FontWeight.w600),
-              padding: const EdgeInsets.symmetric(horizontal: ZyndioSpace.s24),
-            ),
-            onPressed: () => onMessageCareTeam?.call(),
-            child: const Text('Message care team'),
-          ),
-        ),
+        MessageCareTeamButton(onPressed: () => onMessageCareTeam?.call()),
       ] else if (state.isCachedError) ...[
         const SizedBox(height: ZyndioSpace.s16),
-        OutlinedButton(onPressed: () => onTryAgain?.call(), child: const Text('Try again')),
+        OutlinedButton(
+            onPressed: () => onTryAgain?.call(),
+            child: const Text('Try again')),
       ] else ...[
         const SizedBox(height: ZyndioSpace.s12),
         RangeCaveatCard(onMessageCareTeam: () => onMessageCareTeam?.call()),
@@ -208,7 +213,12 @@ class _HistoryCard extends StatelessWidget {
               value: reversed[i].percent.toString(),
               unit: '%',
             ),
-            if (i != reversed.length - 1) Divider(height: 1, color: colors.borderSubtle, indent: ZyndioSpace.s16, endIndent: ZyndioSpace.s16),
+            if (i != reversed.length - 1)
+              Divider(
+                  height: 1,
+                  color: colors.borderSubtle,
+                  indent: ZyndioSpace.s16,
+                  endIndent: ZyndioSpace.s16),
           ],
         ],
       ),

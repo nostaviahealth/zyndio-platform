@@ -56,11 +56,11 @@ test-plan ID of its own (it's still covered by a widget test in the file listed)
 | lab-review | saved | dark | `lab-review/saved--dark.png` | none in plan | `flutter_app/test/demo/lab_review_test.dart`, `flutter_app/test/demo/screens/lab_review_controller_test.dart` |
 | lab-trends | loading | light | `lab-trends/loading--light.png` | none in plan | `flutter_app/test/demo/lab_trends_test.dart` |
 | lab-trends | loading | dark | `lab-trends/loading--dark.png` | none in plan | `flutter_app/test/demo/lab_trends_test.dart` |
-| lab-trends | default | light | `lab-trends/default--light.png` | T-BIO-01 | `flutter_app/test/demo/lab_trends_test.dart`, `flutter_app/test/demo/data/fixtures_test.dart` |
-| lab-trends | default | dark | `lab-trends/default--dark.png` | T-BIO-01 | `flutter_app/test/demo/lab_trends_test.dart`, `flutter_app/test/demo/data/fixtures_test.dart` |
-| lab-trends | above | light | `lab-trends/above--light.png` | T-BIO-02 | `flutter_app/test/demo/lab_trends_test.dart` |
-| lab-trends | above | dark | `lab-trends/above--dark.png` | T-BIO-02 | `flutter_app/test/demo/lab_trends_test.dart` |
-| lab-trends | single | light | `lab-trends/single--light.png` | T-BIO-02 | `flutter_app/test/demo/lab_trends_test.dart` |
-| lab-trends | single | dark | `lab-trends/single--dark.png` | T-BIO-02 | `flutter_app/test/demo/lab_trends_test.dart` |
+| lab-trends | default | light | `lab-trends/default--light.png` | T-BIO-01 | `flutter_app/test/demo/lab_trends_test.dart`, `flutter_app/test/demo/data/fixtures_test.dart`, `flutter_app/test/demo/widgets/trend_chart_test.dart`, `flutter_app/test/demo/widgets/range_caveat_card_test.dart` |
+| lab-trends | default | dark | `lab-trends/default--dark.png` | T-BIO-01 | `flutter_app/test/demo/lab_trends_test.dart`, `flutter_app/test/demo/data/fixtures_test.dart`, `flutter_app/test/demo/widgets/trend_chart_test.dart`, `flutter_app/test/demo/widgets/range_caveat_card_test.dart` |
+| lab-trends | above | light | `lab-trends/above--light.png` | T-BIO-02 | `flutter_app/test/demo/lab_trends_test.dart`, `flutter_app/test/demo/widgets/trend_chart_test.dart`, `flutter_app/test/demo/widgets/range_caveat_card_test.dart` |
+| lab-trends | above | dark | `lab-trends/above--dark.png` | T-BIO-02 | `flutter_app/test/demo/lab_trends_test.dart`, `flutter_app/test/demo/widgets/trend_chart_test.dart`, `flutter_app/test/demo/widgets/range_caveat_card_test.dart` |
+| lab-trends | single | light | `lab-trends/single--light.png` | T-BIO-02 | `flutter_app/test/demo/lab_trends_test.dart`, `flutter_app/test/demo/widgets/trend_chart_test.dart` |
+| lab-trends | single | dark | `lab-trends/single--dark.png` | T-BIO-02 | `flutter_app/test/demo/lab_trends_test.dart`, `flutter_app/test/demo/widgets/trend_chart_test.dart` |
 | lab-trends | error | light | `lab-trends/error--light.png` | none in plan (cached-data copy) | `flutter_app/test/demo/lab_trends_test.dart` |
 | lab-trends | error | dark | `lab-trends/error--dark.png` | none in plan (cached-data copy) | `flutter_app/test/demo/lab_trends_test.dart` |
