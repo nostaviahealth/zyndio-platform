@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """TC-008 demo screenshot harness.
 
-Serves flutter_app/build/web (built via `flutter build web -t lib/main_demo.dart`)
+Serves flutter_app/build/web (built via
+`flutter build web -t lib/main_demo.dart --dart-define=DEMO_BUILD=true`)
 on localhost and drives headless Chromium to capture every screen/state/mode
 combination at 390x844, device pixel ratio 2. Waits for the deterministic
 `window.flutterDemoReady` flag `DemoApp` sets after its first real frame
@@ -84,7 +85,7 @@ def capture(screens: list[str] | None, states: list[str] | None) -> list[Path]:
     if not BUILD_DIR.exists():
         raise SystemExit(
             f"{BUILD_DIR} not found. Run "
-            "`flutter build web -t lib/main_demo.dart` first."
+            "`flutter build web -t lib/main_demo.dart --dart-define=DEMO_BUILD=true` first."
         )
 
     manifest = _filtered_manifest(screens, states)

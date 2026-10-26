@@ -56,6 +56,10 @@ jobs:
         working-directory: flutter_app
         run: flutter test
 
+      - name: Run demo-flow tests (DEMO_BUILD=true)
+        working-directory: flutter_app
+        run: flutter test --tags demo_flow --run-skipped --dart-define=DEMO_BUILD=true
+
       - name: Build debug APK
         working-directory: flutter_app
         run: flutter build apk --debug

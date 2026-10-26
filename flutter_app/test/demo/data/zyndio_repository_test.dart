@@ -21,7 +21,10 @@ void main() {
   });
 
   group('OfflineDemoRepository', () {
-    test('every interface call is scoped by session, mirroring DemoBackend', () {
+    test(
+      'every interface call is scoped by session, mirroring DemoBackend',
+      tags: ['demo_flow'],
+      () {
       final backend = DemoBackend();
       final repo = OfflineDemoRepository(backend);
 
@@ -38,7 +41,10 @@ void main() {
       expect(repo.hba1cTrendFor(session), hba1cTrend);
     });
 
-    test('a different seeded patient never sees the primary patient\'s trend data', () {
+    test(
+      'a different seeded patient never sees the primary patient\'s trend data',
+      tags: ['demo_flow'],
+      () {
       final backend = DemoBackend();
       final repo = OfflineDemoRepository(backend);
       final samEmail = secondaryDemoPatients.first.email;
@@ -53,6 +59,7 @@ void main() {
     test(
       'T-LAB-05: a queued upload survives a fresh OfflineDemoRepository on '
       'the same app-private dir (app kill)',
+      tags: ['demo_flow'],
       () {
         final tempDir = Directory.systemTemp.createTempSync('zyndio_repository_test');
         addTearDown(() => tempDir.deleteSync(recursive: true));

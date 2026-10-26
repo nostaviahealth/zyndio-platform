@@ -96,7 +96,10 @@ void main() {
   });
 
   group('ConsentController', () {
-    test('agreeing to all 3 docs stores a version + timestamp record per doc', () {
+    test(
+      'agreeing to all 3 docs stores a version + timestamp record per doc',
+      tags: ['demo_flow'],
+      () {
       final clock = FakeClock(DateTime(2026, 10, 25, 9, 0));
       final backend = DemoBackend(clock: clock);
       final container = ProviderContainer(

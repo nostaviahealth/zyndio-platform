@@ -1,3 +1,4 @@
+import '../demo_build_flag.dart';
 import '../logic/clock.dart';
 import '../logic/code_expiry.dart';
 import '../logic/file_hash.dart';
@@ -110,8 +111,14 @@ class DemoBackend {
   /// Demo/test-only hook: the code last issued to [email] (or `null` if none
   /// was issued, including for an unknown email). A real backend would only
   /// deliver this out-of-band by email — never call this from product code.
-  String? debugLastIssuedCode(String email) =>
-      _accountsByEmail[_normalize(email)]?.issuedCode;
+  /// Compiled out (throws) unless built with `--dart-define=DEMO_BUILD=true`,
+  /// so a plaintext code can never leak outside the demo entrypoint.
+  String? debugLastIssuedCode(String email) {
+    if (!kDemoBuild) {
+      throw UnsupportedError('debugLastIssuedCode is only available in demo builds.');
+    }
+    return _accountsByEmail[_normalize(email)]?.issuedCode;
+  }
 
   /// Verifies [code] against [email]'s own server-side expiry/lockout/used
   /// state. On success returns a [DemoSession] scoped to that patient;

@@ -1,0 +1,3 @@
+tags:
+  demo_flow:
+    skip: "requires --dart-define=DEMO_BUILD=true: flutter test --tags demo_flow --run-skipped --dart-define=DEMO_BUILD=true"
