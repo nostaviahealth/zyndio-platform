@@ -1,7 +1,8 @@
 // Pure, dependency-free helpers shared by every TC-005 edge function. No Deno
 // or Node-specific imports here (only the global Web Crypto API, which both
 // runtimes provide) so this module can be unit tested directly by vitest
-// without a Deno runtime (see tests/unit/edge-validation.test.ts).
+// without a Deno runtime (L12 - the actual tests live alongside this file
+// and run via `deno test`: see supabase/functions/_shared/validation_test.ts).
 
 export const APP_ROLES = ['org_admin', 'physician', 'care_coordinator', 'read_only'] as const
 export type AppRole = (typeof APP_ROLES)[number]

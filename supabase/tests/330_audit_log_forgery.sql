@@ -122,6 +122,13 @@ select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal2');
 create temp table tmp_forgery_codes as
   select unnest(public.generate_recovery_codes()) as code;
 
+-- B6 / L3: consume_recovery_code() now requires a recent (<=10 min)
+-- password_verified_at, same window as the TOTP step.
+reset role;
+insert into public.auth_attempt_state (user_id, wrong_count, password_verified_at)
+  values ('00000000-0000-0000-0000-0000000a0002', 0, now())
+  on conflict (user_id) do update set password_verified_at = now();
+
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal1');
 select is(
   ((select public.consume_recovery_code(code) from tmp_forgery_codes limit 1) ->> 'status'),

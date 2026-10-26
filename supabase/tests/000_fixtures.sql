@@ -48,6 +48,22 @@ begin
 end;
 $$;
 
+-- B3 (review group B): `set role service_role;` alone satisfies a function's
+-- Postgres-level EXECUTE grant, but auth.role() (used by e.g. write_audit_log
+-- to decide "trusted server-side caller") reads the request.jwt.claims GUC,
+-- not the actual session role - the two are independent. Pair this with
+-- `set role service_role;` (or use it in place of a bare `reset role;`) for
+-- any pgTAP call that exercises code checking auth.role() = 'service_role'.
+create or replace function tests.authenticate_as_service_role()
+returns void
+language plpgsql
+as $$
+begin
+  perform set_config('role', 'service_role', true);
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+end;
+$$;
+
 -- Models a raw anon-key request where PostgREST never injected any claims
 -- at all (as opposed to tests.authenticate_as_anon(), which sets an
 -- explicit {"role":"anon"} claim) - auth.jwt()/auth.uid() both read NULL.

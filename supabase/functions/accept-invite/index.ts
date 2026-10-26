@@ -36,6 +36,21 @@ serve(async (req) => {
       return jsonResponse({ error: 'invalid_or_expired_invite' }, 400)
     }
 
+    // B7 / Clara NEW M7: the member must still be 'invited' before ANY
+    // write happens, including the password set below. Checking this only
+    // after updateUserById (as the old code did) meant a refused accept
+    // could still silently overwrite a deactivated account's password.
+    const { data: member } = await admin
+      .from('org_members')
+      .select('status')
+      .eq('user_id', invite!.user_id)
+      .eq('org_id', invite!.org_id)
+      .maybeSingle()
+
+    if (!member || member.status !== 'invited') {
+      return jsonResponse({ error: 'invalid_or_expired_invite' }, 400)
+    }
+
     if (!isPasswordLongEnough(password)) {
       return jsonResponse({ error: 'password_too_short' }, 400)
     }

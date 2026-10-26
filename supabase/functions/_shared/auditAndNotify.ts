@@ -35,12 +35,17 @@ export async function insertNotification(
     type: string
     payload?: Record<string, unknown>
   }
-): Promise<void> {
-  const { error } = await admin.from('notification_outbox').insert({
-    user_id: params.userId,
-    org_id: params.orgId,
-    type: params.type,
-    payload: params.payload ?? {},
-  })
+): Promise<{ id: string }> {
+  const { data, error } = await admin
+    .from('notification_outbox')
+    .insert({
+      user_id: params.userId,
+      org_id: params.orgId,
+      type: params.type,
+      payload: params.payload ?? {},
+    })
+    .select('id')
+    .single()
   if (error) throw error
+  return { id: data.id as string }
 }

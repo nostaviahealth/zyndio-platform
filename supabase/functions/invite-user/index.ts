@@ -39,6 +39,13 @@ serve(async (req) => {
     }
 
     let userId: string
+    // Tracks whether this call itself just created the auth.users row (with
+    // a random, nobody-knows-it placeholder password) versus the email
+    // already having an account before this invite (M6: a patient account,
+    // the bootstrap admin, or anything else outside the invite flow). Only
+    // the former may ever be attached to org_members / have its password
+    // overwritten by accept-invite.
+    let isFreshAuthUser: boolean
     const { data: created, error: createError } = await admin.auth.admin.createUser({
       email,
       password: generateToken(),
@@ -55,8 +62,10 @@ serve(async (req) => {
         return jsonResponse({ status: 'ok' })
       }
       userId = existingId
+      isFreshAuthUser = false
     } else {
       userId = created.user.id
+      isFreshAuthUser = true
     }
 
     const { data: existingMember } = await admin
@@ -68,7 +77,8 @@ serve(async (req) => {
     if (existingMember && existingMember.org_id === actor.orgId && existingMember.status === 'invited') {
       // Resend: supersede any still-live invite for this org/email before
       // issuing a fresh token (the partial unique index only allows one
-      // live invite per org+email at a time).
+      // live invite per org+email at a time). Also pick up a changed role
+      // (L7): a resend with a different role must not keep the stale one.
       await admin
         .from('invites')
         .update({ revoked_at: new Date().toISOString() })
@@ -76,9 +86,24 @@ serve(async (req) => {
         .ilike('email', email)
         .is('accepted_at', null)
         .is('revoked_at', null)
+      const { error: roleUpdateError } = await admin
+        .from('org_members')
+        .update({ role })
+        .eq('user_id', userId)
+      if (roleUpdateError) {
+        console.error('invite-user: org_members role update on resend failed', roleUpdateError)
+        return jsonResponse({ error: 'internal_error' }, 500)
+      }
     } else if (existingMember) {
       // Already active/deactivated in this org, or belongs to a different
       // org entirely - nothing to do, but looks identical to success.
+      return jsonResponse({ status: 'ok' })
+    } else if (!isFreshAuthUser) {
+      // M6: an account that existed before this invite call (a patient
+      // account, or anything else never routed through invite-user) and
+      // has no org_members row at all. Never silently attach org/staff
+      // access to it, and never let accept-invite later overwrite its real
+      // password - refuse, but look identical to a successful invite.
       return jsonResponse({ status: 'ok' })
     } else {
       const { error: memberError } = await admin.from('org_members').insert({
@@ -117,8 +142,12 @@ serve(async (req) => {
       metadata: { email, role },
     })
 
-    // Stands in for a real email in this card: the plaintext token lives
-    // only here, readable only by the service-role client.
+    // B5: stays 'pending' with the plaintext token until process-outbox (the
+    // stub email worker) "sends" it - see supabase/functions/process-outbox.
+    // Modeled as an async worker rather than inline here because a real
+    // provider (TC-006) would be async too, and because the plaintext token
+    // genuinely needs to survive until *something* delivers it; nulling it
+    // at insert time would make the invite link unrecoverable by anyone.
     await insertNotification(admin, {
       userId,
       orgId: actor.orgId,

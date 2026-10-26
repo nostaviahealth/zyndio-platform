@@ -15,6 +15,11 @@ password is ever baked into a build.
   (`public.password_is_blocked`). There's no way to bypass this check.
 - Every account after the first is created via an **invite**, from inside the admin app
   (`org_admin` → Users & roles → Invite), never via a script or env var.
+- **Changing a password after the initial set (invite acceptance / bootstrap) must go through the
+  `change-password` Edge Function, never `supabase.auth.updateUser({ password })` directly.**
+  `updateUser` talks straight to GoTrue and skips the blocklist check entirely - `change-password`
+  verifies the caller's own session, re-runs the same length/blocklist check, and only then calls
+  the admin API. The web client has no other password-change path; don't add one.
 
 ## Bootstrap the first org admin
 

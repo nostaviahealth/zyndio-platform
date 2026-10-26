@@ -7,7 +7,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
 import { AuthError, requireZyndioAdminActor } from '../_shared/requireOrgAdminActor.ts'
-import { writeAuditLog, insertNotification } from '../_shared/auditAndNotify.ts'
 import { isValidUuid } from '../_shared/validation.ts'
 
 serve(async (req) => {
@@ -56,31 +55,28 @@ serve(async (req) => {
       }
     }
 
+    // L9: delete the target's old recovery codes too - harmless once the
+    // factor is gone (a code only sets the re-enrol flag), but hygiene.
     const { error: deleteCodesError } = await admin.from('mfa_recovery_codes').delete().eq('user_id', targetUserId)
     if (deleteCodesError) {
       console.error('reset-mfa: deleting old recovery codes failed', deleteCodesError)
       return jsonResponse({ error: 'internal_error' }, 500)
     }
 
-    await admin.from('mfa_reenrollment_required').upsert({ user_id: targetUserId })
-
-    const { error: signOutError } = await admin.rpc('force_sign_out', { p_user_id: targetUserId })
-    if (signOutError) {
-      console.error('reset-mfa: force_sign_out failed', signOutError)
+    // B3 / M4: flag, force sign-out, audit and outbox all happen inside one
+    // SECURITY DEFINER transaction (finalize_mfa_reset), called after the
+    // factor deletes above - a failure anywhere rolls back the whole thing
+    // instead of (as before) silently swallowing a sign-out or audit failure
+    // and returning 200 regardless.
+    const { error: finalizeError } = await admin.rpc('finalize_mfa_reset', {
+      p_target_user_id: targetUserId,
+      p_actor_user_id: actor.userId,
+      p_org_id: target.org_id,
+    })
+    if (finalizeError) {
+      console.error('reset-mfa: finalize_mfa_reset failed', finalizeError)
+      return jsonResponse({ error: 'internal_error' }, 500)
     }
-
-    await writeAuditLog(admin, {
-      eventType: 'mfa_reset',
-      actorUserId: actor.userId,
-      targetUserId,
-      orgId: target.org_id,
-    })
-
-    await insertNotification(admin, {
-      userId: targetUserId,
-      orgId: target.org_id,
-      type: 'mfa_reset',
-    })
 
     return jsonResponse({ status: 'ok' })
   } catch (err) {

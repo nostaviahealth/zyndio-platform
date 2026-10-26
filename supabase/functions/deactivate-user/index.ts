@@ -5,7 +5,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
 import { AuthError, requireOrgAdminActor } from '../_shared/requireOrgAdminActor.ts'
-import { writeAuditLog, insertNotification } from '../_shared/auditAndNotify.ts'
 import { isValidUuid } from '../_shared/validation.ts'
 
 serve(async (req) => {
@@ -31,52 +30,23 @@ serve(async (req) => {
       return jsonResponse({ error: 'not_found' }, 404)
     }
 
-    const { error: updateError } = await admin
-      .from('org_members')
-      .update({ status: 'deactivated' })
-      .eq('user_id', targetUserId)
-      .eq('org_id', actor.orgId)
+    // B3 / M4: status flip, invite revoke, force sign-out, audit and outbox
+    // all happen inside one SECURITY DEFINER transaction (finalize_deactivation)
+    // so a failure anywhere rolls back the whole thing instead of leaving a
+    // deactivated member with no audit row or a still-live session.
+    const { error: finalizeError } = await admin.rpc('finalize_deactivation', {
+      p_target_user_id: targetUserId,
+      p_actor_user_id: actor.userId,
+      p_org_id: actor.orgId,
+    })
 
-    if (updateError) {
-      if (updateError.code === 'P0001') {
+    if (finalizeError) {
+      if (finalizeError.code === 'P0001') {
         return jsonResponse({ error: 'cannot_deactivate_last_admin' }, 409)
       }
-      console.error('deactivate-user: org_members update failed', updateError)
+      console.error('deactivate-user: finalize_deactivation failed', finalizeError)
       return jsonResponse({ error: 'internal_error' }, 500)
     }
-
-    // A deactivated member must not be able to reactivate themselves by
-    // walking in on a still-live invite link (H3) - revoke every pending
-    // invite for them in this org.
-    const { error: revokeInvitesError } = await admin
-      .from('invites')
-      .update({ revoked_at: new Date().toISOString() })
-      .eq('org_id', actor.orgId)
-      .eq('user_id', targetUserId)
-      .is('accepted_at', null)
-      .is('revoked_at', null)
-    if (revokeInvitesError) {
-      console.error('deactivate-user: revoking pending invites failed', revokeInvitesError)
-      return jsonResponse({ error: 'internal_error' }, 500)
-    }
-
-    const { error: signOutError } = await admin.rpc('force_sign_out', { p_user_id: targetUserId })
-    if (signOutError) {
-      console.error('deactivate-user: force_sign_out failed', signOutError)
-    }
-
-    await writeAuditLog(admin, {
-      eventType: 'user_deactivated',
-      actorUserId: actor.userId,
-      targetUserId,
-      orgId: actor.orgId,
-    })
-
-    await insertNotification(admin, {
-      userId: targetUserId,
-      orgId: actor.orgId,
-      type: 'user_deactivated',
-    })
 
     return jsonResponse({ status: 'ok' })
   } catch (err) {

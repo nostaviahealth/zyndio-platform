@@ -198,3 +198,42 @@ export async function auditRows(eventType: string, targetUserId: string) {
   const res = await restAdmin(`audit_log?event_type=eq.${eventType}&target_user_id=eq.${targetUserId}`);
   return (await res.json()) as unknown[];
 }
+
+// Mirrors supabase/functions/_shared/validation.ts's hashTokenHex, so tests
+// can hand-craft an `invites` row (bypassing invite-user, which never
+// reveals the plaintext token to the caller) with a token they already know.
+export function hashInviteToken(token: string): string {
+  return crypto.createHash('sha256').update(token, 'utf8').digest('hex');
+}
+
+export function generateInviteToken(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+// Inserts an `invites` row directly via the service role, independent of the
+// invite-user Edge Function, so a test can pin the plaintext token (and
+// control whether org_members ends up out of sync with the invite row -
+// the scenario accept-invite's own guard, not deactivate-user's revoke
+// step, must defend against).
+export async function insertInvite(params: {
+  orgId: string;
+  email: string;
+  role: string;
+  userId: string;
+  token: string;
+  invitedBy: string;
+}) {
+  const res = await restAdmin('invites', {
+    method: 'POST',
+    body: JSON.stringify({
+      org_id: params.orgId,
+      email: params.email,
+      role: params.role,
+      token_hash: hashInviteToken(params.token),
+      invited_by: params.invitedBy,
+      user_id: params.userId,
+    }),
+  });
+  const [invite] = (await res.json()) as { id: string }[];
+  return invite;
+}

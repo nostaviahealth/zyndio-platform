@@ -84,6 +84,15 @@ select tests.authenticate_as('00000000-0000-0000-0000-0000000a0003', 'aal2');
 create temp table tmp_codes as
   select unnest(public.generate_recovery_codes()) as code;
 
+-- B6 / L3: consume_recovery_code() now requires the same 10-minute
+-- password_verified_at recency window auth_hooks.mfa_verification_attempt()
+-- already applies to a TOTP code - model a just-completed password sign-in
+-- for care_coordinator_a before exercising the success/failure paths below.
+reset role;
+insert into public.auth_attempt_state (user_id, wrong_count, password_verified_at)
+  values ('00000000-0000-0000-0000-0000000a0003', 0, now())
+  on conflict (user_id) do update set password_verified_at = now();
+
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0003', 'aal1');
 
 select is(
@@ -162,6 +171,29 @@ select is(
   'consume_recovery_code() reports locked when the shared counter is already locked'
 );
 reset role;
+
+-- ---------------------------------------------------------------------------
+-- L3: an old (or missing) password_verified_at is a challenge_expired
+-- refusal, same shape/window as the TOTP step - not a silent "invalid" that
+-- would otherwise bump the wrong-attempt counter for no reason.
+-- ---------------------------------------------------------------------------
+
+update public.auth_attempt_state
+  set locked_until = null, wrong_count = 0, password_verified_at = now() - interval '11 minutes'
+  where user_id = '00000000-0000-0000-0000-0000000a0003';
+
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0003', 'aal1');
+select is(
+  ((select public.consume_recovery_code(code) from tmp_codes limit 1) ->> 'status'),
+  'challenge_expired',
+  'consume_recovery_code() refuses a stale (>10 min) password_verified_at as challenge_expired'
+);
+reset role;
+select is(
+  (select wrong_count from public.auth_attempt_state where user_id = '00000000-0000-0000-0000-0000000a0003'),
+  0,
+  'a challenge_expired refusal does not bump the wrong-attempt counter'
+);
 
 -- ---------------------------------------------------------------------------
 -- RLS: mfa_reenrollment_required is unreachable directly by any client role,
