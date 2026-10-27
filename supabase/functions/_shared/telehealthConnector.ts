@@ -6,7 +6,7 @@
 
 export type LocateResult =
   | { kind: 'none' }
-  | { kind: 'one'; telehealthPatientId: string }
+  | { kind: 'one'; telehealthPatientId: string; orgId?: string }
   | { kind: 'ambiguous' }
 
 export type LinkedSummary = {
@@ -41,18 +41,21 @@ export const FAKE_TELEHEALTH_FIXTURES: ReadonlyArray<{
   normalisedEmail: string
   displayName: string
   clinicLabel: string
+  orgId?: string
 }> = [
   {
     telehealthPatientId: 'th_test_jr_001',
     normalisedEmail: 'jordan.rivera@example.com',
     displayName: 'Jordan Rivera',
     clinicLabel: 'Brightway Weight Care',
+    orgId: '00000000-0000-0000-0000-00000000000a',
   },
   {
     telehealthPatientId: 'th_test_ac_002',
     normalisedEmail: 'avery.chen@example.com',
     displayName: 'Avery Chen',
     clinicLabel: 'Brightway Weight Care',
+    orgId: '00000000-0000-0000-0000-00000000000a',
   },
 ]
 
@@ -78,7 +81,7 @@ export class FakeTelehealthAdapter implements TelehealthConnector {
     const hits = this.byEmail.get(input.normalisedEmail) ?? []
     if (hits.length === 0) return { kind: 'none' }
     if (hits.length === 1) {
-      return { kind: 'one', telehealthPatientId: hits[0].telehealthPatientId }
+      return { kind: 'one', telehealthPatientId: hits[0].telehealthPatientId, orgId: hits[0].orgId }
     }
     return { kind: 'ambiguous' }
   }

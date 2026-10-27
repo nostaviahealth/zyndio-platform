@@ -134,7 +134,7 @@ public.patient_link_review_queue
   - created_at timestamptz
 ```
 
-Pepper for HMAC lives in Edge / Vault (`LINK_CODE_PEPPER`), never in the database row and never in the client.
+Pepper for HMAC lives in **Supabase Vault** as secret name `link_code_pepper` (read via `vault.decrypted_secrets` inside `_link_code_pepper()`). There is **no GUC fallback and no hard-coded dev string** — issue/redeem refuse with a clear error if the secret is missing (Clara H-M2). Never commit a real pepper value; create it per environment at deploy (see SUPABASE-SETUP.md § Deploy checklist).
 
 **Audit:** every issue / redeem / reject / kill / lockout / bind / revoke / review-enqueue / notice-send writes `audit_log` with opaque ids only (no email, name, DOB, code plaintext).
 
@@ -287,7 +287,7 @@ UI strings must match Ava's handoff `/workspace/design/team3/zyndio/handoff/pati
 | Q2 | Who staffs the review queue at launch? | Org admin + care coordinator can **list**; resolve = issue clinic code (org admin) | Henry |
 | Q3 | Plus-address email policy | Distinct accounts allowed; TO-07 still prevents two active links to one telehealth id | Henry (confirm) — Clara Low: acceptable |
 | Q4 | Email templates | Ava offered to draw; stub subjects/bodies in outbox until then | Ava |
-| Q5 | Global clinic-code failure threshold | 100 fails / 15 min → alert + trip (config) | Henry/Clara |
+| Q5 | Global clinic-code failure threshold | 100 fails / 15 min → alert + trip; GUC `app.clinic_code_breaker_threshold` (default 100) | Henry/Clara |
 
 ---
 

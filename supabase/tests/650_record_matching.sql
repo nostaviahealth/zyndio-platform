@@ -2,7 +2,13 @@
 begin;
 select no_plan();
 
-select set_config('app.link_code_pepper', 'tc012-pgtap-pepper', true);
+-- H-M2: fictional Vault pepper (rolled back with the test transaction).
+delete from vault.secrets where name = 'link_code_pepper';
+select vault.create_secret(
+  'tc012-pgtap-fictional-pepper-not-for-prod',
+  'link_code_pepper',
+  'pgTAP fictional pepper — never a real value'
+);
 
 -- Self-signup verified users (no patients row).
 insert into auth.users (

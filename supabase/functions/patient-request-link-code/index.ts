@@ -14,8 +14,17 @@ const USER_LIMIT = 3
 const USER_WINDOW = 15 * 60
 const IP_LIMIT = 10
 const IP_WINDOW = 15 * 60
-const DEFAULT_ORG_ID = Deno.env.get('ZYNDIO_DEFAULT_ORG_ID') ??
-  '00000000-0000-0000-0000-00000000000a'
+// L19: no silent default org UUID. Prefer connector match orgId; else require env.
+function requireOrgId(fromConnector: string | undefined): string {
+  const fromEnv = Deno.env.get('ZYNDIO_DEFAULT_ORG_ID')?.trim()
+  const orgId = (fromConnector?.trim() || fromEnv) || ''
+  if (!orgId) {
+    throw new Error(
+      'ZYNDIO_DEFAULT_ORG_ID is not set and connector match did not supply orgId',
+    )
+  }
+  return orgId
+}
 
 function sixDigitCode(): string {
   const buf = new Uint32Array(1)
@@ -81,28 +90,36 @@ serve(async (req) => {
     })
 
     if (locate.kind === 'one') {
+      const orgId = requireOrgId(locate.orgId)
       const code = sixDigitCode()
       const { error: issueError } = await admin.rpc('issue_telehealth_link_otp', {
         p_app_user_id: user.id,
         p_telehealth_patient_id: locate.telehealthPatientId,
-        p_org_id: DEFAULT_ORG_ID,
+        p_org_id: orgId,
         p_plain_code: code,
         p_ttl_minutes: 10,
       })
       if (issueError) {
-        console.error('patient-request-link-code: issue failed', issueError)
+        // Never log the plain code (Clara M13).
+        console.error('patient-request-link-code: issue failed', {
+          message: issueError.message,
+          code: issueError.code,
+        })
       } else {
-        // Delivery also recorded by SQL issue RPC into telehealth_message_outbox;
-        // keep in-process adapter outbox for Deno unit visibility.
+        // SQL issue RPC also writes telehealth_message_outbox with the code.
+        // Mirror into the in-process adapter outbox for Deno unit visibility —
+        // body must carry the redeemable code (never log it).
         await connector.sendPatientMessage({
           telehealthPatientId: locate.telehealthPatientId,
-          body: 'Your Zyndio link code is ready. Not you? Ignore this message.',
+          body:
+            `Your Zyndio link code is ${code}. It expires in 10 minutes and works once. Not you? Ignore this message.`,
         })
       }
     } else if (locate.kind === 'ambiguous') {
+      const orgId = requireOrgId(undefined)
       await admin.rpc('enqueue_patient_link_review', {
         p_app_user_id: user.id,
-        p_org_id: DEFAULT_ORG_ID,
+        p_org_id: orgId,
         p_reason: 'ambiguous_match',
         p_payload: { note: 'opaque' },
       })

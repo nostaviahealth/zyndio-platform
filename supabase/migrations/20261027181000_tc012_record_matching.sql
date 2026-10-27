@@ -113,15 +113,19 @@ grant select on public.patient_record_links to authenticated;
 -- Helpers
 -- ---------------------------------------------------------------------------
 
+-- Pepper body replaced by 20261027190000 (Vault-only, fail closed).
+-- Placeholder here so earlier migrations still apply on db reset before 190000.
 create or replace function public._link_code_pepper()
 returns text
-language sql
+language plpgsql
 stable
+security definer
+set search_path = pg_catalog, public
 as $$
-  select coalesce(
-    nullif(current_setting('app.link_code_pepper', true), ''),
-    'tc012-dev-link-code-pepper-not-for-prod'
-  );
+begin
+  raise exception 'link_code_pepper secret is not configured in Vault'
+    using errcode = 'P0001';
+end;
 $$;
 
 create or replace function public.normalise_link_code(p_code text)

@@ -41,6 +41,16 @@ components/, pages/, contexts/, lib/, src/   # Root Vite admin web app
 
 No default credentials are provided anywhere in this repo. Admin access is always bootstrapped from the `ADMIN_EMAIL` / `ADMIN_PASSWORD` environment variables — see [admin-setup.md](./admin-setup.md).
 
+### TC-012 deploy note (Henry)
+
+Record-matching HMAC pepper lives in Supabase Vault as `link_code_pepper` — create it per
+environment at deploy time (never commit a real value). Full steps:
+[SUPABASE-SETUP.md § Deploy checklist](./SUPABASE-SETUP.md#deploy-checklist-henry--tc-012-record-matching)
+and [docs/RECORD_MATCHING.md](./docs/RECORD_MATCHING.md).
+Also set `ZYNDIO_DEFAULT_ORG_ID` (or supply `orgId` from the telehealth connector); there is
+no silent default org UUID.
+
+
 ## Root admin web app (Vite)
 
 ```bash

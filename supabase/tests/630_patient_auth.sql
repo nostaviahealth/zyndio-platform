@@ -159,6 +159,15 @@ insert into public.lab_reports (id, org_id, patient_id, report_type, data) value
   ('00000000-0000-0000-0000-0000000a3099', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1099', 'basic_panel', '{"result":"fictional"}');
 insert into public.consents (id, org_id, patient_id, consent_type, granted) values
   ('00000000-0000-0000-0000-0000000a4099', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1099', 'data_sharing', true);
+-- M12: clinical reads require an active link (org_id alone is not enough).
+insert into public.patient_record_links (
+  app_user_id, org_id, telehealth_patient_id, status, linked_at, proof_method
+) values (
+  '00000000-0000-0000-0000-0000000a1099',
+  '00000000-0000-0000-0000-00000000000a',
+  'clinic:00000000-0000-0000-0000-0000000a1099',
+  'active', now(), 'clinic_provisioned'
+);
 
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a1099', 'aal1');
 select is(

@@ -33,7 +33,11 @@ Deno.test('FakeTelehealthAdapter locate: none / one / ambiguous (PSU-TO-14 shape
       appUserId: 'u1',
       normalisedEmail: 'jordan.rivera@example.com',
     }),
-    { kind: 'one', telehealthPatientId: 'th_test_jr_001' },
+    {
+      kind: 'one',
+      telehealthPatientId: 'th_test_jr_001',
+      orgId: '00000000-0000-0000-0000-00000000000a',
+    },
   )
   assertEquals(
     await fake.locateForCodeRequest({ appUserId: 'u1', normalisedEmail: 'dup@example.com' }),
@@ -68,4 +72,31 @@ Deno.test('createTelehealthConnector defaults to fake; live refuses without allo
     Error,
     'refused',
   )
+})
+
+Deno.test('M13: sendPatientMessage body carries OTP; adapter does not log secrets', async () => {
+  const fake = new FakeTelehealthAdapter()
+  const code = '918273'
+  const body =
+    `Your Zyndio link code is ${code}. It expires in 10 minutes and works once. Not you? Ignore this message.`
+  await fake.sendPatientMessage({
+    telehealthPatientId: 'th_test_jr_001',
+    body,
+  })
+  assertEquals(fake.messages.length, 1)
+  assertEquals(fake.messages[0].body.includes(code), true)
+  // Outbox is the delivery channel; nothing else is appended.
+  assertEquals(Object.keys(fake.messages[0]).sort(), ['at', 'body', 'telehealthPatientId'])
+})
+
+Deno.test('L19: locate one includes orgId from fixture when present', async () => {
+  const fake = new FakeTelehealthAdapter()
+  const located = await fake.locateForCodeRequest({
+    appUserId: 'u1',
+    normalisedEmail: 'jordan.rivera@example.com',
+  })
+  assertEquals(located.kind, 'one')
+  if (located.kind === 'one') {
+    assertEquals(located.orgId, '00000000-0000-0000-0000-00000000000a')
+  }
 })
