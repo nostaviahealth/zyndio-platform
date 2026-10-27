@@ -368,13 +368,16 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
             <label htmlFor="preview-request-2fa-reset-reason" className="text-sm font-semibold text-[#030616]">
               Reason (optional)
             </label>
-            <input
+            <textarea
               id="preview-request-2fa-reset-reason"
               readOnly
+              maxLength={500}
               defaultValue="Priya got a new phone and can't open the authenticator app."
-              className="mt-1 min-h-[44px] w-full rounded-md border border-slate-300 px-3 text-sm"
+              className="mt-1 min-h-[88px] w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             />
-            <p className="mt-1 text-xs text-slate-500">Zyndio admins see this with your name and time.</p>
+            <p className="mt-1 text-xs text-slate-500">
+              Zyndio admins see this with your name and time. Do not include patient details.
+            </p>
           </div>
           <div className="mt-6 flex justify-end gap-3">
             <Button type="button" variant="outline">

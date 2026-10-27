@@ -558,16 +558,18 @@ const RequestTwoFactorResetDialog: React.FC<{
         <label htmlFor="request-2fa-reset-reason" className="text-sm font-semibold text-[#030616]">
           Reason (optional)
         </label>
-        <input
+        <textarea
           id="request-2fa-reset-reason"
-          type="text"
-          className="mt-1 min-h-[44px] w-full rounded-md border border-slate-300 px-3 text-sm"
+          className="mt-1 min-h-[88px] w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
           placeholder="e.g. they got a new phone and can't open the authenticator app"
+          maxLength={500}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           data-autofocus="true"
         />
-        <p className="mt-1 text-xs text-slate-500">Zyndio admins see this with your name and time.</p>
+        <p className="mt-1 text-xs text-slate-500">
+          Zyndio admins see this with your name and time. Do not include patient details.
+        </p>
       </div>
       <div className="mt-6 flex justify-end gap-3">
         <Button type="button" variant="outline" onClick={onClose}>
