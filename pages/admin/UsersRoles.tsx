@@ -22,6 +22,8 @@ import RowActionsMenu, { RowActionItem } from '../../components/ui/RowActionsMen
 import StatusBadge from '../../components/ui/StatusBadge';
 import TwoFactorStatus from '../../components/ui/TwoFactorStatus';
 import NameCell from '../../components/ui/NameCell';
+import SearchField from '../../components/ui/SearchField';
+import { Plus } from 'lucide-react';
 
 export const ROLE_LABELS: Record<AppRole, string> = {
   org_admin: 'Admin',
@@ -317,7 +319,10 @@ const UsersRolesPage: React.FC = () => {
         title="Users and roles"
         description="People at Zyndio who can sign in to the care portal. Everyone must use two-factor sign-in."
         actions={
-          <Button onClick={() => setDialog({ kind: 'invite' })}>Invite user</Button>
+          <Button onClick={() => setDialog({ kind: 'invite' })}>
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Invite user
+          </Button>
         }
       />
 
@@ -346,6 +351,7 @@ const UsersRolesPage: React.FC = () => {
             the invite link.
           </p>
           <Button className="mt-4" onClick={() => setDialog({ kind: 'invite' })}>
+            <Plus className="h-4 w-4" aria-hidden="true" />
             Invite user
           </Button>
         </div>
@@ -354,13 +360,12 @@ const UsersRolesPage: React.FC = () => {
       {!loadError && members !== null && members.length > 0 && (
         <>
           <div className="mt-6 flex flex-wrap items-center gap-3">
-            <input
-              type="search"
+            <SearchField
               aria-label="Search by name or email"
               placeholder="Search by name or email"
-              className="min-h-[44px] flex-1 rounded-full border border-slate-300 px-4 text-sm"
+              className="flex-1"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={setSearch}
             />
             <select
               aria-label="Filter by status"

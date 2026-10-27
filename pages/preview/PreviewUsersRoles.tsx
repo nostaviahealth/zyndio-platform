@@ -7,6 +7,8 @@ import RowActionsMenu, { RowActionItem } from '../../components/ui/RowActionsMen
 import StatusBadge from '../../components/ui/StatusBadge';
 import TwoFactorStatus from '../../components/ui/TwoFactorStatus';
 import NameCell from '../../components/ui/NameCell';
+import SearchField from '../../components/ui/SearchField';
+import { Plus } from 'lucide-react';
 import { ROLE_LABELS, roleDescriptionsFor } from '../admin/UsersRoles';
 import { PreviewMember, PREVIEW_MEMBERS, SELF_USER_ID } from './previewFixtures';
 
@@ -122,19 +124,19 @@ const Header: React.FC = () => (
   <PageHeader
     title="Users and roles"
     description="People at Zyndio who can sign in to the care portal. Everyone must use two-factor sign-in."
-    actions={<Button>Invite user</Button>}
+    actions={
+      <Button>
+        <Plus className="h-4 w-4" aria-hidden="true" />
+        Invite user
+      </Button>
+    }
   />
 );
 
 const Toolbar: React.FC<{ count: number }> = ({ count }) => (
   <>
     <div className="mt-6 flex flex-wrap items-center gap-3">
-      <input
-        aria-label="Search by name or email"
-        placeholder="Search by name or email"
-        className="min-h-[44px] flex-1 rounded-full border border-slate-300 px-4 text-sm"
-        readOnly
-      />
+      <SearchField aria-label="Search by name or email" placeholder="Search by name or email" className="flex-1" readOnly />
       <select aria-label="Filter by status" className="min-h-[44px] rounded-full border border-slate-300 px-4 text-sm" readOnly>
         <option>Status: All</option>
       </select>
@@ -173,7 +175,10 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
             Invite your physicians and care team. Each person sets their own password and two-factor sign-in from
             the invite link.
           </p>
-          <Button className="mt-4">Invite user</Button>
+          <Button className="mt-4">
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Invite user
+          </Button>
         </div>
       </div>
     );
