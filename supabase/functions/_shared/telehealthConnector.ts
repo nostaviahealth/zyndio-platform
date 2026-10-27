@@ -1,7 +1,7 @@
 // TC-012: telehealth connector interface + fake adapter (test fixtures only).
-// Matching redeem/bind RPCs are NOT implemented here — Clara must Approve
-// docs/RECORD_MATCHING.md first. This module only locates fixtures for a
-// future code-request path and records patient-message / notice outbox rows.
+// Matching redeem/bind RPCs live in SQL (20261027181000). Clara APPROVED
+// docs/RECORD_MATCHING.md. This module locates fixtures for the code-request
+// path and records patient-message / notice outbox rows.
 // Live vendor API is phase 2 (TELEHEALTH_ADAPTER=live refuses without allow).
 
 export type LocateResult =

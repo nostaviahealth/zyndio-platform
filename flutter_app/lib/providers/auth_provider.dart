@@ -414,6 +414,37 @@ class AuthNotifier extends Notifier<AsyncValue<void>> {
 
   Future<void> confirmEmailChange(String token) =>
       _invokePatientAuth('patient-confirm-email-change', {'token': token});
+
+  /// PSU-TO-14: identical success copy whether 0/1/many matches.
+  Future<void> requestTelehealthLinkCode() =>
+      _invokePatientAuth('patient-request-link-code', {});
+
+  Future<Map<String, dynamic>> redeemTelehealthLinkCode(String code) async {
+    final client = SupabaseConfig.client;
+    if (client == null) throw PatientAuthException('internal_error');
+    final res = await client.rpc('redeem_telehealth_link_code', params: {'p_code': code});
+    if (res is Map<String, dynamic>) return res;
+    if (res is Map) return Map<String, dynamic>.from(res);
+    throw PatientAuthException('internal_error');
+  }
+
+  Future<Map<String, dynamic>> redeemClinicLinkCode(String code) async {
+    final client = SupabaseConfig.client;
+    if (client == null) throw PatientAuthException('internal_error');
+    final res = await client.rpc('redeem_clinic_link_code', params: {'p_code': code});
+    if (res is Map<String, dynamic>) return res;
+    if (res is Map) return Map<String, dynamic>.from(res);
+    throw PatientAuthException('internal_error');
+  }
+
+  Future<Map<String, dynamic>> unlinkPatientRecord() async {
+    final client = SupabaseConfig.client;
+    if (client == null) throw PatientAuthException('internal_error');
+    final res = await client.rpc('unlink_patient_record');
+    if (res is Map<String, dynamic>) return res;
+    if (res is Map) return Map<String, dynamic>.from(res);
+    throw PatientAuthException('internal_error');
+  }
 }
 
 /// Auth notifier provider
