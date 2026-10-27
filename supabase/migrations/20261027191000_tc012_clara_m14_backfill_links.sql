@@ -28,7 +28,7 @@ begin
     and not public.is_patient_self_signup(p.id)
     and not exists (
       select 1 from public.patient_record_links l
-      where l.app_user_id = p.id and l.status = 'active'
+      where l.app_user_id = p.id
     );
 end;
 $$;
@@ -38,8 +38,9 @@ grant execute on function public._backfill_clinic_provisioned_links() to service
 
 comment on function public._backfill_clinic_provisioned_links() is
   'One-time (idempotent) backfill: active clinic_provisioned link for every '
-  'org_id-bearing patients row with no active link and no self-signup marker '
-  '(Clara M14). Re-running inserts nothing extra.';
+  'org_id-bearing patients row with no existing link row (any status) and no '
+  'self-signup marker (Clara M14/L23). Re-running inserts nothing extra, and '
+  'never re-links a patient who was previously unlinked (revoked link row).';
 
 -- Run once at migration time.
 select public._backfill_clinic_provisioned_links();

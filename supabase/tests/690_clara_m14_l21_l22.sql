@@ -146,6 +146,70 @@ select is(
 reset role;
 
 -- ---------------------------------------------------------------------------
+-- L23: backfill must not re-link a patient who has any existing link row,
+-- even a revoked one (i.e. someone who unlinked but still has org_id set).
+-- ---------------------------------------------------------------------------
+reset role;
+select set_config('request.jwt.claims', '', true);
+insert into auth.users (
+  instance_id, id, aud, role, email, encrypted_password,
+  email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+) values (
+  '00000000-0000-0000-0000-000000000000',
+  '00000000-0000-0000-0000-0000000d2301',
+  'authenticated', 'authenticated', 'l23.unlinked@example.test',
+  extensions.crypt('Testpassw0rd!123', extensions.gen_salt('bf')),
+  now(), '{"provider":"email","providers":["email"]}'::jsonb,
+  '{}'::jsonb, now(), now()
+);
+
+-- Clinic-provisioned patient (org_id set, no self-signup marker) who
+-- previously unlinked: org_id stays put, link row remains but revoked.
+insert into public.patients (id, org_id, display_name, mrn) values (
+  '00000000-0000-0000-0000-0000000d2301',
+  '00000000-0000-0000-0000-00000000000a',
+  'L23 Previously Unlinked Patient',
+  'MRN-L23'
+);
+insert into public.patient_record_links (
+  app_user_id, org_id, telehealth_patient_id, status, linked_at, revoked_at, proof_method
+) values (
+  '00000000-0000-0000-0000-0000000d2301',
+  '00000000-0000-0000-0000-00000000000a',
+  'clinic:00000000-0000-0000-0000-0000000d2301',
+  'revoked', now() - interval '1 day', now(),
+  'clinic_provisioned'
+);
+
+reset role;
+select set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+set local role service_role;
+select lives_ok(
+  $$select public._backfill_clinic_provisioned_links()$$,
+  'L23: backfill function runs with a previously-unlinked patient present'
+);
+reset role;
+
+select is(
+  (
+    select count(*)::int from public.patient_record_links
+    where app_user_id = '00000000-0000-0000-0000-0000000d2301'
+      and status = 'active'
+  ),
+  0,
+  'L23: backfill does not create a new active link for a previously-unlinked patient'
+);
+select is(
+  (
+    select status from public.patient_record_links
+    where app_user_id = '00000000-0000-0000-0000-0000000d2301'
+  ),
+  'revoked',
+  'L23: previously-unlinked patient''s link row stays revoked after backfill re-runs'
+);
+reset role;
+
+-- ---------------------------------------------------------------------------
 -- L21: OTP body scrubbed on delivery and by age (<=10 min).
 -- ---------------------------------------------------------------------------
 reset role;
