@@ -8,15 +8,13 @@
 // platform-admin row, or a self-signup marker.
 // Clara L30: if deleteUser fails, audit invite_cancel_auth_delete_failed and
 // still return ok (invite-user can re-attach a cancelled-invite leftover).
+// Clara L31: if a protection lookup errors, skip delete and audit
+// invite_cancel_auth_delete_skipped_lookup_error (do not treat as clear).
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { corsHeadersFor, jsonResponse } from '../_shared/cors.ts'
 import { AuthError, requireOrgAdminActor } from '../_shared/requireOrgAdminActor.ts'
 import { isValidUuid } from '../_shared/validation.ts'
-import {
-  loadAuthDeleteGuard,
-  recordAuthDeleteFailure,
-  shouldSkipAuthDelete,
-} from '../_shared/cancelInviteAuthDelete.ts'
+import { decideCancelAuthDelete } from '../_shared/cancelInviteAuthDelete.ts'
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeadersFor(req) })
@@ -63,30 +61,24 @@ serve(async (req) => {
       return jsonResponse(req, { error: 'internal_error' }, 500)
     }
 
-    const guard = await loadAuthDeleteGuard(admin, targetUserId)
-    if (shouldSkipAuthDelete(guard)) {
-      console.info('cancel-invite: skipping auth delete (protected account)', {
+    try {
+      const decision = await decideCancelAuthDelete(admin, {
         targetUserId,
-        ...guard,
+        actorUserId: actor.userId,
+        orgId: actor.orgId,
       })
-    } else {
-      const { error: deleteError } = await admin.auth.admin.deleteUser(targetUserId)
-      if (deleteError) {
-        // Member + invite are already cancelled; still return ok so the
-        // admin UI can drop the row. Clara L30: audit the failure so ops
-        // can see the leftover, and invite-user can re-attach it.
-        console.error('cancel-invite: deleteUser failed', deleteError)
-        try {
-          await recordAuthDeleteFailure(admin, {
-            actorUserId: actor.userId,
-            targetUserId,
-            orgId: actor.orgId,
-            message: deleteError.message ?? String(deleteError),
-          })
-        } catch (auditErr) {
-          console.error('cancel-invite: auth-delete-failure audit failed', auditErr)
-        }
+      if (decision.kind === 'skip_protected') {
+        console.info('cancel-invite: skipping auth delete (protected account)', {
+          targetUserId,
+          ...decision.guard,
+        })
+      } else if (decision.kind === 'skip_lookup_error') {
+        console.error('cancel-invite: skipping auth delete (lookup error)', decision)
+      } else if (decision.kind === 'delete_failed') {
+        console.error('cancel-invite: deleteUser failed', decision.message)
       }
+    } catch (authDeleteErr) {
+      console.error('cancel-invite: auth delete decision failed', authDeleteErr)
     }
 
     const payload = (result ?? {}) as { email?: string; role?: string; full_name?: string }
