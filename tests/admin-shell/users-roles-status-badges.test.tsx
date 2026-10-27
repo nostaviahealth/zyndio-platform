@@ -12,6 +12,7 @@ const MEMBERS = [
   {
     user_id: 'self-1',
     email: 'taylor.brooks@example.test',
+    full_name: null,
     role: 'org_admin',
     status: 'active',
     created_at: daysAgo(30),
@@ -20,6 +21,7 @@ const MEMBERS = [
   {
     user_id: 'other-invited',
     email: 'sam.okafor@example.test',
+    full_name: null,
     role: 'care_coordinator',
     status: 'invited',
     created_at: daysAgo(2),
@@ -28,6 +30,7 @@ const MEMBERS = [
   {
     user_id: 'other-deactivated',
     email: 'jamie.ortiz@example.test',
+    full_name: null,
     role: 'care_coordinator',
     status: 'deactivated',
     created_at: daysAgo(60),
@@ -38,6 +41,7 @@ const MEMBERS = [
 vi.mock('../../lib/usersRolesApi', () => ({
   listOrgMembers: vi.fn(async () => MEMBERS),
   inviteUser: vi.fn(async () => ({ ok: true })),
+  cancelInvite: vi.fn(async () => ({ ok: true })),
   changeMemberRole: vi.fn(async () => ({ ok: true })),
   deactivateUser: vi.fn(async () => ({ ok: true })),
   reactivateUser: vi.fn(async () => ({ ok: true })),

@@ -36,7 +36,7 @@ describe.skipIf(!integrationEnvReady)('audit-log', () => {
 
   it('invite_sent: exactly one row per invite-user call', async () => {
     const email = `tc005-audit-invite-${Date.now()}@example.test`;
-    const res = await callFn('invite-user', adminAal2Token, { email, role: 'physician' });
+    const res = await callFn('invite-user', adminAal2Token, { email, role: 'physician', full_name: 'Alex Lindgren' });
     expect(res.status).toBe(200);
     const inviteRow = await restAdmin(`audit_log?event_type=eq.invite_sent&metadata->>email=eq.${encodeURIComponent(email)}`);
     expect(((await inviteRow.json()) as unknown[]).length).toBe(1);
@@ -44,7 +44,7 @@ describe.skipIf(!integrationEnvReady)('audit-log', () => {
 
   it('invite_accepted: exactly one row when the invitee accepts', async () => {
     const email = `tc005-audit-accept-${Date.now()}@example.test`;
-    await callFn('invite-user', adminAal2Token, { email, role: 'physician' });
+    await callFn('invite-user', adminAal2Token, { email, role: 'physician', full_name: 'Alex Lindgren' });
     const notifRes = await restAdmin(
       `notification_outbox?type=eq.invite&payload->>email=eq.${encodeURIComponent(email)}&order=created_at.desc&limit=1`
     );

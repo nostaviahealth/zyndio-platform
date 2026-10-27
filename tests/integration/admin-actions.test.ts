@@ -36,7 +36,7 @@ describe.skipIf(!integrationEnvReady)('admin-actions', () => {
   });
 
   it('rejects an aal1 admin session with 403', async () => {
-    const res = await callFn('invite-user', adminAal1Token, { email: `tc005-aal1-${Date.now()}@example.test`, role: 'physician' });
+    const res = await callFn('invite-user', adminAal1Token, { email: `tc005-aal1-${Date.now()}@example.test`, role: 'physician', full_name: 'Alex Lindgren' });
     expect(res.status).toBe(403);
   });
 
@@ -46,13 +46,13 @@ describe.skipIf(!integrationEnvReady)('admin-actions', () => {
     const aal1 = await signIn(nonAdmin.email, nonAdmin.password);
     const { aal2Token } = await enrollAndVerifyTotp(aal1.access_token!);
 
-    const res = await callFn('invite-user', aal2Token!, { email: `tc005-nonadmin-${Date.now()}@example.test`, role: 'physician' });
+    const res = await callFn('invite-user', aal2Token!, { email: `tc005-nonadmin-${Date.now()}@example.test`, role: 'physician', full_name: 'Alex Lindgren' });
     expect(res.status).toBe(403);
   });
 
   it('invite -> accept refuses a blocklisted password and accepts a strong one', async () => {
     const email = `tc005-invite-${Date.now()}@example.test`;
-    const inviteRes = await callFn('invite-user', adminAal2Token, { email, role: 'physician' });
+    const inviteRes = await callFn('invite-user', adminAal2Token, { email, role: 'physician', full_name: 'Alex Lindgren' });
     expect(inviteRes.status).toBe(200);
 
     const notifRes = await restAdmin(
@@ -220,7 +220,7 @@ describe.skipIf(!integrationEnvReady)('admin-actions', () => {
     const target = await createOrgAndMember('care_coordinator', 'invited', admin.orgId);
     cleanupUserIds.push(target.userId);
 
-    const inviteRes = await callFn('invite-user', adminAal2Token, { email: target.email, role: 'care_coordinator' });
+    const inviteRes = await callFn('invite-user', adminAal2Token, { email: target.email, role: 'care_coordinator', full_name: 'Alex Lindgren' });
     expect(inviteRes.status).toBe(200);
 
     const notifRes = await restAdmin(
@@ -262,7 +262,7 @@ describe.skipIf(!integrationEnvReady)('admin-actions', () => {
       body: JSON.stringify({ id: patient.userId, org_id: admin.orgId, display_name: 'Fictional Patient' }),
     });
 
-    const inviteRes = await callFn('invite-user', adminAal2Token, { email: patient.email, role: 'physician' });
+    const inviteRes = await callFn('invite-user', adminAal2Token, { email: patient.email, role: 'physician', full_name: 'Alex Lindgren' });
     expect(inviteRes.status).toBe(200);
     expect(await inviteRes.json()).toEqual({ status: 'ok' });
 
@@ -280,7 +280,7 @@ describe.skipIf(!integrationEnvReady)('admin-actions', () => {
     const target = await createOrgAndMember('physician', 'invited', admin.orgId);
     cleanupUserIds.push(target.userId);
 
-    const resendRes = await callFn('invite-user', adminAal2Token, { email: target.email, role: 'care_coordinator' });
+    const resendRes = await callFn('invite-user', adminAal2Token, { email: target.email, role: 'care_coordinator', full_name: 'Alex Lindgren' });
     expect(resendRes.status).toBe(200);
 
     const memberRes = await restAdmin(`org_members?user_id=eq.${target.userId}&select=role`);
@@ -327,7 +327,7 @@ describe.skipIf(!integrationEnvReady)('admin-actions', () => {
     const target = await createOrgAndMember('physician', 'invited', admin.orgId);
     cleanupUserIds.push(target.userId);
 
-    const inviteRes = await callFn('invite-user', adminAal2Token, { email: target.email, role: 'physician' });
+    const inviteRes = await callFn('invite-user', adminAal2Token, { email: target.email, role: 'physician', full_name: 'Alex Lindgren' });
     expect(inviteRes.status).toBe(200);
 
     const beforeRes = await restAdmin(
