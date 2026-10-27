@@ -14,6 +14,9 @@ password is ever baked into a build.
   characters, an uppercase and a lowercase letter, a number, a symbol (enforced by GoTrue's
   `password_requirements`, `supabase/config.toml`), and rejected if it's on the server-side
   common-password blocklist (`public.password_is_blocked`). There's no way to bypass this check.
+  The blocklist (TC-011 M3) is SecLists' `Passwords/Common-Credentials/10k-most-common.txt`
+  (MIT licence) - see `supabase/seed_data/README.md` and
+  `supabase/migrations/20261027120000_tc011_real_password_blocklist.sql`.
 - Every account after the first is created via an **invite**, from inside the admin app
   (`org_admin` → Users & roles → Invite), never via a script or env var.
 - **Changing a password after the initial set (invite acceptance / bootstrap) should go through the
