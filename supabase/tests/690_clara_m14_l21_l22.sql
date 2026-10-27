@@ -213,6 +213,8 @@ select ok(
 );
 
 -- Age-based scrub: backdate created_at past the 10-minute TTL.
+reset role;
+select set_config('request.jwt.claims', '', true);
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password,
   email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
@@ -227,6 +229,10 @@ insert into auth.users (
 insert into public.patient_self_signups (user_id)
 values ('00000000-0000-0000-0000-0000000d2102')
 on conflict do nothing;
+
+reset role;
+select set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+set local role service_role;
 
 select lives_ok(
   $$select public.issue_telehealth_link_otp(
