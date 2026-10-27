@@ -34,6 +34,8 @@ import NutritionLab from './pages/admin/NutritionLab';
 import UsersRoles from './pages/admin/UsersRoles';
 import SignIn from './pages/admin/SignIn';
 import AcceptInvite from './pages/admin/AcceptInvite';
+import ResetPassword from './pages/admin/ResetPassword';
+import ChangePassword from './pages/admin/ChangePassword';
 import TwoFactorSetup from './pages/admin/TwoFactorSetup';
 import TwoFactorChallenge from './pages/admin/TwoFactorChallenge';
 import RecoverySignIn from './pages/admin/RecoverySignIn';
@@ -71,6 +73,15 @@ const App: React.FC = () => {
                 {/* Admin auth routes (TC-005): sign-in, invite accept, 2FA setup/challenge/recovery */}
                 <Route path="/admin/login" element={<SignIn />} />
                 <Route path="/admin/invite/:token" element={<AcceptInvite />} />
+                <Route path="/admin/reset-password" element={<ResetPassword />} />
+                <Route
+                  path="/admin/change-password"
+                  element={
+                    <RequireSession>
+                      <ChangePassword />
+                    </RequireSession>
+                  }
+                />
                 <Route
                   path="/admin/2fa/setup"
                   element={
