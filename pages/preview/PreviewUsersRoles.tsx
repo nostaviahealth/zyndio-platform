@@ -230,22 +230,22 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
       <>
         {base}
         <Dialog titleId="invite-title" title="Invite a user" onClose={() => {}} initialFocusSelector="#preview-invite-email">
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
             They&apos;ll get an email with a link to set a password and two-factor sign-in. The link works for 7 days.
           </p>
           <div className="mt-4 space-y-4">
             <div>
-              <label htmlFor="preview-invite-email" className="text-sm font-semibold text-[#030616]">
+              <label htmlFor="preview-invite-email" className="text-sm font-semibold text-[#030616] dark:text-[#EEF1F8]">
                 Work email
               </label>
               <input
                 id="preview-invite-email"
                 readOnly
                 defaultValue="alex.lindgren@example.test"
-                className="mt-1 min-h-[44px] w-full rounded-md border border-slate-300 px-3 text-sm"
+                className="mt-1 min-h-[44px] w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-[#030616] dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8]"
               />
               {state === 'invite-validation' && (
-                <p className="mt-1 text-sm text-red-600" role="alert">
+                <p className="mt-1 text-sm text-red-600 dark:text-[#FF8F86]" role="alert">
                   Someone with this email already has an account.
                 </p>
               )}
@@ -267,11 +267,11 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
       <>
         {base}
         <Dialog titleId="role-confirm-title" title={`Change ${target.name}'s role?`} onClose={() => {}}>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
             From {ROLE_LABELS[target.role]} to {ROLE_LABELS.care_coordinator}. Riley will be able to edit patient
             records, work the review queue and enter treatment details.
           </p>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
             The change applies the next time Riley loads a page, and it&apos;s recorded in the audit log.
           </p>
           <div className="mt-6 flex justify-end gap-3">
@@ -290,7 +290,7 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
       <>
         {base}
         <Dialog titleId="deactivate-confirm-title" title={`Deactivate ${target.name}?`} onClose={() => {}}>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
             Riley will be signed out everywhere and won&apos;t be able to sign in. Their past activity stays in the
             audit log. You can reactivate them later.
           </p>
@@ -312,7 +312,7 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
       <>
         {base}
         <Dialog titleId="last-admin-title" title="You can't deactivate the only Admin" onClose={() => {}}>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
             Taylor Brooks is the only Admin, so the portal would have nobody to manage users. Make someone else an
             Admin first, then try again.
           </p>
@@ -329,19 +329,19 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
       <>
         {base}
         <Dialog titleId="reset-2fa-title" title={`Reset two-factor sign-in for ${priya.name}?`} onClose={() => {}}>
-          <div className="mt-4 flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          <div className="mt-4 flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-[#F2B65A]/40 dark:bg-[#2F220D] dark:text-[#F2B65A]">
             <span aria-hidden="true">⚠️</span>
             <p>
               Only do this after you&apos;ve confirmed it&apos;s really {priya.name}, for example on a video call.
               Never because of an email alone.
             </p>
           </div>
-          <p className="mt-4 text-sm text-slate-600">
+          <p className="mt-4 text-sm text-slate-600 dark:text-[#A6B0C3]">
             {priya.name}&apos;s authenticator app and recovery codes will stop working, and {priya.name} is signed
             out on every device. At next sign-in, they&apos;ll set up two-factor sign-in again. The reset is
             recorded in the audit log.
           </p>
-          <p className="mt-2 text-sm text-slate-500">Only Zyndio admins can reset two-factor sign-in.</p>
+          <p className="mt-2 text-sm text-slate-500 dark:text-[#A6B0C3]">Only Zyndio admins can reset two-factor sign-in.</p>
           <div className="mt-6 flex justify-end gap-3">
             <Button type="button" variant="outline">
               Cancel
@@ -360,13 +360,13 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
       <>
         {base}
         <Dialog titleId="request-2fa-reset-title" title={`Ask for a two-factor reset for ${priya.name}?`} onClose={() => {}}>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
             Only a Zyndio admin can reset two-factor sign-in. They&apos;ll confirm it&apos;s really{' '}
             {priya.name} before they reset it, then {priya.name} is signed out on every device and sets it up
             again at next sign-in.
           </p>
           <div className="mt-4">
-            <label htmlFor="preview-request-2fa-reset-reason" className="text-sm font-semibold text-[#030616]">
+            <label htmlFor="preview-request-2fa-reset-reason" className="text-sm font-semibold text-[#030616] dark:text-[#EEF1F8]">
               Reason (optional)
             </label>
             <textarea
@@ -374,9 +374,9 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
               readOnly
               maxLength={500}
               defaultValue="Priya got a new phone and can't open the authenticator app."
-              className="mt-1 min-h-[88px] w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="mt-1 min-h-[88px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-[#030616] placeholder:text-slate-400 dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8] dark:placeholder:text-[#8F9AAF]"
             />
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-slate-500 dark:text-[#A6B0C3]">
               Zyndio admins see this with your name and time. Do not include patient details.
             </p>
           </div>

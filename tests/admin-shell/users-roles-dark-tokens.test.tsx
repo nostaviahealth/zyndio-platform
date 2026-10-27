@@ -133,3 +133,50 @@ describe('SelectField caret (Ava H2)', () => {
     }
   });
 });
+
+describe('Dialog dark tokens (TC-013)', () => {
+  it('uses dark surface, border, title and scrim on the shared dialog', async () => {
+    const { default: Dialog } = await import('../../components/ui/Dialog');
+    const { default: Button } = await import('../../components/admin-auth/Button');
+    const { container } = render(
+      <div className="dark">
+        <Dialog titleId="dlg-title" descriptionId="dlg-body" title="Invite a user" onClose={() => {}}>
+          <p id="dlg-body" className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
+            Body copy
+          </p>
+          <div className="mt-4 flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-[#F2B65A]/40 dark:bg-[#2F220D] dark:text-[#F2B65A]">
+            Warning banner
+          </div>
+          <input
+            aria-label="Work email"
+            className="mt-1 min-h-[44px] w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-[#030616] dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8]"
+          />
+          <div className="mt-6 flex justify-end gap-3">
+            <Button type="button" variant="outline">
+              Cancel
+            </Button>
+            <Button type="button" variant="destructive">
+              Deactivate
+            </Button>
+          </div>
+        </Dialog>
+      </div>,
+    );
+    const panel = container.querySelector('[role="alertdialog"]') as HTMLElement;
+    expect(panel).toBeTruthy();
+    expect(panel.className).toMatch(/dark:bg-\[#10141F\]/);
+    expect(panel.className).toMatch(/dark:border-\[#222838\]/);
+    const title = screen.getByRole('heading', { name: 'Invite a user' });
+    expect(title.className).toMatch(/dark:text-\[#EEF1F8\]/);
+    const scrim = panel.parentElement as HTMLElement;
+    expect(scrim.className).toMatch(/bg-\[rgba\(3,6,22,0\.45\)\]/);
+    const outline = screen.getByRole('button', { name: 'Cancel' });
+    expect(outline.className).toMatch(/dark:border-\[#6C7690\]/);
+    expect(outline.className).toMatch(/dark:text-\[#EEF1F8\]/);
+    const destructive = screen.getByRole('button', { name: 'Deactivate' });
+    expect(destructive.className).toMatch(/dark:bg-\[#FF8F86\]/);
+    const input = screen.getByLabelText('Work email');
+    expect(input.className).toMatch(/dark:bg-\[#10141F\]/);
+    expect(input.className).toMatch(/dark:border-\[#6C7690\]/);
+  });
+});

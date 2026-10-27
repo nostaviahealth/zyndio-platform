@@ -414,10 +414,10 @@ const UsersRolesPage: React.FC = () => {
           title={`Change ${dialog.member.email}'s role?`}
           onClose={closeDialog}
         >
-          <p id="role-confirm-body" className="mt-2 text-sm text-slate-600">
+          <p id="role-confirm-body" className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
             From {ROLE_LABELS[dialog.member.role]} to {ROLE_LABELS[dialog.newRole]}.
           </p>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
             The change applies the next time they load a page, and it&apos;s recorded in the audit log.
           </p>
           <div className="mt-6 flex justify-end gap-3">
@@ -438,7 +438,7 @@ const UsersRolesPage: React.FC = () => {
           title={`Deactivate ${dialog.member.email}?`}
           onClose={closeDialog}
         >
-          <p id="deactivate-confirm-body" className="mt-2 text-sm text-slate-600">
+          <p id="deactivate-confirm-body" className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
             They will be signed out everywhere and won&apos;t be able to sign in. Their past activity stays in the
             audit log. You can reactivate them later.
           </p>
@@ -460,7 +460,7 @@ const UsersRolesPage: React.FC = () => {
           title="You can't deactivate the only Admin"
           onClose={closeDialog}
         >
-          <p id="last-admin-body" className="mt-2 text-sm text-slate-600">
+          <p id="last-admin-body" className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
             The portal would have nobody to manage users. Make someone else an Admin first, then try again.
           </p>
           <div className="mt-6 flex justify-end">
@@ -499,18 +499,18 @@ const ResetTwoFactorDialog: React.FC<{
       title={`Reset two-factor sign-in for ${member.email}?`}
       onClose={onClose}
     >
-      <div className="mt-4 flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+      <div className="mt-4 flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-[#F2B65A]/40 dark:bg-[#2F220D] dark:text-[#F2B65A]">
         <span aria-hidden="true">⚠️</span>
         <p>
           Only do this after you&apos;ve confirmed it&apos;s really {member.email}, for example on a video call.
           Never because of an email alone.
         </p>
       </div>
-      <p id="reset-2fa-body" className="mt-4 text-sm text-slate-600">
+      <p id="reset-2fa-body" className="mt-4 text-sm text-slate-600 dark:text-[#A6B0C3]">
         Their authenticator app and recovery codes will stop working, and they&apos;re signed out on every device.
         At next sign-in, they&apos;ll set up two-factor sign-in again. The reset is recorded in the audit log.
       </p>
-      <p className="mt-2 text-sm text-slate-500">Only Zyndio admins can reset two-factor sign-in.</p>
+      <p className="mt-2 text-sm text-slate-500 dark:text-[#A6B0C3]">Only Zyndio admins can reset two-factor sign-in.</p>
       <div className="mt-6 flex justify-end gap-3">
         <Button type="button" variant="outline" onClick={onClose} data-autofocus="true">
           Cancel
@@ -550,24 +550,24 @@ const RequestTwoFactorResetDialog: React.FC<{
       title={`Ask for a two-factor reset for ${member.email}?`}
       onClose={onClose}
     >
-      <p id="request-2fa-reset-body" className="mt-2 text-sm text-slate-600">
+      <p id="request-2fa-reset-body" className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
         Only a Zyndio admin can reset two-factor sign-in. They&apos;ll confirm it&apos;s really them before they
         reset it, then they&apos;re signed out on every device and set it up again at next sign-in.
       </p>
       <div className="mt-4">
-        <label htmlFor="request-2fa-reset-reason" className="text-sm font-semibold text-[#030616]">
+        <label htmlFor="request-2fa-reset-reason" className="text-sm font-semibold text-[#030616] dark:text-[#EEF1F8]">
           Reason (optional)
         </label>
         <textarea
           id="request-2fa-reset-reason"
-          className="mt-1 min-h-[88px] w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="mt-1 min-h-[88px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-[#030616] placeholder:text-slate-400 dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8] dark:placeholder:text-[#8F9AAF]"
           placeholder="e.g. they got a new phone and can't open the authenticator app"
           maxLength={500}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           data-autofocus="true"
         />
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs text-slate-500 dark:text-[#A6B0C3]">
           Zyndio admins see this with your name and time. Do not include patient details.
         </p>
       </div>
@@ -624,32 +624,32 @@ const InviteDialog: React.FC<InviteDialogProps> = ({ onClose, onSubmit }) => {
 
   return (
     <Dialog titleId="invite-title" title="Invite a user" onClose={onClose} initialFocusSelector="#invite-email">
-      <p className="mt-2 text-sm text-slate-600">
+      <p className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
         They&apos;ll get an email with a link to set a password and two-factor sign-in. The link works for 7 days.
       </p>
       <form onSubmit={handleSubmit} className="mt-4 space-y-4">
         <div>
-          <label htmlFor="invite-email" className="text-sm font-semibold text-[#030616]">
+          <label htmlFor="invite-email" className="text-sm font-semibold text-[#030616] dark:text-[#EEF1F8]">
             Work email
           </label>
           <input
             id="invite-email"
             type="email"
             required
-            className="mt-1 min-h-[44px] w-full rounded-md border border-slate-300 px-3 text-sm"
+            className="mt-1 min-h-[44px] w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-[#030616] dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8]"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             aria-describedby={error ? 'invite-email-error' : undefined}
             aria-invalid={error ? true : undefined}
           />
           {error && (
-            <p id="invite-email-error" className="mt-1 text-sm text-red-600" role="alert">
+            <p id="invite-email-error" className="mt-1 text-sm text-red-600 dark:text-[#FF8F86]" role="alert">
               {error}
             </p>
           )}
         </div>
         <div>
-          <span className="text-sm font-semibold text-[#030616]">Role</span>
+          <span className="text-sm font-semibold text-[#030616] dark:text-[#EEF1F8]">Role</span>
           <div className="mt-2 space-y-2">
             {ASSIGNABLE_ROLES.map((r) => (
               <label key={r} className="flex items-start gap-2 text-sm">
@@ -662,9 +662,9 @@ const InviteDialog: React.FC<InviteDialogProps> = ({ onClose, onSubmit }) => {
                   className="mt-1"
                 />
                 <span>
-                  <span className="font-semibold text-[#030616]">{ROLE_LABELS[r]}</span>
+                  <span className="font-semibold text-[#030616] dark:text-[#EEF1F8]">{ROLE_LABELS[r]}</span>
                   <br />
-                  <span className="text-slate-600">{ROLE_DESCRIPTIONS[r]}</span>
+                  <span className="text-slate-600 dark:text-[#A6B0C3]">{ROLE_DESCRIPTIONS[r]}</span>
                 </span>
               </label>
             ))}
