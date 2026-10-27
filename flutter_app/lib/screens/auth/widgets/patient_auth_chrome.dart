@@ -320,6 +320,17 @@ InputDecoration authFieldDecoration(
   );
 }
 
+// Ava R3: Inter's descenders (p, y, g) were clipped by the default tight
+// line box in these button labels. height >= 1.2 plus
+// applyHeightToLastDescent gives the glyph room without changing the fixed
+// 50px button height.
+const _kAuthButtonLabelStyle =
+    TextStyle(fontSize: 16, fontWeight: FontWeight.w600, height: 1.2);
+const _kAuthButtonTextHeightBehavior = TextHeightBehavior(
+  applyHeightToFirstAscent: false,
+  applyHeightToLastDescent: true,
+);
+
 class AuthPrimaryButton extends StatelessWidget {
   const AuthPrimaryButton({
     super.key,
@@ -365,8 +376,8 @@ class AuthPrimaryButton extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Text(label,
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w600)),
+                    style: _kAuthButtonLabelStyle,
+                    textHeightBehavior: _kAuthButtonTextHeightBehavior),
               ],
             ),
           ),
@@ -383,8 +394,8 @@ class AuthPrimaryButton extends StatelessWidget {
             shape: const StadiumBorder(),
           ),
           child: Text(label,
-              style: const TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.w600)),
+              style: _kAuthButtonLabelStyle,
+              textHeightBehavior: _kAuthButtonTextHeightBehavior),
         ),
       );
     }
@@ -416,13 +427,13 @@ class AuthPrimaryButton extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   Text(label,
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w600)),
+                      style: _kAuthButtonLabelStyle,
+                      textHeightBehavior: _kAuthButtonTextHeightBehavior),
                 ],
               )
             : Text(label,
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w600)),
+                style: _kAuthButtonLabelStyle,
+                textHeightBehavior: _kAuthButtonTextHeightBehavior),
       ),
     );
   }
@@ -456,8 +467,8 @@ class AuthSecondaryButton extends StatelessWidget {
             disabledForegroundColor: disabledFg,
           ),
           child: Text(label,
-              style: const TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.w600)),
+              style: _kAuthButtonLabelStyle,
+              textHeightBehavior: _kAuthButtonTextHeightBehavior),
         ),
       );
     }
@@ -474,7 +485,8 @@ class AuthSecondaryButton extends StatelessWidget {
           shape: const StadiumBorder(),
         ),
         child: Text(label,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            style: _kAuthButtonLabelStyle,
+            textHeightBehavior: _kAuthButtonTextHeightBehavior),
       ),
     );
   }

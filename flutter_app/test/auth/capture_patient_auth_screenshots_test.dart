@@ -220,7 +220,10 @@ final _captures = <_Capture>[
     await t.pump(const Duration(milliseconds: 100));
   }),
   _Capture('09-verify-email', 'wait', (t, a) async {
-    // Same path as resent: cooldown label is the "wait" state.
+    // The resent success banner is transient (auto-reverts after 3s) so it
+    // doesn't stay up for the whole cooldown — advance past that, then to
+    // the design's 42s mark, to land on the blue info "wait" banner instead
+    // of duplicating the green "resent" success banner.
     await _pumpScreen(
       t,
       home: const VerifyEmailScreen(email: 'jordan.rivera@example.com'),
@@ -229,6 +232,7 @@ final _captures = <_Capture>[
     );
     await t.tap(find.text('Resend email'));
     await t.pump();
+    await t.pump(const Duration(seconds: 18));
     await t.pump(const Duration(milliseconds: 100));
   }),
   _Capture('09-verify-email', 'expired', (t, a) async {

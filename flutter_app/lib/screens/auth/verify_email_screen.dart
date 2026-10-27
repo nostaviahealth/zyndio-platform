@@ -32,6 +32,8 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
   String get _masked =>
       maskEmail(widget.email ?? 'jordan.rivera@example.com');
 
+  Timer? _successBannerTimer;
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +47,7 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
   @override
   void dispose() {
     _cooldownTimer?.cancel();
+    _successBannerTimer?.cancel();
     super.dispose();
   }
 
@@ -81,6 +84,16 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
       if (!mounted) return;
       setState(() => _state = _VerifyState.resent);
       _startCooldown();
+      // Ava R3 (09 wait): the success banner is a brief confirmation, not a
+      // permanent state — once it's had time to register, fall through to
+      // the blue "you can resend in N seconds" cooldown banner instead of
+      // showing the green success banner for the entire cooldown.
+      _successBannerTimer?.cancel();
+      _successBannerTimer = Timer(const Duration(seconds: 3), () {
+        if (mounted && _state == _VerifyState.resent) {
+          setState(() => _state = _VerifyState.sent);
+        }
+      });
     } finally {
       if (mounted) setState(() => _isBusy = false);
     }
@@ -97,18 +110,13 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
   Widget build(BuildContext context) {
     if (_state == _VerifyState.verified) {
       return PatientAuthShell(
+        hero: const AuthHeroIcon(icon: LucideIcons.check),
         title: 'Email confirmed',
         subtitle:
             'Thanks, Jordan. Next, link your clinic record so your care team\'s plan and results can show here.',
-        body: Column(
-          children: [
-            const AuthHeroIcon(icon: LucideIcons.check),
-            const SizedBox(height: 24),
-            AuthPrimaryButton(
-              label: 'Continue',
-              onPressed: () => context.go('/link-record'),
-            ),
-          ],
+        body: AuthPrimaryButton(
+          label: 'Continue',
+          onPressed: () => context.go('/link-record'),
         ),
       );
     }
