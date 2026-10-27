@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -68,7 +67,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
     if (error.contains('Invalid login credentials') || 
         error.contains('invalid_credentials')) {
-      return 'Invalid email or password. Please try again.';
+      return "That email and password don't match. Try again, or reset your password.";
     }
     if (error.contains('Email not confirmed')) {
       return 'Please check your email and confirm your account.';
@@ -87,51 +86,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         .replaceAll(RegExp(r'\)$'), '');
   }
 
-  Future<void> _handleGoogleSignIn() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      await ref.read(authNotifierProvider.notifier).signInWithGoogle();
-    } catch (e) {
-      if (!e.toString().contains('cancelled')) {
-        setState(() {
-          _errorMessage = _parseError(e.toString());
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _handleAppleSignIn() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      await ref.read(authNotifierProvider.notifier).signInWithApple();
-    } catch (e) {
-      if (!e.toString().contains('cancelled')) {
-        setState(() {
-          _errorMessage = _parseError(e.toString());
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -168,62 +122,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Toggle buttons
-                        Center(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: nc.navbarPillBg,
-                              borderRadius: BorderRadius.circular(50),
-                            ),
-                            padding: const EdgeInsets.all(4),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                TextButton(
-                                  onPressed: () => context.go('/signup'),
-                                  style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 24,
-                                      vertical: 8,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    'Sign up',
-                                    style: TextStyle(
-                                      color: nc.textSecondary,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: nc.cardSurfaceElevated,
-                                    borderRadius: BorderRadius.circular(50),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: nc.shadowColor,
-                                        blurRadius: 4,
-                                      ),
-                                    ],
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                    vertical: 8,
-                                  ),
-                                  child: Text(
-                                    'Sign in',
-                                    style: TextStyle(
-                                      color: nc.textPrimary,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-
                         // Title
                         Text(
                           'Welcome back',
@@ -333,63 +231,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 : const Text('Sign in'),
                           ),
                         ),
-                        const SizedBox(height: 16),
 
-                        // Divider
-                        Row(
-                          children: [
-                            Expanded(child: Divider(color: nc.divider)),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              child: Text(
-                                'or',
-                                style: TextStyle(color: nc.textTertiary, fontSize: 12),
-                              ),
-                            ),
-                            Expanded(child: Divider(color: nc.divider)),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Google Sign-In button
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: _isLoading ? null : _handleGoogleSignIn,
-                            icon: Image.asset(
-                              'assets/icons/google_logo.png',
-                              height: 20,
-                              width: 20,
-                            ),
-                            label: const Text('Continue with Google'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              side: BorderSide(color: nc.divider),
-                              foregroundColor: nc.textPrimary,
-                              backgroundColor: nc.cardSurfaceElevated,
-                            ),
-                          ),
-                        ),
-                        
-                        if (Platform.isIOS) ...[
-                          const SizedBox(height: 12),
-                          // Apple Sign-In button
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton.icon(
-                              onPressed: _isLoading ? null : _handleAppleSignIn,
-                              icon: Icon(Icons.apple, size: 20, color: isDark ? Colors.black : Colors.white),
-                              label: const Text('Continue with Apple'),
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                side: BorderSide(color: isDark ? Colors.white : Colors.black),
-                                foregroundColor: isDark ? Colors.black : Colors.white,
-                                backgroundColor: isDark ? Colors.white : Colors.black,
-                              ),
-                            ),
-                          ),
-                        ],
-                        
                         const SizedBox(height: 32),
 
                         // Terms

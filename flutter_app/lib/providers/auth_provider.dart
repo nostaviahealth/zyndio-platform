@@ -1,10 +1,7 @@
 import 'dart:async'; // Added for StreamTransformer
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../config/supabase_config.dart';
 import '../services/revenue_cat_service.dart';
 import '../services/notification_service.dart';
@@ -221,126 +218,6 @@ class AuthNotifier extends Notifier<AsyncValue<void>> {
     }
   }
 
-  /// Sign in with Google
-  Future<void> signInWithGoogle() async {
-    if (!_isInitialized) {
-      debugPrint('Demo mode: Google sign in not available');
-      throw Exception('Google Sign-In not available in demo mode');
-    }
-
-    final client = SupabaseConfig.client;
-    if (client == null) {
-      throw Exception('Supabase not available');
-    }
-
-    state = const AsyncValue.loading();
-    try {
-      debugPrint('Starting Google Sign-In...');
-      
-      // Use platform-specific Client IDs
-      // Android MUST use the Web Client ID as the serverClientId
-      // iOS can use the iOS Client ID
-      final String? serverClientId = defaultTargetPlatform == TargetPlatform.android
-          ? '742868132720-a4mbp6gc8bt6uav2c1all3jslbroh0lf.apps.googleusercontent.com'
-          : '742868132720-op8bpk01tjt3npl8m21maabkneps4mbp.apps.googleusercontent.com';
-      
-      debugPrint('Initializing Google Sign-In with serverClientId: $serverClientId');
-      
-      // google_sign_in 7.x: Use singleton instance
-      final googleSignIn = GoogleSignIn.instance;
-      await googleSignIn.initialize(serverClientId: serverClientId);
-      
-      final googleUser = await googleSignIn.authenticate();
-      
-      final idToken = googleUser.authentication.idToken;
-      
-      if (idToken == null) {
-        throw Exception('Failed to get Google ID token');
-      }
-      
-      debugPrint('Got Google ID token, extracting nonce...');
-      
-      // Extract nonce from ID token to resolve nonce mismatch error
-      String? nonce;
-      try {
-        final parts = idToken.split('.');
-        if (parts.length > 1) {
-          final String payload = parts[1];
-          final String normalizedPayload = base64Url.normalize(payload);
-          final String decodedPayload = utf8.decode(base64Url.decode(normalizedPayload));
-          final Map<String, dynamic> payloadMap = json.decode(decodedPayload);
-          nonce = payloadMap['nonce'];
-        }
-      } catch (e) {
-        debugPrint('Error extracting nonce: $e');
-      }
-
-      debugPrint('Signing into Supabase with token and nonce: ${nonce != null}');
-      
-      await client.auth.signInWithIdToken(
-        provider: OAuthProvider.google,
-        idToken: idToken,
-        nonce: nonce,
-      );
-      
-      debugPrint('Google Sign-In successful!');
-      
-      // Sync FCM token for push notifications
-      NotificationService().syncTokenToSupabase();
-      
-      state = const AsyncValue.data(null);
-    } catch (e, st) {
-      debugPrint('Google Sign-In error: $e');
-      state = AsyncValue.error(e, st);
-      rethrow;
-    }
-  }
-
-  /// Sign in with Apple
-  Future<void> signInWithApple() async {
-    if (!_isInitialized) {
-      debugPrint('Demo mode: Apple sign in not available');
-      throw Exception('Apple Sign-In not available in demo mode');
-    }
-
-    final client = SupabaseConfig.client;
-    if (client == null) {
-      throw Exception('Supabase not available');
-    }
-
-    state = const AsyncValue.loading();
-    try {
-      debugPrint('Starting Apple Sign-In...');
-      
-      final credential = await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-      );
-      
-      final idToken = credential.identityToken;
-      if (idToken == null) {
-        throw Exception('Failed to get Apple identity token');
-      }
-
-      await client.auth.signInWithIdToken(
-        provider: OAuthProvider.apple,
-        idToken: idToken,
-      );
-
-      debugPrint('Apple Sign-In successful!');
-      
-      // Sync FCM token for push notifications
-      NotificationService().syncTokenToSupabase();
-      
-      state = const AsyncValue.data(null);
-    } catch (e, st) {
-      debugPrint('Apple Sign-In error: $e');
-      state = AsyncValue.error(e, st);
-      rethrow;
-    }
-  }
 
   // ---------------------------------------------------------------------
   // TC-012 slice 1: patient self-signup / verify / resend / reset / delete.

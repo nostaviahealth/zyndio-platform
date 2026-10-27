@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -82,51 +81,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     }
   }
 
-  Future<void> _handleGoogleSignIn() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      await ref.read(authNotifierProvider.notifier).signInWithGoogle();
-    } catch (e) {
-      if (!e.toString().contains('cancelled')) {
-        setState(() {
-          _errorMessage = e.toString().replaceFirst('Exception: ', '');
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _handleAppleSignIn() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      await ref.read(authNotifierProvider.notifier).signInWithApple();
-    } catch (e) {
-      if (!e.toString().contains('cancelled')) {
-        setState(() {
-          _errorMessage = e.toString().replaceFirst('Exception: ', '');
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -163,62 +117,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Toggle buttons
-                        Center(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: nc.navbarPillBg,
-                              borderRadius: BorderRadius.circular(50),
-                            ),
-                            padding: const EdgeInsets.all(4),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: nc.cardSurfaceElevated,
-                                    borderRadius: BorderRadius.circular(50),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: nc.shadowColor,
-                                        blurRadius: 4,
-                                      ),
-                                    ],
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                    vertical: 8,
-                                  ),
-                                  child: Text(
-                                    'Sign up',
-                                    style: TextStyle(
-                                      color: nc.textPrimary,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                                TextButton(
-                                  onPressed: () => context.go('/login'),
-                                  style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 24,
-                                      vertical: 8,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    'Sign in',
-                                    style: TextStyle(
-                                      color: nc.textSecondary,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-
                         // Title
                         Text(
                           'Create account',
@@ -340,63 +238,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                                 : const Text('Create account'),
                           ),
                         ),
-                        const SizedBox(height: 16),
 
-                        // Divider
-                        Row(
-                          children: [
-                            Expanded(child: Divider(color: nc.divider)),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              child: Text(
-                                'or',
-                                style: TextStyle(color: nc.textTertiary, fontSize: 12),
-                              ),
-                            ),
-                            Expanded(child: Divider(color: nc.divider)),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Google Sign-In button
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: _isLoading ? null : _handleGoogleSignIn,
-                            icon: Image.asset(
-                              'assets/icons/google_logo.png',
-                              height: 20,
-                              width: 20,
-                            ),
-                            label: const Text('Continue with Google'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              side: BorderSide(color: nc.divider),
-                              foregroundColor: nc.textPrimary,
-                              backgroundColor: nc.cardSurfaceElevated,
-                            ),
-                          ),
-                        ),
-                        
-                        if (Platform.isIOS) ...[
-                          const SizedBox(height: 12),
-                          // Apple Sign-In button
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton.icon(
-                              onPressed: _isLoading ? null : _handleAppleSignIn,
-                              icon: Icon(Icons.apple, size: 20, color: isDark ? Colors.black : Colors.white),
-                              label: const Text('Continue with Apple'),
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                side: BorderSide(color: isDark ? Colors.white : BrandColors.dark),
-                                foregroundColor: isDark ? Colors.black : Colors.white,
-                                backgroundColor: isDark ? Colors.white : BrandColors.dark,
-                              ),
-                            ),
-                          ),
-                        ],
-                        
                         const SizedBox(height: 32),
 
                         // Terms
