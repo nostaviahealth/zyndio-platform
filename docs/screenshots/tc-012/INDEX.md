@@ -1,7 +1,14 @@
 # TC-012 patient-auth screenshots
 
-Source: Ava handoff `/workspace/design/team3/zyndio/handoff/patient-auth/` (README + copy-deck updated 27 Oct 2026 IST).
-Renders: light + dark, 390×844, fictional data only.
+Source: **Flutter widget-test / golden captures** of built patient-auth frames
+(`flutter_app/lib/screens/auth/screenshot/patient_auth_screenshot_frames.dart`),
+Ava state names, fictional data only. Light + dark at **390×844**.
+
+> Correction (Ava): an earlier commit (`1a94579`) copied Ava's design renders
+> byte-for-byte. That set is **not** valid evidence. This tree replaces those
+> files with real Flutter captures. SHA-256 of every PNG differs from Ava's
+> handoff under `/workspace/design/team3/zyndio/handoff/patient-auth/states/`.
+
 Naming: `<screen>/<state>--{light|dark}.png` (same as design `states/`).
 
 Copy notes reflected here (Ava + Henry):
@@ -18,4 +25,7 @@ Copy notes reflected here (Ava + Henry):
 | 12-delete-account | settings, reauth, confirm, deleting, error, deleted |
 | 13-link-record | intro, choose, code, wrong, locked, clinic, review, linked |
 
-Flutter app re-shoot via demo harness remains a follow-up; these are Ava's signed design renders with the updated copy Leo must match in UI.
+Regenerate:
+```bash
+cd flutter_app && flutter test test/auth/capture_patient_auth_screenshots_test.dart --update-goldens
+```
