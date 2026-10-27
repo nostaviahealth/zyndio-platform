@@ -1,5 +1,5 @@
 {
-  "SUPABASE_URL": "https://YOUR-ZYNDIO-DEV-REF.supabase.co",
+  "SUPABASE_URL": "http://127.0.0.1:54321",
   "SUPABASE_ANON_KEY": "example-anon-key-00000000000000000000",
   "GEMINI_API_KEY": "example-gemini-key-00000000000000000000",
   "ELEVENLABS_API_KEY": "example-elevenlabs-key-0000000000000000",

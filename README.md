@@ -44,11 +44,32 @@ No default credentials are provided anywhere in this repo. Admin access is alway
 ## Root admin web app (Vite)
 
 ```bash
-npm run dev        # dev server
-npm run lint        # tsc --noEmit
-npm test            # vitest run
+npm run dev          # dev server
+npm run lint         # tsc --noEmit
+npm test             # vitest run (unit/component tests)
 npm run build        # production build
+npm run build:preview  # --mode preview build; adds the /__preview screenshot harness
+                        # (dead-code-eliminated from `npm run build`, see tests/preview/)
 ```
+
+### Local Supabase + integration tests
+
+This repo targets a **local-only** Supabase project — no hosted/linked project is used (see
+[SUPABASE-SETUP.md](./SUPABASE-SETUP.md)).
+
+```bash
+supabase start                   # once per session
+supabase db reset                # (re)apply supabase/migrations/* from scratch
+supabase test db                 # pgTAP suite in supabase/tests/*.sql (RLS + role matrix, lockout,
+                                  # recovery codes, audit log, etc.)
+bash scripts/integration-local.sh  # vitest integration suite (tests/integration/*.test.ts) against
+                                    # the local stack; starts/stops `supabase functions serve` itself
+```
+
+`scripts/integration-local.sh` reads Supabase URL/keys from `supabase status -o env` into its own
+process only (never written to a file or passed on a command line). The integration suite
+(`npm run test:integration`) skips itself with a visible message if `SUPABASE_URL`/keys aren't in
+the environment and `CI` isn't set; in CI, missing env is a hard failure.
 
 ## `space/` web app
 
@@ -72,6 +93,27 @@ Run the analyzer gate (used in CI) from the repo root:
 ```bash
 bash scripts/analyze-gate.sh
 ```
+
+#### Demo build flag
+
+`lib/main_demo.dart` (the screenshot/demo entrypoint) must always be built/run with
+`--dart-define=DEMO_BUILD=true`:
+
+```bash
+flutter build web -t lib/main_demo.dart --dart-define=DEMO_BUILD=true
+```
+
+`kDemoBuild` is a compile-time const (`lib/demo/demo_build_flag.dart`) that gates demo-only auto
+sign-in and debug-code-display behind the flag so they're tree-shaken out of every non-demo build —
+`flutter test` proves both are no-ops when the flag is false (default). Run the demo-flow tests with
+the flag on too:
+
+```bash
+flutter test --dart-define=DEMO_BUILD=true
+```
+
+`scripts/demo-screenshots.sh` / `scripts/demo_screenshots.py` / `scripts/demo_screenshots_admin.py`
+already build with this flag — don't build `main_demo.dart` any other way.
 
 ## Security checks
 
