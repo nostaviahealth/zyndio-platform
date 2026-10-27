@@ -11,13 +11,13 @@ interface TwoFactorStatusProps {
 const TwoFactorStatus: React.FC<TwoFactorStatusProps> = ({ value }) => {
   if (value === 'On') {
     return (
-      <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700">
+      <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 dark:text-[#5FD39A]">
         <ShieldCheck className="h-4 w-4" aria-hidden="true" />
         On
       </span>
     );
   }
-  return <span className="text-sm text-slate-500">{value}</span>;
+  return <span className="text-sm text-slate-500 dark:text-[#A6B0C3]">{value}</span>;
 };
 
 export default TwoFactorStatus;

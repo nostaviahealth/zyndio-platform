@@ -19,18 +19,18 @@ function renderStatusBadge(member: PreviewMember, daysLeft = 7) {
 }
 
 const Legend: React.FC<{ isPlatformAdmin?: boolean }> = ({ isPlatformAdmin = false }) => (
-  <section className="mt-10 rounded-xl border border-slate-200 bg-white p-6">
+  <section className="mt-10 rounded-xl border border-slate-200 bg-white p-6 dark:border-[#222838] dark:bg-[#10141F]">
     <div className="flex flex-wrap items-center gap-3">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">What each role can do</h2>
-      <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-[#A6B0C3]">What each role can do</h2>
+      <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:border-[#F2B65A]/40 dark:bg-[#2F220D] dark:text-[#F2B65A]">
         Draft, to confirm with Zyndio
       </span>
     </div>
     <dl className="mt-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
       {(['physician', 'care_coordinator', 'org_admin', 'read_only'] as const).map((role) => (
         <div key={role}>
-          <dt className="font-semibold text-[#030616]">{ROLE_LABELS[role]}</dt>
-          <dd className="text-sm text-slate-600">{roleDescriptionsFor(isPlatformAdmin)[role]}</dd>
+          <dt className="font-semibold text-[#030616] dark:text-[#EEF1F8]">{ROLE_LABELS[role]}</dt>
+          <dd className="text-sm text-slate-600 dark:text-[#A6B0C3]">{roleDescriptionsFor(isPlatformAdmin)[role]}</dd>
         </div>
       ))}
     </dl>
@@ -73,12 +73,12 @@ const Table: React.FC<{ members: PreviewMember[]; isPlatformAdmin?: boolean }> =
       render: (m) => {
         const isSelf = m.user_id === SELF_USER_ID;
         if (m.status === 'deactivated' || isSelf) {
-          return <>{ROLE_LABELS[m.role]}</>;
+          return <span className="text-[#030616] dark:text-[#EEF1F8]">{ROLE_LABELS[m.role]}</span>;
         }
         return (
           <select
             aria-label={`Change role for ${m.email}`}
-            className="min-h-[44px] rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-900"
+            className="min-h-[44px] rounded-md border border-slate-300 bg-white px-2 text-sm text-[#030616] dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8]"
             value={m.role}
             onChange={() => {}}
           >
@@ -96,7 +96,7 @@ const Table: React.FC<{ members: PreviewMember[]; isPlatformAdmin?: boolean }> =
     { key: 'status', header: 'Status', render: (m) => renderStatusBadge(m) },
     {
       key: 'actions',
-      header: 'Actions',
+      header: '',
       render: (m) => {
         const isSelf = m.user_id === SELF_USER_ID;
         if (isSelf) {
@@ -114,7 +114,7 @@ const Table: React.FC<{ members: PreviewMember[]; isPlatformAdmin?: boolean }> =
     },
   ];
   return (
-    <div className="mt-2 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <div className="mt-2 overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-[#222838] dark:bg-[#10141F]">
       <DataTable columns={columns} rows={members} getRowId={(m) => m.user_id} caption="Users and roles" />
     </div>
   );
@@ -137,11 +137,11 @@ const Toolbar: React.FC<{ count: number }> = ({ count }) => (
   <>
     <div className="mt-6 flex flex-wrap items-center gap-3">
       <SearchField aria-label="Search by name or email" placeholder="Search by name or email" className="flex-1" readOnly />
-      <select aria-label="Filter by status" className="min-h-[44px] rounded-full border border-slate-300 px-4 text-sm" readOnly>
+      <select aria-label="Filter by status" className="min-h-[44px] rounded-full border border-slate-300 bg-white px-4 text-sm text-[#030616] dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8]" readOnly>
         <option>Status: All</option>
       </select>
     </div>
-    <p className="mt-3 text-sm text-slate-500">{count} people</p>
+    <p className="mt-3 text-sm text-slate-500 dark:text-[#A6B0C3]">{count} people</p>
   </>
 );
 
@@ -157,7 +157,7 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
       <div>
         <Header />
         <Toolbar count={PREVIEW_MEMBERS.length} />
-        <div className="mt-8 text-sm text-slate-500" role="status">
+        <div className="mt-8 text-sm text-slate-500 dark:text-[#A6B0C3]" role="status">
           Loading users…
         </div>
       </div>
@@ -169,9 +169,9 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
       <div>
         <Header />
         <Table members={[PREVIEW_MEMBERS[0]]} />
-        <div className="mt-8 rounded-xl border border-slate-200 bg-white p-8 text-center">
-          <p className="font-semibold text-[#030616]">You&apos;re the only user so far</p>
-          <p className="mt-2 text-sm text-slate-600">
+        <div className="mt-8 rounded-xl border border-slate-200 bg-white p-8 text-center dark:border-[#222838] dark:bg-[#10141F]">
+          <p className="font-semibold text-[#030616] dark:text-[#EEF1F8]">You&apos;re the only user so far</p>
+          <p className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
             Invite your physicians and care team. Each person sets their own password and two-factor sign-in from
             the invite link.
           </p>
@@ -188,8 +188,8 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
     return (
       <div>
         <Header />
-        <div className="mt-8 rounded-xl border border-slate-200 bg-white p-8 text-center">
-          <p className="text-sm text-slate-600">
+        <div className="mt-8 rounded-xl border border-slate-200 bg-white p-8 text-center dark:border-[#222838] dark:bg-[#10141F]">
+          <p className="text-sm text-slate-600 dark:text-[#A6B0C3]">
             We couldn&apos;t load the user list. Check your connection and try again. No changes were made.
           </p>
           <Button className="mt-4" variant="outline">
