@@ -116,12 +116,10 @@ describe('TC-014 invite name / role / cancel', () => {
     });
     expect(cancelRes.status).toBe(200);
 
-    const afterInvite = await restAdmin(
-      `invites?user_id=eq.${targetUserId}&order=created_at.desc&limit=1&select=revoked_at`
-    );
-    const [revoked] = (await afterInvite.json()) as { revoked_at: string | null }[];
-    expect(revoked.revoked_at).not.toBeNull();
-
+    // finalize_invite_cancel revokes then drops org_members; cancel-invite
+    // then deletes the never-accepted auth.users row, which cascades the
+    // invites row away (ON DELETE CASCADE). Assert the member is gone and
+    // the old token no longer works rather than looking for revoked_at.
     const afterMember = await restAdmin(`org_members?user_id=eq.${targetUserId}`);
     expect(((await afterMember.json()) as unknown[]).length).toBe(0);
 
