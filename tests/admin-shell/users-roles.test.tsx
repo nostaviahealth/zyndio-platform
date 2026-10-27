@@ -72,7 +72,7 @@ describe('UsersRolesPage', () => {
     expect(within(nameCell as HTMLElement).getByText('Admin')).toBeInTheDocument();
   });
 
-  it("hides the ··· menu on the signed-in admin's own row, but shows Request 2FA reset and Deactivate via the menu on other rows", async () => {
+  it("hides the ··· menu on the signed-in admin's own row, but shows Request two-factor reset and Deactivate via the menu on other rows", async () => {
     const user = userEvent.setup();
     renderPage();
     await waitFor(() => expect(screen.getByText('2 people')).toBeInTheDocument());
