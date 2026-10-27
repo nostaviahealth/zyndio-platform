@@ -7,6 +7,8 @@ interface DialogProps {
   children?: React.ReactNode;
   onClose: () => void;
   initialFocusSelector?: string;
+  /** Ava invite dlg is 600px; confirms stay at the default 480/520. */
+  panelClassName?: string;
 }
 
 // Generic C-series confirm/form dialog: focus-trapped role=alertdialog,
@@ -15,6 +17,8 @@ interface DialogProps {
 // intentionally can't be dismissed by Escape/backdrop).
 // TC-013: dark semantic tokens match design `.dlg` / `.dlgwrap` (surface,
 // border-subtle, text-primary, scrim rgba(3,6,22,.45)).
+// TC-014: invite uses panelClassName max-w-[600px] so the Role group fits
+// without an inner scroll cutting Read-only (Ava render).
 const Dialog: React.FC<DialogProps> = ({
   titleId,
   descriptionId,
@@ -22,6 +26,7 @@ const Dialog: React.FC<DialogProps> = ({
   children,
   onClose,
   initialFocusSelector = '[data-autofocus]',
+  panelClassName = 'max-w-[480px]',
 }) => {
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -59,14 +64,14 @@ const Dialog: React.FC<DialogProps> = ({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(3,6,22,0.45)] px-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[rgba(3,6,22,0.45)] px-4 py-6">
       <div
         ref={dialogRef}
         role="alertdialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
-        className="w-full max-w-[480px] rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-[#222838] dark:bg-[#10141F]"
+        className={`w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-[#222838] dark:bg-[#10141F] ${panelClassName}`}
       >
         <h2 id={titleId} className="text-lg font-bold text-[#030616] dark:text-[#EEF1F8]">
           {title}

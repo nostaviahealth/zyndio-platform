@@ -42,8 +42,12 @@ MANIFEST: dict[str, list[str]] = {
         "error",
         "invite",
         "invite-validation",
+        "invite-sending",
+        "invite-error",
+        "invite-role-refused",
         "invite-sent",
         "cancel-invite-confirm",
+        "cancel-invite-error",
         "role-confirm",
         "deactivate-confirm",
         "deactivated",
@@ -112,24 +116,47 @@ def capture(screens: list[str] | None, states: list[str] | None) -> list[Path]:
                         url = f"{base_url}#/__preview?screen={screen}&state={state}&mode={mode}"
                         page.goto(url, wait_until="domcontentloaded")
                         page.wait_for_selector("[data-preview-marker]", timeout=10_000)
-                        # Tailwind CDN generates dark: utilities after hydration;
-                        # wait until a known dark surface rule exists so dialogs
-                        # and buttons aren't shot mid-theme.
-                        if mode == "dark":
-                            page.wait_for_function(
-                                """() => {
-                                  for (const sheet of document.styleSheets) {
-                                    let rules;
-                                    try { rules = sheet.cssRules; } catch (e) { continue; }
-                                    for (const r of rules) {
-                                      if ((r.cssText || "").includes("10141F")) return true;
-                                    }
-                                  }
-                                  return false;
-                                }""",
-                                timeout=10_000,
-                            )
-                            page.wait_for_timeout(150)
+                        # Tailwind CDN generates utilities after hydration. Wait
+                        # until theme tokens exist, then until solid button
+                        # paints finish (avoids pale mid-fade captures).
+                        token = "10141F" if mode == "dark" else "2C5CF2"
+                        page.wait_for_function(
+                            """(token) => {
+                              for (const sheet of document.styleSheets) {
+                                let rules;
+                                try { rules = sheet.cssRules; } catch (e) { continue; }
+                                for (const r of rules) {
+                                  if ((r.cssText || "").includes(token)) return true;
+                                }
+                              }
+                              return false;
+                            }""",
+                            arg=token,
+                            timeout=10_000,
+                        )
+                        # Prefer a solid primary or destructive control when present.
+                        page.wait_for_function(
+                            """(mode) => {
+                              const buttons = [...document.querySelectorAll('button')];
+                              const solid = buttons.find((b) => {
+                                const bg = getComputedStyle(b).backgroundColor;
+                                if (mode === 'dark') {
+                                  // #FF8F86 or #7C9CFF
+                                  return bg === 'rgb(255, 143, 134)' || bg === 'rgb(124, 156, 255)';
+                                }
+                                // #2C5CF2 or #B42318
+                                return bg === 'rgb(44, 92, 242)' || bg === 'rgb(180, 35, 24)';
+                              });
+                              if (!solid && !buttons.length) return true;
+                              if (!solid) return false;
+                              const fg = getComputedStyle(solid).color;
+                              const op = getComputedStyle(solid).opacity;
+                              return op === '1' && fg !== 'rgba(0, 0, 0, 0)';
+                            }""",
+                            arg=mode,
+                            timeout=10_000,
+                        )
+                        page.wait_for_timeout(200)
                         out_path = screen_dir / f"{state}--{mode}.png"
                         page.screenshot(path=str(out_path))
                         written.append(out_path)

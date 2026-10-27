@@ -670,7 +670,7 @@ const InviteDialog: React.FC<InviteDialogProps> = ({ onClose, onSubmit }) => {
   };
 
   return (
-    <Dialog titleId="invite-title" title="Invite a user" onClose={submitting ? () => {} : onClose} initialFocusSelector="#invite-full-name">
+    <Dialog titleId="invite-title" title="Invite a user" onClose={submitting ? () => {} : onClose} initialFocusSelector="#invite-full-name" panelClassName="max-w-[600px]">
       <p className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
         They&apos;ll get an email with a link to set a password and two-factor sign-in. The link works for 7 days.
       </p>
@@ -693,7 +693,11 @@ const InviteDialog: React.FC<InviteDialogProps> = ({ onClose, onSubmit }) => {
               type="text"
               autoComplete="name"
               disabled={submitting}
-              className="mt-1 min-h-[44px] w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-[#030616] disabled:opacity-60 dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8]"
+              className={`mt-1 min-h-[44px] w-full rounded-md bg-white px-3 text-sm text-[#030616] disabled:opacity-60 dark:bg-[#10141F] dark:text-[#EEF1F8] ${
+                fieldErrors.fullName
+                  ? 'border-2 border-[#B42318] dark:border-[#FF8F86]'
+                  : 'border border-slate-300 dark:border-[#6C7690]'
+              }`}
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               aria-invalid={fieldErrors.fullName ? true : undefined}
@@ -714,7 +718,11 @@ const InviteDialog: React.FC<InviteDialogProps> = ({ onClose, onSubmit }) => {
               type="email"
               autoComplete="email"
               disabled={submitting}
-              className="mt-1 min-h-[44px] w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-[#030616] disabled:opacity-60 dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8]"
+              className={`mt-1 min-h-[44px] w-full rounded-md bg-white px-3 text-sm text-[#030616] disabled:opacity-60 dark:bg-[#10141F] dark:text-[#EEF1F8] ${
+                fieldErrors.email
+                  ? 'border-2 border-[#B42318] dark:border-[#FF8F86]'
+                  : 'border border-slate-300 dark:border-[#6C7690]'
+              }`}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               aria-invalid={fieldErrors.email ? true : undefined}
@@ -729,11 +737,11 @@ const InviteDialog: React.FC<InviteDialogProps> = ({ onClose, onSubmit }) => {
         </div>
         <fieldset disabled={submitting} className="disabled:opacity-60">
           <legend className="text-sm font-semibold text-[#030616] dark:text-[#EEF1F8]">Role</legend>
-          <div className="mt-2 space-y-1 rounded-xl border border-slate-200 dark:border-[#222838]" role="radiogroup" aria-invalid={fieldErrors.role ? true : undefined}>
+          <div className="mt-2 rounded-xl border border-slate-200 dark:border-[#222838]" role="radiogroup" aria-invalid={fieldErrors.role ? true : undefined} aria-describedby={fieldErrors.role ? 'invite-role-error' : undefined}>
             {ASSIGNABLE_ROLES.map((r) => (
               <label
                 key={r}
-                className="flex cursor-pointer items-start gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0 dark:border-[#222838]"
+                className="flex cursor-pointer items-start gap-3 border-b border-slate-100 px-4 py-2.5 last:border-b-0 dark:border-[#222838]"
               >
                 <input
                   type="radio"
@@ -741,7 +749,11 @@ const InviteDialog: React.FC<InviteDialogProps> = ({ onClose, onSubmit }) => {
                   value={r}
                   checked={role === r}
                   onChange={() => setRole(r)}
-                  className="mt-1"
+                  className={`mt-1 h-[22px] w-[22px] shrink-0 accent-[#2C5CF2] ${
+                    fieldErrors.role
+                      ? 'outline outline-2 outline-[#B42318] outline-offset-0 dark:outline-[#FF8F86]'
+                      : ''
+                  }`}
                 />
                 <span>
                   <span className="font-semibold text-[#030616] dark:text-[#EEF1F8]">{ROLE_LABELS[r]}</span>
@@ -752,7 +764,7 @@ const InviteDialog: React.FC<InviteDialogProps> = ({ onClose, onSubmit }) => {
             ))}
           </div>
           {fieldErrors.role && (
-            <p className="mt-1 text-sm text-red-600 dark:text-[#FF8F86]" role="alert">
+            <p id="invite-role-error" className="mt-2 flex items-start gap-1.5 text-[13px] leading-[18px] text-[#B42318] dark:text-[#FF8F86]" role="alert">
               {fieldErrors.role}
             </p>
           )}
@@ -798,7 +810,7 @@ const CancelInviteDialog: React.FC<{
         </div>
       )}
       <div className="mt-6 flex justify-end gap-3">
-        <Button type="button" variant="outline" onClick={onClose} disabled={submitting} data-autofocus="true">
+        <Button type="button" variant="secondary" onClick={onClose} disabled={submitting} data-autofocus="true">
           Keep invite
         </Button>
         <Button
