@@ -176,7 +176,9 @@ revoke all on function public.finalize_invite_cancel(uuid, uuid, uuid) from publ
 grant execute on function public.finalize_invite_cancel(uuid, uuid, uuid) to service_role;
 
 -- list_org_members: surface full_name from auth user metadata.
-create or replace function public.list_org_members()
+-- Must drop first: Postgres refuses CREATE OR REPLACE when OUT columns change.
+drop function if exists public.list_org_members();
+create function public.list_org_members()
 returns table (
   user_id uuid,
   email text,
