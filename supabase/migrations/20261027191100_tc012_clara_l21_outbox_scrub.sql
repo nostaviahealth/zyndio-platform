@@ -61,10 +61,9 @@ revoke all on function public.mark_telehealth_outbox_delivered(uuid) from public
 grant execute on function public.mark_telehealth_outbox_delivered(uuid) to service_role;
 
 -- Age-based backstop: scrub anything not yet delivered by the time its OTP
--- would have expired anyway. No pg_cron in this project (not adding a
--- hosted/paid dependency here) — this is called from the delivery path above
--- and is also exposed for an Edge/cron job to invoke on an interval <=10m;
--- deploy should schedule it (see SUPABASE-SETUP.md deploy checklist).
+-- would have expired anyway. Called from the delivery path above, and also
+-- scheduled on a 5-minute pg_cron job (see 20261027191300_tc012_clara_l21_pg_cron.sql
+-- and SUPABASE-SETUP.md deploy checklist).
 create or replace function public.scrub_stale_telehealth_outbox()
 returns int
 language plpgsql

@@ -140,3 +140,12 @@ Before any environment that issues or redeems link codes goes live:
 4. Confirm `TELEHEALTH_ADAPTER=fake` (or unset) for non-production; live adapter stays
    refused without `TELEHEALTH_LIVE_ALLOW=1` (phase 2).
 
+5. **Stale-OTP outbox scrub (Clara L21) is automatic via pg_cron** — job
+   `tc012_scrub_stale_otp` runs every 5 minutes and calls
+   `public.scrub_stale_telehealth_outbox()` (via a SECURITY DEFINER wrapper, since
+   pg_cron jobs run outside `service_role`). No manual scheduling needed on the
+   local stack. **Hosted Supabase projects must enable the `pg_cron` extension**
+   (Dashboard → Database → Extensions) before this migration applies — if it's
+   not enabled, the migration enabling it will fail and must be applied after
+   turning pg_cron on for that project.
+
