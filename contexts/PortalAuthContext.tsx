@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { mapConsumeRecoveryCodeResult } from '../lib/recoveryCodeResult';
 
 export type PortalStatus = 'loading' | 'signed_out' | 'aal1' | 'aal2';
 
@@ -21,6 +22,8 @@ interface SignInResult {
   locked?: boolean;
   unlocksAt?: string | null;
   error?: 'invalid_credentials' | 'network_error';
+  // Present when ok: true. Drives post-password routing to challenge vs setup (H-E2E-1).
+  hasFactor?: boolean;
 }
 
 interface ChallengeResult {
@@ -128,7 +131,9 @@ export const PortalAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return { ok: false, error: 'invalid_credentials' };
       }
       await refresh();
-      return { ok: true };
+      const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      const hasFactor = (aalData?.currentLevel === 'aal2' || aalData?.nextLevel === 'aal2') ?? false;
+      return { ok: true, hasFactor };
     } catch (err) {
       if (isNetworkError(err)) return { ok: false, error: 'network_error' };
       return { ok: false, error: 'invalid_credentials' };
@@ -208,9 +213,9 @@ export const PortalAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     async (code: string): Promise<ChallengeResult> => {
       const { data, error } = await supabase.rpc('consume_recovery_code', { p_code: code });
       if (error) return { ok: false, error: 'wrong_code' };
-      const result = data as { decision?: string } | null;
-      if (result?.decision === 'locked') return { ok: false, error: 'locked' };
-      if (result?.decision !== 'accepted') return { ok: false, error: 'wrong_code' };
+      // H-E2E-2: RPC returns { status: 'ok' | 'locked' | 'invalid' }, not decision.
+      const mapped = mapConsumeRecoveryCodeResult(data);
+      if (!mapped.ok) return { ok: false, error: mapped.error };
       // Henry's ruling: a recovery code never grants aal2 by itself - the
       // caller must immediately re-enrol an authenticator (straight to
       // 02-2fa-setup, no "remind me later").

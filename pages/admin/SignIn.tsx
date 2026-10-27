@@ -24,7 +24,9 @@ const SignIn: React.FC = () => {
     try {
       const result = await signIn(email, password);
       if (result.ok) {
-        navigate('/admin');
+        // H-E2E-1: never send aal1 into /admin (RequireSession would bounce to login).
+        // Route to challenge when a TOTP factor exists, otherwise to setup.
+        navigate(result.hasFactor ? '/admin/2fa/challenge' : '/admin/2fa/setup');
         return;
       }
       if (result.locked) {
