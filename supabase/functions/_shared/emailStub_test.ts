@@ -21,3 +21,14 @@ Deno.test('redactSentPayload is a no-op when an invite payload has no token key'
   const payload = { email: 'alice@example.test' }
   assertEquals(redactSentPayload('invite', payload), payload)
 })
+
+Deno.test('redactSentPayload nulls the token for verify_email and password_reset payloads too', () => {
+  assertEquals(redactSentPayload('verify_email', { email: 'alice@example.test', token: 't' }), {
+    email: 'alice@example.test',
+    token: null,
+  })
+  assertEquals(redactSentPayload('password_reset', { email: 'alice@example.test', token: 't' }), {
+    email: 'alice@example.test',
+    token: null,
+  })
+})
