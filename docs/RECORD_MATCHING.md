@@ -1,7 +1,7 @@
 # Record matching: app account ↔ telehealth / clinic record
 
 Owner: Leo (design + impl) | Reviewer: Clara | Accept: Henry
-Card: TC-012 | Status: **APPROVED by Clara (27 Oct) with condition (PSU-TO-16 / create_patient_record refuses self-signup) — matching impl unblocked**
+Card: TC-012 | Status: **APPROVED by Clara (27 Oct); matching RPCs + Edge request-link landed (Leo). PSU-TO-16 closed; pgTAP 650 covers TO-01..15.**
 Date: 27 Oct 2026, Asia/Calcutta (IST)
 Sources: TC-012.md, TEST_PLAN_PATIENT_SIGNUP.md (PSU-TO-*, PSU-DUP-*), Ava patient-auth handoff (README + copy-deck, updated 27 Oct), Henry rulings 27 Oct (incl. link/unlink notice via clinic messages **and** account email), Clara REVIEW_RECORD_MATCHING.md.
 
