@@ -64,7 +64,7 @@ Linking must never let an attacker attach someone else's clinic record to their 
 - **Patient-read RLS** on clinical tables (`patient_profiles`, `lab_reports`, `consents`, storage) requires:
   1. `email_confirmed_at` set, and
   2. an **active** `patient_record_links` row for `auth.uid()`  
-  **Transitional grandfather:** until every clinic-provisioned account has a link row, `exists (select 1 from patients where id = auth.uid() and org_id is not null)` also satisfies (2) for staff-provisioned patients. **Clara Approve condition:** that grandfather **did** open a hole — a physician/coordinator could call `create_patient_record` on a self-signup `auth.users` id and mint an org-scoped `patients` row without a second-proof link. **Closed:** `patient-signup` writes a `patient_self_signups` marker; `create_patient_record` refuses those accounts (pgTAP **PSU-TO-16**). Clinic-scoped rows for self-signup accounts are created only at successful bind.
+  **Clara Approve condition:** an earlier `org_id`-based grandfather clause **did** open a hole — a physician/coordinator could call `create_patient_record` on a self-signup `auth.users` id and mint an org-scoped `patients` row without a second-proof link. **Closed:** `patient-signup` writes a `patient_self_signups` marker; `create_patient_record` refuses those accounts (pgTAP **PSU-TO-16**). Clinic-scoped rows for self-signup accounts are created only at successful bind. `create_patient_record` itself now also inserts an active `clinic_provisioned` link (M12/H-M3), so `current_patient_linked()` requires only an active `patient_record_links` row — no `org_id` grandfather. **M14:** clinic-provisioned `patients` rows created before that link-insert landed are backfilled an active `clinic_provisioned` link by the idempotent `public._backfill_clinic_provisioned_links()` (self-signup-marked accounts are excluded).
 - **pgTAP (PSU-TO-15):** a verified self-signup user with no `patients` row and no link reads **zero** rows from every clinical table and storage path. Planned before matching RPCs land; partial coverage lands with the TC-012 backend hardening.
 
 ### 4.2 Tables
@@ -178,6 +178,10 @@ Triggered when connector reports ambiguous candidates (server-side), or bind hit
 - Patient UI: Ava `review` state titled **"No code yet?"** — explains codes usually arrive in a few minutes; if nothing comes, the clinic can confirm identity and give a **clinic code** instead. CTAs: "I have a clinic code" / "Send a new code". Footer: "Until your record is linked, no clinic data is shown in the app." **No clinic summary, no PHI.**
 - Staff queue row: opaque ids only.
 - **Resolution must never call bind.** Org admin / care coordinator (per Q2) verifies identity out-of-band, then **issues a new patient-scoped clinic code** (audited `created_by = clinic_staff`). The patient redeems that code through §5.2. There is **no** "Approve link" button or staff-side bind RPC.
+
+### 5.3.1 Re-bind after unlink (Clara L22)
+
+`_bind_patient_record` refuses a bind when the app account already has a `patients` row whose `org_id` differs from the org being bound into — error "patient record belongs to another clinic" (surfaced to the client through the normal enumeration-safe redeem error shape, not a raw exception). This matters because **unlink revokes the link but keeps the `patients` row** (§5.4), so a stale `org_id` could otherwise be silently kept — or worse, silently rewritten — if the same account later binds to a different clinic's record. Same-org re-link after unlink (the common case: patient unlinks, then redeems a new code from the same clinic) is unaffected — `org_id` already matches, so the bind proceeds and the existing `patients` row is reused (`on conflict (id) do nothing`).
 
 ### 5.4 Unlink / account deletion
 

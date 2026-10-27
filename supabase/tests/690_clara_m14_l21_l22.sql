@@ -366,7 +366,7 @@ select throws_ok(
       'th_test_l22_orgb_direct',
       'clinic_code'
     )$$,
-  '42501',
+  'P0003',
   'patient record belongs to another clinic',
   'L22: direct _bind_patient_record refuses cross-clinic org_id mismatch'
 );
