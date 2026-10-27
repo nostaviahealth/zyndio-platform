@@ -684,16 +684,56 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 16),
           
-          // Delete Account (Apple 5.1.1(v)): fully in-app, re-auth first -
-          // see TC-012 delete_account_screen.dart. No "email support" dead end.
-          SizedBox(
+          // Delete Account (Apple 5.1.1(v) / Ava 12-delete-account settings row)
+          Container(
             width: double.infinity,
-            child: TextButton(
-               onPressed: () => context.push('/delete-account'),
-               child: const Text('Delete Account', style: TextStyle(color: BrandColors.red500)),
+            decoration: BoxDecoration(
+              color: Theme.of(context).extension<ZyndioColors>()?.bgSurface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Theme.of(context).extension<ZyndioColors>()?.borderSubtle ??
+                    BrandColors.slate200,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ListTile(
+                  title: Text(
+                    'Delete account',
+                    style: TextStyle(
+                      color: Theme.of(context)
+                              .extension<ZyndioColors>()
+                              ?.statusCritical ??
+                          BrandColors.red500,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  trailing: Icon(
+                    Icons.chevron_right,
+                    color: Theme.of(context)
+                            .extension<ZyndioColors>()
+                            ?.textTertiary ??
+                        BrandColors.slate400,
+                  ),
+                  onTap: () => context.push('/delete-account'),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                  child: Text(
+                    'Permanently deletes your Zyndio app account and the data you added in the app.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(context)
+                              .extension<ZyndioColors>()
+                              ?.textTertiary ??
+                          BrandColors.slate500,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          
           const SizedBox(height: 24),
 
           // App Version

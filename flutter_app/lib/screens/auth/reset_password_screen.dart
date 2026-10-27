@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../config/theme.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/password_rules_checklist.dart';
-import 'widgets/auth_background.dart';
+import 'widgets/patient_auth_chrome.dart';
 
-/// Ava 11-reset-password: new / saved / expired. Reached from the emailed
-/// 1h-TTL reset link (`/reset-password?token=...`).
+/// Ava 11-reset-password: new / saved / expired.
 class ResetPasswordScreen extends ConsumerStatefulWidget {
   const ResetPasswordScreen({super.key, required this.token});
 
   final String? token;
 
   @override
-  ConsumerState<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
+  ConsumerState<ResetPasswordScreen> createState() =>
+      _ResetPasswordScreenState();
 }
 
 enum _Step { form, saved, expired }
@@ -25,7 +25,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
   _Step _step = _Step.form;
   bool _isLoading = false;
   bool _submitted = false;
-  String? _errorMessage;
+  bool _obscure = true;
 
   @override
   void initState() {
@@ -41,8 +41,9 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
 
   Future<void> _submit() async {
     setState(() => _submitted = true);
-    if (!_formKey.currentState!.validate()) return;
-    setState(() { _isLoading = true; _errorMessage = null; });
+    final checks = checkPasswordRules(_passwordController.text);
+    if (!checks.allClientRulesMet) return;
+    setState(() => _isLoading = true);
     try {
       await ref
           .read(authNotifierProvider.notifier)
@@ -50,16 +51,9 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
       if (!mounted) return;
       setState(() => _step = _Step.saved);
     } on PatientAuthException catch (e) {
-      setState(() {
-        _errorMessage = switch (e.code) {
-          'invalid_or_expired_link' => 'This reset link has expired. Request a new one.',
-          'password_too_common' => 'That password is too common. Choose another.',
-          'password_too_short' || 'password_too_weak' =>
-            'Your password needs to meet every rule below.',
-          _ => 'Something went wrong. Please try again.',
-        };
-        if (e.code == 'invalid_or_expired_link') _step = _Step.expired;
-      });
+      if (e.code == 'invalid_or_expired_link') {
+        setState(() => _step = _Step.expired);
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -67,100 +61,94 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final nc = context.nc;
+    final c = zcOf(context);
 
-    return AuthBackground(
-      child: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Choose a new password',
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineLarge
-                          ?.copyWith(color: nc.textPrimary)),
-                  const SizedBox(height: 16),
-                  if (_step == _Step.saved) ...[
-                    Text(
-                      'Your password has been changed. You have been signed out of every '
-                      'other device.',
-                      style: TextStyle(color: nc.textSecondary),
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () => context.go('/login'),
-                        child: const Text('Sign in'),
-                      ),
-                    ),
-                  ] else if (_step == _Step.expired) ...[
-                    Text(
-                      'This reset link has expired or was already used.',
-                      style: TextStyle(color: nc.textSecondary),
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () => context.go('/forgot-password'),
-                        child: const Text('Request a new link'),
-                      ),
-                    ),
-                  ] else ...[
-                    if (_errorMessage != null) ...[
-                      Text(_errorMessage!, style: const TextStyle(color: BrandColors.red500)),
-                      const SizedBox(height: 12),
-                    ],
-                    Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TextFormField(
-                            controller: _passwordController,
-                            obscureText: true,
-                            decoration: const InputDecoration(hintText: 'New password'),
-                            onChanged: (_) => setState(() {}),
-                            validator: (value) {
-                              final checks = checkPasswordRules(value ?? '');
-                              return checks.allClientRulesMet
-                                  ? null
-                                  : 'Your password needs to meet every rule below';
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          PasswordRulesChecklist(
-                            password: _passwordController.text,
-                            showInvalid: _submitted,
-                          ),
-                          const SizedBox(height: 24),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: _isLoading ? null : _submit,
-                              child: _isLoading
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(strokeWidth: 2))
-                                  : const Text('Save new password'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
+    if (_step == _Step.saved) {
+      return PatientAuthShell(
+        hero: const AuthHeroIcon(icon: LucideIcons.check),
+        title: 'Password updated',
+        subtitle:
+            "You're logged in on this phone and signed out everywhere else.",
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AuthPrimaryButton(
+              label: 'Continue',
+              onPressed: () => context.go('/'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_step == _Step.expired) {
+      return PatientAuthShell(
+        backLabel: 'Log in',
+        onBack: () => context.go('/login'),
+        title: 'This reset link has expired',
+        subtitle:
+            'Reset links work once and expire after 1 hour. Request a new one to continue.',
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AuthPrimaryButton(
+              label: 'Send a new link',
+              onPressed: () => context.go('/forgot-password'),
+            ),
+            const SizedBox(height: 12),
+            AuthSecondaryButton(
+              label: 'Back to log in',
+              onPressed: () => context.go('/login'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return PatientAuthShell(
+      backLabel: 'Log in',
+      onBack: () => context.go('/login'),
+      title: 'Set a new password',
+      subtitle: "Choose a password you don't use anywhere else.",
+      body: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AuthLabeledField(
+              label: 'New password',
+              child: TextFormField(
+                controller: _passwordController,
+                obscureText: _obscure,
+                style: TextStyle(color: c.textPrimary),
+                decoration: authFieldDecoration(
+                  context,
+                  suffix: TextButton(
+                    onPressed: () => setState(() => _obscure = !_obscure),
+                    child: Text(_obscure ? 'Show' : 'Hide',
+                        style: TextStyle(color: c.brandPrimary)),
+                  ),
+                ),
+                onChanged: (_) => setState(() {}),
               ),
             ),
-          ),
+            const SizedBox(height: 8),
+            PasswordRulesChecklist(
+              password: _passwordController.text,
+              showInvalid: _submitted,
+            ),
+            const SizedBox(height: 24),
+            AuthPrimaryButton(
+              label: 'Save password',
+              loading: _isLoading,
+              onPressed: _submit,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Saving signs you out on your other devices.',
+              style: TextStyle(color: c.textTertiary, fontSize: 13),
+            ),
+          ],
         ),
       ),
     );

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:zyndio_patient/config/theme.dart';
 import 'package:zyndio_patient/screens/auth/login_screen.dart';
 import 'package:zyndio_patient/screens/auth/signup_screen.dart';
 
@@ -10,7 +11,8 @@ import 'package:zyndio_patient/screens/auth/signup_screen.dart';
 /// sign-in skips patient-signup (no self-signup marker, no password /
 /// email-verification / rate-limit checks) and must not ship.
 void main() {
-  Widget wrap(Widget child) => ProviderScope(child: MaterialApp(home: child));
+  Widget wrap(Widget child) => ProviderScope(
+      child: MaterialApp(theme: BrandTheme.lightTheme, home: child));
 
   group('LoginScreen offers email+password only (H-M1)', () {
     testWidgets('no Google or Apple button and no social entry point', (tester) async {

@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:zyndio_patient/config/theme.dart';
 import 'package:zyndio_patient/screens/auth/delete_account_screen.dart';
 import 'package:zyndio_patient/screens/auth/forgot_password_screen.dart';
 import 'package:zyndio_patient/screens/auth/signup_screen.dart';
 import 'package:zyndio_patient/screens/auth/verify_email_screen.dart';
 import 'package:zyndio_patient/widgets/password_rules_checklist.dart';
 
-Widget _wrap(Widget child) =>
-    ProviderScope(child: MaterialApp(home: child));
+Widget _wrap(Widget child) => ProviderScope(
+      child: MaterialApp(theme: BrandTheme.lightTheme, home: child));
 
 void main() {
   group('checkPasswordRules (TC-011/TC-012 shared 5 rules)', () {
@@ -45,8 +46,8 @@ void main() {
   testWidgets('PasswordRulesChecklist lists unmet rules while the password is still weak',
       (tester) async {
     await tester.pumpWidget(_wrap(const PasswordRulesChecklist(password: 'short')));
-    expect(find.text('12+ characters'), findsOneWidget);
-    expect(find.text('Not commonly used'), findsOneWidget);
+    expect(find.text('At least 12 characters'), findsOneWidget);
+    expect(find.text('Not a commonly used password'), findsOneWidget);
     expect(find.text('Your password meets every rule'), findsNothing);
   });
 
@@ -54,17 +55,21 @@ void main() {
     testWidgets('shows the live password checklist and blocks submit on a weak password',
         (tester) async {
       await tester.pumpWidget(_wrap(const SignupScreen()));
-      await tester.enterText(find.byType(TextFormField).at(0), 'Jordan Rivera');
-      await tester.enterText(find.byType(TextFormField).at(1), 'jordan.rivera@example.test');
-      await tester.enterText(find.byType(TextFormField).at(2), 'short');
+      await tester.enterText(find.byType(TextFormField).at(0), 'jordan.rivera@example.test');
+      await tester.enterText(find.byType(TextFormField).at(1), 'short');
       await tester.pump();
 
-      expect(find.text('12+ characters'), findsOneWidget);
+      expect(find.text('At least 12 characters'), findsOneWidget);
+      expect(find.text('Create a password'), findsOneWidget);
+      expect(find.text('Show'), findsWidgets);
 
-      await tester.tap(find.widgetWithText(ElevatedButton, 'Create account'));
+      await tester.tap(find.text('Create account'));
       await tester.pump();
 
-      expect(find.text('Your password needs to meet every rule below'), findsOneWidget);
+      expect(
+        find.text('Add a symbol, like ! or #, to finish your password.'),
+        findsOneWidget,
+      );
     });
   });
 
@@ -77,7 +82,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 
-      expect(find.textContaining("If there's an account for"), findsOneWidget);
+      expect(find.textContaining("If there's an account for j•••••@example.test"), findsOneWidget);
     });
   });
 
@@ -91,7 +96,7 @@ void main() {
       await tester.pump();
 
       expect(find.text('Delete my account'), findsOneWidget);
-      expect(find.textContaining('clinic records stay with your clinic'), findsOneWidget);
+      expect(find.textContaining('Records your clinic holds'), findsOneWidget);
     });
 
     testWidgets('"Keep my account" is reachable without confirming deletion', (tester) async {
@@ -110,7 +115,8 @@ void main() {
       await tester.pumpWidget(_wrap(
         const ProviderScope(child: VerifyEmailScreen(email: 'jordan.rivera@example.test')),
       ));
-      expect(find.textContaining('We sent a confirmation link'), findsOneWidget);
+      expect(find.textContaining("can be used for a new account, we've sent a link"), findsOneWidget);
+      expect(find.textContaining('j•••••@example.test'), findsOneWidget);
 
       await tester.tap(find.text('Resend email'));
       await tester.pump();

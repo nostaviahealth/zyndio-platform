@@ -81,7 +81,6 @@ We use trusted third-party services strictly for operational purposes and advanc
 
 ### 5.1 Authentication and Storage
 - **Supabase:** We use Supabase for authentication and secure data storage.
-- **Google / Apple Sign-In:** Used for optional account authentication.
 
 ### 5.2 Third-Party AI Services
 We utilize third-party artificial intelligence services to analyze your health data and provide personalized longevity insights.

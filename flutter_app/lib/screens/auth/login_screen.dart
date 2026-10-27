@@ -1,14 +1,10 @@
-import 'dart:ui';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
-import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
-import 'widgets/auth_background.dart';
+import 'widgets/patient_auth_chrome.dart';
 
-/// Login screen matching React Login.tsx
+/// Patient log-in — Ava handoff 10-log-in (email + password only).
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -21,7 +17,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _obscure = true;
+  bool _fieldError = false;
   String? _errorMessage;
+  String? _bannerMessage;
+  AuthBannerTone _bannerTone = AuthBannerTone.critical;
 
   @override
   void dispose() {
@@ -36,6 +36,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
+      _fieldError = false;
+      _bannerMessage = null;
     });
 
     try {
@@ -44,214 +46,130 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             _passwordController.text,
           );
     } catch (e) {
+      final parsed = _parseError(e.toString());
       setState(() {
-        _errorMessage = _parseError(e.toString());
+        if (parsed.isBanner) {
+          _bannerMessage = parsed.message;
+          _bannerTone = parsed.tone;
+          _fieldError = false;
+          _errorMessage = null;
+        } else {
+          _errorMessage = parsed.message;
+          _fieldError = true;
+        }
       });
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  String _parseError(String error) {
-    if (error.contains('SocketException') || 
+  ({String message, bool isBanner, AuthBannerTone tone}) _parseError(String error) {
+    if (error.contains('SocketException') ||
         error.contains('host lookup') ||
-        error.contains('No address associated')) {
-      return 'No internet connection. Please check your network and try again.';
+        error.contains('No address associated') ||
+        error.contains('offline')) {
+      return (
+        message: "You're offline. Connect to the internet to log in.",
+        isBanner: true,
+        tone: AuthBannerTone.warning,
+      );
     }
-    if (error.contains('TimeoutException') || error.contains('timed out')) {
-      return 'Connection timed out. Please try again.';
+    if (error.contains('locked') || error.contains('rate limit') || error.contains('too many')) {
+      return (
+        message:
+            'Too many tries. For your security, log in is paused for 15 minutes. You can reset your password now.',
+        isBanner: true,
+        tone: AuthBannerTone.critical,
+      );
     }
-    if (error.contains('Invalid login credentials') || 
-        error.contains('invalid_credentials')) {
-      return "That email and password don't match. Try again, or reset your password.";
+    if (error.contains('Invalid login credentials') ||
+        error.contains('invalid_credentials') ||
+        error.contains('Invalid email or password')) {
+      return (
+        message:
+            "That email and password don't match. Try again, or reset your password.",
+        isBanner: false,
+        tone: AuthBannerTone.critical,
+      );
     }
-    if (error.contains('Email not confirmed')) {
-      return 'Please check your email and confirm your account.';
-    }
-    if (error.contains('rate limit') || error.contains('too many requests')) {
-      return 'Too many attempts. Please wait a moment and try again.';
-    }
-    if (error.contains('locked')) {
-      return "Sign-in is paused for this account after several wrong attempts. "
-          "Try again in 15 minutes, or reset your password.";
-    }
-    return error
-        .replaceFirst('Exception: ', '')
-        .replaceFirst('AuthException: ', '')
-        .replaceAll(RegExp(r'AuthRetryableFetchException\(message: '), '')
-        .replaceAll(RegExp(r'\)$'), '');
+    return (
+      message: error
+          .replaceFirst('Exception: ', '')
+          .replaceFirst('AuthException: ', ''),
+      isBanner: false,
+      tone: AuthBannerTone.critical,
+    );
   }
-
 
   @override
   Widget build(BuildContext context) {
-    final nc = context.nc;
-    final isDark = context.isDarkMode;
-
-    return AuthBackground(
-      child: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(32),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 480),
-                  decoration: BoxDecoration(
-                    color: nc.cardSurface.withOpacity(isDark ? 0.4 : 0.9),
-                    borderRadius: BorderRadius.circular(32),
-                    border: Border.all(color: nc.cardBorder.withOpacity(isDark ? 0.1 : 0.5)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: nc.shadowColor,
-                        blurRadius: 30,
-                        offset: const Offset(0, 15),
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(32),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Title
-                        Text(
-                          'Welcome back',
-                          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                                color: nc.textPrimary,
-                              ),
-                        ),
-                        const SizedBox(height: 32),
-
-                        // Error message
-                        if (_errorMessage != null) ...[
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: BrandColors.red500.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  LucideIcons.alertCircle,
-                                  size: 16,
-                                  color: BrandColors.red500,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    _errorMessage!,
-                                    style: const TextStyle(
-                                      color: BrandColors.red500,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-
-                        // Email field
-                        TextFormField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          style: TextStyle(color: nc.textPrimary),
-                          decoration: const InputDecoration(
-                            hintText: 'Enter your email',
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your email';
-                            }
-                            if (!value.contains('@')) {
-                              return 'Please enter a valid email';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Password field
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: true,
-                          style: TextStyle(color: nc.textPrimary),
-                          decoration: const InputDecoration(
-                            hintText: 'Enter your password',
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your password';
-                            }
-                            return null;
-                          },
-                        ),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: () => context.go('/forgot-password'),
-                            child: Text(
-                              'Forgot password?',
-                              style: TextStyle(color: nc.textSecondary),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-
-                        // Sign in button
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _handleSignIn,
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              backgroundColor: isDark ? Colors.white : BrandColors.dark,
-                              foregroundColor: isDark ? Colors.black : Colors.white,
-                            ),
-                            child: _isLoading
-                                ? SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: isDark ? Colors.black : Colors.white,
-                                    ),
-                                  )
-                                : const Text('Sign in'),
-                          ),
-                        ),
-
-                        const SizedBox(height: 32),
-
-                        // Terms
-                        Center(
-                          child: Text(
-                            'By signing in, you agree to our Terms & Service',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: nc.textTertiary,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+    final c = zcOf(context);
+    return PatientAuthShell(
+      wordmark: true,
+      title: 'Log in',
+      subtitle: 'Welcome back to your care program.',
+      banner: _bannerMessage == null
+          ? null
+          : AuthStatusBanner(message: _bannerMessage!, tone: _bannerTone),
+      body: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AuthLabeledField(
+              label: 'Email',
+              child: TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                autofillHints: const [AutofillHints.email],
+                style: TextStyle(color: c.textPrimary),
+                decoration: authFieldDecoration(context),
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Enter your email' : null,
               ),
             ),
-          ),
+            const SizedBox(height: 16),
+            AuthLabeledField(
+              label: 'Password',
+              errorText: _errorMessage,
+              child: TextFormField(
+                controller: _passwordController,
+                obscureText: _obscure,
+                autofillHints: const [AutofillHints.password],
+                style: TextStyle(color: c.textPrimary),
+                decoration: authFieldDecoration(
+                  context,
+                  error: _fieldError,
+                  suffix: TextButton(
+                    onPressed: () => setState(() => _obscure = !_obscure),
+                    child: Text(_obscure ? 'Show' : 'Hide',
+                        style: TextStyle(color: c.brandPrimary, fontSize: 14)),
+                  ),
+                ),
+                validator: (v) =>
+                    (v == null || v.isEmpty) ? 'Enter your password' : null,
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () => context.go('/forgot-password'),
+                child: Text('Forgot password?',
+                    style: TextStyle(color: c.brandPrimary)),
+              ),
+            ),
+            const SizedBox(height: 8),
+            AuthPrimaryButton(
+              label: _isLoading ? 'Logging in' : 'Log in',
+              loading: _isLoading,
+              onPressed: _handleSignIn,
+            ),
+            const SizedBox(height: 12),
+            AuthSecondaryButton(
+              label: 'Create an account',
+              onPressed: () => context.go('/signup'),
+            ),
+          ],
         ),
       ),
     );

@@ -24,15 +24,18 @@ Naming: `<screen>/<state>--{light|dark}.png` (same as design `states/`).
 | 09-verify-email | sent, resent, wait, expired, verified |
 | 10-log-in | default, signing, error, locked, offline |
 | 11-reset-password | request, sent, new, saved, expired |
-| 12-delete-account | reauth, confirm, deleting, error, deleted |
+| 12-delete-account | settings, reauth, confirm, deleting, error, deleted |
 | 13-link-record | intro, choose, code, wrong, locked, clinic, review, linked |
 
 ## Missing (not reachable via the real widget)
 
 | State | Why |
 |---|---|
-| `12-delete-account/settings` | Ava's "settings" entry is the Delete-account row on Settings, not `DeleteAccountScreen`. Capturing Settings would not be this screen's widget. |
 | Dedicated 2FA screen | No separate patient 2FA/auth screen in `lib/screens/auth/`; telehealth proof is `LinkRecordScreen`. |
+
+`12-delete-account/settings` is a dedicated Account-section capture widget
+(`_SettingsDeleteRowCapture`) matching Ava's settings row + footnote (not the
+full live Settings screen).
 
 Regenerate:
 ```bash

@@ -71,11 +71,11 @@ class PasswordRulesChecklist extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        _rule(nc, '12+ characters', checks.length),
-        _rule(nc, 'Upper and lower case letters', checks.hasCase),
+        _rule(nc, 'At least 12 characters', checks.length),
+        _rule(nc, 'An uppercase and a lowercase letter', checks.hasCase),
         _rule(nc, 'A number', checks.digit),
-        _rule(nc, 'A symbol', checks.symbol),
-        _rule(nc, 'Not commonly used', commonPasswordOk, serverChecked: true),
+        _rule(nc, 'A symbol, like ! or #', checks.symbol),
+        _rule(nc, 'Not a commonly used password', commonPasswordOk, serverChecked: true),
       ],
     );
   }

@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../config/theme.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../providers/auth_provider.dart';
-import 'widgets/auth_background.dart';
+import '../../utils/mask_email.dart';
+import 'widgets/patient_auth_chrome.dart';
 
-/// Ava 11-reset-password: request / sent states (new / saved / expired live
-/// in reset_password_screen.dart, reached via the emailed link).
+/// Ava 11-reset-password: request / sent.
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
 
   @override
-  ConsumerState<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+  ConsumerState<ForgotPasswordScreen> createState() =>
+      _ForgotPasswordScreenState();
 }
 
 class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
@@ -30,85 +32,87 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
     try {
-      // PSU-ENUM-03: this call always "succeeds" from the UI's perspective -
-      // never branch on whether the email actually has an account.
       await ref
           .read(authNotifierProvider.notifier)
           .requestPasswordReset(_emailController.text.trim());
     } finally {
-      if (mounted) setState(() { _isLoading = false; _sent = true; });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _sent = true;
+        });
+      }
     }
+  }
+
+  Future<void> _openMail() async {
+    final uri = Uri.parse('mailto:');
+    if (await canLaunchUrl(uri)) await launchUrl(uri);
   }
 
   @override
   Widget build(BuildContext context) {
-    final nc = context.nc;
+    final c = zcOf(context);
+    if (_sent) {
+      final masked = maskEmail(_emailController.text.trim());
+      return PatientAuthShell(
+        backLabel: 'Log in',
+        onBack: () => context.go('/login'),
+        hero: const AuthHeroIcon(
+          icon: LucideIcons.mail,
+          tone: AuthBannerTone.info,
+        ),
+        title: 'Check your email',
+        subtitle:
+            "If there's an account for $masked, we've sent a reset link. It works once and expires after 1 hour.",
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AuthPrimaryButton(label: 'Open mail app', onPressed: _openMail),
+            const SizedBox(height: 12),
+            AuthSecondaryButton(
+              label: 'Back to log in',
+              onPressed: () => context.go('/login'),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'No email after a few minutes? Check spam, or try again.',
+              style: TextStyle(color: c.textTertiary, fontSize: 13),
+            ),
+          ],
+        ),
+      );
+    }
 
-    return AuthBackground(
-      child: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Reset your password',
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineLarge
-                          ?.copyWith(color: nc.textPrimary)),
-                  const SizedBox(height: 16),
-                  if (_sent)
-                    Text(
-                      "If there's an account for ${_emailController.text.trim()}, "
-                      "we've sent a link to reset the password. It expires in 1 hour.",
-                      style: TextStyle(color: nc.textSecondary),
-                    )
-                  else
-                    Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TextFormField(
-                            controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
-                            decoration: const InputDecoration(hintText: 'Enter your email'),
-                            validator: (value) {
-                              if (value == null || !value.contains('@')) {
-                                return 'Please enter a valid email';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 24),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: _isLoading ? null : _submit,
-                              child: _isLoading
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(strokeWidth: 2))
-                                  : const Text('Send reset link'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: () => context.go('/login'),
-                    child: const Text('Back to sign in'),
-                  ),
-                ],
+    return PatientAuthShell(
+      backLabel: 'Log in',
+      onBack: () => context.go('/login'),
+      title: 'Reset your password',
+      subtitle:
+          "Enter the email you use for Zyndio. We'll send you a link to set a new password.",
+      body: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AuthLabeledField(
+              label: 'Email',
+              child: TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                style: TextStyle(color: c.textPrimary),
+                decoration: authFieldDecoration(context),
+                validator: (v) =>
+                    (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
               ),
             ),
-          ),
+            const SizedBox(height: 24),
+            AuthPrimaryButton(
+              label: 'Send reset link',
+              loading: _isLoading,
+              onPressed: _submit,
+            ),
+          ],
         ),
       ),
     );

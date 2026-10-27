@@ -152,41 +152,37 @@ final _captures = <_Capture>[
   }),
   _Capture('08-sign-up', 'filled', (t, a) async {
     await _pumpScreen(t, home: const SignupScreen(), dark: false, auth: a);
-    await t.enterText(find.byType(TextFormField).at(0), 'Jordan Rivera');
     await t.enterText(
-        find.byType(TextFormField).at(1), 'jordan.rivera@example.com');
+        find.byType(TextFormField).at(0), 'jordan.rivera@example.com');
     await t.enterText(
-        find.byType(TextFormField).at(2), 'Correct-Horse-Battery9!');
+        find.byType(TextFormField).at(1), 'Correct-Horse-Battery9!');
     await _settleBrief(t);
   }),
   _Capture('08-sign-up', 'invalid', (t, a) async {
     await _pumpScreen(t, home: const SignupScreen(), dark: false, auth: a);
-    await t.enterText(find.byType(TextFormField).at(0), 'Jordan Rivera');
     await t.enterText(
-        find.byType(TextFormField).at(1), 'jordan.rivera@example.com');
-    await t.enterText(find.byType(TextFormField).at(2), 'nonsymbol12AB');
+        find.byType(TextFormField).at(0), 'jordan.rivera@example.com');
+    await t.enterText(find.byType(TextFormField).at(1), 'nonsymbol12AB');
     await t.tap(find.widgetWithText(ElevatedButton, 'Create account'));
     await _settleBrief(t);
   }),
   _Capture('08-sign-up', 'creating', (t, a) async {
     a.hangSignUp = Completer<void>();
     await _pumpScreen(t, home: const SignupScreen(), dark: false, auth: a);
-    await t.enterText(find.byType(TextFormField).at(0), 'Jordan Rivera');
     await t.enterText(
-        find.byType(TextFormField).at(1), 'jordan.rivera@example.com');
+        find.byType(TextFormField).at(0), 'jordan.rivera@example.com');
     await t.enterText(
-        find.byType(TextFormField).at(2), 'Correct-Horse-Battery9!');
+        find.byType(TextFormField).at(1), 'Correct-Horse-Battery9!');
     await t.tap(find.widgetWithText(ElevatedButton, 'Create account'));
     await _settleBrief(t); // stays on creating/loading
   }),
   _Capture('08-sign-up', 'offline', (t, a) async {
     a.signUpError = Exception('SocketException: Failed host lookup');
     await _pumpScreen(t, home: const SignupScreen(), dark: false, auth: a);
-    await t.enterText(find.byType(TextFormField).at(0), 'Jordan Rivera');
     await t.enterText(
-        find.byType(TextFormField).at(1), 'jordan.rivera@example.com');
+        find.byType(TextFormField).at(0), 'jordan.rivera@example.com');
     await t.enterText(
-        find.byType(TextFormField).at(2), 'Correct-Horse-Battery9!');
+        find.byType(TextFormField).at(1), 'Correct-Horse-Battery9!');
     await t.tap(find.widgetWithText(ElevatedButton, 'Create account'));
     await t.pump(); // start
     await t.pump(const Duration(milliseconds: 100));
@@ -194,11 +190,10 @@ final _captures = <_Capture>[
   _Capture('08-sign-up', 'limited', (t, a) async {
     a.signUpError = PatientAuthException('rate_limited');
     await _pumpScreen(t, home: const SignupScreen(), dark: false, auth: a);
-    await t.enterText(find.byType(TextFormField).at(0), 'Jordan Rivera');
     await t.enterText(
-        find.byType(TextFormField).at(1), 'jordan.rivera@example.com');
+        find.byType(TextFormField).at(0), 'jordan.rivera@example.com');
     await t.enterText(
-        find.byType(TextFormField).at(2), 'Correct-Horse-Battery9!');
+        find.byType(TextFormField).at(1), 'Correct-Horse-Battery9!');
     await t.tap(find.widgetWithText(ElevatedButton, 'Create account'));
     await t.pump();
     await t.pump(const Duration(milliseconds: 100));
@@ -275,7 +270,7 @@ final _captures = <_Capture>[
         find.byType(TextFormField).at(0), 'jordan.rivera@example.com');
     await t.enterText(
         find.byType(TextFormField).at(1), 'Correct-Horse-Battery9!');
-    await t.tap(find.widgetWithText(ElevatedButton, 'Sign in'));
+    await t.tap(find.widgetWithText(ElevatedButton, 'Log in'));
     await _settleBrief(t);
   }),
   _Capture('10-log-in', 'error', (t, a) async {
@@ -285,7 +280,7 @@ final _captures = <_Capture>[
         find.byType(TextFormField).at(0), 'jordan.rivera@example.com');
     await t.enterText(
         find.byType(TextFormField).at(1), 'Wrong-Password-99!');
-    await t.tap(find.widgetWithText(ElevatedButton, 'Sign in'));
+    await t.tap(find.widgetWithText(ElevatedButton, 'Log in'));
     await t.pump();
     await t.pump(const Duration(milliseconds: 100));
   }),
@@ -296,7 +291,7 @@ final _captures = <_Capture>[
         find.byType(TextFormField).at(0), 'jordan.rivera@example.com');
     await t.enterText(
         find.byType(TextFormField).at(1), 'Wrong-Password-99!');
-    await t.tap(find.widgetWithText(ElevatedButton, 'Sign in'));
+    await t.tap(find.widgetWithText(ElevatedButton, 'Log in'));
     await t.pump();
     await t.pump(const Duration(milliseconds: 100));
   }),
@@ -307,7 +302,7 @@ final _captures = <_Capture>[
         find.byType(TextFormField).at(0), 'jordan.rivera@example.com');
     await t.enterText(
         find.byType(TextFormField).at(1), 'Correct-Horse-Battery9!');
-    await t.tap(find.widgetWithText(ElevatedButton, 'Sign in'));
+    await t.tap(find.widgetWithText(ElevatedButton, 'Log in'));
     await t.pump();
     await t.pump(const Duration(milliseconds: 100));
   }),
@@ -343,7 +338,7 @@ final _captures = <_Capture>[
     );
     await t.enterText(
         find.byType(TextFormField), 'Correct-Horse-Battery9!');
-    await t.tap(find.text('Save new password'));
+    await t.tap(find.text('Save password'));
     await t.pump();
     await t.pump(const Duration(milliseconds: 100));
   }),
@@ -356,7 +351,15 @@ final _captures = <_Capture>[
     );
   }),
 
-  // ---- 12-delete-account (settings entry is MISSING — see INDEX) ----
+  // ---- 12-delete-account ----
+  _Capture('12-delete-account', 'settings', (t, a) async {
+    await _pumpScreen(
+      t,
+      home: const _SettingsDeleteRowCapture(),
+      dark: false,
+      auth: a,
+    );
+  }),
   _Capture('12-delete-account', 'reauth', (t, a) async {
     await _pumpScreen(
         t, home: const DeleteAccountScreen(), dark: false, auth: a);
@@ -379,10 +382,10 @@ final _captures = <_Capture>[
     await _settleBrief(t);
   }),
   _Capture('12-delete-account', 'error', (t, a) async {
-    a.deleteError = PatientAuthException('reauth_failed');
+    a.deleteError = Exception('SocketException: Failed host lookup');
     await _pumpScreen(
         t, home: const DeleteAccountScreen(), dark: false, auth: a);
-    await t.enterText(find.byType(TextFormField), 'Wrong-Password-99!');
+    await t.enterText(find.byType(TextFormField), 'Correct-Horse-Battery9!');
     await t.tap(find.text('Continue'));
     await _settleBrief(t);
     await t.tap(find.text('Delete my account'));
@@ -408,29 +411,36 @@ final _captures = <_Capture>[
   _Capture('13-link-record', 'choose', (t, a) async {
     await _pumpScreen(
         t, home: const LinkRecordScreen(), dark: false, auth: a);
-    await t.tap(find.text('Continue'));
+    await t.tap(find.text('Link my record'));
     await _settleBrief(t);
   }),
   _Capture('13-link-record', 'code', (t, a) async {
     await _pumpScreen(
         t, home: const LinkRecordScreen(), dark: false, auth: a);
-    await t.tap(find.text('Continue'));
+    await t.tap(find.text('Link my record'));
     await _settleBrief(t);
     await t.tap(find.text("Send a code to my clinic's patient messages"));
     await t.pump();
     await t.pump(const Duration(milliseconds: 100));
+    // Partial fill for visual
+    await t.enterText(find.byType(TextField).at(0), '5');
+    await t.enterText(find.byType(TextField).at(1), '0');
+    await t.enterText(find.byType(TextField).at(2), '2');
+    await _settleBrief(t);
   }),
   _Capture('13-link-record', 'wrong', (t, a) async {
     a.redeemTelehealthResult = const {'ok': false, 'error': 'wrong_code'};
     await _pumpScreen(
         t, home: const LinkRecordScreen(), dark: false, auth: a);
-    await t.tap(find.text('Continue'));
+    await t.tap(find.text('Link my record'));
     await _settleBrief(t);
     await t.tap(find.text("Send a code to my clinic's patient messages"));
     await t.pump();
     await t.pump(const Duration(milliseconds: 100));
-    await t.enterText(find.byType(TextField), '000000');
-    await t.tap(find.text('Continue'));
+    for (var i = 0; i < 6; i++) {
+      await t.enterText(find.byType(TextField).at(i), '${i + 1}');
+    }
+    await t.tap(find.widgetWithText(ElevatedButton, 'Link record'));
     await t.pump();
     await t.pump(const Duration(milliseconds: 100));
   }),
@@ -438,7 +448,7 @@ final _captures = <_Capture>[
     a.requestLinkError = PatientAuthException('rate_limited');
     await _pumpScreen(
         t, home: const LinkRecordScreen(), dark: false, auth: a);
-    await t.tap(find.text('Continue'));
+    await t.tap(find.text('Link my record'));
     await _settleBrief(t);
     await t.tap(find.text("Send a code to my clinic's patient messages"));
     await t.pump();
@@ -447,21 +457,23 @@ final _captures = <_Capture>[
   _Capture('13-link-record', 'clinic', (t, a) async {
     await _pumpScreen(
         t, home: const LinkRecordScreen(), dark: false, auth: a);
-    await t.tap(find.text('Continue'));
+    await t.tap(find.text('Link my record'));
     await _settleBrief(t);
     await t.tap(find.text('I have a code from my clinic'));
+    await _settleBrief(t);
+    await t.enterText(find.byType(TextField), 'K7Q4-2MRX');
     await _settleBrief(t);
   }),
   _Capture('13-link-record', 'review', (t, a) async {
     a.redeemClinicResult = const {'ok': false, 'error': 'conflict'};
     await _pumpScreen(
         t, home: const LinkRecordScreen(), dark: false, auth: a);
-    await t.tap(find.text('Continue'));
+    await t.tap(find.text('Link my record'));
     await _settleBrief(t);
     await t.tap(find.text('I have a code from my clinic'));
     await _settleBrief(t);
     await t.enterText(find.byType(TextField), 'CLINICDEMO7K4');
-    await t.tap(find.text('Continue'));
+    await t.tap(find.widgetWithText(ElevatedButton, 'Link record'));
     await t.pump();
     await t.pump(const Duration(milliseconds: 100));
   }),
@@ -469,12 +481,12 @@ final _captures = <_Capture>[
     a.redeemClinicResult = const {'ok': true};
     await _pumpScreen(
         t, home: const LinkRecordScreen(), dark: false, auth: a);
-    await t.tap(find.text('Continue'));
+    await t.tap(find.text('Link my record'));
     await _settleBrief(t);
     await t.tap(find.text('I have a code from my clinic'));
     await _settleBrief(t);
     await t.enterText(find.byType(TextField), 'CLINICDEMO7K4');
-    await t.tap(find.text('Continue'));
+    await t.tap(find.widgetWithText(ElevatedButton, 'Link record'));
     await t.pump();
     await t.pump(const Duration(milliseconds: 100));
   }),
@@ -532,6 +544,108 @@ void main() {
     // ignore: avoid_print
     print('COPIED_SCREENSHOTS=$copied');
   });
+}
+
+
+/// Ava 12-delete-account settings row (Account section excerpt).
+class _SettingsDeleteRowCapture extends StatelessWidget {
+  const _SettingsDeleteRowCapture();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    return Scaffold(
+      backgroundColor: c.bgCanvas,
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          children: [
+            Text('Profile',
+                style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    color: c.textPrimary,
+                    height: 1.2)),
+            const SizedBox(height: 24),
+            Text('Account',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: c.textSecondary,
+                    letterSpacing: 0.4)),
+            const SizedBox(height: 4),
+            Text('Manage how you sign in to Zyndio.',
+                style: TextStyle(fontSize: 14, color: c.textTertiary, height: 1.4)),
+            const SizedBox(height: 16),
+            Container(
+              decoration: BoxDecoration(
+                color: c.bgSurface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: c.borderSubtle),
+              ),
+              child: Column(
+                children: [
+                  ListTile(
+                    title: Text('Personal details',
+                        style: TextStyle(
+                            color: c.textPrimary, fontWeight: FontWeight.w500)),
+                    trailing: Icon(Icons.chevron_right, color: c.textTertiary),
+                  ),
+                  Divider(height: 1, color: c.borderSubtle),
+                  ListTile(
+                    title: Text('Email',
+                        style: TextStyle(
+                            color: c.textPrimary, fontWeight: FontWeight.w500)),
+                    subtitle: Text('j•••••@example.com',
+                        style: TextStyle(color: c.textTertiary, fontSize: 13)),
+                    trailing: Icon(Icons.chevron_right, color: c.textTertiary),
+                  ),
+                  Divider(height: 1, color: c.borderSubtle),
+                  ListTile(
+                    title: Text('Password and security',
+                        style: TextStyle(
+                            color: c.textPrimary, fontWeight: FontWeight.w500)),
+                    trailing: Icon(Icons.chevron_right, color: c.textTertiary),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: c.bgSurface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: c.borderSubtle),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ListTile(
+                    title: Text(
+                      'Delete account',
+                      style: TextStyle(
+                        color: c.statusCritical,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    trailing: Icon(Icons.chevron_right, color: c.textTertiary),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                    child: Text(
+                      'Permanently deletes your Zyndio app account and the data you added in the app.',
+                      style: TextStyle(fontSize: 13, color: c.textTertiary, height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 Future<void> _runCapture(
