@@ -28,7 +28,7 @@ const PreviewShell: React.FC<PreviewShellProps> = ({ mode, children }) => {
 
   return (
     <div
-      className={`flex min-h-screen ${isDark ? 'dark bg-[#070A14]' : 'bg-[#F1F4FC]'}`}
+      className={`flex min-h-screen ${isDark ? 'dark bg-[#070A14] [color-scheme:dark]' : 'bg-[#F1F4FC] [color-scheme:light]'}`}
       data-preview-theme={mode}
     >
       <nav aria-label="Main" className={`flex h-screen w-[264px] shrink-0 flex-col border-r ${navSurface}`}>

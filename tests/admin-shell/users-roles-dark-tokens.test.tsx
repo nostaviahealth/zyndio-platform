@@ -21,6 +21,7 @@ describe('PreviewShell dark mode', () => {
     const root = container.firstElementChild as HTMLElement;
     expect(root.className.split(/\s+/)).toContain('dark');
     expect(root).toHaveAttribute('data-preview-theme', 'dark');
+    expect(root.className).toMatch(/color-scheme:dark/);
   });
 
   it('does not force an inline light text color on main (dark)', () => {

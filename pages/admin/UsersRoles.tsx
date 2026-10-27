@@ -284,7 +284,7 @@ const UsersRolesPage: React.FC = () => {
         return (
           <select
             aria-label={`Change role for ${m.email}`}
-            className="min-h-[44px] rounded-md border border-slate-300 bg-white px-2 text-sm text-[#030616] dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8]"
+            className="min-h-[44px] appearance-none rounded-md border border-slate-300 bg-white px-2 text-sm text-[#030616] dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8]"
             value={m.role}
             disabled={busyUserId === m.user_id}
             onChange={(e) => setDialog({ kind: 'role-confirm', member: m, newRole: e.target.value as AppRole })}
@@ -371,7 +371,7 @@ const UsersRolesPage: React.FC = () => {
             />
             <select
               aria-label="Filter by status"
-              className="min-h-[44px] rounded-full border border-slate-300 bg-white px-4 text-sm text-[#030616] dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8]"
+              className="min-h-[44px] appearance-none rounded-full border border-slate-300 bg-white px-4 text-sm text-[#030616] dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8]"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as 'all' | MemberStatus)}
             >
