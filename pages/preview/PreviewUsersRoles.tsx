@@ -18,10 +18,13 @@ function renderStatusBadge(member: PreviewMember, daysLeft = 7) {
 
 const Legend: React.FC<{ isPlatformAdmin?: boolean }> = ({ isPlatformAdmin = false }) => (
   <section className="mt-10 rounded-xl border border-slate-200 bg-white p-6">
-    <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-      What each role can do <span className="normal-case text-slate-400">(Draft, to confirm with Zyndio)</span>
-    </h2>
-    <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+    <div className="flex flex-wrap items-center gap-3">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">What each role can do</h2>
+      <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">
+        Draft, to confirm with Zyndio
+      </span>
+    </div>
+    <dl className="mt-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
       {(['physician', 'care_coordinator', 'org_admin', 'read_only'] as const).map((role) => (
         <div key={role}>
           <dt className="font-semibold text-[#030616]">{ROLE_LABELS[role]}</dt>
