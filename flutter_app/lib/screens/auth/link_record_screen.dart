@@ -153,6 +153,10 @@ class _LinkRecordScreenState extends ConsumerState<LinkRecordScreen> {
       case 'review':
         return _message(
           c,
+          hero: const AuthHeroIcon(
+            icon: LucideIcons.info,
+            tone: AuthBannerTone.info,
+          ),
           title: 'No code yet?',
           body:
               'Codes usually arrive within a few minutes. If nothing comes, your clinic can confirm it\'s you and give you a clinic code instead.',
@@ -197,6 +201,13 @@ class _LinkRecordScreenState extends ConsumerState<LinkRecordScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const Center(
+                child: AuthHeroIcon(
+                  icon: LucideIcons.flaskConical,
+                  tone: AuthBannerTone.info,
+                ),
+              ),
+              const SizedBox(height: 16),
               Text('Link your clinic record',
                   style: TextStyle(
                       fontSize: 20,
@@ -434,8 +445,11 @@ class _LinkRecordScreenState extends ConsumerState<LinkRecordScreen> {
         ),
         const SizedBox(height: 12),
         AuthSecondaryButton(
+          // Ava R4: the server lockout only guards redeem, not new code
+          // requests (patient-request-link-code never checks
+          // patient_link_attempts), so "Send a new code" stays enabled here.
           label: 'Send a new code',
-          onPressed: locked ? null : _sendCode,
+          onPressed: _busy ? null : _sendCode,
         ),
       ],
     );
@@ -583,6 +597,7 @@ class _LinkRecordScreenState extends ConsumerState<LinkRecordScreen> {
     String? secondary,
     VoidCallback? onSecondary,
     String? info,
+    Widget? hero,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -597,6 +612,10 @@ class _LinkRecordScreenState extends ConsumerState<LinkRecordScreen> {
           child: const Text('Back'),
         ),
         const SizedBox(height: 8),
+        if (hero != null) ...[
+          hero,
+          const SizedBox(height: 16),
+        ],
         Text(title,
             style: TextStyle(
                 fontSize: 22, fontWeight: FontWeight.w700, color: c.textPrimary)),
