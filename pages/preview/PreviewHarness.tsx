@@ -1,6 +1,7 @@
 import React from 'react';
 import { useSearchParams } from 'react-router-dom';
 import PreviewUsersRoles from './PreviewUsersRoles';
+import PreviewShell from './PreviewShell';
 import { PREVIEW_FIXTURE_MARKER } from './previewFixtures';
 
 // /__preview?screen=&state=&mode= - screenshot harness for scripts/
@@ -24,20 +25,13 @@ const PreviewHarness: React.FC = () => {
     return <div style={{ padding: 24 }}>Unknown preview screen: {screen}</div>;
   }
 
-  const isDark = mode === 'dark';
+  const normalizedMode: 'light' | 'dark' = mode === 'dark' ? 'dark' : 'light';
 
   return (
-    <div
-      data-preview-mode={mode}
-      data-preview-marker={PREVIEW_FIXTURE_MARKER}
-      style={{
-        minHeight: '100vh',
-        background: isDark ? '#030616' : '#F2F4F7',
-        color: isDark ? '#F2F4F7' : undefined,
-        padding: '32px 40px',
-      }}
-    >
-      <Screen state={state} />
+    <div data-preview-mode={mode} data-preview-marker={PREVIEW_FIXTURE_MARKER}>
+      <PreviewShell mode={normalizedMode}>
+        <Screen state={state} />
+      </PreviewShell>
     </div>
   );
 };

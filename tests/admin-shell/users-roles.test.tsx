@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 const MEMBERS = [
   {
@@ -60,17 +61,29 @@ describe('UsersRolesPage', () => {
     expect(screen.getByLabelText('More actions for morgan.ellis@example.test')).toBeInTheDocument();
   });
 
-  it("hides reset-2fa and deactivate on the signed-in admin's own row, but shows them on other rows", async () => {
+  it('shows a role select for other active members but plain text for yourself', async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText('2 people')).toBeInTheDocument());
+
+    expect(screen.getByLabelText('Change role for morgan.ellis@example.test')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Change role for taylor.brooks@example.test')).not.toBeInTheDocument();
+    const nameCell = screen.getByText('taylor.brooks@example.test (you)').closest('tr');
+    expect(nameCell).not.toBeNull();
+    expect(within(nameCell as HTMLElement).getByText('Admin')).toBeInTheDocument();
+  });
+
+  it("hides the ··· menu on the signed-in admin's own row, but shows Request 2FA reset and Deactivate via the menu on other rows", async () => {
+    const user = userEvent.setup();
     renderPage();
     await waitFor(() => expect(screen.getByText('2 people')).toBeInTheDocument());
 
     const selfRowActions = screen.getByLabelText('More actions for taylor.brooks@example.test (you)');
     expect(selfRowActions.querySelector('button')).toBeNull();
 
-    const otherRowActions = screen.getByLabelText('More actions for morgan.ellis@example.test');
-    expect(screen.getByRole('button', { name: 'Request 2FA reset' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Deactivate' })).toBeInTheDocument();
-    expect(otherRowActions).toContainElement(screen.getByRole('button', { name: 'Deactivate' }));
+    await user.click(screen.getByLabelText('More actions for morgan.ellis@example.test'));
+    const menu = screen.getByRole('menu');
+    expect(within(menu).getByRole('menuitem', { name: 'Request two-factor reset' })).toBeInTheDocument();
+    expect(within(menu).getByRole('menuitem', { name: 'Deactivate' })).toBeInTheDocument();
   });
 
   it('opens the invite dialog from the page header action', async () => {
