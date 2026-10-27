@@ -245,7 +245,8 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
       on
         ? 'border-2 border-[#B42318] dark:border-[#FF8F86]'
         : 'border border-slate-300 dark:border-[#6C7690]';
-    const radioRing = roleError
+    // Red rings only for empty-role validation; role-refused is inline-only.
+    const radioRing = isValidation
       ? 'outline outline-2 outline-[#B42318] outline-offset-0 dark:outline-[#FF8F86]'
       : '';
     return (

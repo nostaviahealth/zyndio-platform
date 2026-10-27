@@ -88,4 +88,38 @@ describe('UsersRolesPage invite dialog (TC-014)', () => {
     await user.click(screen.getByRole('button', { name: /^send invite$/i }));
     expect(await screen.findByText(/You can't give this role/i)).toBeTruthy();
   });
+
+  const ROLE_ERROR_RING = /outline-\[#B42318\]/;
+
+  it('paints red rings on role radios for the empty-role validation', async () => {
+    const user = userEvent.setup();
+    render(<UsersRolesPage />);
+    await screen.findByRole('button', { name: /invite user/i });
+    await user.click(screen.getByRole('button', { name: /invite user/i }));
+    await user.click(screen.getByRole('button', { name: /^send invite$/i }));
+    expect(await screen.findByText('Choose a role.')).toBeTruthy();
+    const radios = screen.getAllByRole('radio');
+    expect(radios.length).toBe(4);
+    for (const radio of radios) {
+      expect(radio.className).toMatch(ROLE_ERROR_RING);
+    }
+  });
+
+  it('does not paint red rings on role radios for a server role refusal', async () => {
+    inviteUser.mockResolvedValueOnce({ ok: false, error: 'role_not_allowed' });
+    const user = userEvent.setup();
+    render(<UsersRolesPage />);
+    await screen.findByRole('button', { name: /invite user/i });
+    await user.click(screen.getByRole('button', { name: /invite user/i }));
+    await user.type(screen.getByLabelText(/full name/i), 'Alex Lindgren');
+    await user.type(screen.getByLabelText(/work email/i), 'alex.lindgren@example.test');
+    await user.click(screen.getByRole('radio', { name: /physician/i }));
+    await user.click(screen.getByRole('button', { name: /^send invite$/i }));
+    expect(await screen.findByText(/You can't give this role/i)).toBeTruthy();
+    const radios = screen.getAllByRole('radio');
+    expect(radios.length).toBe(4);
+    for (const radio of radios) {
+      expect(radio.className).not.toMatch(ROLE_ERROR_RING);
+    }
+  });
 });

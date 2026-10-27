@@ -750,7 +750,9 @@ const InviteDialog: React.FC<InviteDialogProps> = ({ onClose, onSubmit }) => {
                   checked={role === r}
                   onChange={() => setRole(r)}
                   className={`mt-1 h-[22px] w-[22px] shrink-0 accent-[#2C5CF2] ${
-                    fieldErrors.role
+                    // Ava: red rings only for empty-role validation ("Choose a role."),
+                    // not for server role_not_allowed (inline message only).
+                    fieldErrors.role === 'Choose a role.'
                       ? 'outline outline-2 outline-[#B42318] outline-offset-0 dark:outline-[#FF8F86]'
                       : ''
                   }`}
