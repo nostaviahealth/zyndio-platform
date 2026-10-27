@@ -1,29 +1,38 @@
 # TC-012 patient-auth screenshots
 
-Source: **Flutter widget-test / golden captures** of built patient-auth frames
-(`flutter_app/lib/screens/auth/screenshot/patient_auth_screenshot_frames.dart`),
-Ava state names, fictional data only. Light + dark at **390×844** with real **Inter** + MaterialIcons via FontLoader (not Ahem).
+Source: **Flutter widget-test / golden captures** that pump the **real production
+screens** (`SignupScreen`, `VerifyEmailScreen`, `LoginScreen`,
+`ForgotPasswordScreen`, `ResetPasswordScreen`, `DeleteAccountScreen`,
+`LinkRecordScreen`) under `BrandTheme` light/dark, with faked
+`CaptureAuthNotifier` to reach Ava's states.
 
-> Correction (Ava): an earlier commit (`1a94579`) copied Ava's design renders
-> byte-for-byte. That set is **not** valid evidence. This tree replaces those
-> files with real Flutter captures. SHA-256 of every PNG differs from Ava's
-> handoff under `/workspace/design/team3/zyndio/handoff/patient-auth/states/`.
+Surface: **390×844** logical at **devicePixelRatio 2** (physical 780×1688),
+fonts: **Inter** + MaterialIcons + Lucide (FontLoader; not Ahem).
+
+No `FICTIONAL DATA · Flutter capture` footer overlay (filename / this INDEX
+carry the label). Fictional data only.
+
+> Earlier commits used a string-list "frame" harness (`patient_auth_screenshot_frames.dart`)
+> that drew copy into one rounded box (title `ZYNDIOPLACEHOLDER`, fake Back). That
+> harness is retired; these PNGs replace it.
 
 Naming: `<screen>/<state>--{light|dark}.png` (same as design `states/`).
 
-Copy notes reflected here (Ava + Henry):
-- Send-code / code / wrong / locked: "If your details match a clinic record, we've sent a 6-digit code to your clinic's patient messages."
-- Review: "No code yet?" → clinic code path.
-- Linked: "We've also sent a notice to your email and your clinic's patient messages."
-
-| Screen | States |
+| Screen | States captured |
 |---|---|
 | 08-sign-up | default, filled, invalid, creating, offline, limited |
 | 09-verify-email | sent, resent, wait, expired, verified |
 | 10-log-in | default, signing, error, locked, offline |
 | 11-reset-password | request, sent, new, saved, expired |
-| 12-delete-account | settings, reauth, confirm, deleting, error, deleted |
+| 12-delete-account | reauth, confirm, deleting, error, deleted |
 | 13-link-record | intro, choose, code, wrong, locked, clinic, review, linked |
+
+## Missing (not reachable via the real widget)
+
+| State | Why |
+|---|---|
+| `12-delete-account/settings` | Ava's "settings" entry is the Delete-account row on Settings, not `DeleteAccountScreen`. Capturing Settings would not be this screen's widget. |
+| Dedicated 2FA screen | No separate patient 2FA/auth screen in `lib/screens/auth/`; telehealth proof is `LinkRecordScreen`. |
 
 Regenerate:
 ```bash

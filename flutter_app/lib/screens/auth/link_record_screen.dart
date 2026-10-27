@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/theme.dart';
@@ -223,26 +224,98 @@ class _LinkRecordScreenState extends ConsumerState<LinkRecordScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('How do you want to link?',
+        Text('How do you want to confirm?',
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: c.textPrimary)),
+        const SizedBox(height: 8),
+        Text(
+          'Pick one. Either way, the code works once and only for your record.',
+          style: TextStyle(fontSize: 15, height: 1.4, color: c.textSecondary),
+        ),
         const SizedBox(height: 24),
-        FilledButton(
-          onPressed: _busy ? null : _sendCode,
-          child: _busy
-              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('Send a code to your clinic\'s patient messages'),
+        Container(
+          decoration: BoxDecoration(
+            color: c.bgSurface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: c.borderSubtle),
+          ),
+          child: Column(
+            children: [
+              _chooseRow(
+                c,
+                icon: LucideIcons.messageSquare,
+                title: "Send a code to my clinic's patient messages",
+                subtitle: "We'll send a 6-digit code to your clinic's patient messages.",
+                onTap: _busy ? null : _sendCode,
+                showDivider: true,
+              ),
+              _chooseRow(
+                c,
+                icon: LucideIcons.fileText,
+                title: 'I have a code from my clinic',
+                subtitle: "Your clinic can give you a code that's only for you.",
+                onTap: _busy
+                    ? null
+                    : () => setState(() {
+                          _step = 'clinic';
+                          _codeCtrl.clear();
+                        }),
+                showDivider: false,
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 12),
-        OutlinedButton(
-          onPressed: _busy
-              ? null
-              : () => setState(() {
-                    _step = 'clinic';
-                    _codeCtrl.clear();
-                  }),
-          child: const Text('I have a clinic code'),
-        ),
+        if (_busy) ...[
+          const SizedBox(height: 16),
+          const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        ],
       ],
+    );
+  }
+
+  Widget _chooseRow(
+    ZyndioColors c, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback? onTap,
+    required bool showDivider,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          border: showDivider
+              ? Border(bottom: BorderSide(color: c.borderSubtle))
+              : null,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 22, color: c.brandPrimary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: c.textPrimary)),
+                  const SizedBox(height: 4),
+                  Text(subtitle,
+                      style: TextStyle(
+                          fontSize: 13, height: 1.35, color: c.textSecondary)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(LucideIcons.chevronRight, size: 18, color: c.textSecondary),
+          ],
+        ),
+      ),
     );
   }
 
