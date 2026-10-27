@@ -1,7 +1,8 @@
 -- TC-012 slice 1: rate limiter, email-verification/password-reset token
 -- redemption, the email_confirmed_at RLS gate (PSU-EV-01), and
--- delete_patient_app_data(). No record-matching tables here (design-only
--- until Clara checks docs/RECORD_MATCHING.md).
+-- delete_patient_app_data(), and PSU-TO-15 (verified unlinked self-signup
+-- reads nothing). No matching redeem/bind RPCs (design-only until Clara
+-- Approves the revised docs/RECORD_MATCHING.md).
 begin;
 select no_plan();
 
@@ -252,6 +253,53 @@ select is(
   (select count(*)::int from public.patient_password_resets where user_id = '00000000-0000-0000-0000-0000000a1099'),
   0,
   'delete_patient_app_data clears outstanding password-reset tokens'
+);
+reset role;
+
+
+-- ---------------------------------------------------------------------------
+-- PSU-TO-15 (Clara RECORD_MATCHING #5): verified self-signup with NO
+-- public.patients row (and therefore no org_id / no active link) reads
+-- zero rows from every clinical table. patient-signup never inserts
+-- patients; this fixture mirrors that shape.
+-- ---------------------------------------------------------------------------
+
+insert into auth.users (
+  instance_id, id, aud, role, email, encrypted_password,
+  email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+) values (
+  '00000000-0000-0000-0000-000000000000',
+  '00000000-0000-0000-0000-0000000a10aa',
+  'authenticated', 'authenticated', 'verified-unlinked@example.test',
+  extensions.crypt('Testpassw0rd!123', extensions.gen_salt('bf')),
+  now(), '{"provider":"email","providers":["email"]}'::jsonb, '{"role":"patient"}'::jsonb, now(), now()
+);
+-- Intentionally NO insert into public.patients / profiles / labs / consents.
+
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a10aa', 'aal1');
+select is(
+  (select count(*)::int from public.patients),
+  0,
+  'PSU-TO-15: verified unlinked self-signup selects 0 patients rows'
+);
+select is(
+  (select count(*)::int from public.patient_profiles),
+  0,
+  'PSU-TO-15: verified unlinked self-signup selects 0 patient_profiles rows'
+);
+select is(
+  (select count(*)::int from public.lab_reports),
+  0,
+  'PSU-TO-15: verified unlinked self-signup selects 0 lab_reports rows'
+);
+select is(
+  (select count(*)::int from public.consents),
+  0,
+  'PSU-TO-15: verified unlinked self-signup selects 0 consents rows'
+);
+select ok(
+  not public.current_patient_linked(),
+  'PSU-TO-15: current_patient_linked() is false for verified unlinked self-signup'
 );
 reset role;
 
