@@ -1,7 +1,7 @@
 # Record matching: app account ↔ telehealth / clinic record
 
 Owner: Leo (design + impl) | Reviewer: Clara | Accept: Henry
-Card: TC-012 | Status: **DESIGN — revised for Clara REQUEST CHANGES + Henry item-6 dual-channel notice (27 Oct); awaiting re-check before matching code**
+Card: TC-012 | Status: **APPROVED by Clara (27 Oct) with condition (PSU-TO-16 / create_patient_record refuses self-signup) — matching impl unblocked**
 Date: 27 Oct 2026, Asia/Calcutta (IST)
 Sources: TC-012.md, TEST_PLAN_PATIENT_SIGNUP.md (PSU-TO-*, PSU-DUP-*), Ava patient-auth handoff (README + copy-deck, updated 27 Oct), Henry rulings 27 Oct (incl. link/unlink notice via clinic messages **and** account email), Clara REVIEW_RECORD_MATCHING.md.
 
@@ -63,7 +63,7 @@ Linking must never let an attacker attach someone else's clinic record to their 
 - **Patient-read RLS** on clinical tables (`patient_profiles`, `lab_reports`, `consents`, storage) requires:
   1. `email_confirmed_at` set, and
   2. an **active** `patient_record_links` row for `auth.uid()`  
-  **Transitional grandfather:** until every clinic-provisioned account has a link row, `exists (select 1 from patients where id = auth.uid() and org_id is not null)` also satisfies (2) for staff-provisioned patients. Self-signup never gets `org_id` before bind, so this grandfather does not open a hole for them.
+  **Transitional grandfather:** until every clinic-provisioned account has a link row, `exists (select 1 from patients where id = auth.uid() and org_id is not null)` also satisfies (2) for staff-provisioned patients. **Clara Approve condition:** that grandfather **did** open a hole — a physician/coordinator could call `create_patient_record` on a self-signup `auth.users` id and mint an org-scoped `patients` row without a second-proof link. **Closed:** `patient-signup` writes a `patient_self_signups` marker; `create_patient_record` refuses those accounts (pgTAP **PSU-TO-16**). Clinic-scoped rows for self-signup accounts are created only at successful bind.
 - **pgTAP (PSU-TO-15):** a verified self-signup user with no `patients` row and no link reads **zero** rows from every clinical table and storage path. Planned before matching RPCs land; partial coverage lands with the TC-012 backend hardening.
 
 ### 4.2 Tables
@@ -274,7 +274,7 @@ UI strings must match Ava's handoff `/workspace/design/team3/zyndio/handoff/pati
 4. Flutter patient screens per Ava handoff; link screens after matching RPCs.
 5. Screenshots light+dark under `work/screenshots/tc-012/`.
 
-**No matching redeem/bind/OTP code lands until Clara records Approve on this revised document.** Sign-up / login / verify / reset / delete proceed in parallel. Backend hardening for §4.1 (no patients row at self-signup; RLS / pgTAP for unlinked) may land before Approve because it closes a gap Clara already flagged on committed code.
+**Clara APPROVED** this document (base `1f7168b`, amended `e236fe9`) on one condition: `create_patient_record` must refuse self-signup accounts (**PSU-TO-16**), addressed in the first matching migration. Matching redeem/bind/OTP implementation proceeds from that commit.
 
 ---
 

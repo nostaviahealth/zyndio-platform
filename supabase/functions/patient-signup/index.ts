@@ -123,6 +123,14 @@ serve(async (req) => {
     const token = generateToken()
     const tokenHash = await hashTokenHex(token)
 
+    const { error: markerError } = await admin.from('patient_self_signups').insert({
+      user_id: created.user.id,
+    })
+    if (markerError) {
+      console.error('patient-signup: patient_self_signups insert failed', markerError)
+      return jsonResponse(req, { error: 'internal_error' }, 500)
+    }
+
     const { error: verificationError } = await admin.from('patient_email_verifications').insert({
       user_id: created.user.id,
       token_hash: tokenHash,
