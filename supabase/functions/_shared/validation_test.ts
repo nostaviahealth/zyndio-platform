@@ -3,6 +3,7 @@ import {
   JWT_EXP_LEEWAY_SECONDS,
   MIN_PASSWORD_LENGTH,
   assertJwtFresh,
+  constantTimeEqual,
   decodeJwtPayload,
   generatePlaceholderPassword,
   generateToken,
@@ -148,6 +149,54 @@ Deno.test('verifyHs256Jwt rejects a token with a bad signature (TC-011)', async 
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
   await assertRejects(
     () => verifyHs256Jwt(`${header}.${payload}.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA`, secret),
+    Error,
+    'bad JWT signature',
+  )
+})
+
+// --- Clara L14: constant-time HS256 signature compare ---
+
+Deno.test('constantTimeEqual accepts equal strings and rejects any single differing byte', () => {
+  const a = 'abcdefghijklmnopqrstuvwxyz0123456789'
+  assert(constantTimeEqual(a, a.slice()))
+  assert(!constantTimeEqual(a, 'Xbcdefghijklmnopqrstuvwxyz0123456789'))
+  assert(!constantTimeEqual(a, 'abcdefghijklmnopqrstuvwxyz012345678X'))
+  assert(!constantTimeEqual(a, 'abcdefghijklmnopXrstuvwxyz0123456789'))
+})
+
+Deno.test('constantTimeEqual rejects a length mismatch instead of throwing', () => {
+  assert(!constantTimeEqual('short', 'short-but-longer'))
+  assert(!constantTimeEqual('short-but-longer', 'short'))
+  assert(!constantTimeEqual('', 'a'))
+  assert(constantTimeEqual('', ''))
+})
+
+Deno.test('verifyHs256Jwt still accepts a correct signature and rejects a same-length tampered one', async () => {
+  const secret = 'test-secret-at-least-32-characters-long!!'
+  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+  const exp = Math.floor(Date.now() / 1000) + 600
+  const payload = btoa(JSON.stringify({ role: 'service_role', exp }))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const sigBuf = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${header}.${payload}`))
+  const sig = btoa(String.fromCharCode(...new Uint8Array(sigBuf)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+  const decoded = await verifyHs256Jwt(`${header}.${payload}.${sig}`, secret)
+  assertEquals(decoded.role, 'service_role')
+
+  // Flip the signature's last character - same length as a correct
+  // signature, so a length-only check would wrongly accept it.
+  const lastChar = sig.at(-1) === 'A' ? 'B' : 'A'
+  const tampered = sig.slice(0, -1) + lastChar
+  await assertRejects(
+    () => verifyHs256Jwt(`${header}.${payload}.${tampered}`, secret),
     Error,
     'bad JWT signature',
   )

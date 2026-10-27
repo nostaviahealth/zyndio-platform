@@ -125,6 +125,25 @@ function bytesToBase64Url(bytes: ArrayBuffer): string {
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
 }
 
+// Constant-time string compare (Clara L14): a plain `!==` on the computed
+// vs. provided HS256 signature short-circuits on the first differing byte,
+// which is a textbook timing side-channel for a MAC check. Walks the full
+// max length of both inputs regardless of where they first differ, and
+// folds a length mismatch into the same accumulator instead of returning
+// early on it.
+export function constantTimeEqual(a: string, b: string): boolean {
+  const aBytes = new TextEncoder().encode(a)
+  const bBytes = new TextEncoder().encode(b)
+  const len = Math.max(aBytes.length, bBytes.length)
+  let diff = aBytes.length ^ bBytes.length
+  for (let i = 0; i < len; i++) {
+    const av = i < aBytes.length ? aBytes[i] : 0
+    const bv = i < bBytes.length ? bBytes[i] : 0
+    diff |= av ^ bv
+  }
+  return diff === 0
+}
+
 /** Clock skew leeway for exp/nbf checks (seconds). Documented for M9. */
 export const JWT_EXP_LEEWAY_SECONDS = 5
 
@@ -171,7 +190,7 @@ export async function verifyHs256Jwt(
   )
   const data = new TextEncoder().encode(`${headerB64}.${payloadB64}`)
   const expected = bytesToBase64Url(await crypto.subtle.sign('HMAC', key, data))
-  if (expected !== signatureB64) throw new Error('bad JWT signature')
+  if (!constantTimeEqual(expected, signatureB64)) throw new Error('bad JWT signature')
   const payload = JSON.parse(new TextDecoder().decode(base64UrlToBytes(payloadB64))) as Record<
     string,
     unknown
