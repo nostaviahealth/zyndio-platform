@@ -218,4 +218,80 @@ describe('TC-014 invite name / role / cancel', () => {
     const patientStill = await restAdmin(`patients?id=eq.${targetUserId}`);
     expect(((await patientStill.json()) as unknown[]).length).toBe(1);
   });
+
+  it('Clara L30: re-invite after failed auth delete leftover', async () => {
+    const email = `tc014-l30-leftover-${Date.now()}@example.test`;
+    const inviteRes = await callFn('invite-user', adminAal2Token, {
+      email,
+      role: 'physician',
+      full_name: 'Leftover Casey',
+    });
+    expect(inviteRes.status).toBe(200);
+
+    const inviteRowRes = await restAdmin(
+      `invites?email=eq.${encodeURIComponent(email)}&order=created_at.desc&limit=1&select=user_id`
+    );
+    const [inviteRow] = (await inviteRowRes.json()) as { user_id: string }[];
+    const targetUserId = inviteRow.user_id;
+    cleanupUserIds.push(targetUserId);
+
+    // Simulate cancel DB work without auth delete (failed delete leftover).
+    const finalizeRes = await restAdmin('rpc/finalize_invite_cancel', {
+      method: 'POST',
+      body: JSON.stringify({
+        p_target_user_id: targetUserId,
+        p_actor_user_id: admin.userId,
+        p_org_id: admin.orgId,
+      }),
+    });
+    expect(finalizeRes.status).toBeGreaterThanOrEqual(200);
+    expect(finalizeRes.status).toBeLessThan(300);
+
+    const afterMember = await restAdmin(`org_members?user_id=eq.${targetUserId}`);
+    expect(((await afterMember.json()) as unknown[]).length).toBe(0);
+
+    const authRes = await fetch(
+      `${process.env.SUPABASE_URL}/auth/v1/admin/users/${targetUserId}`,
+      {
+        headers: {
+          apikey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+          Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+      }
+    );
+    expect(authRes.status).toBe(200);
+
+    const reinvite = await callFn('invite-user', adminAal2Token, {
+      email,
+      role: 'care_coordinator',
+      full_name: 'Leftover Casey Again',
+    });
+    expect(reinvite.status).toBe(200);
+
+    const memberRes = await restAdmin(
+      `org_members?user_id=eq.${targetUserId}&select=role,status,full_name`
+    );
+    const [member] = (await memberRes.json()) as {
+      role: string;
+      status: string;
+      full_name: string | null;
+    }[];
+    expect(member).toBeTruthy();
+    expect(member.status).toBe('invited');
+    expect(member.role).toBe('care_coordinator');
+    expect(member.full_name).toBe('Leftover Casey Again');
+
+    const notifRes = await restAdmin(
+      `notification_outbox?type=eq.invite&payload->>email=eq.${encodeURIComponent(email)}&order=created_at.desc&limit=1`
+    );
+    const [notif] = (await notifRes.json()) as { payload: { token: string } }[];
+    expect(notif?.payload?.token).toBeTruthy();
+
+    const acceptRes = await fetch(`${SUPABASE_FUNCTIONS_URL}/accept-invite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ token: notif.payload.token, password: 'Zy-Tc014-L30-Accept-99!' }),
+    });
+    expect(acceptRes.status).toBe(200);
+  });
 });
