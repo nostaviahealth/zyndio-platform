@@ -23,7 +23,7 @@ function DataTable<T>({ columns, rows, getRowId, caption }: DataTableProps<T>) {
     <table className="w-full border-collapse text-left text-sm text-[#030616] dark:text-[#EEF1F8]">
       {caption && <caption className="sr-only">{caption}</caption>}
       <thead>
-        <tr className="border-b border-slate-200 text-xs font-semibold text-slate-500 dark:border-[#222838] dark:text-[#A6B0C3]">
+        <tr className="border-b border-slate-200 bg-[#E6ECFA] text-xs font-semibold text-slate-500 dark:border-[#222838] dark:bg-[#0B0F19] dark:text-[#A6B0C3]">
           {columns.map((col) => (
             <th key={col.key} scope="col" className="px-4 py-3">
               {col.header}

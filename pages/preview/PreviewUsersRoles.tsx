@@ -115,7 +115,7 @@ const Table: React.FC<{ members: PreviewMember[]; isPlatformAdmin?: boolean }> =
     },
   ];
   return (
-    <div className="mt-2 overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-[#222838] dark:bg-[#10141F]">
+    <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_#0306160A,0_8px_24px_#2C5CF214] dark:border-[#222838] dark:bg-[#10141F] dark:shadow-none">
       <DataTable columns={columns} rows={members} getRowId={(m) => m.user_id} caption="Users and roles" />
     </div>
   );

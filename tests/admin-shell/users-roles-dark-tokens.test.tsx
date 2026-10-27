@@ -101,6 +101,19 @@ describe('DataTable header casing (Ava)', () => {
     expect(headers).toEqual(['Name', 'Role', '']);
     expect(headers).not.toContain('Actions');
   });
+
+  it('tints the header row with bg.sunken (Ava TC-013 table card)', () => {
+    render(
+      <DataTable
+        columns={columns}
+        rows={[{ id: '1', name: 'Taylor' }]}
+        getRowId={(r) => r.id}
+      />,
+    );
+    const row = screen.getByRole('columnheader', { name: 'Name' }).parentElement!;
+    expect(row.className).toMatch(/bg-\[#E6ECFA\]/);
+    expect(row.className).toMatch(/dark:bg-\[#0B0F19\]/);
+  });
 });
 
 describe('SelectField caret (Ava H2)', () => {
