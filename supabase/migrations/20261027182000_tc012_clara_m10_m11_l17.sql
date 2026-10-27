@@ -40,24 +40,10 @@ create trigger auth_users_mark_patient_self_signup
 
 revoke all on function public.trg_auth_users_mark_patient_self_signup() from public, anon, authenticated;
 
--- Test hook for M10 fail-path (GUC test.fail_self_signup_marker=1).
-create or replace function public.trg_patient_self_signups_test_fail()
-returns trigger
-language plpgsql
-as $$
-begin
-  if current_setting('test.fail_self_signup_marker', true) = '1' then
-    raise exception 'forced marker insert failure' using errcode = 'P0001';
-  end if;
-  return NEW;
-end;
-$$;
-
+-- L18: test-only fail trigger lives in supabase/tests/660_clara_m10_m11_l17.sql
+-- (created inside the pgTAP transaction). Production must not ship test hooks.
 drop trigger if exists patient_self_signups_test_fail on public.patient_self_signups;
-create trigger patient_self_signups_test_fail
-  before insert on public.patient_self_signups
-  for each row
-  execute function public.trg_patient_self_signups_test_fail();
+drop function if exists public.trg_patient_self_signups_test_fail();
 
 -- Edge helper: marker or delete account (never fail-open).
 -- Returns 'ok' | 'removed'. Must NOT re-raise after delete — a re-raise

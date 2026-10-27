@@ -4,6 +4,27 @@
 begin;
 select no_plan();
 
+-- L18: test-only fail hook (NOT in production migrations). Created inside this
+-- transaction so rollback drops it; production db reset has no such trigger.
+create or replace function public.trg_patient_self_signups_test_fail()
+returns trigger
+language plpgsql
+as $$
+begin
+  if current_setting('test.fail_self_signup_marker', true) = '1' then
+    raise exception 'forced marker insert failure' using errcode = 'P0001';
+  end if;
+  return NEW;
+end;
+$$;
+
+drop trigger if exists patient_self_signups_test_fail on public.patient_self_signups;
+create trigger patient_self_signups_test_fail
+  before insert on public.patient_self_signups
+  for each row
+  execute function public.trg_patient_self_signups_test_fail();
+
+
 -- L17: authenticated cannot execute is_patient_self_signup
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0001', 'aal2');
 select throws_ok(
