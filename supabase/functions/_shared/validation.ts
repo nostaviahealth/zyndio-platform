@@ -125,6 +125,32 @@ function bytesToBase64Url(bytes: ArrayBuffer): string {
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
 }
 
+/** Clock skew leeway for exp/nbf checks (seconds). Documented for M9. */
+export const JWT_EXP_LEEWAY_SECONDS = 5
+
+/**
+ * Reject payloads with missing or past `exp` (and future `nbf` if present).
+ * Applied after signature verify on both HS256 and ES256 paths (Clara M9).
+ */
+export function assertJwtFresh(
+  payload: Record<string, unknown>,
+  nowSec: number = Math.floor(Date.now() / 1000),
+): void {
+  const exp = payload.exp
+  if (typeof exp !== 'number' || !Number.isFinite(exp)) {
+    throw new Error('JWT missing exp')
+  }
+  if (exp < nowSec - JWT_EXP_LEEWAY_SECONDS) {
+    throw new Error('JWT expired')
+  }
+  const nbf = payload.nbf
+  if (typeof nbf === 'number' && Number.isFinite(nbf)) {
+    if (nbf > nowSec + JWT_EXP_LEEWAY_SECONDS) {
+      throw new Error('JWT not yet valid')
+    }
+  }
+}
+
 export async function verifyHs256Jwt(
   token: string,
   secret: string,
@@ -146,10 +172,12 @@ export async function verifyHs256Jwt(
   const data = new TextEncoder().encode(`${headerB64}.${payloadB64}`)
   const expected = bytesToBase64Url(await crypto.subtle.sign('HMAC', key, data))
   if (expected !== signatureB64) throw new Error('bad JWT signature')
-  return JSON.parse(new TextDecoder().decode(base64UrlToBytes(payloadB64))) as Record<
+  const payload = JSON.parse(new TextDecoder().decode(base64UrlToBytes(payloadB64))) as Record<
     string,
     unknown
   >
+  assertJwtFresh(payload)
+  return payload
 }
 
 export function jwtSecretFromEnv(env: { get(key: string): string | undefined }): string {
@@ -182,6 +210,11 @@ export function resetJwksCacheForTests(): void {
   cachedJwks = null
 }
 
+/** Inject JWKS for tests (skips network fetch). */
+export function setJwksForTests(jwks: { keys: JsonWebKey[] }): void {
+  cachedJwks = jwks
+}
+
 async function verifyEs256Jwt(
   token: string,
   header: { alg?: string; kid?: string },
@@ -191,9 +224,9 @@ async function verifyEs256Jwt(
   env: JwtVerifyEnv,
 ): Promise<Record<string, unknown>> {
   const jwks = await fetchJwks(env)
-  const jwk =
-    jwks.keys.find((k) => (k as { kid?: string }).kid === header.kid) ?? jwks.keys[0]
-  if (!jwk) throw new Error('no jwk for kid')
+  if (!header.kid) throw new Error('JWT missing kid')
+  const jwk = jwks.keys.find((k) => (k as { kid?: string }).kid === header.kid)
+  if (!jwk) throw new Error('unknown JWT kid')
   const key = await crypto.subtle.importKey(
     'jwk',
     { ...jwk, key_ops: ['verify'], ext: true },
@@ -211,16 +244,20 @@ async function verifyEs256Jwt(
     new TextEncoder().encode(`${headerB64}.${payloadB64}`),
   )
   if (!ok) throw new Error('bad JWT signature')
-  return JSON.parse(new TextDecoder().decode(base64UrlToBytes(payloadB64))) as Record<
+  const payload = JSON.parse(new TextDecoder().decode(base64UrlToBytes(payloadB64))) as Record<
     string,
     unknown
   >
+  assertJwtFresh(payload)
+  return payload
 }
 
 /**
  * Verify a bearer JWT for process-outbox defense-in-depth.
  * - HS256 (legacy service_role / anon): project JWT_SECRET
  * - ES256 (GoTrue user access tokens): JWKS at SUPABASE_URL/auth/v1/.well-known/jwks.json
+ * - Both paths require a numeric `exp` that is not in the past (JWT_EXP_LEEWAY_SECONDS
+ *   skew). Unknown ES256 `kid` is rejected — no fallback to jwks.keys[0] (Clara M9 / L13).
  */
 export async function verifyBearerJwt(
   token: string,
