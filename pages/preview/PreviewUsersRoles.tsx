@@ -10,7 +10,7 @@ import NameCell from '../../components/ui/NameCell';
 import SearchField from '../../components/ui/SearchField';
 import SelectField from '../../components/ui/SelectField';
 import { Plus } from 'lucide-react';
-import { ROLE_LABELS, roleDescriptionsFor } from '../admin/UsersRoles';
+import { ROLE_LABELS, ROLE_DESCRIPTIONS, roleDescriptionsFor } from '../admin/UsersRoles';
 import { PreviewMember, PREVIEW_MEMBERS, SELF_USER_ID } from './previewFixtures';
 
 function renderStatusBadge(member: PreviewMember, daysLeft = 7) {
@@ -212,7 +212,7 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
     </div>
   );
 
-  if (state === 'invite-sent') return <>{base}<Toastish message="Invite sent to alex.lindgren@example.test." action="Undo" /></>;
+  if (state === 'invite-sent') return <>{base}<Toastish message="Invite sent to alex.lindgren@example.test." /></>;
   if (state === 'deactivated') return <>{base}<Toastish message="Riley Chen was deactivated and signed out." action="Undo" /></>;
   if (state === 'reset-requested') {
     return (
@@ -223,37 +223,101 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
     );
   }
 
-  if (state === 'invite' || state === 'invite-validation') {
+  if (state === 'invite' || state === 'invite-validation' || state === 'invite-sending' || state === 'invite-error') {
+    const isValidation = state === 'invite-validation';
+    const isSending = state === 'invite-sending';
+    const isError = state === 'invite-error';
+    const filled = state !== 'invite'; // empty opening; other states show Ava's filled example
     return (
       <>
         {base}
-        <Dialog titleId="invite-title" title="Invite a user" onClose={() => {}} initialFocusSelector="#preview-invite-email">
+        <Dialog titleId="invite-title" title="Invite a user" onClose={() => {}} initialFocusSelector="#preview-invite-full-name">
           <p className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
             They&apos;ll get an email with a link to set a password and two-factor sign-in. The link works for 7 days.
           </p>
+          {isError && (
+            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-[#FF8F86]/40 dark:bg-[#2F1513] dark:text-[#FF8F86]" role="alert">
+              We couldn&apos;t send the invite. Nothing was saved. Check your connection and try again.
+            </div>
+          )}
           <div className="mt-4 space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="preview-invite-full-name" className="text-sm font-semibold text-[#030616] dark:text-[#EEF1F8]">
+                  Full name
+                </label>
+                <input
+                  id="preview-invite-full-name"
+                  readOnly
+                  defaultValue={filled && !isValidation ? 'Alex Lindgren' : ''}
+                  className="mt-1 min-h-[44px] w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-[#030616] dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8]"
+                />
+                {isValidation && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-[#FF8F86]" role="alert">Enter their full name.</p>
+                )}
+              </div>
+              <div>
+                <label htmlFor="preview-invite-email" className="text-sm font-semibold text-[#030616] dark:text-[#EEF1F8]">
+                  Work email
+                </label>
+                <input
+                  id="preview-invite-email"
+                  readOnly
+                  defaultValue={filled && !isValidation ? 'alex.lindgren@example.test' : ''}
+                  className="mt-1 min-h-[44px] w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-[#030616] dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8]"
+                />
+                {isValidation && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-[#FF8F86]" role="alert">Enter a work email.</p>
+                )}
+              </div>
+            </div>
             <div>
-              <label htmlFor="preview-invite-email" className="text-sm font-semibold text-[#030616] dark:text-[#EEF1F8]">
-                Work email
-              </label>
-              <input
-                id="preview-invite-email"
-                readOnly
-                defaultValue="alex.lindgren@example.test"
-                className="mt-1 min-h-[44px] w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-[#030616] dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8]"
-              />
-              {state === 'invite-validation' && (
-                <p className="mt-1 text-sm text-red-600 dark:text-[#FF8F86]" role="alert">
-                  Someone with this email already has an account.
-                </p>
+              <span className="text-sm font-semibold text-[#030616] dark:text-[#EEF1F8]">Role</span>
+              <div className="mt-2 space-y-1 rounded-xl border border-slate-200 dark:border-[#222838]">
+                {(['physician', 'care_coordinator', 'org_admin', 'read_only'] as const).map((r) => (
+                  <div key={r} className="flex items-start gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0 dark:border-[#222838]">
+                    <input type="radio" readOnly checked={filled && !isValidation && r === 'physician'} className="mt-1" />
+                    <span>
+                      <span className="font-semibold text-[#030616] dark:text-[#EEF1F8]">{ROLE_LABELS[r]}</span>
+                      <br />
+                      <span className="text-sm text-slate-600 dark:text-[#A6B0C3]">{ROLE_DESCRIPTIONS[r]}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {isValidation && (
+                <p className="mt-1 text-sm text-red-600 dark:text-[#FF8F86]" role="alert">Choose a role.</p>
               )}
             </div>
             <div className="flex justify-end gap-3">
-              <Button type="button" variant="outline">
+              <Button type="button" variant="outline" disabled={isSending}>
                 Cancel
               </Button>
-              <Button type="button">Send invite</Button>
+              <Button type="button" busy={isSending} busyLabel="Sending invite">
+                Send invite
+              </Button>
             </div>
+          </div>
+        </Dialog>
+      </>
+    );
+  }
+
+  if (state === 'cancel-invite-confirm') {
+    return (
+      <>
+        {base}
+        <Dialog titleId="cancel-invite-title" title="Cancel the invite for Sam Okafor?" onClose={() => {}}>
+          <p className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
+            The link in their email stops working right away. You can invite them again later.
+          </p>
+          <div className="mt-6 flex justify-end gap-3">
+            <Button type="button" variant="outline">
+              Keep invite
+            </Button>
+            <Button type="button" variant="destructive">
+              Cancel invite
+            </Button>
           </div>
         </Dialog>
       </>
