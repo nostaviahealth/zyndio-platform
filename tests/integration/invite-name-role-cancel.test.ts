@@ -165,4 +165,57 @@ describe('TC-014 invite name / role / cancel', () => {
     );
     expect(((await still.json()) as unknown[]).length).toBe(1);
   });
+
+  it('Clara L29: skips auth delete when a patient record exists', async () => {
+    const email = `tc014-l29-patient-${Date.now()}@example.test`;
+    const inviteRes = await callFn('invite-user', adminAal2Token, {
+      email,
+      role: 'physician',
+      full_name: 'Patient Guard',
+    });
+    expect(inviteRes.status).toBe(200);
+
+    const inviteRowRes = await restAdmin(
+      `invites?email=eq.${encodeURIComponent(email)}&order=created_at.desc&limit=1&select=user_id`
+    );
+    const [inviteRow] = (await inviteRowRes.json()) as { user_id: string }[];
+    const targetUserId = inviteRow.user_id;
+    cleanupUserIds.push(targetUserId);
+
+    // Plant a patient row so cancel must not wipe the auth account.
+    const patientRes = await restAdmin('patients', {
+      method: 'POST',
+      body: JSON.stringify({
+        id: targetUserId,
+        org_id: admin.orgId,
+        display_name: 'Should Survive Cancel',
+      }),
+    });
+    expect(patientRes.status).toBeGreaterThanOrEqual(200);
+    expect(patientRes.status).toBeLessThan(300);
+
+    const cancelRes = await callFn('cancel-invite', adminAal2Token, {
+      target_user_id: targetUserId,
+    });
+    expect(cancelRes.status).toBe(200);
+
+    const afterMember = await restAdmin(`org_members?user_id=eq.${targetUserId}`);
+    expect(((await afterMember.json()) as unknown[]).length).toBe(0);
+
+    const authRes = await fetch(
+      `${process.env.SUPABASE_URL}/auth/v1/admin/users/${targetUserId}`,
+      {
+        headers: {
+          apikey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+          Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+      }
+    );
+    expect(authRes.status).toBe(200);
+    const authBody = (await authRes.json()) as { id?: string; user?: { id?: string } };
+    expect(authBody.id ?? authBody.user?.id).toBe(targetUserId);
+
+    const patientStill = await restAdmin(`patients?id=eq.${targetUserId}`);
+    expect(((await patientStill.json()) as unknown[]).length).toBe(1);
+  });
 });
