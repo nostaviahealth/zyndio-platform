@@ -193,3 +193,16 @@ describe('Dialog dark tokens (TC-013)', () => {
     expect(input.className).toMatch(/dark:border-\[#6C7690\]/);
   });
 });
+
+describe('RowActionsMenu dark ··· token (Ava)', () => {
+  it('uses text.secondary on the trigger in dark mode', async () => {
+    const { default: RowActionsMenu } = await import('../../components/ui/RowActionsMenu');
+    const { container } = render(
+      <div className="dark">
+        <RowActionsMenu email="alex@example.com" items={[{ label: 'Deactivate', onClick: () => {} }]} />
+      </div>,
+    );
+    const btn = container.querySelector('button[aria-haspopup="menu"]') as HTMLElement;
+    expect(btn.className).toMatch(/dark:text-\[#A6B0C3\]/);
+  });
+});

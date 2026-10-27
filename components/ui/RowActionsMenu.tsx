@@ -45,7 +45,7 @@ const RowActionsMenu: React.FC<RowActionsMenuProps> = ({ email, items }) => {
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="flex h-11 w-11 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
+        className="flex h-11 w-11 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 dark:text-[#A6B0C3] dark:hover:bg-[#222838]"
       >
         <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
       </button>
