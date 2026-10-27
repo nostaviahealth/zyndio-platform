@@ -24,6 +24,31 @@ export function isValidAppRole(role: unknown): role is AppRole {
   return typeof role === 'string' && (APP_ROLES as readonly string[]).includes(role)
 }
 
+// Rank: org_admin (3) > physician (2) > care_coordinator (1) > read_only (0).
+// Actor may grant a role iff target rank <= actor rank. Mirrors
+// public.can_grant_role() so invite-user can refuse before any write.
+const ROLE_RANK: Record<AppRole, number> = {
+  org_admin: 3,
+  physician: 2,
+  care_coordinator: 1,
+  read_only: 0,
+}
+
+export function canGrantRole(actorRole: AppRole, targetRole: AppRole): boolean {
+  return ROLE_RANK[actorRole] >= ROLE_RANK[targetRole]
+}
+
+// Invite Full name: trim, non-empty, capped so a pasted novel can't bloat
+// invites / user_metadata. Returns null when the value is unusable.
+export const MAX_FULL_NAME_LENGTH = 200
+
+export function normalizeFullName(name: unknown): string | null {
+  if (typeof name !== 'string') return null
+  const trimmed = name.trim().replace(/\s+/g, ' ')
+  if (trimmed.length === 0 || trimmed.length > MAX_FULL_NAME_LENGTH) return null
+  return trimmed
+}
+
 export function isValidUuid(value: unknown): value is string {
   return typeof value === 'string' && UUID_RE.test(value)
 }

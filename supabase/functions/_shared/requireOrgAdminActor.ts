@@ -12,6 +12,7 @@ export class AuthError extends Error {
 export interface OrgAdminActor {
   userId: string
   orgId: string
+  role: 'org_admin' | 'physician' | 'care_coordinator' | 'read_only'
 }
 
 // Service role key only ever comes from the function runtime's own env - it
@@ -55,7 +56,14 @@ export async function requireOrgAdminActor(
     throw new AuthError('org_admin required', 403)
   }
 
-  return { actor: { userId: userData.user.id, orgId: member.org_id as string }, admin }
+  return {
+    actor: {
+      userId: userData.user.id,
+      orgId: member.org_id as string,
+      role: member.role as OrgAdminActor['role'],
+    },
+    admin,
+  }
 }
 
 // Platform-level actor for reset-mfa: aal2 plus a row in

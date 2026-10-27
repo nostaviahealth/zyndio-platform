@@ -11,6 +11,8 @@ import {
   hashTokenHex,
   isPasswordLongEnough,
   isValidAppRole,
+  canGrantRole,
+  normalizeFullName,
   isValidEmail,
   isValidUuid,
   normalizeEmail,
@@ -378,4 +380,23 @@ Deno.test('verifyBearerJwt rejects ES256 with expired exp (TC-011 M9)', async ()
     'JWT expired',
   )
   resetJwksCacheForTests()
+})
+
+Deno.test('canGrantRole follows org_admin > physician > care_coordinator > read_only', () => {
+  assert(canGrantRole('org_admin', 'org_admin'))
+  assert(canGrantRole('org_admin', 'read_only'))
+  assert(!canGrantRole('physician', 'org_admin'))
+  assert(canGrantRole('physician', 'physician'))
+  assert(canGrantRole('physician', 'read_only'))
+  assert(!canGrantRole('care_coordinator', 'physician'))
+  assert(!canGrantRole('read_only', 'care_coordinator'))
+})
+
+Deno.test('normalizeFullName trims, collapses whitespace, rejects empty/oversized', () => {
+  assertEquals(normalizeFullName('  Alex   Lindgren '), 'Alex Lindgren')
+  assertEquals(normalizeFullName(''), null)
+  assertEquals(normalizeFullName('   '), null)
+  assertEquals(normalizeFullName(null), null)
+  assertEquals(normalizeFullName('x'.repeat(201)), null)
+  assertEquals(normalizeFullName('x'.repeat(200)), 'x'.repeat(200))
 })
