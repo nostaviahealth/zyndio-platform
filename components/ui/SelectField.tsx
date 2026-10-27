@@ -1,7 +1,8 @@
 import React from 'react';
+import { FOCUS_RING_CLASS } from './focusRing';
 
 export const SELECT_FIELD_CLASS =
-  'h-11 w-full appearance-none rounded-[10px] border border-[#7A86A0] bg-white pl-4 pr-10 text-sm text-[#030616] dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8]';
+  `h-11 w-full appearance-none rounded-[10px] border border-[#7A86A0] bg-white pl-4 pr-10 text-sm text-[#030616] dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8] ${FOCUS_RING_CLASS}`;
 
 /** Design `.sel` caret: 18×18 chevron, stroke = text-secondary. */
 export const SelectCaret: React.FC = () => (

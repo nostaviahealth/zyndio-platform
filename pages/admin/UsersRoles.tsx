@@ -25,6 +25,7 @@ import TwoFactorStatus from '../../components/ui/TwoFactorStatus';
 import NameCell from '../../components/ui/NameCell';
 import SearchField from '../../components/ui/SearchField';
 import SelectField from '../../components/ui/SelectField';
+import TextInput from '../../components/ui/TextInput';
 import FictionalDataTag from '../../components/ui/FictionalDataTag';
 import { Plus } from 'lucide-react';
 
@@ -688,16 +689,13 @@ const InviteDialog: React.FC<InviteDialogProps> = ({ onClose, onSubmit }) => {
             <label htmlFor="invite-full-name" className="text-sm font-semibold text-[#030616] dark:text-[#EEF1F8]">
               Full name
             </label>
-            <input
+            <TextInput
               id="invite-full-name"
               type="text"
               autoComplete="name"
               disabled={submitting}
-              className={`mt-1 min-h-[44px] w-full rounded-md bg-white px-3 text-sm text-[#030616] disabled:opacity-60 dark:bg-[#10141F] dark:text-[#EEF1F8] ${
-                fieldErrors.fullName
-                  ? 'border-2 border-[#B42318] dark:border-[#FF8F86]'
-                  : 'border border-slate-300 dark:border-[#6C7690]'
-              }`}
+              className="mt-1"
+              error={!!fieldErrors.fullName}
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               aria-invalid={fieldErrors.fullName ? true : undefined}
@@ -713,16 +711,13 @@ const InviteDialog: React.FC<InviteDialogProps> = ({ onClose, onSubmit }) => {
             <label htmlFor="invite-email" className="text-sm font-semibold text-[#030616] dark:text-[#EEF1F8]">
               Work email
             </label>
-            <input
+            <TextInput
               id="invite-email"
               type="email"
               autoComplete="email"
               disabled={submitting}
-              className={`mt-1 min-h-[44px] w-full rounded-md bg-white px-3 text-sm text-[#030616] disabled:opacity-60 dark:bg-[#10141F] dark:text-[#EEF1F8] ${
-                fieldErrors.email
-                  ? 'border-2 border-[#B42318] dark:border-[#FF8F86]'
-                  : 'border border-slate-300 dark:border-[#6C7690]'
-              }`}
+              className="mt-1"
+              error={!!fieldErrors.email}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               aria-invalid={fieldErrors.email ? true : undefined}

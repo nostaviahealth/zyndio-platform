@@ -9,6 +9,7 @@ import TwoFactorStatus from '../../components/ui/TwoFactorStatus';
 import NameCell from '../../components/ui/NameCell';
 import SearchField from '../../components/ui/SearchField';
 import SelectField from '../../components/ui/SelectField';
+import TextInput from '../../components/ui/TextInput';
 import { Plus } from 'lucide-react';
 import { ROLE_LABELS, ROLE_DESCRIPTIONS, roleDescriptionsFor } from '../admin/UsersRoles';
 import { PreviewMember, PREVIEW_MEMBERS, SELF_USER_ID } from './previewFixtures';
@@ -241,10 +242,6 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
       : isRoleRefused
         ? "You can't give this role. Ask a Zyndio admin."
         : null;
-    const fieldErr = (on: boolean) =>
-      on
-        ? 'border-2 border-[#B42318] dark:border-[#FF8F86]'
-        : 'border border-slate-300 dark:border-[#6C7690]';
     // Red rings only for empty-role validation; role-refused is inline-only.
     const radioRing = isValidation
       ? 'outline outline-2 outline-[#B42318] outline-offset-0 dark:outline-[#FF8F86]'
@@ -276,12 +273,13 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
                 <label htmlFor="preview-invite-full-name" className="text-sm font-semibold text-[#030616] dark:text-[#EEF1F8]">
                   Full name
                 </label>
-                <input
+                <TextInput
                   id="preview-invite-full-name"
                   readOnly
                   disabled={isSending}
                   defaultValue={filled ? 'Alex Lindgren' : ''}
-                  className={`mt-1 min-h-[44px] w-full rounded-md bg-white px-3 text-sm text-[#030616] dark:bg-[#10141F] dark:text-[#EEF1F8] ${fieldErr(isValidation)}`}
+                  className="mt-1"
+                  error={isValidation}
                 />
                 {isValidation && (
                   <p className="mt-1 text-[13px] text-[#B42318] dark:text-[#FF8F86]" role="alert">
@@ -293,12 +291,13 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
                 <label htmlFor="preview-invite-email" className="text-sm font-semibold text-[#030616] dark:text-[#EEF1F8]">
                   Work email
                 </label>
-                <input
+                <TextInput
                   id="preview-invite-email"
                   readOnly
                   disabled={isSending}
                   defaultValue={filled ? 'alex.lindgren@example.test' : ''}
-                  className={`mt-1 min-h-[44px] w-full rounded-md bg-white px-3 text-sm text-[#030616] dark:bg-[#10141F] dark:text-[#EEF1F8] ${fieldErr(isValidation)}`}
+                  className="mt-1"
+                  error={isValidation}
                 />
                 {isValidation && (
                   <p className="mt-1 text-[13px] text-[#B42318] dark:text-[#FF8F86]" role="alert">
