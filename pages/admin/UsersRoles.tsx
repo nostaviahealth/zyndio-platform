@@ -20,6 +20,7 @@ import { useToast } from '../../components/ui/Toast';
 import Button from '../../components/admin-auth/Button';
 import RowActionsMenu, { RowActionItem } from '../../components/ui/RowActionsMenu';
 import StatusBadge from '../../components/ui/StatusBadge';
+import TwoFactorStatus from '../../components/ui/TwoFactorStatus';
 
 export const ROLE_LABELS: Record<AppRole, string> = {
   org_admin: 'Admin',
@@ -271,7 +272,7 @@ const UsersRolesPage: React.FC = () => {
         );
       },
     },
-    { key: 'twofactor', header: 'Two-factor', render: (m) => formatTwoFactor(m) },
+    { key: 'twofactor', header: 'Two-factor', render: (m) => <TwoFactorStatus value={formatTwoFactor(m)} /> },
     { key: 'lastsignin', header: 'Last sign-in', render: (m) => formatLastSignIn(m) },
     { key: 'status', header: 'Status', render: (m) => renderStatusBadge(m) },
     {

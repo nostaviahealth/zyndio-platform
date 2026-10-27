@@ -5,6 +5,7 @@ import Dialog from '../../components/ui/Dialog';
 import Button from '../../components/admin-auth/Button';
 import RowActionsMenu, { RowActionItem } from '../../components/ui/RowActionsMenu';
 import StatusBadge from '../../components/ui/StatusBadge';
+import TwoFactorStatus from '../../components/ui/TwoFactorStatus';
 import { ROLE_LABELS, roleDescriptionsFor } from '../admin/UsersRoles';
 import { PreviewMember, PREVIEW_MEMBERS, SELF_USER_ID } from './previewFixtures';
 
@@ -85,7 +86,7 @@ const Table: React.FC<{ members: PreviewMember[]; isPlatformAdmin?: boolean }> =
         );
       },
     },
-    { key: 'twofactor', header: 'Two-factor', render: (m) => m.twoFactor },
+    { key: 'twofactor', header: 'Two-factor', render: (m) => <TwoFactorStatus value={m.twoFactor} /> },
     { key: 'lastsignin', header: 'Last sign-in', render: (m) => m.lastSignIn },
     { key: 'status', header: 'Status', render: (m) => renderStatusBadge(m) },
     {
