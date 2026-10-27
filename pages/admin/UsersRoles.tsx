@@ -19,6 +19,7 @@ import Dialog from '../../components/ui/Dialog';
 import { useToast } from '../../components/ui/Toast';
 import Button from '../../components/admin-auth/Button';
 import RowActionsMenu, { RowActionItem } from '../../components/ui/RowActionsMenu';
+import StatusBadge from '../../components/ui/StatusBadge';
 
 export const ROLE_LABELS: Record<AppRole, string> = {
   org_admin: 'Admin',
@@ -50,12 +51,6 @@ export function roleDescriptionsFor(isPlatformAdmin: boolean): Record<AppRole, s
 
 const ASSIGNABLE_ROLES: AppRole[] = ['physician', 'care_coordinator', 'org_admin', 'read_only'];
 
-const STATUS_LABELS: Record<MemberStatus, string> = {
-  invited: 'Invited',
-  active: 'Active',
-  deactivated: 'Deactivated',
-};
-
 function formatLastSignIn(member: OrgMember): string {
   // list_org_members() doesn't surface auth.users.last_sign_in_at yet (would
   // need a service-role join beyond this step's scope) - invited members
@@ -66,6 +61,26 @@ function formatLastSignIn(member: OrgMember): string {
 
 function formatTwoFactor(member: OrgMember): string {
   return member.status === 'invited' ? 'Not set up yet' : 'Unknown';
+}
+
+// Invite links are valid 7 days from org_members.created_at (invite time -
+// see 20261026120000_tc005_schema.sql's `invites.expires_at` default). The
+// RPC doesn't surface expires_at directly, so this derives the same window
+// from the member row's own created_at rather than adding a column.
+function invitedDaysLeft(member: OrgMember): number {
+  const createdMs = new Date(member.created_at).getTime();
+  const daysElapsed = Math.floor((Date.now() - createdMs) / (24 * 60 * 60 * 1000));
+  return Math.max(0, 7 - daysElapsed);
+}
+
+function renderStatusBadge(member: OrgMember): React.ReactNode {
+  if (member.status === 'invited') {
+    return <StatusBadge kind="invited">Invited · {invitedDaysLeft(member)} days left</StatusBadge>;
+  }
+  if (member.status === 'deactivated') {
+    return <StatusBadge kind="deactivated">Deactivated</StatusBadge>;
+  }
+  return <StatusBadge kind="active">Active</StatusBadge>;
 }
 
 type DialogState =
@@ -258,7 +273,7 @@ const UsersRolesPage: React.FC = () => {
     },
     { key: 'twofactor', header: 'Two-factor', render: (m) => formatTwoFactor(m) },
     { key: 'lastsignin', header: 'Last sign-in', render: (m) => formatLastSignIn(m) },
-    { key: 'status', header: 'Status', render: (m) => STATUS_LABELS[m.status] },
+    { key: 'status', header: 'Status', render: (m) => renderStatusBadge(m) },
     {
       key: 'actions',
       header: 'Actions',

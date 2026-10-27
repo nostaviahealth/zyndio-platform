@@ -4,13 +4,14 @@ import DataTable, { DataTableColumn } from '../../components/ui/DataTable';
 import Dialog from '../../components/ui/Dialog';
 import Button from '../../components/admin-auth/Button';
 import RowActionsMenu, { RowActionItem } from '../../components/ui/RowActionsMenu';
+import StatusBadge from '../../components/ui/StatusBadge';
 import { ROLE_LABELS, roleDescriptionsFor } from '../admin/UsersRoles';
 import { PreviewMember, PREVIEW_MEMBERS, SELF_USER_ID } from './previewFixtures';
 
-const STATUS_LABELS: Record<string, string> = { invited: 'Invited', active: 'Active', deactivated: 'Deactivated' };
-
-function row(member: PreviewMember, extraStatus?: string) {
-  return member.status === 'invited' ? `${STATUS_LABELS[member.status]} · ${extraStatus ?? '7 days left'}` : STATUS_LABELS[member.status];
+function renderStatusBadge(member: PreviewMember, daysLeft = 7) {
+  if (member.status === 'invited') return <StatusBadge kind="invited">Invited · {daysLeft} days left</StatusBadge>;
+  if (member.status === 'deactivated') return <StatusBadge kind="deactivated">Deactivated</StatusBadge>;
+  return <StatusBadge kind="active">Active</StatusBadge>;
 }
 
 const Legend: React.FC<{ isPlatformAdmin?: boolean }> = ({ isPlatformAdmin = false }) => (
@@ -86,7 +87,7 @@ const Table: React.FC<{ members: PreviewMember[]; isPlatformAdmin?: boolean }> =
     },
     { key: 'twofactor', header: 'Two-factor', render: (m) => m.twoFactor },
     { key: 'lastsignin', header: 'Last sign-in', render: (m) => m.lastSignIn },
-    { key: 'status', header: 'Status', render: (m) => row(m) },
+    { key: 'status', header: 'Status', render: (m) => renderStatusBadge(m) },
     {
       key: 'actions',
       header: 'Actions',
