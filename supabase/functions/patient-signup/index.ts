@@ -123,11 +123,27 @@ serve(async (req) => {
     const token = generateToken()
     const tokenHash = await hashTokenHex(token)
 
-    const { error: markerError } = await admin.from('patient_self_signups').insert({
-      user_id: created.user.id,
-    })
-    if (markerError) {
-      console.error('patient-signup: patient_self_signups insert failed', markerError)
+    // M10: marker must exist for every self-signup account. Trigger on
+    // auth.users usually wrote it already; ensure_patient_self_signup_marker
+    // inserts if missing and DELETES the auth user if the marker cannot be
+    // written (returns 'removed') — never leave an unmarked account.
+    const { data: markerStatus, error: markerError } = await admin.rpc(
+      'ensure_patient_self_signup_marker',
+      { p_user_id: created.user.id },
+    )
+    if (markerError || markerStatus !== 'ok') {
+      console.error('patient-signup: ensure_patient_self_signup_marker failed', {
+        markerError,
+        markerStatus,
+      })
+      if (markerStatus !== 'removed') {
+        try {
+          await admin.auth.admin.deleteUser(created.user.id)
+        } catch (delErr) {
+          console.error('patient-signup: deleteUser after marker failure also failed', delErr)
+        }
+      }
+      await padTimingTo(startedAt)
       return jsonResponse(req, { error: 'internal_error' }, 500)
     }
 

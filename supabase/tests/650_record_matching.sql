@@ -37,7 +37,8 @@ insert into auth.users (
 insert into public.patient_self_signups (user_id) values
   ('00000000-0000-0000-0000-0000000c2001'),
   ('00000000-0000-0000-0000-0000000c2002'),
-  ('00000000-0000-0000-0000-0000000c2003');
+  ('00000000-0000-0000-0000-0000000c2003')
+on conflict (user_id) do nothing;
 
 -- PSU-TO-15: verified self-signup, unlinked, reads zero clinical rows.
 select tests.authenticate_as('00000000-0000-0000-0000-0000000c2001');
@@ -197,7 +198,8 @@ insert into auth.users (
   '{"role":"patient"}'::jsonb, now(), now()
 );
 insert into public.patient_self_signups (user_id)
-values ('00000000-0000-0000-0000-0000000c2004');
+values ('00000000-0000-0000-0000-0000000c2004')
+on conflict (user_id) do nothing;
 select set_config('request.jwt.claims', json_build_object('role','service_role')::text, true);
 set role service_role;
 select public.issue_telehealth_link_otp(

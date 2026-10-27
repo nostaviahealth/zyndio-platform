@@ -16,7 +16,8 @@ insert into auth.users (
 );
 
 insert into public.patient_self_signups (user_id)
-values ('00000000-0000-0000-0000-0000000a30cc');
+values ('00000000-0000-0000-0000-0000000a30cc')
+on conflict (user_id) do nothing;
 
 select ok(
   public.is_patient_self_signup('00000000-0000-0000-0000-0000000a30cc'),

@@ -149,7 +149,7 @@ insert into auth.users (
   '00000000-0000-0000-0000-0000000a1099',
   'authenticated', 'authenticated', 'unverified-patient@example.test',
   extensions.crypt('Testpassw0rd!123', extensions.gen_salt('bf')),
-  null, '{"provider":"email","providers":["email"]}'::jsonb, '{"role":"patient"}'::jsonb, now(), now()
+  null, '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
 );
 insert into public.patients (id, org_id, display_name, mrn) values
   ('00000000-0000-0000-0000-0000000a1099', '00000000-0000-0000-0000-00000000000a', 'Fictional Unverified Patient', 'MRN-UNV');
