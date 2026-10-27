@@ -303,5 +303,87 @@ select ok(
 );
 reset role;
 
+
+-- ---------------------------------------------------------------------------
+-- PSU-RL-03 helpers: peek_rate_limit does not consume; consume only on fail.
+-- ---------------------------------------------------------------------------
+select ok(
+  public.peek_rate_limit('patient_login_ip', 'ip-peek-a', 3, 900),
+  'PSU-RL-03: peek allows when no counter row exists'
+);
+select ok(public.check_and_consume_rate_limit('patient_login_ip', 'ip-peek-a', 3, 900), 'consume 1');
+select ok(public.check_and_consume_rate_limit('patient_login_ip', 'ip-peek-a', 3, 900), 'consume 2');
+select ok(public.check_and_consume_rate_limit('patient_login_ip', 'ip-peek-a', 3, 900), 'consume 3');
+select ok(
+  not public.peek_rate_limit('patient_login_ip', 'ip-peek-a', 3, 900),
+  'PSU-RL-03: peek denies after failure budget exhausted'
+);
+select ok(
+  not public.check_and_consume_rate_limit('patient_login_ip', 'ip-peek-a', 3, 900),
+  'PSU-RL-03: further consume rejects'
+);
+-- expired window restores peek
+update public.rate_limit_counters
+set window_start = now() - interval '16 minutes'
+where bucket = 'patient_login_ip' and key_hash = 'ip-peek-a';
+select ok(
+  public.peek_rate_limit('patient_login_ip', 'ip-peek-a', 3, 900),
+  'PSU-RL-03: peek allows again after window expiry'
+);
+
+-- ---------------------------------------------------------------------------
+-- PSU-EV-05: redeem_patient_email_change; old email authoritative until redeem.
+-- ---------------------------------------------------------------------------
+insert into auth.users (
+  instance_id, id, aud, role, email, encrypted_password,
+  email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+) values (
+  '00000000-0000-0000-0000-000000000000',
+  '00000000-0000-0000-0000-0000000a20bb',
+  'authenticated', 'authenticated', 'jordan.old@example.test',
+  extensions.crypt('Testpassw0rd!123', extensions.gen_salt('bf')),
+  now(), '{"provider":"email","providers":["email"]}'::jsonb, '{"role":"patient"}'::jsonb, now(), now()
+);
+
+insert into public.patient_email_change_requests (
+  user_id, new_email, token_hash, expires_at
+) values (
+  '00000000-0000-0000-0000-0000000a20bb',
+  'jordan.new@example.test',
+  'ev05-token-hash-aaa',
+  now() + interval '24 hours'
+);
+
+-- Before redeem, auth email is still the old one.
+select is(
+  (select email from auth.users where id = '00000000-0000-0000-0000-0000000a20bb'),
+  'jordan.old@example.test',
+  'PSU-EV-05: old email remains authoritative before confirm'
+);
+
+select is(
+  (public.redeem_patient_email_change('ev05-token-hash-aaa')->>'ok')::boolean,
+  true,
+  'PSU-EV-05: redeem succeeds with valid token'
+);
+
+select is(
+  (select email from auth.users where id = '00000000-0000-0000-0000-0000000a20bb'),
+  'jordan.new@example.test',
+  'PSU-EV-05: email updated only after confirm'
+);
+
+select is(
+  (public.redeem_patient_email_change('ev05-token-hash-aaa')->>'ok')::boolean,
+  false,
+  'PSU-EV-05: token reuse fails'
+);
+
+select is(
+  (public.redeem_patient_email_change('forged-token')->>'error'),
+  'invalid_or_expired_link',
+  'PSU-EV-05: forged token rejected'
+);
+
 select * from finish();
 rollback;

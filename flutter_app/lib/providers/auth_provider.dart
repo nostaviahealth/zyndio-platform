@@ -121,16 +121,34 @@ class AuthNotifier extends Notifier<AsyncValue<void>> {
     state = const AsyncValue.loading();
     try {
       debugPrint('Signing in with email: $email');
-      final response = await client.auth.signInWithPassword(
-        email: email,
-        password: password,
+      // PSU-RL-03: patient email/password login goes through patient-login
+      // Edge Function (per-IP failure throttle) rather than GoTrue directly.
+      final response = await client.functions.invoke(
+        'patient-login',
+        body: {'email': email, 'password': password},
       );
-      debugPrint('Sign in successful: ${response.user?.email}');
-      
-      // Sync FCM token for push notifications
+      final data = response.data;
+      if (data is Map && data['error'] != null) {
+        throw PatientAuthException(data['error'].toString());
+      }
+      if (data is! Map || data['access_token'] == null || data['refresh_token'] == null) {
+        throw PatientAuthException('invalid_credentials');
+      }
+      // setSession exchanges the refresh token for a persisted session
+      // (SecureLocalStorage / PSU-SES-01).
+      await client.auth.setSession(data['refresh_token'] as String);
+      debugPrint('Sign in successful: ${client.auth.currentUser?.email}');
+
       NotificationService().syncTokenToSupabase();
-      
+
       state = const AsyncValue.data(null);
+    } on FunctionException catch (e, st) {
+      final details = e.details;
+      final code = (details is Map && details['error'] != null)
+          ? details['error'].toString()
+          : 'invalid_credentials';
+      state = AsyncValue.error(PatientAuthException(code), st);
+      throw PatientAuthException(code);
     } catch (e, st) {
       debugPrint('Sign in error: $e');
       state = AsyncValue.error(e, st);
@@ -387,6 +405,15 @@ class AuthNotifier extends Notifier<AsyncValue<void>> {
       await client?.auth.signOut();
     }
   }
+
+  /// PSU-EV-05: request change to [newEmail]. Old email stays authoritative
+  /// for login until [confirmEmailChange] redeems the token mailed to the
+  /// new address.
+  Future<void> requestEmailChange(String newEmail) =>
+      _invokePatientAuth('patient-request-email-change', {'new_email': newEmail});
+
+  Future<void> confirmEmailChange(String token) =>
+      _invokePatientAuth('patient-confirm-email-change', {'token': token});
 }
 
 /// Auth notifier provider
