@@ -23,6 +23,7 @@ import StatusBadge from '../../components/ui/StatusBadge';
 import TwoFactorStatus from '../../components/ui/TwoFactorStatus';
 import NameCell from '../../components/ui/NameCell';
 import SearchField from '../../components/ui/SearchField';
+import SelectField from '../../components/ui/SelectField';
 import FictionalDataTag from '../../components/ui/FictionalDataTag';
 import { Plus } from 'lucide-react';
 
@@ -282,9 +283,9 @@ const UsersRolesPage: React.FC = () => {
           return <span className="text-[#030616] dark:text-[#EEF1F8]">{ROLE_LABELS[m.role]}</span>;
         }
         return (
-          <select
+          <SelectField
             aria-label={`Change role for ${m.email}`}
-            className="min-h-[44px] appearance-none rounded-md border border-slate-300 bg-white px-2 text-sm text-[#030616] dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8]"
+            wrapperClassName="w-full"
             value={m.role}
             disabled={busyUserId === m.user_id}
             onChange={(e) => setDialog({ kind: 'role-confirm', member: m, newRole: e.target.value as AppRole })}
@@ -294,7 +295,7 @@ const UsersRolesPage: React.FC = () => {
                 {ROLE_LABELS[r]}
               </option>
             ))}
-          </select>
+          </SelectField>
         );
       },
     },
@@ -369,9 +370,8 @@ const UsersRolesPage: React.FC = () => {
               value={search}
               onChange={setSearch}
             />
-            <select
+            <SelectField
               aria-label="Filter by status"
-              className="min-h-[44px] appearance-none rounded-full border border-slate-300 bg-white px-4 text-sm text-[#030616] dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8]"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as 'all' | MemberStatus)}
             >
@@ -379,7 +379,7 @@ const UsersRolesPage: React.FC = () => {
               <option value="active">Active</option>
               <option value="invited">Invited</option>
               <option value="deactivated">Deactivated</option>
-            </select>
+            </SelectField>
           </div>
           <p className="mt-3 text-sm text-slate-500 dark:text-[#A6B0C3]">{filtered.length} people</p>
           <div className="mt-2 overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-[#222838] dark:bg-[#10141F]">

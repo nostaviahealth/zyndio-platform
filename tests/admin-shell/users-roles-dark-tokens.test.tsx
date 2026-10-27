@@ -102,3 +102,34 @@ describe('DataTable header casing (Ava)', () => {
     expect(headers).not.toContain('Actions');
   });
 });
+
+describe('SelectField caret (Ava H2)', () => {
+  it('renders a token-colored SVG caret on role and status selects', async () => {
+    const { default: SelectField } = await import('../../components/ui/SelectField');
+    const { container } = render(
+      <div className="dark">
+        <SelectField aria-label="Change role for alex@example.com" defaultValue="physician">
+          <option value="physician">Physician</option>
+        </SelectField>
+        <SelectField aria-label="Filter by status" defaultValue="all">
+          <option value="all">Status: All</option>
+        </SelectField>
+      </div>,
+    );
+    const role = screen.getByLabelText('Change role for alex@example.com');
+    const status = screen.getByLabelText('Filter by status');
+    expect(role.className).toMatch(/appearance-none/);
+    expect(role.className).toMatch(/rounded-\[10px\]/);
+    expect(status.className).toMatch(/rounded-\[10px\]/);
+    expect(status.className).not.toMatch(/rounded-full/);
+    const carets = container.querySelectorAll('[data-testid="select-caret"]');
+    expect(carets.length).toBe(2);
+    for (const caret of carets) {
+      expect(caret.getAttribute('aria-hidden')).toBe('true');
+      const cls = caret.getAttribute('class') ?? '';
+      expect(cls).toMatch(/text-\[#48556A\]/);
+      expect(cls).toMatch(/dark:text-\[#A6B0C3\]/);
+      expect(caret.querySelector('path')?.getAttribute('d')).toBe('M6 9l6 6 6-6');
+    }
+  });
+});

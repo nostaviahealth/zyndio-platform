@@ -8,6 +8,7 @@ import StatusBadge from '../../components/ui/StatusBadge';
 import TwoFactorStatus from '../../components/ui/TwoFactorStatus';
 import NameCell from '../../components/ui/NameCell';
 import SearchField from '../../components/ui/SearchField';
+import SelectField from '../../components/ui/SelectField';
 import { Plus } from 'lucide-react';
 import { ROLE_LABELS, roleDescriptionsFor } from '../admin/UsersRoles';
 import { PreviewMember, PREVIEW_MEMBERS, SELF_USER_ID } from './previewFixtures';
@@ -76,9 +77,9 @@ const Table: React.FC<{ members: PreviewMember[]; isPlatformAdmin?: boolean }> =
           return <span className="text-[#030616] dark:text-[#EEF1F8]">{ROLE_LABELS[m.role]}</span>;
         }
         return (
-          <select
+          <SelectField
             aria-label={`Change role for ${m.email}`}
-            className="min-h-[44px] appearance-none rounded-md border border-slate-300 bg-white px-2 text-sm text-[#030616] dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8]"
+            wrapperClassName="w-full"
             value={m.role}
             onChange={() => {}}
           >
@@ -87,7 +88,7 @@ const Table: React.FC<{ members: PreviewMember[]; isPlatformAdmin?: boolean }> =
                 {ROLE_LABELS[r]}
               </option>
             ))}
-          </select>
+          </SelectField>
         );
       },
     },
@@ -137,9 +138,9 @@ const Toolbar: React.FC<{ count: number }> = ({ count }) => (
   <>
     <div className="mt-6 flex flex-wrap items-center gap-3">
       <SearchField aria-label="Search by name or email" placeholder="Search by name or email" className="flex-1" readOnly />
-      <select aria-label="Filter by status" className="min-h-[44px] appearance-none rounded-full border border-slate-300 bg-white px-4 text-sm text-[#030616] dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8]" readOnly>
-        <option>Status: All</option>
-      </select>
+      <SelectField aria-label="Filter by status" value="all" onChange={() => {}}>
+        <option value="all">Status: All</option>
+      </SelectField>
     </div>
     <p className="mt-3 text-sm text-slate-500 dark:text-[#A6B0C3]">{count} people</p>
   </>
