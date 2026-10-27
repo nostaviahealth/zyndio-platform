@@ -43,6 +43,7 @@ MANIFEST: dict[str, list[str]] = {
         "invite",
         "invite-validation",
         "invite-sent",
+        "cancel-invite-confirm",
         "role-confirm",
         "deactivate-confirm",
         "deactivated",
