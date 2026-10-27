@@ -23,6 +23,7 @@ import StatusBadge from '../../components/ui/StatusBadge';
 import TwoFactorStatus from '../../components/ui/TwoFactorStatus';
 import NameCell from '../../components/ui/NameCell';
 import SearchField from '../../components/ui/SearchField';
+import FictionalDataTag from '../../components/ui/FictionalDataTag';
 import { Plus } from 'lucide-react';
 
 export const ROLE_LABELS: Record<AppRole, string> = {
@@ -314,7 +315,8 @@ const UsersRolesPage: React.FC = () => {
   ];
 
   return (
-    <div>
+    <div className="relative">
+      {typeof __PREVIEW_BUILD__ !== 'undefined' && __PREVIEW_BUILD__ && <FictionalDataTag />}
       <PageHeader
         title="Users and roles"
         description="People at Zyndio who can sign in to the care portal. Everyone must use two-factor sign-in."

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Users, LogOut } from 'lucide-react';
+import FictionalDataTag from '../../components/ui/FictionalDataTag';
 
 interface PreviewShellProps {
   mode: 'light' | 'dark';
@@ -56,7 +57,8 @@ const PreviewShell: React.FC<PreviewShellProps> = ({ mode, children }) => {
         </div>
       </nav>
 
-      <main className="flex-1 px-10 py-8" style={isDark ? { color: '#F2F4F7' } : undefined}>
+      <main className="relative flex-1 px-10 py-8" style={isDark ? { color: '#F2F4F7' } : undefined}>
+        <FictionalDataTag />
         {children}
       </main>
     </div>
