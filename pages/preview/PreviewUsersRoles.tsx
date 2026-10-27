@@ -135,15 +135,13 @@ const Header: React.FC = () => (
 );
 
 const Toolbar: React.FC<{ count: number }> = ({ count }) => (
-  <>
-    <div className="mt-6 flex flex-wrap items-center gap-3">
-      <SearchField aria-label="Search by name or email" placeholder="Search by name or email" className="flex-1" readOnly />
-      <SelectField aria-label="Filter by status" value="all" onChange={() => {}}>
-        <option value="all">Status: All</option>
-      </SelectField>
-    </div>
-    <p className="mt-3 text-sm text-slate-500 dark:text-[#A6B0C3]">{count} people</p>
-  </>
+  <div className="mt-6 flex flex-wrap items-center gap-3">
+    <SearchField aria-label="Search by name or email" placeholder="Search by name or email" className="flex-1" readOnly />
+    <SelectField aria-label="Filter by status" value="all" onChange={() => {}}>
+      <option value="all">Status: All</option>
+    </SelectField>
+    <p className="ml-auto text-sm text-slate-500 dark:text-[#A6B0C3]">{count} people</p>
+  </div>
 );
 
 // 07-users-roles preview states (handoff README state list, low-codes n/a
