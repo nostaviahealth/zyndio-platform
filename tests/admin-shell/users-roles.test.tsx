@@ -29,6 +29,8 @@ vi.mock('../../lib/usersRolesApi', () => ({
   deactivateUser: vi.fn(async () => ({ ok: true })),
   reactivateUser: vi.fn(async () => ({ ok: true })),
   requestMfaReset: vi.fn(async () => ({ ok: true })),
+  resetMfa: vi.fn(async () => ({ ok: true })),
+  checkIsPlatformAdmin: vi.fn(async () => false),
 }));
 
 vi.mock('../../lib/supabase', () => ({

@@ -51,5 +51,25 @@ select is(
   'request_mfa_reset: writes exactly one mfa_reset_requested audit row'
 );
 
+-- TC-011 Ava request-2fa-reset dialog: optional p_reason is carried through
+-- to the audit row's metadata (a Zyndio admin reading the request sees it).
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0001', 'aal2'); -- org_admin_a
+select lives_ok(
+  $$ select public.request_mfa_reset('00000000-0000-0000-0000-0000000a0003', 'Got a new phone and lost the authenticator.') $$,
+  'request_mfa_reset: accepts an optional reason'
+);
+reset role;
+select set_config('request.jwt.claims', '', true);
+select is(
+  (select metadata ->> 'reason' from public.audit_log where event_type = 'mfa_reset_requested' and target_user_id = '00000000-0000-0000-0000-0000000a0003'),
+  'Got a new phone and lost the authenticator.',
+  'request_mfa_reset: the reason is stored in the audit row metadata'
+);
+select is(
+  (select metadata ->> 'reason' from public.audit_log where event_type = 'mfa_reset_requested' and target_user_id = '00000000-0000-0000-0000-0000000a0002'),
+  null,
+  'request_mfa_reset: no reason was given is stored as null, not the literal string'
+);
+
 select * from finish();
 rollback;

@@ -3,7 +3,7 @@ import PageHeader from '../../components/ui/PageHeader';
 import DataTable, { DataTableColumn } from '../../components/ui/DataTable';
 import Dialog from '../../components/ui/Dialog';
 import Button from '../../components/admin-auth/Button';
-import { ROLE_LABELS, ROLE_DESCRIPTIONS } from '../admin/UsersRoles';
+import { ROLE_LABELS, roleDescriptionsFor } from '../admin/UsersRoles';
 import { PreviewMember, PREVIEW_MEMBERS, SELF_USER_ID } from './previewFixtures';
 
 const STATUS_LABELS: Record<string, string> = { invited: 'Invited', active: 'Active', deactivated: 'Deactivated' };
@@ -12,7 +12,7 @@ function row(member: PreviewMember, extraStatus?: string) {
   return member.status === 'invited' ? `${STATUS_LABELS[member.status]} · ${extraStatus ?? '7 days left'}` : STATUS_LABELS[member.status];
 }
 
-const Legend: React.FC = () => (
+const Legend: React.FC<{ isPlatformAdmin?: boolean }> = ({ isPlatformAdmin = false }) => (
   <section className="mt-10 rounded-xl border border-slate-200 bg-white p-6">
     <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
       What each role can do <span className="normal-case text-slate-400">(Draft, to confirm with Zyndio)</span>
@@ -21,7 +21,7 @@ const Legend: React.FC = () => (
       {(['physician', 'care_coordinator', 'org_admin', 'read_only'] as const).map((role) => (
         <div key={role}>
           <dt className="font-semibold text-[#030616]">{ROLE_LABELS[role]}</dt>
-          <dd className="text-sm text-slate-600">{ROLE_DESCRIPTIONS[role]}</dd>
+          <dd className="text-sm text-slate-600">{roleDescriptionsFor(isPlatformAdmin)[role]}</dd>
         </div>
       ))}
     </dl>
@@ -38,7 +38,8 @@ const Toastish: React.FC<{ message: string; action?: string }> = ({ message, act
   </div>
 );
 
-const Table: React.FC<{ members: PreviewMember[] }> = ({ members }) => {
+const Table: React.FC<{ members: PreviewMember[]; isPlatformAdmin?: boolean }> = ({ members, isPlatformAdmin = false }) => {
+  const resetActionLabel = isPlatformAdmin ? 'Reset two-factor' : 'Request 2FA reset';
   const columns: DataTableColumn<PreviewMember>[] = [
     { key: 'name', header: 'Name', render: (m) => m.name },
     { key: 'email', header: '', render: (m) => <span className="text-slate-500">{m.email}</span> },
@@ -58,7 +59,7 @@ const Table: React.FC<{ members: PreviewMember[] }> = ({ members }) => {
               <span>{ROLE_LABELS[m.role]}</span>
               {m.user_id !== SELF_USER_ID && (
                 <>
-                  <span className="text-[#2C5CF2]">Request 2FA reset</span>
+                  <span className="text-[#2C5CF2]">{resetActionLabel}</span>
                   <span className="text-red-600">Deactivate</span>
                 </>
               )}
@@ -152,17 +153,29 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
     );
   }
 
+  // reset-2fa is the Zyndio-admin view (default MANIFEST states are
+  // otherwise all the signed-in-as-org-admin view, matching copy-deck's
+  // reset-2fa state which shows Taylor Brooks as a Zyndio admin).
+  const isPlatformAdminView = state === 'reset-2fa';
   const base = (
     <div>
       <Header />
       <Toolbar count={PREVIEW_MEMBERS.length} />
-      <Table members={PREVIEW_MEMBERS} />
-      <Legend />
+      <Table members={PREVIEW_MEMBERS} isPlatformAdmin={isPlatformAdminView} />
+      <Legend isPlatformAdmin={isPlatformAdminView} />
     </div>
   );
 
   if (state === 'invite-sent') return <>{base}<Toastish message="Invite sent to alex.lindgren@example.test." action="Undo" /></>;
   if (state === 'deactivated') return <>{base}<Toastish message="Riley Chen was deactivated and signed out." action="Undo" /></>;
+  if (state === 'reset-requested') {
+    return (
+      <>
+        {base}
+        <Toastish message="Reset requested for Dr. Priya Raman. A Zyndio admin will confirm it's really them first." />
+      </>
+    );
+  }
 
   if (state === 'invite' || state === 'invite-validation') {
     return (
@@ -267,20 +280,60 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
     return (
       <>
         {base}
-        <Dialog
-          titleId="reset-2fa-title"
-          title={`Ask a Zyndio admin to reset two-factor sign-in for ${priya.name}?`}
-          onClose={() => {}}
-        >
-          <p className="mt-2 text-sm text-slate-600">
-            A Zyndio admin will confirm it&apos;s really them (for example on a video call) before resetting. This
-            request is recorded in the audit log.
+        <Dialog titleId="reset-2fa-title" title={`Reset two-factor sign-in for ${priya.name}?`} onClose={() => {}}>
+          <div className="mt-4 flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            <span aria-hidden="true">⚠️</span>
+            <p>
+              Only do this after you&apos;ve confirmed it&apos;s really {priya.name}, for example on a video call.
+              Never because of an email alone.
+            </p>
+          </div>
+          <p className="mt-4 text-sm text-slate-600">
+            {priya.name}&apos;s authenticator app and recovery codes will stop working, and {priya.name} is signed
+            out on every device. At next sign-in, they&apos;ll set up two-factor sign-in again. The reset is
+            recorded in the audit log.
           </p>
+          <p className="mt-2 text-sm text-slate-500">Only Zyndio admins can reset two-factor sign-in.</p>
           <div className="mt-6 flex justify-end gap-3">
             <Button type="button" variant="outline">
               Cancel
             </Button>
-            <Button type="button">Request reset</Button>
+            <Button type="button" variant="destructive">
+              Reset two-factor
+            </Button>
+          </div>
+        </Dialog>
+      </>
+    );
+  }
+
+  if (state === 'request-2fa-reset') {
+    return (
+      <>
+        {base}
+        <Dialog titleId="request-2fa-reset-title" title={`Ask for a two-factor reset for ${priya.name}?`} onClose={() => {}}>
+          <p className="mt-2 text-sm text-slate-600">
+            Only a Zyndio admin can reset two-factor sign-in. They&apos;ll confirm it&apos;s really {priya.name}
+            before they reset it, then {priya.name} is signed out on every device and sets it up again at next
+            sign-in.
+          </p>
+          <div className="mt-4">
+            <label htmlFor="preview-request-2fa-reset-reason" className="text-sm font-semibold text-[#030616]">
+              Reason (optional)
+            </label>
+            <input
+              id="preview-request-2fa-reset-reason"
+              readOnly
+              defaultValue="Priya got a new phone and can't open the authenticator app."
+              className="mt-1 min-h-[44px] w-full rounded-md border border-slate-300 px-3 text-sm"
+            />
+            <p className="mt-1 text-xs text-slate-500">Zyndio admins see this with your name and time.</p>
+          </div>
+          <div className="mt-6 flex justify-end gap-3">
+            <Button type="button" variant="outline">
+              Cancel
+            </Button>
+            <Button type="button">Send request</Button>
           </div>
         </Dialog>
       </>

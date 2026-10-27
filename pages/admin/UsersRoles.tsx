@@ -5,11 +5,13 @@ import {
   MemberStatus,
   OrgMember,
   changeMemberRole,
+  checkIsPlatformAdmin,
   deactivateUser,
   inviteUser,
   listOrgMembers,
   reactivateUser,
   requestMfaReset,
+  resetMfa,
 } from '../../lib/usersRolesApi';
 import PageHeader from '../../components/ui/PageHeader';
 import DataTable, { DataTableColumn } from '../../components/ui/DataTable';
@@ -37,6 +39,14 @@ export const ROLE_DESCRIPTIONS: Record<AppRole, string> = {
   read_only: "Views patient records. Can't change, approve or export anything.",
 };
 
+// A Zyndio (platform) admin actually performs the reset themselves, so their
+// view of the legend reads differently for the Admin row (copy-deck
+// "### reset-2fa": "...resets two-factor sign-in").
+export function roleDescriptionsFor(isPlatformAdmin: boolean): Record<AppRole, string> {
+  if (!isPlatformAdmin) return ROLE_DESCRIPTIONS;
+  return { ...ROLE_DESCRIPTIONS, org_admin: 'Invites people, assigns roles, deactivates accounts, resets two-factor sign-in.' };
+}
+
 const ASSIGNABLE_ROLES: AppRole[] = ['physician', 'care_coordinator', 'org_admin', 'read_only'];
 
 const STATUS_LABELS: Record<MemberStatus, string> = {
@@ -62,7 +72,10 @@ type DialogState =
   | { kind: 'role-confirm'; member: OrgMember; newRole: AppRole }
   | { kind: 'deactivate-confirm'; member: OrgMember }
   | { kind: 'last-admin' }
+  // Zyndio (platform) admin only - performs the reset directly.
   | { kind: 'reset-2fa'; member: OrgMember }
+  // Org admin - can only ask a Zyndio admin to reset it.
+  | { kind: 'request-2fa-reset'; member: OrgMember }
   | null;
 
 const UsersRolesPage: React.FC = () => {
@@ -70,6 +83,7 @@ const UsersRolesPage: React.FC = () => {
   const [members, setMembers] = useState<OrgMember[] | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [selfUserId, setSelfUserId] = useState<string | null>(null);
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | MemberStatus>('all');
   const [dialog, setDialog] = useState<DialogState>(null);
@@ -89,6 +103,7 @@ const UsersRolesPage: React.FC = () => {
   useEffect(() => {
     load();
     supabase.auth.getUser().then(({ data }) => setSelfUserId(data.user?.id ?? null));
+    checkIsPlatformAdmin().then(setIsPlatformAdmin);
   }, [load]);
 
   const filtered = useMemo(() => {
@@ -155,13 +170,27 @@ const UsersRolesPage: React.FC = () => {
     return result;
   };
 
-  const handleRequestReset = async (member: OrgMember) => {
+  const handleRequestReset = async (member: OrgMember, reason: string) => {
     setBusyUserId(member.user_id);
-    const result = await requestMfaReset(member.user_id);
+    const result = await requestMfaReset(member.user_id, reason);
     setBusyUserId(null);
     closeDialog();
     if (result.ok) {
-      showToast({ message: `Reset requested for ${member.email}. A Zyndio admin will confirm their identity first.` });
+      showToast({ message: `Reset requested for ${member.email}. A Zyndio admin will confirm it's really them first.` });
+    }
+    return result;
+  };
+
+  // Zyndio (platform) admin only - performs the reset directly (reset-mfa
+  // Edge Function re-checks this server side regardless of what the client
+  // believes isPlatformAdmin to be).
+  const handleResetMfa = async (member: OrgMember) => {
+    setBusyUserId(member.user_id);
+    const result = await resetMfa(member.user_id);
+    setBusyUserId(null);
+    closeDialog();
+    if (result.ok) {
+      showToast({ message: `Two-factor sign-in reset for ${member.email}. They were signed out everywhere.` });
     }
     return result;
   };
@@ -195,12 +224,23 @@ const UsersRolesPage: React.FC = () => {
                   ))}
                 </select>
                 {/* Own-row: no reset-2fa, no deactivate (OVERRIDES #4 / README decision 3) -
-                    hidden entirely, not just disabled, and re-enforced server side. */}
-                {!isSelf && (
+                    hidden entirely, not just disabled, and re-enforced server side. A
+                    Zyndio (platform) admin performs the reset directly; an org admin can
+                    only ask one to (Henry's round-2 ruling). */}
+                {!isSelf && isPlatformAdmin && (
                   <button
                     type="button"
                     className="text-xs font-semibold text-[#2C5CF2] hover:underline"
                     onClick={() => setDialog({ kind: 'reset-2fa', member: m })}
+                  >
+                    Reset two-factor
+                  </button>
+                )}
+                {!isSelf && !isPlatformAdmin && (
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-[#2C5CF2] hover:underline"
+                    onClick={() => setDialog({ kind: 'request-2fa-reset', member: m })}
                   >
                     Request 2FA reset
                   </button>
@@ -312,7 +352,7 @@ const UsersRolesPage: React.FC = () => {
           {ASSIGNABLE_ROLES.map((role) => (
             <div key={role}>
               <dt className="font-semibold text-[#030616]">{ROLE_LABELS[role]}</dt>
-              <dd className="text-sm text-slate-600">{ROLE_DESCRIPTIONS[role]}</dd>
+              <dd className="text-sm text-slate-600">{roleDescriptionsFor(isPlatformAdmin)[role]}</dd>
             </div>
           ))}
         </dl>
@@ -385,27 +425,121 @@ const UsersRolesPage: React.FC = () => {
       )}
 
       {dialog?.kind === 'reset-2fa' && (
-        <Dialog
-          titleId="reset-2fa-title"
-          descriptionId="reset-2fa-body"
-          title={`Ask a Zyndio admin to reset two-factor sign-in for ${dialog.member.email}?`}
-          onClose={closeDialog}
-        >
-          <p id="reset-2fa-body" className="mt-2 text-sm text-slate-600">
-            A Zyndio admin will confirm it&apos;s really them (for example on a video call) before resetting. This
-            request is recorded in the audit log.
-          </p>
-          <div className="mt-6 flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={closeDialog} data-autofocus="true">
-              Cancel
-            </Button>
-            <Button type="button" onClick={() => handleRequestReset(dialog.member)}>
-              Request reset
-            </Button>
-          </div>
-        </Dialog>
+        <ResetTwoFactorDialog member={dialog.member} onClose={closeDialog} onConfirm={handleResetMfa} />
+      )}
+
+      {dialog?.kind === 'request-2fa-reset' && (
+        <RequestTwoFactorResetDialog member={dialog.member} onClose={closeDialog} onSubmit={handleRequestReset} />
       )}
     </div>
+  );
+};
+
+// Zyndio (platform) admin only (copy-deck "### reset-2fa"). Performs the
+// reset directly via reset-mfa - destructive, so the confirm button matches
+// the deactivate dialog's red/destructive styling.
+const ResetTwoFactorDialog: React.FC<{
+  member: OrgMember;
+  onClose: () => void;
+  onConfirm: (member: OrgMember) => Promise<{ ok: boolean; error?: string }>;
+}> = ({ member, onClose, onConfirm }) => {
+  const [submitting, setSubmitting] = useState(false);
+
+  return (
+    <Dialog
+      titleId="reset-2fa-title"
+      descriptionId="reset-2fa-body"
+      title={`Reset two-factor sign-in for ${member.email}?`}
+      onClose={onClose}
+    >
+      <div className="mt-4 flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+        <span aria-hidden="true">⚠️</span>
+        <p>
+          Only do this after you&apos;ve confirmed it&apos;s really {member.email}, for example on a video call.
+          Never because of an email alone.
+        </p>
+      </div>
+      <p id="reset-2fa-body" className="mt-4 text-sm text-slate-600">
+        Their authenticator app and recovery codes will stop working, and they&apos;re signed out on every device.
+        At next sign-in, they&apos;ll set up two-factor sign-in again. The reset is recorded in the audit log.
+      </p>
+      <p className="mt-2 text-sm text-slate-500">Only Zyndio admins can reset two-factor sign-in.</p>
+      <div className="mt-6 flex justify-end gap-3">
+        <Button type="button" variant="outline" onClick={onClose} data-autofocus="true">
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          variant="destructive"
+          busy={submitting}
+          busyLabel="Resetting…"
+          onClick={async () => {
+            setSubmitting(true);
+            await onConfirm(member);
+            setSubmitting(false);
+          }}
+        >
+          Reset two-factor
+        </Button>
+      </div>
+    </Dialog>
+  );
+};
+
+// Org admin only - can only ask, never perform (copy-deck doesn't have this
+// state yet; copy follows the request-2fa-reset / reset-requested renders).
+const RequestTwoFactorResetDialog: React.FC<{
+  member: OrgMember;
+  onClose: () => void;
+  onSubmit: (member: OrgMember, reason: string) => Promise<{ ok: boolean; error?: string }>;
+}> = ({ member, onClose, onSubmit }) => {
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  return (
+    <Dialog
+      titleId="request-2fa-reset-title"
+      descriptionId="request-2fa-reset-body"
+      title={`Ask for a two-factor reset for ${member.email}?`}
+      onClose={onClose}
+    >
+      <p id="request-2fa-reset-body" className="mt-2 text-sm text-slate-600">
+        Only a Zyndio admin can reset two-factor sign-in. They&apos;ll confirm it&apos;s really them before they
+        reset it, then they&apos;re signed out on every device and set it up again at next sign-in.
+      </p>
+      <div className="mt-4">
+        <label htmlFor="request-2fa-reset-reason" className="text-sm font-semibold text-[#030616]">
+          Reason (optional)
+        </label>
+        <input
+          id="request-2fa-reset-reason"
+          type="text"
+          className="mt-1 min-h-[44px] w-full rounded-md border border-slate-300 px-3 text-sm"
+          placeholder="e.g. they got a new phone and can't open the authenticator app"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          data-autofocus="true"
+        />
+        <p className="mt-1 text-xs text-slate-500">Zyndio admins see this with your name and time.</p>
+      </div>
+      <div className="mt-6 flex justify-end gap-3">
+        <Button type="button" variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          busy={submitting}
+          busyLabel="Sending…"
+          onClick={async () => {
+            setSubmitting(true);
+            await onSubmit(member, reason);
+            setSubmitting(false);
+          }}
+        >
+          Send request
+        </Button>
+      </div>
+    </Dialog>
   );
 };
 

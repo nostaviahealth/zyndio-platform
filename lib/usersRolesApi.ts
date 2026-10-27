@@ -65,8 +65,33 @@ export async function reactivateUser(targetUserId: string): Promise<ApiResult> {
 // a Zyndio admin can actually reset someone's 2FA; an org admin can only
 // ask). The RPC itself refuses a self-target with a Postgres 42501, which
 // surfaces here as `error.code`.
-export async function requestMfaReset(targetUserId: string): Promise<ApiResult> {
-  const { error } = await supabase.rpc('request_mfa_reset', { p_target_user_id: targetUserId });
+export async function requestMfaReset(targetUserId: string, reason?: string): Promise<ApiResult> {
+  const { error } = await supabase.rpc('request_mfa_reset', {
+    p_target_user_id: targetUserId,
+    p_reason: reason?.trim() || null,
+  });
   if (error) return { ok: false, error: error.code === '42501' ? 'forbidden' : error.message };
   return { ok: true };
+}
+
+// Performing an actual 2FA reset - Zyndio (platform) admin only, enforced
+// server-side by requireZyndioAdminActor (supabase/functions/reset-mfa).
+export async function resetMfa(targetUserId: string): Promise<ApiResult> {
+  const { data, error } = await supabase.functions.invoke('reset-mfa', {
+    body: { target_user_id: targetUserId },
+  });
+  if (error) return { ok: false, error: 'internal_error' };
+  if (data?.error) return { ok: false, error: data.error as string };
+  return { ok: true };
+}
+
+// Platform ("Zyndio") admin vs org admin - drives which 2FA-reset dialog an
+// actor sees (reset-2fa vs request-2fa-reset). is_zyndio_admin() has no
+// explicit grant/revoke (Postgres default: EXECUTE to PUBLIC), so it's
+// callable by any authenticated session; it only ever reports the caller's
+// own membership in platform_admins.
+export async function checkIsPlatformAdmin(): Promise<boolean> {
+  const { data, error } = await supabase.rpc('is_zyndio_admin');
+  if (error) return false;
+  return data === true;
 }
