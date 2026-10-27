@@ -25,6 +25,7 @@ import {
   normalizeEmail,
   normalizeFullName,
 } from '../_shared/validation.ts'
+import { isCancelledInviteLeftover } from '../_shared/cancelInviteAuthDelete.ts'
 
 async function findUserIdByEmail(admin: SupabaseClient, email: string): Promise<string | null> {
   const { data } = await admin.rpc('find_user_id_by_email', { p_email: email })
@@ -120,9 +121,24 @@ serve(async (req) => {
       // M6: an account that existed before this invite call (a patient
       // account, or anything else never routed through invite-user) and
       // has no org_members row at all. Never silently attach org/staff
-      // access to it, and never let accept-invite later overwrite its real
-      // password - refuse, but look identical to a successful invite.
-      return jsonResponse(req, { status: 'ok' })
+      // access to it — unless Clara L30: it is only a leftover from a
+      // cancelled invite whose auth delete failed (no patient / platform
+      // admin / self-signup, only revoked invite history).
+      const leftover = await isCancelledInviteLeftover(admin, userId)
+      if (!leftover) {
+        return jsonResponse(req, { status: 'ok' })
+      }
+      const { error: memberError } = await admin.from('org_members').insert({
+        user_id: userId,
+        org_id: actor.orgId,
+        role,
+        status: 'invited',
+        full_name: fullName,
+      })
+      if (memberError) {
+        console.error('invite-user: org_members insert on leftover re-invite failed', memberError)
+        return jsonResponse(req, { error: 'internal_error' }, 500)
+      }
     } else {
       const { error: memberError } = await admin.from('org_members').insert({
         user_id: userId,
