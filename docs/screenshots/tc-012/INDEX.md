@@ -2,7 +2,7 @@
 
 Source: **Flutter widget-test / golden captures** of built patient-auth frames
 (`flutter_app/lib/screens/auth/screenshot/patient_auth_screenshot_frames.dart`),
-Ava state names, fictional data only. Light + dark at **390×844**.
+Ava state names, fictional data only. Light + dark at **390×844** with real **Inter** + MaterialIcons via FontLoader (not Ahem).
 
 > Correction (Ava): an earlier commit (`1a94579`) copied Ava's design renders
 > byte-for-byte. That set is **not** valid evidence. This tree replaces those

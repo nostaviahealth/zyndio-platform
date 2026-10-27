@@ -623,7 +623,7 @@ Widget _frame(
     color: c.bgCanvas,
     child: SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -631,6 +631,7 @@ Widget _frame(
               'ZYNDIO',
               textAlign: TextAlign.center,
               style: TextStyle(
+                fontFamily: 'Inter',
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 3,
@@ -641,25 +642,26 @@ Widget _frame(
             Text(
               '$screen / $state',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11, color: c.textTertiary),
+              style: TextStyle(fontFamily: 'Inter', fontSize: 11, color: c.textTertiary),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
             Text(
               title,
               style: TextStyle(
-                fontSize: 24,
+                fontFamily: 'Inter',
+                fontSize: 22,
                 fontWeight: FontWeight.w700,
                 height: 1.25,
                 color: c.textPrimary,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             Expanded(
               child: ListView(
                 children: [
                   for (final line in body) ...[
                     _lineCard(context, line, isDark),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 6),
                   ],
                 ],
               ),
@@ -668,7 +670,7 @@ Widget _frame(
             Text(
               'FICTIONAL DATA · Flutter capture',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 10, color: c.textTertiary),
+              style: TextStyle(fontFamily: 'Inter', fontSize: 10, color: c.textTertiary),
             ),
           ],
         ),
@@ -693,7 +695,7 @@ Widget _lineCard(BuildContext context, String line, bool isDark) {
       line == 'Back');
   if (looksButton) {
     return SizedBox(
-      height: 48,
+      height: 40,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: c.brandPrimary,
@@ -703,6 +705,7 @@ Widget _lineCard(BuildContext context, String line, bool isDark) {
           child: Text(
             line,
             style: TextStyle(
+              fontFamily: 'Inter',
               color: c.brandOnPrimary,
               fontWeight: FontWeight.w600,
               fontSize: 15,
@@ -719,10 +722,10 @@ Widget _lineCard(BuildContext context, String line, bool isDark) {
       border: Border.all(color: c.borderSubtle),
     ),
     child: Padding(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Text(
         line,
-        style: TextStyle(fontSize: 14, height: 1.35, color: c.textSecondary),
+        style: TextStyle(fontFamily: 'Inter', fontSize: 13, height: 1.3, color: c.textSecondary),
       ),
     ),
   );
