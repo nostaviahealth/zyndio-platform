@@ -12,6 +12,7 @@ import '../screens/auth/verify_email_screen.dart';
 import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/reset_password_screen.dart';
 import '../screens/auth/delete_account_screen.dart';
+import '../screens/auth/link_record_screen.dart';
 import '../screens/home/home_screen.dart'; // Preserved but unreferenced
 
 import '../screens/health_data/health_data_screen.dart';
@@ -149,6 +150,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/delete-account',
         name: 'delete-account',
         builder: (context, state) => const DeleteAccountScreen(),
+      ),
+      GoRoute(
+        path: '/link-record',
+        name: 'link-record',
+        builder: (context, state) => const LinkRecordScreen(),
       ),
 
       // Main app routes with bottom navigation shell
