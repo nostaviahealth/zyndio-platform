@@ -1,4 +1,4 @@
-import { assert, assertEquals, assertThrows } from 'https://deno.land/std@0.168.0/testing/asserts.ts'
+import { assert, assertEquals, assertRejects, assertThrows } from 'https://deno.land/std@0.168.0/testing/asserts.ts'
 import {
   MIN_PASSWORD_LENGTH,
   decodeJwtPayload,
@@ -12,6 +12,7 @@ import {
   isValidUuid,
   normalizeEmail,
   parseBearerToken,
+  verifyHs256Jwt,
 } from './validation.ts'
 
 Deno.test('normalizeEmail trims and lowercases', () => {
@@ -107,4 +108,41 @@ Deno.test('hashTokenHex is deterministic and sensitive to its input', async () =
   assertEquals(hashA, hashAgain)
   assert(hashA !== hashB)
   assertEquals(hashA.length, 64)
+})
+
+Deno.test('verifyHs256Jwt accepts a correctly signed HS256 token', async () => {
+  const secret = 'test-secret-at-least-32-characters-long!!'
+  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+  const payload = btoa(JSON.stringify({ role: 'service_role', sub: 'worker' }))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const sigBuf = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    new TextEncoder().encode(`${header}.${payload}`),
+  )
+  const sig = btoa(String.fromCharCode(...new Uint8Array(sigBuf)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+  const decoded = await verifyHs256Jwt(`${header}.${payload}.${sig}`, secret)
+  assertEquals(decoded.role, 'service_role')
+})
+
+Deno.test('verifyHs256Jwt rejects a token with a bad signature (TC-011)', async () => {
+  const secret = 'test-secret-at-least-32-characters-long!!'
+  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+  const payload = btoa(JSON.stringify({ role: 'service_role' }))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+  await assertRejects(
+    () => verifyHs256Jwt(`${header}.${payload}.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA`, secret),
+    Error,
+    'bad JWT signature',
+  )
 })

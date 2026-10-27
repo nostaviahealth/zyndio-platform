@@ -167,5 +167,13 @@ select throws_ok(
   'P9 RPC negative: create_patient_record() is rejected at aal1'
 );
 
+-- TC-011: refuse Zyndio platform_admins (not org_members, so prior staff check missed them).
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal2'); -- physician_a
+select throws_ok(
+  $$ select public.create_patient_record('00000000-0000-0000-0000-0000000af001') $$,
+  '42501', null,
+  'TC-011: create_patient_record refuses platform_admins accounts'
+);
+
 select * from finish();
 rollback;

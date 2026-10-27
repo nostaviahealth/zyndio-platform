@@ -93,10 +93,12 @@ serve(async (req) => {
         .ilike('email', email)
         .is('accepted_at', null)
         .is('revoked_at', null)
+      // TC-011: role changes on re-invite stay inside the inviter's org only.
       const { error: roleUpdateError } = await admin
         .from('org_members')
         .update({ role })
         .eq('user_id', userId)
+        .eq('org_id', actor.orgId)
       if (roleUpdateError) {
         console.error('invite-user: org_members role update on resend failed', roleUpdateError)
         return jsonResponse({ error: 'internal_error' }, 500)

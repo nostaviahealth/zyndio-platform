@@ -15,3 +15,8 @@
   2. Route every password change through our audited edge function and stop the client from calling GoTrue's password update directly (server-side enforcement still needed for a determined caller).
 - **Tracking:** TC-011 item 7; Clara `test.fail` in `e2e/specs/08-password-m8.spec.ts` until a real fix lands.
 - **Owner:** Leo / Henry accept.
+
+## R-OUTBOX-JWT — process-outbox JWT signature + gateway check
+
+- **Status:** Mitigated in app (TC-011): `process-outbox` verifies HS256 with `JWT_SECRET` and rejects bad signatures (fail-first Deno test).
+- **Ops requirement:** The API gateway's JWT verification must stay enabled in every deployed environment. The in-function check is defense in depth for direct invocation (e.g. local `functions serve` or a misconfigured gateway).

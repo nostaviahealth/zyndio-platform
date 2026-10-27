@@ -105,3 +105,54 @@ export function generatePlaceholderPassword(): string {
   }
   return chars.join('')
 }
+
+// TC-011: process-outbox must reject forged JWTs. Kong/gateway JWT verification
+// must stay enabled in every deployed environment; this helper is defense in
+// depth for direct function invocation (local `functions serve`, misconfigured
+// gateway). Verifies HS256 with the project JWT secret.
+function base64UrlToBytes(input: string): Uint8Array {
+  const base64 = input.replace(/-/g, '+').replace(/_/g, '/')
+  const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
+  const binary = atob(padded)
+  const out = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i)
+  return out
+}
+
+function bytesToBase64Url(bytes: ArrayBuffer): string {
+  const bin = String.fromCharCode(...new Uint8Array(bytes))
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+}
+
+export async function verifyHs256Jwt(
+  token: string,
+  secret: string,
+): Promise<Record<string, unknown>> {
+  const parts = token.split('.')
+  if (parts.length !== 3) throw new Error('not a JWT')
+  const [headerB64, payloadB64, signatureB64] = parts
+  const headerJson = new TextDecoder().decode(base64UrlToBytes(headerB64))
+  const header = JSON.parse(headerJson) as { alg?: string; typ?: string }
+  if (header.alg !== 'HS256') throw new Error('unsupported JWT alg')
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const data = new TextEncoder().encode(`${headerB64}.${payloadB64}`)
+  const expected = bytesToBase64Url(await crypto.subtle.sign('HMAC', key, data))
+  if (expected !== signatureB64) throw new Error('bad JWT signature')
+  return JSON.parse(new TextDecoder().decode(base64UrlToBytes(payloadB64))) as Record<
+    string,
+    unknown
+  >
+}
+
+export function jwtSecretFromEnv(env: { get(key: string): string | undefined }): string {
+  const secret = env.get('JWT_SECRET') || env.get('SUPABASE_JWT_SECRET')
+  if (!secret) throw new Error('JWT secret not configured')
+  return secret
+}
