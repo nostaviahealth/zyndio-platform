@@ -64,20 +64,29 @@ describe('UsersRolesPage 2FA reset role gating', () => {
     isPlatformAdmin = false;
   });
 
-  it('an org admin (not a Zyndio admin) sees "Request 2FA reset", not "Reset two-factor"', async () => {
+  async function openRowMenu(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByLabelText('More actions for priya.raman@example.test'));
+    return screen.getByRole('menu');
+  }
+
+  it('an org admin (not a Zyndio admin) sees "Request two-factor reset", not "Reset two-factor"', async () => {
     isPlatformAdmin = false;
+    const user = userEvent.setup();
     renderPage();
     await waitFor(() => expect(screen.getByText('2 people')).toBeInTheDocument());
-    expect(await screen.findByRole('button', { name: 'Request 2FA reset' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Reset two-factor' })).not.toBeInTheDocument();
+    const menu = await openRowMenu(user);
+    expect(within(menu).getByRole('menuitem', { name: 'Request two-factor reset' })).toBeInTheDocument();
+    expect(within(menu).queryByRole('menuitem', { name: 'Reset two-factor' })).not.toBeInTheDocument();
   });
 
-  it('a Zyndio admin sees "Reset two-factor", not "Request 2FA reset"', async () => {
+  it('a Zyndio admin sees "Reset two-factor", not "Request two-factor reset"', async () => {
     isPlatformAdmin = true;
+    const user = userEvent.setup();
     renderPage();
     await waitFor(() => expect(screen.getByText('2 people')).toBeInTheDocument());
-    expect(await screen.findByRole('button', { name: 'Reset two-factor' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Request 2FA reset' })).not.toBeInTheDocument();
+    const menu = await openRowMenu(user);
+    expect(within(menu).getByRole('menuitem', { name: 'Reset two-factor' })).toBeInTheDocument();
+    expect(within(menu).queryByRole('menuitem', { name: 'Request two-factor reset' })).not.toBeInTheDocument();
   });
 
   it('org admin: the request dialog calls requestMfaReset(), never resetMfa()', async () => {
@@ -85,7 +94,8 @@ describe('UsersRolesPage 2FA reset role gating', () => {
     const user = userEvent.setup();
     renderPage();
     await waitFor(() => expect(screen.getByText('2 people')).toBeInTheDocument());
-    await user.click(await screen.findByRole('button', { name: 'Request 2FA reset' }));
+    const menu = await openRowMenu(user);
+    await user.click(within(menu).getByRole('menuitem', { name: 'Request two-factor reset' }));
     expect(await screen.findByText("Ask for a two-factor reset for priya.raman@example.test?")).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Send request' }));
     await waitFor(() => expect(requestMfaReset).toHaveBeenCalledWith('other-1', ''));
@@ -97,7 +107,8 @@ describe('UsersRolesPage 2FA reset role gating', () => {
     const user = userEvent.setup();
     renderPage();
     await waitFor(() => expect(screen.getByText('2 people')).toBeInTheDocument());
-    await user.click(await screen.findByRole('button', { name: 'Reset two-factor' }));
+    const menu = await openRowMenu(user);
+    await user.click(within(menu).getByRole('menuitem', { name: 'Reset two-factor' }));
     expect(await screen.findByText('Reset two-factor sign-in for priya.raman@example.test?')).toBeInTheDocument();
     const dialog = screen.getByRole('alertdialog');
     await user.click(within(dialog).getByRole('button', { name: 'Reset two-factor' }));

@@ -3,6 +3,7 @@ import PageHeader from '../../components/ui/PageHeader';
 import DataTable, { DataTableColumn } from '../../components/ui/DataTable';
 import Dialog from '../../components/ui/Dialog';
 import Button from '../../components/admin-auth/Button';
+import RowActionsMenu, { RowActionItem } from '../../components/ui/RowActionsMenu';
 import { ROLE_LABELS, roleDescriptionsFor } from '../admin/UsersRoles';
 import { PreviewMember, PREVIEW_MEMBERS, SELF_USER_ID } from './previewFixtures';
 
@@ -38,35 +39,57 @@ const Toastish: React.FC<{ message: string; action?: string }> = ({ message, act
   </div>
 );
 
+const ASSIGNABLE_ROLES = ['physician', 'care_coordinator', 'org_admin', 'read_only'] as const;
+
 const Table: React.FC<{ members: PreviewMember[]; isPlatformAdmin?: boolean }> = ({ members, isPlatformAdmin = false }) => {
-  const resetActionLabel = isPlatformAdmin ? 'Reset two-factor' : 'Request 2FA reset';
+  const resetActionLabel = isPlatformAdmin ? 'Reset two-factor' : 'Request two-factor reset';
   const columns: DataTableColumn<PreviewMember>[] = [
     { key: 'name', header: 'Name', render: (m) => m.name },
     { key: 'email', header: '', render: (m) => <span className="text-slate-500">{m.email}</span> },
-    { key: 'role', header: 'Role', render: (m) => ROLE_LABELS[m.role] },
+    {
+      key: 'role',
+      header: 'Role',
+      render: (m) => {
+        const isSelf = m.user_id === SELF_USER_ID;
+        if (m.status === 'deactivated' || isSelf) {
+          return <>{ROLE_LABELS[m.role]}</>;
+        }
+        return (
+          <select
+            aria-label={`Change role for ${m.email}`}
+            className="min-h-[44px] rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-900"
+            value={m.role}
+            onChange={() => {}}
+          >
+            {ASSIGNABLE_ROLES.map((r) => (
+              <option key={r} value={r}>
+                {ROLE_LABELS[r]}
+              </option>
+            ))}
+          </select>
+        );
+      },
+    },
     { key: 'twofactor', header: 'Two-factor', render: (m) => m.twoFactor },
     { key: 'lastsignin', header: 'Last sign-in', render: (m) => m.lastSignIn },
     { key: 'status', header: 'Status', render: (m) => row(m) },
     {
       key: 'actions',
       header: 'Actions',
-      render: (m) => (
-        <div aria-label={`More actions for ${m.name}`} className="flex gap-2 text-xs font-semibold">
-          {m.status === 'deactivated' ? (
-            <span className="text-[#2C5CF2]">Reactivate</span>
-          ) : (
-            <>
-              <span>{ROLE_LABELS[m.role]}</span>
-              {m.user_id !== SELF_USER_ID && (
-                <>
-                  <span className="text-[#2C5CF2]">{resetActionLabel}</span>
-                  <span className="text-red-600">Deactivate</span>
-                </>
-              )}
-            </>
-          )}
-        </div>
-      ),
+      render: (m) => {
+        const isSelf = m.user_id === SELF_USER_ID;
+        if (isSelf) {
+          return <div aria-label={`More actions for ${m.email} (you)`} />;
+        }
+        const items: RowActionItem[] =
+          m.status === 'deactivated'
+            ? [{ label: 'Reactivate', onClick: () => {} }]
+            : [
+                { label: resetActionLabel, onClick: () => {} },
+                { label: 'Deactivate', destructive: true, onClick: () => {} },
+              ];
+        return <RowActionsMenu email={m.email} items={items} />;
+      },
     },
   ];
   return (

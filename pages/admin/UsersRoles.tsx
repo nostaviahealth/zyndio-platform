@@ -18,6 +18,7 @@ import DataTable, { DataTableColumn } from '../../components/ui/DataTable';
 import Dialog from '../../components/ui/Dialog';
 import { useToast } from '../../components/ui/Toast';
 import Button from '../../components/admin-auth/Button';
+import RowActionsMenu, { RowActionItem } from '../../components/ui/RowActionsMenu';
 
 export const ROLE_LABELS: Record<AppRole, string> = {
   org_admin: 'Admin',
@@ -195,9 +196,66 @@ const UsersRolesPage: React.FC = () => {
     return result;
   };
 
+  // Own-row and deactivated rows get the menu/select stripped out entirely
+  // (OVERRIDES #4 / README decision 3) - not just disabled, and re-enforced
+  // server side. A Zyndio (platform) admin performs the reset directly; an
+  // org admin can only ask one to (Henry's round-2 ruling).
+  const buildMenuItems = useCallback(
+    (m: OrgMember): RowActionItem[] => {
+      if (m.status === 'deactivated') {
+        return [
+          {
+            label: 'Reactivate',
+            onClick: async () => {
+              await reactivateUser(m.user_id);
+              await load();
+            },
+          },
+        ];
+      }
+      const items: RowActionItem[] = [];
+      if (isPlatformAdmin) {
+        items.push({ label: 'Reset two-factor', onClick: () => setDialog({ kind: 'reset-2fa', member: m }) });
+      } else {
+        items.push({ label: 'Request two-factor reset', onClick: () => setDialog({ kind: 'request-2fa-reset', member: m }) });
+      }
+      items.push({
+        label: 'Deactivate',
+        destructive: true,
+        onClick: () => setDialog({ kind: 'deactivate-confirm', member: m }),
+      });
+      return items;
+    },
+    [isPlatformAdmin, load]
+  );
+
   const columns: DataTableColumn<OrgMember>[] = [
     { key: 'email', header: 'Name', render: (m) => <>{m.email}{m.user_id === selfUserId ? ' (you)' : ''}</> },
-    { key: 'role', header: 'Role', render: (m) => ROLE_LABELS[m.role] },
+    {
+      key: 'role',
+      header: 'Role',
+      render: (m) => {
+        const isSelf = m.user_id === selfUserId;
+        if (m.status === 'deactivated' || isSelf) {
+          return <>{ROLE_LABELS[m.role]}</>;
+        }
+        return (
+          <select
+            aria-label={`Change role for ${m.email}`}
+            className="min-h-[44px] rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-900"
+            value={m.role}
+            disabled={busyUserId === m.user_id}
+            onChange={(e) => setDialog({ kind: 'role-confirm', member: m, newRole: e.target.value as AppRole })}
+          >
+            {ASSIGNABLE_ROLES.map((r) => (
+              <option key={r} value={r}>
+                {ROLE_LABELS[r]}
+              </option>
+            ))}
+          </select>
+        );
+      },
+    },
     { key: 'twofactor', header: 'Two-factor', render: (m) => formatTwoFactor(m) },
     { key: 'lastsignin', header: 'Last sign-in', render: (m) => formatLastSignIn(m) },
     { key: 'status', header: 'Status', render: (m) => STATUS_LABELS[m.status] },
@@ -206,70 +264,10 @@ const UsersRolesPage: React.FC = () => {
       header: 'Actions',
       render: (m) => {
         const isSelf = m.user_id === selfUserId;
-        return (
-          <div className="flex gap-2" aria-label={`More actions for ${m.email}${isSelf ? ' (you)' : ''}`}>
-            {m.status !== 'deactivated' && (
-              <>
-                <select
-                  aria-label={`Change role for ${m.email}`}
-                  className="rounded-md border border-slate-300 px-2 py-1 text-xs"
-                  value={m.role}
-                  disabled={busyUserId === m.user_id}
-                  onChange={(e) => setDialog({ kind: 'role-confirm', member: m, newRole: e.target.value as AppRole })}
-                >
-                  {ASSIGNABLE_ROLES.map((r) => (
-                    <option key={r} value={r}>
-                      {ROLE_LABELS[r]}
-                    </option>
-                  ))}
-                </select>
-                {/* Own-row: no reset-2fa, no deactivate (OVERRIDES #4 / README decision 3) -
-                    hidden entirely, not just disabled, and re-enforced server side. A
-                    Zyndio (platform) admin performs the reset directly; an org admin can
-                    only ask one to (Henry's round-2 ruling). */}
-                {!isSelf && isPlatformAdmin && (
-                  <button
-                    type="button"
-                    className="text-xs font-semibold text-[#2C5CF2] hover:underline"
-                    onClick={() => setDialog({ kind: 'reset-2fa', member: m })}
-                  >
-                    Reset two-factor
-                  </button>
-                )}
-                {!isSelf && !isPlatformAdmin && (
-                  <button
-                    type="button"
-                    className="text-xs font-semibold text-[#2C5CF2] hover:underline"
-                    onClick={() => setDialog({ kind: 'request-2fa-reset', member: m })}
-                  >
-                    Request 2FA reset
-                  </button>
-                )}
-                {!isSelf && (
-                  <button
-                    type="button"
-                    className="text-xs font-semibold text-red-600 hover:underline"
-                    onClick={() => setDialog({ kind: 'deactivate-confirm', member: m })}
-                  >
-                    Deactivate
-                  </button>
-                )}
-              </>
-            )}
-            {m.status === 'deactivated' && (
-              <button
-                type="button"
-                className="text-xs font-semibold text-[#2C5CF2] hover:underline"
-                onClick={async () => {
-                  await reactivateUser(m.user_id);
-                  await load();
-                }}
-              >
-                Reactivate
-              </button>
-            )}
-          </div>
-        );
+        if (isSelf) {
+          return <div aria-label={`More actions for ${m.email} (you)`} />;
+        }
+        return <RowActionsMenu email={m.email} items={buildMenuItems(m)} />;
       },
     },
   ];

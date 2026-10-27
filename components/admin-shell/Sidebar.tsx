@@ -28,7 +28,13 @@ const Sidebar: React.FC = () => {
       className="flex h-screen w-[264px] shrink-0 flex-col border-r border-slate-200 bg-white"
     >
       <div className="px-6 py-4">
-        <span className="text-base font-bold tracking-[0.06em] text-[#030616]">ZYNDIO</span>
+        <div className="flex items-center gap-2">
+          <span className="text-base font-bold tracking-[0.06em] text-[#030616]">ZYNDIO</span>
+          <span className="rounded border border-dashed border-slate-400 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-500">
+            Placeholder
+          </span>
+        </div>
+        <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.2em] text-slate-400">Care Portal</p>
       </div>
 
       <div className="flex-1 space-y-1 px-3">
