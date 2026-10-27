@@ -4,7 +4,7 @@
 begin;
 select no_plan();
 
--- Grant hierarchy
+-- Grant hierarchy (immutable SQL; no auth needed)
 select ok(
   public.can_grant_role('org_admin', 'org_admin'),
   'org_admin can grant org_admin'
@@ -34,45 +34,66 @@ select ok(
   'read_only cannot grant care_coordinator'
 );
 
--- finalize_invite_cancel: seed an invited member + live invite in org A,
--- cancel as service_role, assert revoked + member gone + audit row.
--- Fixtures: org A admin a0001, org A id ...000a.
-do $$
-declare
-  v_target uuid := '00000000-0000-0000-0000-0000000a00f4';
-  v_org uuid := '00000000-0000-0000-0000-00000000000a';
-  v_actor uuid := '00000000-0000-0000-0000-0000000a0001';
-  v_result jsonb;
-begin
-  -- auth.users row (minimal) for the invitee
-  insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
-  values (
-    v_target,
-    '00000000-0000-0000-0000-000000000000',
-    'authenticated',
-    'authenticated',
-    'tc014-cancel@example.test',
-    crypt('Placeholder1!', gen_salt('bf')),
-    now(),
-    '{"provider":"email","providers":["email"]}'::jsonb,
-    '{"full_name":"Casey Cancel"}'::jsonb,
-    now(),
-    now()
-  ) on conflict (id) do nothing;
+-- finalize_invite_cancel is service_role only
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0001', 'aal2');
+select throws_ok(
+  $$ select public.finalize_invite_cancel(
+       '00000000-0000-0000-0000-0000000a00f4'::uuid,
+       '00000000-0000-0000-0000-0000000a0001'::uuid,
+       '00000000-0000-0000-0000-00000000000a'::uuid
+     ) $$,
+  '42501', null,
+  'an authenticated org_admin cannot execute finalize_invite_cancel directly'
+);
+reset role;
 
-  insert into public.org_members (user_id, org_id, role, status)
-  values (v_target, v_org, 'physician', 'invited')
-  on conflict (user_id) do update set org_id = excluded.org_id, role = excluded.role, status = excluded.status;
+-- Seed an invited member + live invite in org A
+insert into auth.users (
+  instance_id, id, aud, role, email, encrypted_password,
+  email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+) values (
+  '00000000-0000-0000-0000-000000000000',
+  '00000000-0000-0000-0000-0000000a00f4',
+  'authenticated',
+  'authenticated',
+  'tc014-cancel@example.test',
+  extensions.crypt('Placeholder1!', extensions.gen_salt('bf')),
+  now(),
+  '{"provider":"email","providers":["email"]}'::jsonb,
+  '{"full_name":"Casey Cancel"}'::jsonb,
+  now(),
+  now()
+);
 
-  insert into public.invites (org_id, email, role, full_name, token_hash, invited_by, user_id)
-  values (v_org, 'tc014-cancel@example.test', 'physician', 'Casey Cancel', 'tc014-cancel-hash', v_actor, v_target);
+insert into public.org_members (user_id, org_id, role, status)
+values (
+  '00000000-0000-0000-0000-0000000a00f4',
+  '00000000-0000-0000-0000-00000000000a',
+  'physician',
+  'invited'
+);
 
-  v_result := public.finalize_invite_cancel(v_target, v_actor, v_org);
+insert into public.invites (org_id, email, role, full_name, token_hash, invited_by, user_id)
+values (
+  '00000000-0000-0000-0000-00000000000a',
+  'tc014-cancel@example.test',
+  'physician',
+  'Casey Cancel',
+  'tc014-cancel-hash',
+  '00000000-0000-0000-0000-0000000a0001',
+  '00000000-0000-0000-0000-0000000a00f4'
+);
 
-  if v_result->>'email' is distinct from 'tc014-cancel@example.test' then
-    raise exception 'finalize_invite_cancel returned unexpected email: %', v_result;
-  end if;
-end $$;
+select tests.authenticate_as_service_role();
+select lives_ok(
+  $$ select public.finalize_invite_cancel(
+       '00000000-0000-0000-0000-0000000a00f4'::uuid,
+       '00000000-0000-0000-0000-0000000a0001'::uuid,
+       '00000000-0000-0000-0000-00000000000a'::uuid
+     ) $$,
+  'finalize_invite_cancel succeeds for an invited same-clinic member'
+);
+reset role;
 
 select is(
   (select count(*) from public.org_members where user_id = '00000000-0000-0000-0000-0000000a00f4')::int,
@@ -96,12 +117,13 @@ select is(
   'finalize_invite_cancel writes invite_cancelled audit'
 );
 
--- Cross-clinic: target in org A, actor claims org B → member not found
+-- Cross-clinic: target in org A, claimed org B → member not found
+select tests.authenticate_as_service_role();
 select throws_ok(
   $$ select public.finalize_invite_cancel(
-       '00000000-0000-0000-0000-0000000a0002',
-       '00000000-0000-0000-0000-0000000b0001',
-       '00000000-0000-0000-0000-00000000000b'
+       '00000000-0000-0000-0000-0000000a0002'::uuid,
+       '00000000-0000-0000-0000-0000000b0001'::uuid,
+       '00000000-0000-0000-0000-00000000000b'::uuid
      ) $$,
   'P0002',
   'member not found in organization',
@@ -111,14 +133,15 @@ select throws_ok(
 -- Active member cannot be cancelled via this RPC
 select throws_ok(
   $$ select public.finalize_invite_cancel(
-       '00000000-0000-0000-0000-0000000a0002',
-       '00000000-0000-0000-0000-0000000a0001',
-       '00000000-0000-0000-0000-00000000000a'
+       '00000000-0000-0000-0000-0000000a0002'::uuid,
+       '00000000-0000-0000-0000-0000000a0001'::uuid,
+       '00000000-0000-0000-0000-00000000000a'::uuid
      ) $$,
   'P0001',
   'not an invited member',
   'finalize_invite_cancel refuses an active (non-invited) member'
 );
+reset role;
 
 select * from finish();
 rollback;
