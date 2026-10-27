@@ -53,14 +53,44 @@ serve(async (req) => {
       return jsonResponse(req, { error: 'internal_error' }, 500)
     }
 
-    // Drop the never-accepted auth user so invite-user can create a fresh
-    // row on re-invite (M6 would otherwise silently no-op).
-    const { error: deleteError } = await admin.auth.admin.deleteUser(targetUserId)
-    if (deleteError) {
-      // Member + invite are already cancelled; log and still return ok so
-      // the admin UI can drop the row. A stuck auth.users row is recoverable
-      // by a Zyndio admin; leaving the invite live would be worse.
-      console.error('cancel-invite: deleteUser failed', deleteError)
+    // Clara L29: re-check just before deleteUser. Skip wiping the auth
+    // account if it has a patient record, a platform-admin row, or a
+    // self-signup marker — those accounts must keep existing even though
+    // the invite/membership is already cancelled.
+    const { data: patientRow } = await admin
+      .from('patients')
+      .select('id')
+      .eq('id', targetUserId)
+      .maybeSingle()
+    const { data: platformAdminRow } = await admin
+      .from('platform_admins')
+      .select('user_id')
+      .eq('user_id', targetUserId)
+      .maybeSingle()
+    const { data: selfSignupRow } = await admin
+      .from('patient_self_signups')
+      .select('user_id')
+      .eq('user_id', targetUserId)
+      .maybeSingle()
+
+    if (patientRow || platformAdminRow || selfSignupRow) {
+      console.info('cancel-invite: skipping auth delete (protected account)', {
+        targetUserId,
+        patient: !!patientRow,
+        platformAdmin: !!platformAdminRow,
+        selfSignup: !!selfSignupRow,
+      })
+    } else {
+      // Drop the never-accepted auth user so invite-user can create a fresh
+      // row on re-invite (M6 would otherwise silently no-op).
+      const { error: deleteError } = await admin.auth.admin.deleteUser(targetUserId)
+      if (deleteError) {
+        // Member + invite are already cancelled; log and still return ok so
+        // the admin UI can drop the row. A stuck auth.users row is recoverable
+        // by a Zyndio admin; leaving the invite live would be worse.
+        // (Clara L30 audits this failure in a follow-up commit.)
+        console.error('cancel-invite: deleteUser failed', deleteError)
+      }
     }
 
     const payload = (result ?? {}) as { email?: string; role?: string; full_name?: string }
