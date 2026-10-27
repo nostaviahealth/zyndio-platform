@@ -260,12 +260,13 @@ select lives_ok(
   'L21: mark_telehealth_outbox_delivered runs'
 );
 
-select ok(
-  not exists (
-    select 1 from public.telehealth_message_outbox
-    where telehealth_patient_id = 'th_test_l21_deliver' and body ~ '\d{6}'
+select is(
+  (
+    select body from public.telehealth_message_outbox
+    where telehealth_patient_id = 'th_test_l21_deliver'
   ),
-  'L21: outbox body has no 6-digit code after delivery'
+  'code removed',
+  'L21: outbox body is the fixed scrub text after delivery'
 );
 select ok(
   (
@@ -326,12 +327,13 @@ select lives_ok(
   'L21: scrub_stale_telehealth_outbox runs'
 );
 
-select ok(
-  not exists (
-    select 1 from public.telehealth_message_outbox
-    where telehealth_patient_id = 'th_test_l21_stale' and body ~ '\d{6}'
+select is(
+  (
+    select body from public.telehealth_message_outbox
+    where telehealth_patient_id = 'th_test_l21_stale'
   ),
-  'L21: stale (>10m) outbox body scrubbed of 6-digit code'
+  'code removed',
+  'L21: stale (>10m) outbox body is the fixed scrub text'
 );
 select ok(
   (
@@ -341,6 +343,66 @@ select ok(
   ),
   'L21: scrubbed_at set for stale row'
 );
+
+-- L24: whole body replaced with fixed text, even for a non-6-digit code
+-- (alphanumeric clinic-style code here) -- not just the digit run.
+reset role;
+select set_config('request.jwt.claims', '', true);
+insert into auth.users (
+  instance_id, id, aud, role, email, encrypted_password,
+  email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+) values (
+  '00000000-0000-0000-0000-000000000000',
+  '00000000-0000-0000-0000-0000000d2401',
+  'authenticated', 'authenticated', 'l24.altcode@example.test',
+  extensions.crypt('Testpassw0rd!123', extensions.gen_salt('bf')),
+  now(), '{"provider":"email","providers":["email"]}'::jsonb,
+  '{"role":"patient"}'::jsonb, now(), now()
+);
+insert into public.patient_self_signups (user_id)
+values ('00000000-0000-0000-0000-0000000d2401')
+on conflict do nothing;
+
+reset role;
+select set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+set local role service_role;
+
+select lives_ok(
+  $$select public.issue_telehealth_link_otp(
+      '00000000-0000-0000-0000-0000000d2401',
+      'th_test_l24_altcode',
+      '00000000-0000-0000-0000-00000000000a',
+      'LNK4582Z',
+      10
+    )$$,
+  'L24 setup: issue OTP with a non-6-digit alphanumeric code'
+);
+
+select ok(
+  exists (
+    select 1 from public.telehealth_message_outbox
+    where telehealth_patient_id = 'th_test_l24_altcode' and body like '%LNK4582Z%'
+  ),
+  'L24 setup: outbox body carries the plaintext alphanumeric code before delivery'
+);
+
+select lives_ok(
+  $$select public.mark_telehealth_outbox_delivered(
+      (select id from public.telehealth_message_outbox
+       where telehealth_patient_id = 'th_test_l24_altcode')
+    )$$,
+  'L24: mark_telehealth_outbox_delivered runs for alphanumeric-code message'
+);
+
+select is(
+  (
+    select body from public.telehealth_message_outbox
+    where telehealth_patient_id = 'th_test_l24_altcode'
+  ),
+  'code removed',
+  'L24: non-6-digit code message body is fully replaced with fixed scrub text, not partially left intact'
+);
+reset role;
 
 -- Audit stays free of plaintext OTP (existing M13 behaviour, re-asserted).
 select ok(

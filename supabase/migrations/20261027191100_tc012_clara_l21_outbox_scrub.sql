@@ -13,7 +13,7 @@ language sql
 immutable
 set search_path = pg_catalog, public
 as $$
-  select regexp_replace(p_body, '\d{6}', '******', 'g');
+  select 'code removed';
 $$;
 
 revoke all on function public._telehealth_outbox_scrub_body(text) from public, anon, authenticated;
