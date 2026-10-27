@@ -187,6 +187,7 @@ describe('Dialog dark tokens (TC-013)', () => {
     expect(outline.className).toMatch(/dark:border-\[#6C7690\]/);
     expect(outline.className).toMatch(/dark:text-\[#EEF1F8\]/);
     const destructive = screen.getByRole('button', { name: 'Deactivate' });
+    expect(destructive.className).toMatch(/bg-\[#B42318\]/);
     expect(destructive.className).toMatch(/dark:bg-\[#FF8F86\]/);
     const input = screen.getByLabelText('Work email');
     expect(input.className).toMatch(/dark:bg-\[#10141F\]/);
