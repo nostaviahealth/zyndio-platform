@@ -1,6 +1,8 @@
 import { assert, assertEquals, assertRejects, assertThrows } from 'https://deno.land/std@0.168.0/testing/asserts.ts'
 import {
+  JWT_EXP_LEEWAY_SECONDS,
   MIN_PASSWORD_LENGTH,
+  assertJwtFresh,
   decodeJwtPayload,
   generatePlaceholderPassword,
   generateToken,
@@ -12,6 +14,8 @@ import {
   isValidUuid,
   normalizeEmail,
   parseBearerToken,
+  resetJwksCacheForTests,
+  setJwksForTests,
   verifyHs256Jwt,
   verifyBearerJwt,
 } from './validation.ts'
@@ -115,7 +119,8 @@ Deno.test('verifyHs256Jwt accepts a correctly signed HS256 token', async () => {
   const secret = 'test-secret-at-least-32-characters-long!!'
   const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
-  const payload = btoa(JSON.stringify({ role: 'service_role', sub: 'worker' }))
+  const exp = Math.floor(Date.now() / 1000) + 600
+  const payload = btoa(JSON.stringify({ role: 'service_role', sub: 'worker', exp }))
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
   const key = await crypto.subtle.importKey(
     'raw',
@@ -152,7 +157,8 @@ Deno.test('verifyBearerJwt accepts HS256 via JWT_SECRET env (TC-011)', async () 
   const secret = 'test-secret-at-least-32-characters-long!!'
   const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
-  const payload = btoa(JSON.stringify({ role: 'authenticated', sub: 'user-1' }))
+  const exp = Math.floor(Date.now() / 1000) + 600
+  const payload = btoa(JSON.stringify({ role: 'authenticated', sub: 'user-1', exp }))
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
   const key = await crypto.subtle.importKey(
     'raw',
@@ -184,4 +190,143 @@ Deno.test('verifyBearerJwt rejects unsupported alg (TC-011)', async () => {
     Error,
     'unsupported JWT alg',
   )
+})
+
+
+// --- Clara M9 / L13: exp required + unknown kid rejected ---
+
+function b64urlJson(obj: unknown): string {
+  return btoa(JSON.stringify(obj))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+}
+
+async function signHs256(secret: string, header: object, claims: object): Promise<string> {
+  const headerB64 = b64urlJson(header)
+  const payloadB64 = b64urlJson(claims)
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const sigBuf = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    new TextEncoder().encode(`${headerB64}.${payloadB64}`),
+  )
+  const sig = btoa(String.fromCharCode(...new Uint8Array(sigBuf)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+  return `${headerB64}.${payloadB64}.${sig}`
+}
+
+Deno.test('assertJwtFresh rejects missing exp (TC-011 M9)', () => {
+  assertThrows(() => assertJwtFresh({ role: 'service_role' }), Error, 'JWT missing exp')
+})
+
+Deno.test('assertJwtFresh rejects expired exp outside leeway (TC-011 M9)', () => {
+  const now = 1_700_000_000
+  assertThrows(
+    () => assertJwtFresh({ exp: now - JWT_EXP_LEEWAY_SECONDS - 1 }, now),
+    Error,
+    'JWT expired',
+  )
+})
+
+Deno.test('assertJwtFresh allows exp within leeway (TC-011 M9)', () => {
+  const now = 1_700_000_000
+  assertJwtFresh({ exp: now - JWT_EXP_LEEWAY_SECONDS }, now)
+})
+
+Deno.test('verifyBearerJwt rejects HS256 with missing exp (TC-011 M9)', async () => {
+  const secret = 'test-secret-at-least-32-characters-long!!'
+  const token = await signHs256(secret, { alg: 'HS256', typ: 'JWT' }, { role: 'service_role' })
+  const env = { get: (k: string) => (k === 'JWT_SECRET' ? secret : undefined) }
+  await assertRejects(() => verifyBearerJwt(token, env), Error, 'JWT missing exp')
+})
+
+Deno.test('verifyBearerJwt rejects HS256 with expired exp (TC-011 M9)', async () => {
+  const secret = 'test-secret-at-least-32-characters-long!!'
+  const exp = Math.floor(Date.now() / 1000) - 60
+  const token = await signHs256(secret, { alg: 'HS256', typ: 'JWT' }, { role: 'service_role', exp })
+  const env = { get: (k: string) => (k === 'JWT_SECRET' ? secret : undefined) }
+  await assertRejects(() => verifyBearerJwt(token, env), Error, 'JWT expired')
+})
+
+Deno.test('verifyBearerJwt accepts valid ES256 and rejects unknown kid (TC-011 M9)', async () => {
+  resetJwksCacheForTests()
+  const pair = await crypto.subtle.generateKey(
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    true,
+    ['sign', 'verify'],
+  )
+  const publicJwk = await crypto.subtle.exportKey('jwk', pair.publicKey) as JsonWebKey & {
+    kid?: string
+  }
+  publicJwk.kid = 'test-kid-m9'
+  publicJwk.alg = 'ES256'
+  publicJwk.use = 'sig'
+  setJwksForTests({ keys: [publicJwk] })
+
+  const exp = Math.floor(Date.now() / 1000) + 600
+  const headerB64 = b64urlJson({ alg: 'ES256', typ: 'JWT', kid: 'test-kid-m9' })
+  const payloadB64 = b64urlJson({ role: 'authenticated', sub: 'es-user', exp })
+  const sigBuf = await crypto.subtle.sign(
+    { name: 'ECDSA', hash: 'SHA-256' },
+    pair.privateKey,
+    new TextEncoder().encode(`${headerB64}.${payloadB64}`),
+  )
+  const sig = btoa(String.fromCharCode(...new Uint8Array(sigBuf)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+  const env = { get: (_k: string) => undefined }
+  const decoded = await verifyBearerJwt(`${headerB64}.${payloadB64}.${sig}`, env)
+  assertEquals(decoded.sub, 'es-user')
+
+  // Unknown kid must not fall back to keys[0]
+  const badHeader = b64urlJson({ alg: 'ES256', typ: 'JWT', kid: 'not-this-kid' })
+  const badSigBuf = await crypto.subtle.sign(
+    { name: 'ECDSA', hash: 'SHA-256' },
+    pair.privateKey,
+    new TextEncoder().encode(`${badHeader}.${payloadB64}`),
+  )
+  const badSig = btoa(String.fromCharCode(...new Uint8Array(badSigBuf)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+  await assertRejects(
+    () => verifyBearerJwt(`${badHeader}.${payloadB64}.${badSig}`, env),
+    Error,
+    'unknown JWT kid',
+  )
+  resetJwksCacheForTests()
+})
+
+Deno.test('verifyBearerJwt rejects ES256 with expired exp (TC-011 M9)', async () => {
+  resetJwksCacheForTests()
+  const pair = await crypto.subtle.generateKey(
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    true,
+    ['sign', 'verify'],
+  )
+  const publicJwk = await crypto.subtle.exportKey('jwk', pair.publicKey) as JsonWebKey & {
+    kid?: string
+  }
+  publicJwk.kid = 'test-kid-exp'
+  setJwksForTests({ keys: [publicJwk] })
+
+  const exp = Math.floor(Date.now() / 1000) - 120
+  const headerB64 = b64urlJson({ alg: 'ES256', typ: 'JWT', kid: 'test-kid-exp' })
+  const payloadB64 = b64urlJson({ role: 'authenticated', sub: 'es-user', exp })
+  const sigBuf = await crypto.subtle.sign(
+    { name: 'ECDSA', hash: 'SHA-256' },
+    pair.privateKey,
+    new TextEncoder().encode(`${headerB64}.${payloadB64}`),
+  )
+  const sig = btoa(String.fromCharCode(...new Uint8Array(sigBuf)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+  const env = { get: (_k: string) => undefined }
+  await assertRejects(
+    () => verifyBearerJwt(`${headerB64}.${payloadB64}.${sig}`, env),
+    Error,
+    'JWT expired',
+  )
+  resetJwksCacheForTests()
 })
