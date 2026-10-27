@@ -5,10 +5,11 @@
 // outcome that isn't a validation error on the *caller's own input* returns
 // the identical `{ status: 'ok' }` body.
 //
-// TC-014: Full name is required; role must be one the inviter can grant
-// (canGrantRole / public.can_grant_role). Role is stored on invites and
-// org_members at invite time and applied at accept - never trusted from
-// the client then.
+// TC-014 / Clara M16: Full name is required; role must be one the inviter
+// can grant (canGrantRole / public.can_grant_role). Role and full_name are
+// stored on invites and org_members at invite time (server-owned name —
+// not user_metadata) and applied at accept - never trusted from the client
+// then.
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeadersFor, jsonResponse } from '../_shared/cors.ts'
@@ -66,7 +67,6 @@ serve(async (req) => {
       email,
       password: generatePlaceholderPassword(),
       email_confirm: true,
-      user_metadata: { full_name: fullName },
     })
 
     if (createError || !created?.user) {
@@ -105,18 +105,11 @@ serve(async (req) => {
         .is('revoked_at', null)
       const { error: roleUpdateError } = await admin
         .from('org_members')
-        .update({ role })
+        .update({ role, full_name: fullName })
         .eq('user_id', userId)
         .eq('org_id', actor.orgId)
       if (roleUpdateError) {
-        console.error('invite-user: org_members role update on resend failed', roleUpdateError)
-        return jsonResponse(req, { error: 'internal_error' }, 500)
-      }
-      const { error: metaError } = await admin.auth.admin.updateUserById(userId, {
-        user_metadata: { full_name: fullName },
-      })
-      if (metaError) {
-        console.error('invite-user: user_metadata update on resend failed', metaError)
+        console.error('invite-user: org_members role/name update on resend failed', roleUpdateError)
         return jsonResponse(req, { error: 'internal_error' }, 500)
       }
     } else if (existingMember) {
@@ -136,6 +129,7 @@ serve(async (req) => {
         org_id: actor.orgId,
         role,
         status: 'invited',
+        full_name: fullName,
       })
       if (memberError) {
         console.error('invite-user: org_members insert failed', memberError)
