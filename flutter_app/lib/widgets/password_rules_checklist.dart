@@ -60,10 +60,12 @@ class PasswordRulesChecklist extends StatelessWidget {
     final nc = context.nc;
     final checks = checkPasswordRules(password);
 
-    if (checks.allClientRulesMet && commonPasswordOk == true) {
+    // Ava R2: collapse once client rules pass and the common-password check
+    // is not known-failed (null = not yet / assume ok for creating/limited/offline).
+    if (checks.allClientRulesMet && commonPasswordOk != false) {
       return const Text(
-        'Your password meets every rule',
-        style: TextStyle(color: _ruleMetGreen, fontSize: 13),
+        '✓ Your password meets every rule',
+        style: TextStyle(color: _ruleMetGreen, fontSize: 13, fontWeight: FontWeight.w600),
       );
     }
 

@@ -39,8 +39,16 @@ void main() {
     await tester.pumpWidget(_wrap(
       const PasswordRulesChecklist(password: 'Correct-Horse-Battery9', commonPasswordOk: true),
     ));
-    expect(find.text('Your password meets every rule'), findsOneWidget);
+    expect(find.text('✓ Your password meets every rule'), findsOneWidget);
     expect(find.text('12+ characters'), findsNothing);
+  });
+
+  testWidgets('PasswordRulesChecklist collapses when client rules pass and commonPasswordOk omitted',
+      (tester) async {
+    await tester.pumpWidget(_wrap(
+      const PasswordRulesChecklist(password: 'Correct-Horse-Battery9'),
+    ));
+    expect(find.text('✓ Your password meets every rule'), findsOneWidget);
   });
 
   testWidgets('PasswordRulesChecklist lists unmet rules while the password is still weak',
@@ -48,7 +56,7 @@ void main() {
     await tester.pumpWidget(_wrap(const PasswordRulesChecklist(password: 'short')));
     expect(find.text('At least 12 characters'), findsOneWidget);
     expect(find.text('Not a commonly used password'), findsOneWidget);
-    expect(find.text('Your password meets every rule'), findsNothing);
+    expect(find.text('✓ Your password meets every rule'), findsNothing);
   });
 
   group('SignupScreen (PSU-PW-01)', () {

@@ -175,12 +175,17 @@ class _LinkRecordScreenState extends ConsumerState<LinkRecordScreen> {
   }
 
   Widget _intro(ZyndioColors c) {
+    // Ava R2: intro sits inside the Today shell with a large title.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text('Today',
             style: TextStyle(
-                fontSize: 13, fontWeight: FontWeight.w500, color: c.textSecondary)),
+                fontSize: 28,
+                height: 34 / 28,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.025 * 28,
+                color: c.textPrimary)),
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.all(16),

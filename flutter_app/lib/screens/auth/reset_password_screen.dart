@@ -85,6 +85,10 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
       return PatientAuthShell(
         backLabel: 'Log in',
         onBack: () => context.go('/login'),
+        hero: const AuthHeroIcon(
+          icon: LucideIcons.triangleAlert,
+          tone: AuthBannerTone.warning,
+        ),
         title: 'This reset link has expired',
         subtitle:
             'Reset links work once and expire after 1 hour. Request a new one to continue.',

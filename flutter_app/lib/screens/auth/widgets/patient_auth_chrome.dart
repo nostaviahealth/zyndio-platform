@@ -67,7 +67,7 @@ class PatientAuthShell extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 16),
                     ],
                     if (wordmark) ...[
                       const AuthWordmark(),
@@ -256,8 +256,8 @@ class AuthLabeledField extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               height: 18 / 13,
-              fontWeight: FontWeight.w500,
-              color: c.textSecondary,
+              fontWeight: FontWeight.w600,
+              color: c.textPrimary,
             )),
         const SizedBox(height: 6),
         child,
@@ -311,7 +311,11 @@ InputDecoration authFieldDecoration(
     ),
     errorBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: c.statusCritical),
+      borderSide: BorderSide(color: c.statusCritical, width: 2),
+    ),
+    focusedErrorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: c.statusCritical, width: 2),
     ),
   );
 }
@@ -333,37 +337,54 @@ class AuthPrimaryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = zcOf(context);
+    // Ava R2: busy buttons keep solid fill + white spinner (no fade).
     if (destructive) {
-      final fg = c.statusCritical;
+      final bg = c.statusCritical;
+      final fg = c.brandOnPrimary;
+      if (loading) {
+        return SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: ElevatedButton(
+            onPressed: null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: bg,
+              foregroundColor: fg,
+              disabledBackgroundColor: bg,
+              disabledForegroundColor: fg,
+              shape: const StadiumBorder(),
+              elevation: 0,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: fg),
+                ),
+                const SizedBox(width: 10),
+                Text(label,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+        );
+      }
       return SizedBox(
         width: double.infinity,
-        height: 52,
+        height: 50,
         child: OutlinedButton(
-          onPressed: loading ? null : onPressed,
+          onPressed: onPressed,
           style: OutlinedButton.styleFrom(
-            foregroundColor: fg,
-            side: BorderSide(color: fg, width: 1.5),
+            foregroundColor: bg,
+            side: BorderSide(color: bg, width: 1.5),
             shape: const StadiumBorder(),
           ),
-          child: loading
-              ? Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: fg),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(label,
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w600)),
-                  ],
-                )
-              : Text(label,
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w600)),
+          child: Text(label,
+              style: const TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w600)),
         ),
       );
     }
@@ -371,13 +392,14 @@ class AuthPrimaryButton extends StatelessWidget {
     final fg = c.brandOnPrimary;
     return SizedBox(
       width: double.infinity,
-      height: 52,
+      height: 50,
       child: ElevatedButton(
         onPressed: loading ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: bg,
           foregroundColor: fg,
-          disabledBackgroundColor: bg.withValues(alpha: 0.7),
+          // Full-strength fill while busy (Ava R2 / WCAG).
+          disabledBackgroundColor: bg,
           disabledForegroundColor: fg,
           shape: const StadiumBorder(),
           elevation: 0,
@@ -393,7 +415,9 @@ class AuthPrimaryButton extends StatelessWidget {
                         strokeWidth: 2, color: fg),
                   ),
                   const SizedBox(width: 10),
-                  Text(label),
+                  Text(label,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w600)),
                 ],
               )
             : Text(label,
@@ -419,28 +443,34 @@ class AuthSecondaryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = zcOf(context);
+    // Disabled label stays ≥4.5:1 (Ava R2 locked "Send a new code").
+    final disabledFg = c.textSecondary;
     if (!outlined) {
       return SizedBox(
         width: double.infinity,
-        height: 52,
+        height: 50,
         child: TextButton(
           onPressed: onPressed,
+          style: TextButton.styleFrom(
+            foregroundColor: c.brandPrimary,
+            disabledForegroundColor: disabledFg,
+          ),
           child: Text(label,
-              style: TextStyle(
-                  color: c.brandPrimary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600)),
+              style: const TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w600)),
         ),
       );
     }
     return SizedBox(
       width: double.infinity,
-      height: 52,
+      height: 50,
       child: OutlinedButton(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
           foregroundColor: c.textPrimary,
-          side: BorderSide(color: c.borderStrong),
+          disabledForegroundColor: disabledFg,
+          side: BorderSide(
+              color: onPressed == null ? c.borderSubtle : c.borderStrong),
           shape: const StadiumBorder(),
         ),
         child: Text(label,
@@ -496,12 +526,14 @@ class AuthInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = zcOf(context);
+    final brightness = Theme.of(context).brightness;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: c.brandSubtle,
+        color: c.bgSurface,
         borderRadius: BorderRadius.circular(12),
+        boxShadow: ZyndioShadow.cardFor(brightness),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

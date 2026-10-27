@@ -547,7 +547,7 @@ void main() {
 }
 
 
-/// Ava 12-delete-account settings row (Account section excerpt).
+/// Ava 12-delete-account settings row (Account screen excerpt).
 class _SettingsDeleteRowCapture extends StatelessWidget {
   const _SettingsDeleteRowCapture();
 
@@ -558,25 +558,41 @@ class _SettingsDeleteRowCapture extends StatelessWidget {
       backgroundColor: c.bgCanvas,
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
-            Text('Profile',
-                style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    color: c.textPrimary,
-                    height: 1.2)),
-            const SizedBox(height: 24),
+            TextButton(
+              onPressed: () {},
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(0, 44),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                foregroundColor: c.brandPrimary,
+                alignment: Alignment.centerLeft,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.chevron_left, size: 20, color: c.brandPrimary),
+                  const SizedBox(width: 2),
+                  Text('Profile',
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: c.brandPrimary)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
             Text('Account',
                 style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: c.textSecondary,
-                    letterSpacing: 0.4)),
-            const SizedBox(height: 4),
+                    fontSize: 28,
+                    height: 34 / 28,
+                    fontWeight: FontWeight.w700,
+                    color: c.textPrimary)),
+            const SizedBox(height: 8),
             Text('Manage how you sign in to Zyndio.',
-                style: TextStyle(fontSize: 14, color: c.textTertiary, height: 1.4)),
-            const SizedBox(height: 16),
+                style: TextStyle(fontSize: 16, color: c.textSecondary, height: 1.4)),
+            const SizedBox(height: 24),
             Container(
               decoration: BoxDecoration(
                 color: c.bgSurface,
@@ -586,6 +602,7 @@ class _SettingsDeleteRowCapture extends StatelessWidget {
               child: Column(
                 children: [
                   ListTile(
+                    leading: Icon(Icons.person_outline, color: c.textSecondary),
                     title: Text('Personal details',
                         style: TextStyle(
                             color: c.textPrimary, fontWeight: FontWeight.w500)),
@@ -593,6 +610,7 @@ class _SettingsDeleteRowCapture extends StatelessWidget {
                   ),
                   Divider(height: 1, color: c.borderSubtle),
                   ListTile(
+                    leading: Icon(Icons.mail_outline, color: c.textSecondary),
                     title: Text('Email',
                         style: TextStyle(
                             color: c.textPrimary, fontWeight: FontWeight.w500)),
@@ -602,6 +620,7 @@ class _SettingsDeleteRowCapture extends StatelessWidget {
                   ),
                   Divider(height: 1, color: c.borderSubtle),
                   ListTile(
+                    leading: Icon(Icons.lock_outline, color: c.textSecondary),
                     title: Text('Password and security',
                         style: TextStyle(
                             color: c.textPrimary, fontWeight: FontWeight.w500)),
@@ -622,6 +641,7 @@ class _SettingsDeleteRowCapture extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   ListTile(
+                    leading: Icon(Icons.delete_outline, color: c.statusCritical),
                     title: Text(
                       'Delete account',
                       style: TextStyle(

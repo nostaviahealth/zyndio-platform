@@ -117,6 +117,10 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
       return PatientAuthShell(
         backLabel: 'Sign up',
         onBack: () => context.go('/signup'),
+        hero: const AuthHeroIcon(
+          icon: LucideIcons.triangleAlert,
+          tone: AuthBannerTone.warning,
+        ),
         title: 'This link has expired',
         subtitle:
             "Confirmation links work once and expire after 24 hours. We'll send you a fresh one.",
