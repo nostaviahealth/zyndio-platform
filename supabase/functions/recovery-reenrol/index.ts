@@ -5,12 +5,12 @@
 // own row - there is no target_user_id, by design: an org admin resetting
 // someone else's MFA is reset-mfa, a different, admin-only function.
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
+import { corsHeadersFor, jsonResponse } from '../_shared/cors.ts'
 import { AuthError, requireAuthenticatedActor } from '../_shared/requireOrgAdminActor.ts'
 import { writeAuditLog } from '../_shared/auditAndNotify.ts'
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeadersFor(req) })
 
   try {
     const { userId, admin } = await requireAuthenticatedActor(req)
@@ -22,13 +22,13 @@ serve(async (req) => {
       .maybeSingle()
     if (flagError) {
       console.error('recovery-reenrol: mfa_reenrollment_required lookup failed', flagError)
-      return jsonResponse({ error: 'internal_error' }, 500)
+      return jsonResponse(req, { error: 'internal_error' }, 500)
     }
 
     if (!flag) {
       // Nothing pending - not an error, just nothing to do (e.g. already
       // completed re-enrollment, or never used a recovery code).
-      return jsonResponse({ status: 'ok', reenrollment_required: false })
+      return jsonResponse(req, { status: 'ok', reenrollment_required: false })
     }
 
     const { data: factorData, error: factorListError } = await admin.auth.admin.mfa.listFactors({
@@ -36,7 +36,7 @@ serve(async (req) => {
     })
     if (factorListError) {
       console.error('recovery-reenrol: listFactors failed', factorListError)
-      return jsonResponse({ error: 'internal_error' }, 500)
+      return jsonResponse(req, { error: 'internal_error' }, 500)
     }
 
     for (const factor of factorData?.factors ?? []) {
@@ -46,7 +46,7 @@ serve(async (req) => {
       })
       if (deleteError) {
         console.error('recovery-reenrol: deleteFactor failed', deleteError)
-        return jsonResponse({ error: 'internal_error' }, 500)
+        return jsonResponse(req, { error: 'internal_error' }, 500)
       }
     }
 
@@ -63,10 +63,10 @@ serve(async (req) => {
       orgId: member?.org_id ?? null,
     })
 
-    return jsonResponse({ status: 'ok', reenrollment_required: true })
+    return jsonResponse(req, { status: 'ok', reenrollment_required: true })
   } catch (err) {
-    if (err instanceof AuthError) return jsonResponse({ error: err.message }, err.status)
+    if (err instanceof AuthError) return jsonResponse(req, { error: err.message }, err.status)
     console.error('recovery-reenrol error', err)
-    return jsonResponse({ error: 'internal_error' }, 500)
+    return jsonResponse(req, { error: 'internal_error' }, 500)
   }
 })

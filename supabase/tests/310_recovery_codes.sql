@@ -26,10 +26,19 @@ select throws_ok(
 
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal2');
 
+create temp table tmp_first_batch as
+  select unnest(public.generate_recovery_codes()) as code;
 select is(
-  array_length(public.generate_recovery_codes(), 1),
+  (select count(*)::int from tmp_first_batch),
   10,
   'generate_recovery_codes() returns 10 codes'
+);
+
+-- L5: codes carry ~80 bits of entropy now (16 base32 characters), not the
+-- original ~40-bit 10-hex-character format.
+select ok(
+  (select bool_and(code ~ '^[A-Z2-7]{16}$') from tmp_first_batch),
+  'L5: every recovery code is 16 base32 characters (A-Z2-7)'
 );
 
 reset role;

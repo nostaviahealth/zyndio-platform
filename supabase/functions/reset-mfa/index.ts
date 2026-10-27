@@ -5,12 +5,12 @@
 // codes, flags them for mandatory re-enrollment, forces a global sign-out,
 // and audits + notifies.
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
+import { corsHeadersFor, jsonResponse } from '../_shared/cors.ts'
 import { AuthError, requireZyndioAdminActor } from '../_shared/requireOrgAdminActor.ts'
 import { isValidUuid } from '../_shared/validation.ts'
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeadersFor(req) })
 
   try {
     const { actor, admin } = await requireZyndioAdminActor(req)
@@ -19,11 +19,11 @@ serve(async (req) => {
     const targetUserId = body.target_user_id
 
     if (!isValidUuid(targetUserId)) {
-      return jsonResponse({ error: 'invalid_request' }, 400)
+      return jsonResponse(req, { error: 'invalid_request' }, 400)
     }
 
     if (targetUserId === actor.userId) {
-      return jsonResponse({ error: 'cannot_reset_own_mfa' }, 403)
+      return jsonResponse(req, { error: 'cannot_reset_own_mfa' }, 403)
     }
 
     const { data: target } = await admin
@@ -33,7 +33,7 @@ serve(async (req) => {
       .maybeSingle()
 
     if (!target) {
-      return jsonResponse({ error: 'not_found' }, 404)
+      return jsonResponse(req, { error: 'not_found' }, 404)
     }
 
     const { data: factorData, error: factorListError } = await admin.auth.admin.mfa.listFactors({
@@ -41,7 +41,7 @@ serve(async (req) => {
     })
     if (factorListError) {
       console.error('reset-mfa: listFactors failed', factorListError)
-      return jsonResponse({ error: 'internal_error' }, 500)
+      return jsonResponse(req, { error: 'internal_error' }, 500)
     }
 
     for (const factor of factorData?.factors ?? []) {
@@ -51,7 +51,7 @@ serve(async (req) => {
       })
       if (deleteError) {
         console.error('reset-mfa: deleteFactor failed', deleteError)
-        return jsonResponse({ error: 'internal_error' }, 500)
+        return jsonResponse(req, { error: 'internal_error' }, 500)
       }
     }
 
@@ -60,7 +60,7 @@ serve(async (req) => {
     const { error: deleteCodesError } = await admin.from('mfa_recovery_codes').delete().eq('user_id', targetUserId)
     if (deleteCodesError) {
       console.error('reset-mfa: deleting old recovery codes failed', deleteCodesError)
-      return jsonResponse({ error: 'internal_error' }, 500)
+      return jsonResponse(req, { error: 'internal_error' }, 500)
     }
 
     // B3 / M4: flag, force sign-out, audit and outbox all happen inside one
@@ -75,13 +75,13 @@ serve(async (req) => {
     })
     if (finalizeError) {
       console.error('reset-mfa: finalize_mfa_reset failed', finalizeError)
-      return jsonResponse({ error: 'internal_error' }, 500)
+      return jsonResponse(req, { error: 'internal_error' }, 500)
     }
 
-    return jsonResponse({ status: 'ok' })
+    return jsonResponse(req, { status: 'ok' })
   } catch (err) {
-    if (err instanceof AuthError) return jsonResponse({ error: err.message }, err.status)
+    if (err instanceof AuthError) return jsonResponse(req, { error: err.message }, err.status)
     console.error('reset-mfa error', err)
-    return jsonResponse({ error: 'internal_error' }, 500)
+    return jsonResponse(req, { error: 'internal_error' }, 500)
   }
 })

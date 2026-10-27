@@ -20,3 +20,9 @@
 
 - **Status:** Mitigated in app (TC-011): `process-outbox` verifies HS256 with `JWT_SECRET` and rejects bad signatures (fail-first Deno test).
 - **Ops requirement:** The API gateway's JWT verification must stay enabled in every deployed environment. The in-function check is defense in depth for direct invocation (e.g. local `functions serve` or a misconfigured gateway).
+
+## R-CORS-ADMIN-ORIGIN — Edge Functions CORS allowlist needs a real admin origin in production
+
+- **Status:** Mitigated in app (TC-011 L11): `supabase/functions/_shared/cors.ts` reflects the request's `Origin` only when it matches a fixed list of local admin dev origins (`127.0.0.1`/`localhost` on `5173`/`3100`) or the `ADMIN_ORIGIN`/`SITE_URL` env var. `Access-Control-Allow-Origin: *` is gone.
+- **Ops requirement:** Every deployed environment (staging, production) must set `ADMIN_ORIGIN` (or `SITE_URL`) to the real deployed admin app origin, or every cross-origin call from the deployed admin app will be blocked by the browser.
+- **Owner:** Leo / deploy checklist.

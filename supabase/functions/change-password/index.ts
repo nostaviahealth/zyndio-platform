@@ -5,13 +5,13 @@
 // relied on, OVERRIDES #13). Any signed-in user, acting on themselves only -
 // aal1 is fine, same as recovery-reenrol.
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
+import { corsHeadersFor, jsonResponse } from '../_shared/cors.ts'
 import { AuthError, requireAuthenticatedActor } from '../_shared/requireOrgAdminActor.ts'
 import { writeAuditLog } from '../_shared/auditAndNotify.ts'
 import { isPasswordLongEnough } from '../_shared/validation.ts'
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeadersFor(req) })
 
   try {
     const { userId, admin } = await requireAuthenticatedActor(req)
@@ -20,7 +20,7 @@ serve(async (req) => {
     const password = body.password
 
     if (!isPasswordLongEnough(password)) {
-      return jsonResponse({ error: 'password_too_short' }, 400)
+      return jsonResponse(req, { error: 'password_too_short' }, 400)
     }
 
     const { data: blocked, error: blockedError } = await admin.rpc('password_is_blocked', {
@@ -28,16 +28,16 @@ serve(async (req) => {
     })
     if (blockedError) {
       console.error('change-password: password_is_blocked check failed', blockedError)
-      return jsonResponse({ error: 'internal_error' }, 500)
+      return jsonResponse(req, { error: 'internal_error' }, 500)
     }
     if (blocked) {
-      return jsonResponse({ error: 'password_too_common' }, 400)
+      return jsonResponse(req, { error: 'password_too_common' }, 400)
     }
 
     const { error: updateError } = await admin.auth.admin.updateUserById(userId, { password })
     if (updateError) {
       console.error('change-password: updateUserById failed', updateError)
-      return jsonResponse({ error: 'internal_error' }, 500)
+      return jsonResponse(req, { error: 'internal_error' }, 500)
     }
 
     const { data: member } = await admin.from('org_members').select('org_id').eq('user_id', userId).maybeSingle()
@@ -49,10 +49,10 @@ serve(async (req) => {
       orgId: member?.org_id ?? null,
     })
 
-    return jsonResponse({ status: 'ok' })
+    return jsonResponse(req, { status: 'ok' })
   } catch (err) {
-    if (err instanceof AuthError) return jsonResponse({ error: err.message }, err.status)
+    if (err instanceof AuthError) return jsonResponse(req, { error: err.message }, err.status)
     console.error('change-password error', err)
-    return jsonResponse({ error: 'internal_error' }, 500)
+    return jsonResponse(req, { error: 'internal_error' }, 500)
   }
 })

@@ -12,26 +12,26 @@
 // until delivery - nulling it at insert time would make the invite
 // permanently unusable by anyone, including a real mail provider.
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
+import { corsHeadersFor, jsonResponse } from '../_shared/cors.ts'
 import { jwtSecretFromEnv, parseBearerToken, verifyHs256Jwt } from '../_shared/validation.ts'
 import { serviceRoleClient } from '../_shared/requireOrgAdminActor.ts'
 import { sendNotificationStub } from '../_shared/emailStub.ts'
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeadersFor(req) })
 
   try {
     const token = parseBearerToken(req.headers.get('Authorization'))
-    if (!token) return jsonResponse({ error: 'missing bearer token' }, 401)
+    if (!token) return jsonResponse(req, { error: 'missing bearer token' }, 401)
 
     let payload: Record<string, unknown>
     try {
       payload = await verifyHs256Jwt(token, jwtSecretFromEnv(Deno.env))
     } catch {
-      return jsonResponse({ error: 'invalid token' }, 401)
+      return jsonResponse(req, { error: 'invalid token' }, 401)
     }
     if (payload.role !== 'service_role') {
-      return jsonResponse({ error: 'service_role required' }, 403)
+      return jsonResponse(req, { error: 'service_role required' }, 403)
     }
 
     const admin = serviceRoleClient()
@@ -42,7 +42,7 @@ serve(async (req) => {
 
     if (pendingError) {
       console.error('process-outbox: fetching pending rows failed', pendingError)
-      return jsonResponse({ error: 'internal_error' }, 500)
+      return jsonResponse(req, { error: 'internal_error' }, 500)
     }
 
     let sent = 0
@@ -56,9 +56,9 @@ serve(async (req) => {
       sent++
     }
 
-    return jsonResponse({ status: 'ok', sent })
+    return jsonResponse(req, { status: 'ok', sent })
   } catch (err) {
     console.error('process-outbox error', err)
-    return jsonResponse({ error: 'internal_error' }, 500)
+    return jsonResponse(req, { error: 'internal_error' }, 500)
   }
 })

@@ -35,7 +35,11 @@ file_size_limit = "50MiB"
 enabled = true
 site_url = "http://127.0.0.1:3001"
 additional_redirect_urls = ["http://127.0.0.1:3001"]
-jwt_expiry = 3600
+# TC-011 L10: shortened from 3600s so an already-issued access JWT can't
+# outlive force_sign_out (deactivation/reset-mfa) by up to an hour - RLS
+# closes immediately via the active-membership check, but the JWT itself
+# stayed valid until it expired. 15 minutes bounds that window.
+jwt_expiry = 900
 enable_refresh_token_rotation = true
 refresh_token_reuse_interval = 10
 # Invite-only: [auth] enable_signup = false alone closes /auth/v1/signup

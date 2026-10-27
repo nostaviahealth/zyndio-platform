@@ -2,20 +2,20 @@
 // One generic error for every "this token doesn't work" case (expired,
 // revoked, already used, or simply wrong) so a guesser can't learn which.
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
+import { corsHeadersFor, jsonResponse } from '../_shared/cors.ts'
 import { serviceRoleClient } from '../_shared/requireOrgAdminActor.ts'
 import { writeAuditLog } from '../_shared/auditAndNotify.ts'
 import { hashTokenHex, isPasswordLongEnough } from '../_shared/validation.ts'
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeadersFor(req) })
 
   try {
     const body = await req.json().catch(() => ({}))
     const token = typeof body.token === 'string' ? body.token : null
     const password = body.password
 
-    if (!token) return jsonResponse({ error: 'invalid_or_expired_invite' }, 400)
+    if (!token) return jsonResponse(req, { error: 'invalid_or_expired_invite' }, 400)
 
     const admin = serviceRoleClient()
     const tokenHash = await hashTokenHex(token)
@@ -33,7 +33,7 @@ serve(async (req) => {
       new Date(invite.expires_at).getTime() > Date.now()
 
     if (!isLive) {
-      return jsonResponse({ error: 'invalid_or_expired_invite' }, 400)
+      return jsonResponse(req, { error: 'invalid_or_expired_invite' }, 400)
     }
 
     // B7 / Clara NEW M7: the member must still be 'invited' before ANY
@@ -48,11 +48,11 @@ serve(async (req) => {
       .maybeSingle()
 
     if (!member || member.status !== 'invited') {
-      return jsonResponse({ error: 'invalid_or_expired_invite' }, 400)
+      return jsonResponse(req, { error: 'invalid_or_expired_invite' }, 400)
     }
 
     if (!isPasswordLongEnough(password)) {
-      return jsonResponse({ error: 'password_too_short' }, 400)
+      return jsonResponse(req, { error: 'password_too_short' }, 400)
     }
 
     const { data: blocked, error: blockedError } = await admin.rpc('password_is_blocked', {
@@ -60,10 +60,10 @@ serve(async (req) => {
     })
     if (blockedError) {
       console.error('accept-invite: password_is_blocked check failed', blockedError)
-      return jsonResponse({ error: 'internal_error' }, 500)
+      return jsonResponse(req, { error: 'internal_error' }, 500)
     }
     if (blocked) {
-      return jsonResponse({ error: 'password_too_common' }, 400)
+      return jsonResponse(req, { error: 'password_too_common' }, 400)
     }
 
     const { error: updateUserError } = await admin.auth.admin.updateUserById(invite!.user_id, {
@@ -77,10 +77,10 @@ serve(async (req) => {
       // this is defense-in-depth (direct API callers, a future client/
       // server rule mismatch) rather than the normal path.
       if ((updateUserError as { code?: string }).code === 'weak_password') {
-        return jsonResponse({ error: 'password_too_weak' }, 400)
+        return jsonResponse(req, { error: 'password_too_weak' }, 400)
       }
       console.error('accept-invite: updateUserById failed', updateUserError)
-      return jsonResponse({ error: 'internal_error' }, 500)
+      return jsonResponse(req, { error: 'internal_error' }, 500)
     }
 
     // Only activate if the member is still 'invited' - if an admin
@@ -97,10 +97,10 @@ serve(async (req) => {
       .select('user_id')
     if (memberError) {
       console.error('accept-invite: org_members update failed', memberError)
-      return jsonResponse({ error: 'internal_error' }, 500)
+      return jsonResponse(req, { error: 'internal_error' }, 500)
     }
     if (!activated || activated.length === 0) {
-      return jsonResponse({ error: 'invalid_or_expired_invite' }, 400)
+      return jsonResponse(req, { error: 'invalid_or_expired_invite' }, 400)
     }
 
     const { error: inviteUpdateError } = await admin
@@ -109,7 +109,7 @@ serve(async (req) => {
       .eq('id', invite!.id)
     if (inviteUpdateError) {
       console.error('accept-invite: invites update failed', inviteUpdateError)
-      return jsonResponse({ error: 'internal_error' }, 500)
+      return jsonResponse(req, { error: 'internal_error' }, 500)
     }
 
     await writeAuditLog(admin, {
@@ -119,9 +119,9 @@ serve(async (req) => {
       orgId: invite!.org_id,
     })
 
-    return jsonResponse({ status: 'ok' })
+    return jsonResponse(req, { status: 'ok' })
   } catch (err) {
     console.error('accept-invite error', err)
-    return jsonResponse({ error: 'internal_error' }, 500)
+    return jsonResponse(req, { error: 'internal_error' }, 500)
   }
 })
