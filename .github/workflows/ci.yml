@@ -9,7 +9,31 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      flutter: ${{ steps.filter.outputs.flutter }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: filter
+        with:
+          filters: |
+            flutter:
+              - 'flutter_app/**'
+              - 'packages/**'
+              - '.github/workflows/ci.yml'
+              - 'scripts/analyze-gate.sh'
+              - 'scripts/leak-scan.sh'
+              - 'scripts/test-leak-scan.sh'
+
   flutter:
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.flutter == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Free disk space
@@ -172,7 +196,8 @@ jobs:
         run: gitleaks git --config .gitleaks.toml --redact
 
   leak-scan:
-    needs: [flutter, web]
+    needs: [changes, flutter, web]
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.web.result == 'success' && (needs.flutter.result == 'success' || needs.flutter.result == 'skipped') }}
     runs-on: ubuntu-latest
     steps:
       - name: Free disk space
