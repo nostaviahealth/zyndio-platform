@@ -13,7 +13,7 @@
 // permanently unusable by anyone, including a real mail provider.
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { corsHeadersFor, jsonResponse } from '../_shared/cors.ts'
-import { jwtSecretFromEnv, parseBearerToken, verifyHs256Jwt } from '../_shared/validation.ts'
+import { parseBearerToken, verifyBearerJwt } from '../_shared/validation.ts'
 import { serviceRoleClient } from '../_shared/requireOrgAdminActor.ts'
 import { sendNotificationStub } from '../_shared/emailStub.ts'
 
@@ -26,7 +26,7 @@ serve(async (req) => {
 
     let payload: Record<string, unknown>
     try {
-      payload = await verifyHs256Jwt(token, jwtSecretFromEnv(Deno.env))
+      payload = await verifyBearerJwt(token, Deno.env)
     } catch {
       return jsonResponse(req, { error: 'invalid token' }, 401)
     }

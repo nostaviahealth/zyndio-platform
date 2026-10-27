@@ -13,6 +13,7 @@ import {
   normalizeEmail,
   parseBearerToken,
   verifyHs256Jwt,
+  verifyBearerJwt,
 } from './validation.ts'
 
 Deno.test('normalizeEmail trims and lowercases', () => {
@@ -144,5 +145,43 @@ Deno.test('verifyHs256Jwt rejects a token with a bad signature (TC-011)', async 
     () => verifyHs256Jwt(`${header}.${payload}.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA`, secret),
     Error,
     'bad JWT signature',
+  )
+})
+
+Deno.test('verifyBearerJwt accepts HS256 via JWT_SECRET env (TC-011)', async () => {
+  const secret = 'test-secret-at-least-32-characters-long!!'
+  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+  const payload = btoa(JSON.stringify({ role: 'authenticated', sub: 'user-1' }))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const sigBuf = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    new TextEncoder().encode(`${header}.${payload}`),
+  )
+  const sig = btoa(String.fromCharCode(...new Uint8Array(sigBuf)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+  const env = { get: (k: string) => (k === 'JWT_SECRET' ? secret : undefined) }
+  const decoded = await verifyBearerJwt(`${header}.${payload}.${sig}`, env)
+  assertEquals(decoded.role, 'authenticated')
+})
+
+Deno.test('verifyBearerJwt rejects unsupported alg (TC-011)', async () => {
+  const header = btoa(JSON.stringify({ alg: 'none', typ: 'JWT' }))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+  const payload = btoa(JSON.stringify({ role: 'service_role' }))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+  const env = { get: (_k: string) => undefined }
+  await assertRejects(
+    () => verifyBearerJwt(`${header}.${payload}.x`, env),
+    Error,
+    'unsupported JWT alg',
   )
 })
