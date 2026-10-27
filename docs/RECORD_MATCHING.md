@@ -1,9 +1,9 @@
 # Record matching: app account ↔ telehealth / clinic record
 
 Owner: Leo (design + impl) | Reviewer: Clara | Accept: Henry
-Card: TC-012 | Status: **DESIGN — revised for Clara REQUEST CHANGES (27 Oct); awaiting re-check before matching code**
+Card: TC-012 | Status: **DESIGN — revised for Clara REQUEST CHANGES + Henry item-6 dual-channel notice (27 Oct); awaiting re-check before matching code**
 Date: 27 Oct 2026, Asia/Calcutta (IST)
-Sources: TC-012.md, TEST_PLAN_PATIENT_SIGNUP.md (PSU-TO-*, PSU-DUP-*), Ava patient-auth handoff, Henry rulings 27 Oct, Clara REVIEW_RECORD_MATCHING.md.
+Sources: TC-012.md, TEST_PLAN_PATIENT_SIGNUP.md (PSU-TO-*, PSU-DUP-*), Ava patient-auth handoff (README + copy-deck, updated 27 Oct), Henry rulings 27 Oct (incl. link/unlink notice via clinic messages **and** account email), Clara REVIEW_RECORD_MATCHING.md.
 
 Fictional / test data only until BAA + Compliance sign-off. Live telehealth API is phase 2.
 
@@ -28,7 +28,7 @@ Linking must never let an attacker attach someone else's clinic record to their 
 5. **Ambiguous / duplicate matches → review state.** Staff resolution **never** binds directly: staff verify identity and **issue a clinic code**; the patient redeems it (see §5.3).
 6. **Enumeration-safe errors.** Wrong / expired / already-used / wrong-account codes return the same client-visible shape and similar timing. **"Send me a code"** returns the **identical** response for 0 / 1 / many matches (see §5.1).
 7. **Patients only.** Staff/admin stay invite-only with two-step login.
-8. **Notice on every link and unlink** to the clinic patient-messages channel, including "not you? contact your clinic" (see §5.5). OTP messages include "not you? ignore".
+8. **Notice on every link and unlink** via **both** channels (Henry, 27 Oct): (a) the clinic patient-messages connector stub, and (b) email to the app account's address. Copy includes "not you? contact your clinic". Email delivery goes live with the telehealth API; until then both paths write the same stub/outbox. OTP messages include "not you? ignore" (see §5.5).
 
 ---
 
@@ -49,7 +49,7 @@ Linking must never let an attacker attach someone else's clinic record to their 
 | Test connector hits prod | Launch config only loads `FakeTelehealthAdapter`; misconfig fails closed | PSU-TO-12 |
 | Match-count enumeration on "send code" | 0 / 1 / many matches return the **same** client response; review UI only after redeem or later in-app | **PSU-TO-14** |
 | Staff "approve link" without second proof | Review resolution = issue clinic code only; no bind RPC from staff | §5.3 |
-| Silent takeover | Bind and unlink both notify telehealth messages with "not you? contact your clinic" | §5.5 |
+| Silent takeover | Bind and unlink both notify clinic patient messages **and** the account email with "not you? contact your clinic" | §5.5 |
 | Duplicate sign-up / case / whitespace | Email normalised (trim + lower); uniqueness on normalised form | PSU-DUP-01..05 |
 
 ---
@@ -148,7 +148,7 @@ Pepper for HMAC lives in Edge / Vault (`LINK_CODE_PEPPER`), never in the databas
 3. App calls `request_telehealth_link_code`. Server:
    - Rate-limits per user + IP.
    - Asks `TelehealthConnector.locateForCodeRequest(appUser)` — **must not** return clinical fields to the client.
-   - **Regardless of 0, 1, or many matches**, the client receives the **same** success shape and copy (e.g. "If we find a match, we'll send a code to your clinic's patient messages"). Timing padded. **PSU-TO-14.**
+   - **Regardless of 0, 1, or many matches**, the client receives the **same** success shape and Ava copy: **"If your details match a clinic record, we've sent a 6-digit code to your clinic's patient messages."** Timing padded. **PSU-TO-14.**
    - Server-side only:
      - **0 matches:** send nothing; optional no-op audit.
      - **1 match:** void any earlier unused OTP for this `issued_to_app_user_id` (`superseded_at`); issue new code with `issued_to_app_user_id = auth.uid()`, TTL 10 min; deliver via `sendPatientMessage` including "not you? ignore this message".
@@ -174,7 +174,7 @@ Pepper for HMAC lives in Edge / Vault (`LINK_CODE_PEPPER`), never in the databas
 
 Triggered when connector reports ambiguous candidates (server-side), or bind hits a uniqueness conflict that isn't idempotent "already linked to you".
 
-- Patient UI: Ava `review` — **no clinic summary**, no PHI.
+- Patient UI: Ava `review` state titled **"No code yet?"** — explains codes usually arrive in a few minutes; if nothing comes, the clinic can confirm identity and give a **clinic code** instead. CTAs: "I have a clinic code" / "Send a new code". Footer: "Until your record is linked, no clinic data is shown in the app." **No clinic summary, no PHI.**
 - Staff queue row: opaque ids only.
 - **Resolution must never call bind.** Org admin / care coordinator (per Q2) verifies identity out-of-band, then **issues a new patient-scoped clinic code** (audited `created_by = clinic_staff`). The patient redeems that code through §5.2. There is **no** "Approve link" button or staff-side bind RPC.
 
@@ -183,15 +183,22 @@ Triggered when connector reports ambiguous candidates (server-side), or bind hit
 - **Unlink** (Ava "Not you? Unlink"): sets link `revoked`, audits, clinical reads stop immediately, sends unlink notice (§5.5).
 - **Account deletion** (TC-012 / Apple 5.1.1(v)): re-auth → consequences → delete/anonymise app data, revoke sessions, clear link, kill outstanding codes. Clinic records stay with the clinic. Confirmation email stub.
 
-### 5.5 Notices to clinic patient messages (Clara #6)
+### 5.5 Notices on link / unlink (Clara #6 + Henry dual-channel)
 
-On **every successful bind** and **every unlink**, call `TelehealthConnector.sendPatientMessage` to that record's channel with copy equivalent to:
+On **every successful bind** and **every unlink**, send the notice on **both** channels (Henry, 27 Oct):
+
+1. **Clinic patient messages** — `TelehealthConnector.sendPatientMessage` to that record's channel (launch: fake adapter → outbox; live with the telehealth API).
+2. **Account email** — the verified app-account address (same outbox/email stub pattern as signup/reset; real delivery when the telehealth / mail stack goes live with the API).
+
+Clinic-messages / email body equivalent to:
 
 > Your record was linked to a Zyndio app account. Not you? Contact your clinic.
 
 (Unlink variant: "A Zyndio app account was unlinked from your record. Not you? Contact your clinic.")
 
-OTP delivery messages include a "not you? ignore" line. Notices are audited (opaque ids); failures retry via outbox — missing notice is a launch bug, not silent success.
+**Patient UI (Ava `linked` state):** after a successful bind, show **"We've also sent a notice to your email and your clinic's patient messages."** plus the "Not you? Unlink" escape.
+
+OTP delivery messages (clinic channel only) include a "not you? ignore" line. Both notice paths are audited (opaque ids); failures retry via outbox — missing notice on either channel is a launch bug, not silent success.
 
 ---
 
@@ -211,6 +218,7 @@ interface TelehealthConnector {
 ```
 
 - `FakeTelehealthAdapter`: in-memory / DB-seeded fixtures (`th_test_jr_001`, …). Messages append to an outbox table for tests.
+- Account-email notices (§5.5 channel 2) use the existing email/outbox stub, not the connector interface; both go live with the telehealth API.
 - Live adapter: **not built** until Brett's platform, docs, and test access land. `TELEHEALTH_ADAPTER=fake|live` — default `fake`; `live` refuses to start without explicit allow + credentials.
 
 ---
@@ -241,8 +249,11 @@ Exact numbers are config-driven so Clara's tests can inject clocks and threshold
 | Clinic code | 72 h | `link.clinic_code_ttl_hours` |
 | Clinic code alphabet | A–Z, 2–9 minus 0/O/1/I/L, display `XXXX-XXXX` | `link.clinic_code_alphabet` |
 | Channel name copy | "your clinic's patient messages" | `link.channel_display_name` (**pending Brett**) |
+| Send-code client copy (0/1/many) | "If your details match a clinic record, we've sent a 6-digit code to your clinic's patient messages." | Ava copy-deck `13-link-record` / code·wrong·locked |
+| Review UI title | "No code yet?" → clinic code path | Ava `13-link-record` / review |
+| Linked notice line | "We've also sent a notice to your email and your clinic's patient messages." | Ava `13-link-record` / linked |
 
-Mark UI strings that use the channel name with `// PENDING Ava/Henry: Brett platform name`.
+UI strings must match Ava's handoff `/workspace/design/team3/zyndio/handoff/patient-auth/` (README + copy-deck). Mark channel-name strings with `// PENDING Ava/Henry: Brett platform name`.
 
 ---
 
@@ -288,6 +299,6 @@ Mark UI strings that use the channel name with `// PENDING Ava/Henry: Brett plat
 | 3 Medium | Identical response for 0/1/many on send-code | §5.1, PSU-TO-14 |
 | 4 Medium | Review never binds; staff issue clinic code | §5.3, Q2 |
 | 5 Medium | No patients row before link; RLS needs active link; pgTAP | §4.1, PSU-TO-15 |
-| 6 Medium | Notice on link/unlink + OTP "not you?" | §5.5, §5.1 |
+| 6 Medium | Notice on link/unlink (clinic messages **+ account email**, Henry) + OTP "not you?" + Ava linked copy | §5.5, §5.1, §8 |
 
 Clara: please re-check against TEST_PLAN_PATIENT_SIGNUP.md (+ PSU-TO-13/14/15). Reply with Approve / Request changes (numbered). No matching redeem/bind code until Approve.
