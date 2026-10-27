@@ -44,7 +44,10 @@ refresh_token_reuse_interval = 10
 enable_signup = false
 enable_anonymous_sign_ins = false
 minimum_password_length = 12
-password_requirements = ""
+# M8 (Henry): strictest free-plan value - matches Ava's 27 Oct rules
+# (upper + lower + number + symbol). GoTrue enforces this on every password
+# set it sees, including direct updateUser() calls that skip our blocklist.
+password_requirements = "lower_upper_letters_digits_symbols"
 
 [auth.email]
 # This must stay true: it toggles the email/password PROVIDER itself (sign
@@ -54,6 +57,10 @@ password_requirements = ""
 # sign-up is still closed, by [auth] enable_signup above, not by this.
 enable_signup = true
 enable_confirmations = false
+# M8 (Henry): requires reauthentication (a nonce) to change password on a
+# session GoTrue doesn't consider "recent". OBSERVED.md records what this
+# actually gates locally - see work/.claude-runs/tc005/m8/OBSERVED.md.
+secure_password_change = true
 
 [auth.mfa]
 max_enrolled_factors = 1

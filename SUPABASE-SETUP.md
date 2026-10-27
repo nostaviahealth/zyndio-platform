@@ -75,7 +75,7 @@ VITE_SUPABASE_URL=<API URL from `supabase status`>
 VITE_SUPABASE_ANON_KEY=<anon key from `supabase status`>
 SUPABASE_SERVICE_KEY=<service_role key from `supabase status`>
 ADMIN_EMAIL=<email for your local admin account>
-ADMIN_PASSWORD=<strong password — rejected if it's on the common/leaked blocklist>
+ADMIN_PASSWORD=<strong password — 12+ chars, upper/lower/number/symbol, not on the common-password blocklist>
 ```
 
 Never commit `.env` (it's gitignored) and never put a real/shared password in it.

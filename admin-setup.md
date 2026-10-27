@@ -11,15 +11,22 @@ password is ever baked into a build.
 - `ORG_NAME` (optional) — name for the first organization if one doesn't exist yet. Defaults to
   `Zyndio`.
 - `ADMIN_PASSWORD` is validated the same way an invited user's own password-set is: at least 12
-  characters, and rejected if it's on the server-side common/leaked-password blocklist
-  (`public.password_is_blocked`). There's no way to bypass this check.
+  characters, an uppercase and a lowercase letter, a number, a symbol (enforced by GoTrue's
+  `password_requirements`, `supabase/config.toml`), and rejected if it's on the server-side
+  common-password blocklist (`public.password_is_blocked`). There's no way to bypass this check.
 - Every account after the first is created via an **invite**, from inside the admin app
   (`org_admin` → Users & roles → Invite), never via a script or env var.
-- **Changing a password after the initial set (invite acceptance / bootstrap) must go through the
-  `change-password` Edge Function, never `supabase.auth.updateUser({ password })` directly.**
-  `updateUser` talks straight to GoTrue and skips the blocklist check entirely - `change-password`
-  verifies the caller's own session, re-runs the same length/blocklist check, and only then calls
-  the admin API. The web client has no other password-change path; don't add one.
+- **Changing a password after the initial set (invite acceptance / bootstrap) should go through the
+  `change-password` Edge Function, never `supabase.auth.updateUser({ password })` directly.** The
+  web client has no other password-change path; don't add one. `change-password` verifies the
+  caller's own session and re-runs the same length/blocklist check before calling the admin API.
+  **Known accepted gap (M8, tracked on TC-011):** this is enforced in our own client code, not at
+  the database/GoTrue level. A freshly-signed-in session can still call
+  `supabase.auth.updateUser({ password })` (or `PUT /auth/v1/user`) directly - GoTrue's character-
+  class rule still applies, but our common-password blocklist and audit log are both skipped. See
+  `work/.claude-runs/tc005/m8/OBSERVED.md` for the probe that confirmed this locally. Accepted until
+  before any real patient data; fix options are paid-plan leaked-password protection or gating every
+  password change server-side through the audited function.
 
 ## Bootstrap the first org admin
 
@@ -33,7 +40,8 @@ npm run admin:setup
 This runs `scripts/supabase-admin-setup.ts`, which:
 
 1. Refuses to run if `ADMIN_EMAIL`/`ADMIN_PASSWORD` are missing, or if `ADMIN_PASSWORD` fails the
-   length/blocklist check.
+   length/blocklist check (GoTrue separately enforces the character-class rule when the user is
+   created).
 2. Creates the `auth.users` row for `ADMIN_EMAIL` (or reuses it if it already exists).
 3. Creates the first `organizations` row (or reuses the first/only one that exists).
 4. Creates the `org_members` row: `role = org_admin`, `status = active`.
@@ -103,8 +111,10 @@ platform-operator concern, not a per-org one; grant it sparingly.
 
 ## Troubleshooting
 
-**"ADMIN_PASSWORD is too short" / "is a common/leaked password"** — pick a password that's at least
-12 characters and isn't on common password lists; the check runs server side and can't be skipped.
+**"ADMIN_PASSWORD is too short" / "is too common (on the server-side blocklist)" / GoTrue's
+"Password should contain at least one character of each..."** — pick a password that's at least 12
+characters, has an uppercase and a lowercase letter, a number and a symbol, and isn't on common
+password lists; the checks run server side and can't be skipped.
 
 **`admin:setup` says the email is already a member of a different org/role than expected** — the
 script won't overwrite this for you. Decide intentionally (new email instead, or a role change via

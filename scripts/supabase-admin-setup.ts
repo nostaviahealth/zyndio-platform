@@ -6,7 +6,9 @@
  * or env-seeded password beyond what the operator supplies: ADMIN_EMAIL and
  * ADMIN_PASSWORD must both be set, and ADMIN_PASSWORD is validated with the
  * same rules an invited user's own password-set goes through (>= 12 chars,
- * not on the server-side blocklist). No MFA is pre-enrolled here - the
+ * an uppercase and a lowercase letter, a number, a symbol, and not on the
+ * server-side common-password blocklist - M8, Henry's 27 Oct ruling). No
+ * MFA is pre-enrolled here - the
  * bootstrap admin goes through the normal 02-2fa-setup flow on first login,
  * exactly like any invited user. Idempotent: re-running against an admin
  * that already exists and is already an active org_admin is a no-op.
@@ -78,7 +80,7 @@ async function main() {
     process.exit(1)
   }
   if (blocked) {
-    console.error('ADMIN_PASSWORD is a common/leaked password and is refused. Choose a different one.')
+    console.error('ADMIN_PASSWORD is too common (on the server-side blocklist) and is refused. Choose a different one.')
     process.exit(1)
   }
 

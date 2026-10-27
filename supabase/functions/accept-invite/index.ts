@@ -71,6 +71,14 @@ serve(async (req) => {
       email_confirm: true,
     })
     if (updateUserError) {
+      // M8: GoTrue's own password_requirements (config.toml) rejects a
+      // password missing a character class with code weak_password. The UI
+      // checks the same four rules before ever calling this function, so
+      // this is defense-in-depth (direct API callers, a future client/
+      // server rule mismatch) rather than the normal path.
+      if ((updateUserError as { code?: string }).code === 'weak_password') {
+        return jsonResponse({ error: 'password_too_weak' }, 400)
+      }
       console.error('accept-invite: updateUserById failed', updateUserError)
       return jsonResponse({ error: 'internal_error' }, 500)
     }

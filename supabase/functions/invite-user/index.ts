@@ -9,7 +9,14 @@ import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
 import { AuthError, requireOrgAdminActor } from '../_shared/requireOrgAdminActor.ts'
 import { writeAuditLog, insertNotification } from '../_shared/auditAndNotify.ts'
-import { generateToken, hashTokenHex, isValidAppRole, isValidEmail, normalizeEmail } from '../_shared/validation.ts'
+import {
+  generatePlaceholderPassword,
+  generateToken,
+  hashTokenHex,
+  isValidAppRole,
+  isValidEmail,
+  normalizeEmail,
+} from '../_shared/validation.ts'
 
 // Resolves an email that already has an auth.users row (createUser just
 // failed with "already registered") back to its user id - via the
@@ -48,7 +55,7 @@ serve(async (req) => {
     let isFreshAuthUser: boolean
     const { data: created, error: createError } = await admin.auth.admin.createUser({
       email,
-      password: generateToken(),
+      password: generatePlaceholderPassword(),
       email_confirm: true,
     })
 

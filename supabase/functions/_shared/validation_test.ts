@@ -2,6 +2,7 @@ import { assert, assertEquals, assertThrows } from 'https://deno.land/std@0.168.
 import {
   MIN_PASSWORD_LENGTH,
   decodeJwtPayload,
+  generatePlaceholderPassword,
   generateToken,
   hasAal2Claim,
   hashTokenHex,
@@ -85,6 +86,17 @@ Deno.test('generateToken produces 64 hex characters (32 random bytes) and varies
   const b = generateToken()
   assertEquals(a.length, 64)
   assert(/^[0-9a-f]+$/.test(a))
+  assert(a !== b)
+})
+
+Deno.test('generatePlaceholderPassword always satisfies lower_upper_letters_digits_symbols and length >= 12, and varies per call', () => {
+  const a = generatePlaceholderPassword()
+  const b = generatePlaceholderPassword()
+  assert(a.length >= MIN_PASSWORD_LENGTH)
+  assert(/[a-z]/.test(a))
+  assert(/[A-Z]/.test(a))
+  assert(/[0-9]/.test(a))
+  assert(/[^a-zA-Z0-9]/.test(a))
   assert(a !== b)
 })
 

@@ -71,3 +71,37 @@ export async function hashTokenHex(token: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', data)
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')
 }
+
+// M8: a throwaway password for the auth.users row invite-user creates ahead
+// of the invite being accepted. Nobody is ever meant to know or use it - the
+// invitee sets their real password in accept-invite - but GoTrue's
+// password_requirements (lower_upper_letters_digits_symbols, config.toml)
+// now rejects generateToken()'s plain-hex output, which has no uppercase
+// and no symbol. This generates a random password that always satisfies all
+// four character classes, independent of that policy string.
+const LOWER = 'abcdefghijklmnopqrstuvwxyz'
+const UPPER = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+const DIGITS = '0123456789'
+const SYMBOLS = '!@#$%^&*()_+-='
+const ALL = LOWER + UPPER + DIGITS + SYMBOLS
+
+function randomFrom(charset: string): string {
+  const bytes = new Uint8Array(1)
+  crypto.getRandomValues(bytes)
+  return charset[bytes[0] % charset.length]
+}
+
+export function generatePlaceholderPassword(): string {
+  const required = [randomFrom(LOWER), randomFrom(UPPER), randomFrom(DIGITS), randomFrom(SYMBOLS)]
+  const rest = Array.from({ length: 28 }, () => randomFrom(ALL))
+  const chars = [...required, ...rest]
+  // Fisher-Yates shuffle so the required classes aren't always in the same
+  // position (some validators reject predictable prefixes).
+  for (let i = chars.length - 1; i > 0; i--) {
+    const bytes = new Uint8Array(1)
+    crypto.getRandomValues(bytes)
+    const j = bytes[0] % (i + 1)
+    ;[chars[i], chars[j]] = [chars[j], chars[i]]
+  }
+  return chars.join('')
+}
