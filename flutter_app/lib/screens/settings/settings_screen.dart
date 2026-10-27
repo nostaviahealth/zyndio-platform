@@ -261,6 +261,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const MyLabRecordsScreen())),
           ),
           _SettingsCard(
+            icon: LucideIcons.link,
+            title: 'Link clinic record',
+            subtitle: 'Connect this account to your clinic or telehealth record',
+            onTap: () => context.push('/link-record'),
+          ),
+          _SettingsCard(
             icon: LucideIcons.fileDown,
             title: 'Export Health Data',
             subtitle: 'Generate a clinical PDF snapshot for your doctor',

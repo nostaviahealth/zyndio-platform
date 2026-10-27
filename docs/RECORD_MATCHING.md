@@ -51,6 +51,7 @@ Linking must never let an attacker attach someone else's clinic record to their 
 | Staff "approve link" without second proof | Review resolution = issue clinic code only; no bind RPC from staff | §5.3 |
 | Silent takeover | Bind and unlink both notify clinic patient messages **and** the account email with "not you? contact your clinic" | §5.5 |
 | Duplicate sign-up / case / whitespace | Email normalised (trim + lower); uniqueness on normalised form | PSU-DUP-01..05 |
+| Plus-addressing | Distinct accounts allowed (`user+tag@` ≠ `user@`); active-link unique index blocks two aliases binding the same telehealth record (PSU-TO-07) | PSU-DUP-04 |
 
 ---
 
