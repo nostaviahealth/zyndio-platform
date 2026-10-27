@@ -6,6 +6,7 @@ import Button from '../../components/admin-auth/Button';
 import RowActionsMenu, { RowActionItem } from '../../components/ui/RowActionsMenu';
 import StatusBadge from '../../components/ui/StatusBadge';
 import TwoFactorStatus from '../../components/ui/TwoFactorStatus';
+import NameCell from '../../components/ui/NameCell';
 import { ROLE_LABELS, roleDescriptionsFor } from '../admin/UsersRoles';
 import { PreviewMember, PREVIEW_MEMBERS, SELF_USER_ID } from './previewFixtures';
 
@@ -60,8 +61,7 @@ const ASSIGNABLE_ROLES = ['physician', 'care_coordinator', 'org_admin', 'read_on
 const Table: React.FC<{ members: PreviewMember[]; isPlatformAdmin?: boolean }> = ({ members, isPlatformAdmin = false }) => {
   const resetActionLabel = isPlatformAdmin ? 'Reset two-factor' : 'Request two-factor reset';
   const columns: DataTableColumn<PreviewMember>[] = [
-    { key: 'name', header: 'Name', render: (m) => m.name },
-    { key: 'email', header: '', render: (m) => <span className="text-slate-500">{m.email}</span> },
+    { key: 'name', header: 'Name', render: (m) => <NameCell name={m.name} email={m.email} /> },
     {
       key: 'role',
       header: 'Role',

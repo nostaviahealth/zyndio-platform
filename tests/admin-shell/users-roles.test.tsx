@@ -67,7 +67,7 @@ describe('UsersRolesPage', () => {
 
     expect(screen.getByLabelText('Change role for morgan.ellis@example.test')).toBeInTheDocument();
     expect(screen.queryByLabelText('Change role for taylor.brooks@example.test')).not.toBeInTheDocument();
-    const nameCell = screen.getByText('taylor.brooks@example.test (you)').closest('tr');
+    const nameCell = screen.getByText('Taylor Brooks (you)').closest('tr');
     expect(nameCell).not.toBeNull();
     expect(within(nameCell as HTMLElement).getByText('Admin')).toBeInTheDocument();
   });

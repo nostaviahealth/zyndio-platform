@@ -21,6 +21,7 @@ import Button from '../../components/admin-auth/Button';
 import RowActionsMenu, { RowActionItem } from '../../components/ui/RowActionsMenu';
 import StatusBadge from '../../components/ui/StatusBadge';
 import TwoFactorStatus from '../../components/ui/TwoFactorStatus';
+import NameCell from '../../components/ui/NameCell';
 
 export const ROLE_LABELS: Record<AppRole, string> = {
   org_admin: 'Admin',
@@ -58,6 +59,19 @@ function formatLastSignIn(member: OrgMember): string {
   // have never signed in by definition; everyone else is "unknown" rather
   // than a fabricated date.
   return member.status === 'invited' ? 'Never' : 'Unknown';
+}
+
+// list_org_members() has no display-name column (auth.users is the source
+// of truth for email only - see list_org_members()'s own comment). Derive a
+// readable name from the local part of the email instead of adding one, the
+// same stopgap this page already uses for last-sign-in/two-factor.
+function displayNameFromEmail(email: string): string {
+  const local = email.split('@')[0] ?? email;
+  return local
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((part) => part[0].toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 function formatTwoFactor(member: OrgMember): string {
@@ -246,7 +260,16 @@ const UsersRolesPage: React.FC = () => {
   );
 
   const columns: DataTableColumn<OrgMember>[] = [
-    { key: 'email', header: 'Name', render: (m) => <>{m.email}{m.user_id === selfUserId ? ' (you)' : ''}</> },
+    {
+      key: 'name',
+      header: 'Name',
+      render: (m) => (
+        <NameCell
+          name={`${displayNameFromEmail(m.email)}${m.user_id === selfUserId ? ' (you)' : ''}`}
+          email={m.email}
+        />
+      ),
+    },
     {
       key: 'role',
       header: 'Role',

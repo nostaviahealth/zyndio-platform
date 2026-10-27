@@ -68,7 +68,7 @@ describe('UsersRolesPage status badges', () => {
     renderPage();
     await waitFor(() => expect(screen.getByText('3 people')).toBeInTheDocument());
 
-    const activeRow = screen.getByText('taylor.brooks@example.test (you)').closest('tr') as HTMLElement;
+    const activeRow = screen.getByText('Taylor Brooks (you)').closest('tr') as HTMLElement;
     const activeBadge = within(activeRow).getByText('Active');
     expect(activeBadge.className).toMatch(/rounded-full/);
     expect(activeBadge.className).toMatch(/emerald/);
