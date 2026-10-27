@@ -76,6 +76,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (error.contains('rate limit') || error.contains('too many requests')) {
       return 'Too many attempts. Please wait a moment and try again.';
     }
+    if (error.contains('locked')) {
+      return "Sign-in is paused for this account after several wrong attempts. "
+          "Try again in 15 minutes, or reset your password.";
+    }
     return error
         .replaceFirst('Exception: ', '')
         .replaceFirst('AuthException: ', '')
@@ -295,7 +299,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 24),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () => context.go('/forgot-password'),
+                            child: Text(
+                              'Forgot password?',
+                              style: TextStyle(color: nc.textSecondary),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
 
                         // Sign in button
                         SizedBox(

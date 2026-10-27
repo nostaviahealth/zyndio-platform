@@ -323,9 +323,85 @@ class AuthNotifier extends Notifier<AsyncValue<void>> {
       rethrow;
     }
   }
+
+  // ---------------------------------------------------------------------
+  // TC-012 slice 1: patient self-signup / verify / resend / reset / delete.
+  // Every call here hits one of the patient-* Edge Functions (service role
+  // on the server side) rather than the GoTrue client SDK directly - signup
+  // in particular can't use client.auth.signUp() at all, since [auth]
+  // enable_signup stays false (staff-creation-only) in supabase/config.toml.
+  // ---------------------------------------------------------------------
+
+  Future<void> _invokePatientAuth(String functionName, Map<String, dynamic> body) async {
+    if (!_isInitialized) {
+      await Future.delayed(const Duration(milliseconds: 400));
+      return;
+    }
+    final client = SupabaseConfig.client;
+    if (client == null) throw PatientAuthException('internal_error');
+
+    try {
+      final response = await client.functions.invoke(functionName, body: body);
+      final data = response.data;
+      if (data is Map && data['error'] != null) {
+        throw PatientAuthException(data['error'].toString());
+      }
+    } on FunctionException catch (e) {
+      final details = e.details;
+      final code = (details is Map && details['error'] != null)
+          ? details['error'].toString()
+          : 'internal_error';
+      throw PatientAuthException(code);
+    }
+  }
+
+  /// PSU-ENUM-01: always succeeds from the caller's point of view unless the
+  /// caller's own input was invalid (bad email shape, weak/blocklisted
+  /// password) - the UI must always navigate to "Check your email" next,
+  /// never branch on whether the account already existed.
+  Future<void> patientSignUp(String email, String password) =>
+      _invokePatientAuth('patient-signup', {'email': email, 'password': password});
+
+  /// PSU-ENUM-04: same generic success regardless of unknown/already-verified/
+  /// real-unverified email - the 60s cooldown lives in the UI's own timer.
+  Future<void> resendVerification(String email) =>
+      _invokePatientAuth('patient-resend-verification', {'email': email});
+
+  Future<void> verifyEmailToken(String token) =>
+      _invokePatientAuth('patient-verify-email', {'token': token});
+
+  /// PSU-ENUM-03: same "if an account exists" response either way.
+  Future<void> requestPasswordReset(String email) =>
+      _invokePatientAuth('patient-request-password-reset', {'email': email});
+
+  /// Revokes every other session server-side (force_sign_out) on success.
+  Future<void> completePasswordReset(String token, String newPassword) => _invokePatientAuth(
+      'patient-reset-password', {'token': token, 'password': newPassword});
+
+  /// Re-auth (current password) + Apple 5.1.1(v) in-app deletion. Signs the
+  /// local session out once the server confirms deletion.
+  Future<void> deleteAccount(String password) async {
+    await _invokePatientAuth('patient-delete-account', {'password': password});
+    if (_isInitialized) {
+      final client = SupabaseConfig.client;
+      await client?.auth.signOut();
+    }
+  }
 }
 
 /// Auth notifier provider
 final authNotifierProvider = NotifierProvider<AuthNotifier, AsyncValue<void>>(() {
   return AuthNotifier();
 });
+
+/// Thrown by the patient-auth Edge Function calls below. [code] is the
+/// machine-readable `error` field from the function's JSON body (e.g.
+/// 'password_too_common', 'rate_limited', 'invalid_or_expired_link') - UI
+/// code maps it to Ava's copy rather than showing raw server text.
+class PatientAuthException implements Exception {
+  PatientAuthException(this.code);
+  final String code;
+
+  @override
+  String toString() => 'PatientAuthException: $code';
+}

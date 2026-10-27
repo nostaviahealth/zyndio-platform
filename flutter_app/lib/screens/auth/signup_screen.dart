@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/password_rules_checklist.dart';
 import 'widgets/auth_background.dart';
 
 /// Signup screen matching React Signup.tsx
@@ -23,6 +24,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _submitted = false;
   String? _errorMessage;
 
   @override
@@ -34,6 +36,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   }
 
   Future<void> _handleSignUp() async {
+    setState(() => _submitted = true);
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -41,16 +44,35 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       _errorMessage = null;
     });
 
+    final email = _emailController.text.trim();
+
     try {
-      await ref.read(authNotifierProvider.notifier).signUp(
-            _emailController.text.trim(),
+      // TC-012: patient self-signup goes through the patient-signup Edge
+      // Function, never client.auth.signUp() directly ([auth] enable_signup
+      // stays false). PSU-ENUM-01: on success we always navigate to "Check
+      // your email" - the function itself hides whether the email was new.
+      await ref.read(authNotifierProvider.notifier).patientSignUp(
+            email,
             _passwordController.text,
-            _nameController.text.trim(),
           );
-    } catch (e) {
+      if (!mounted) return;
+      context.go('/verify-email', extra: email);
+    } on PatientAuthException catch (e) {
       setState(() {
-        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        _errorMessage = switch (e.code) {
+          'password_too_common' => 'That password is too common. Choose another.',
+          'password_too_short' => 'Your password needs to meet every rule below.',
+          'rate_limited' => 'Too many attempts. Please wait a few minutes and try again.',
+          'invalid_request' => 'Please enter a valid email address.',
+          _ => 'Something went wrong. Please try again.',
+        };
       });
+    } catch (e) {
+      final message = e.toString();
+      _errorMessage = (message.contains('SocketException') || message.contains('host lookup'))
+          ? 'No internet connection. Please check your network and try again.'
+          : message.replaceFirst('Exception: ', '');
+      setState(() {});
     } finally {
       if (mounted) {
         setState(() {
@@ -281,17 +303,20 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           decoration: const InputDecoration(
                             hintText: 'Create a password',
                           ),
+                          onChanged: (_) => setState(() {}),
                           validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter a password';
-                            }
-                            if (value.length < 6) {
-                              return 'Password must be at least 6 characters';
-                            }
-                            return null;
+                            final checks = checkPasswordRules(value ?? '');
+                            return checks.allClientRulesMet
+                                ? null
+                                : 'Your password needs to meet every rule below';
                           },
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 8),
+                        PasswordRulesChecklist(
+                          password: _passwordController.text,
+                          showInvalid: _submitted,
+                        ),
+                        const SizedBox(height: 16),
 
                         // Sign up button
                         SizedBox(

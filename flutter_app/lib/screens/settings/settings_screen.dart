@@ -678,11 +678,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 16),
           
-          // Delete Account (Compliance)
+          // Delete Account (Apple 5.1.1(v)): fully in-app, re-auth first -
+          // see TC-012 delete_account_screen.dart. No "email support" dead end.
           SizedBox(
             width: double.infinity,
             child: TextButton(
-               onPressed: () => _showDeleteAccountDialog(context),
+               onPressed: () => context.push('/delete-account'),
                child: const Text('Delete Account', style: TextStyle(color: BrandColors.red500)),
             ),
           ),
@@ -732,31 +733,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         .join('&');
   }
 
-  void _showDeleteAccountDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      useRootNavigator: true, // Fix for hidden dialog
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Account', style: TextStyle(color: BrandColors.red500)),
-        content: const Text(
-          'This action is permanent. Do you want to request account deletion? This will open your email client to send a deletion request to our support team.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: BrandColors.slate500)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _sendEmail('support@zyndio.example', 'Urgent: Delete My Account Request');
-            },
-            child: const Text('Request Deletion', style: TextStyle(color: BrandColors.red500, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // ... Keep _SectionHeader and _SettingsCard classes ...
