@@ -157,3 +157,41 @@ unreadable or nonexistent report counts as held) - and switches
 it instead of joining/NOT EXISTS'ing `lab_reports` directly. All three RPCs
 stay SECURITY INVOKER; only the one boolean check moved to a definer
 function. Full `supabase test db`: 959/959 green (49 files).
+
+## Read-only fix round: shim replays of the new tests (28 Oct 2026, ~15:30 IST)
+
+The new read-only assertions are in 710 #12–#31, 716 #1–#7 and 717 #6–#7. 717 #5 now
+covers unknown ids, after the renumbering. Each assertion was replayed with the fix-round
+test files copied into a throwaway worktree at `c2514d6`, with one shim loaded per run.
+Each worktree was removed after its run. Outputs:
+
+- `pgtap-c2514d6-naive_unsafe-fixround-710-716-717.txt`: the naive shim (`shim_naive_unsafe.sql.txt`).
+- `pgtap-c2514d6-read_only_writes-fixround-710-716-717.txt`: variant C, `shim_read_only_writes.sql.txt`.
+  It is the naive shim plus permissive no-op versions of `flag_lab_report_needs_review`,
+  `create_patient_record`, `change_member_role` and `request_mfa_reset`, and
+  INSERT/UPDATE/DELETE grants on the TC-015 tables.
+- `pgtap-c2514d6-audit_no_visibility-fixround-710-716-717.txt`: variant B (L32).
+- `pgtap-1826162-716.txt`: 716 run at `1826162`, the intermediate commit that briefly gave read_only SELECT on raw lab_reports.
+
+Pre-fix runs on the real code are also here:
+- `pgtap-prefix-76a43d5-read-only.txt`: the tests run before the RLS/RPC flip.
+- `pgtap-prefix-read-only-no-raw-reports.txt`: the state before the `lab_report_held()` fix.
+- `vitest-prefix-readonly-links.txt`: the UI link test.
+
+| Requirement | Assertions | Fails at its assertion against |
+|---|---|---|
+| (a) own clinic: list, detail, trends, latest | 710 #13, #14, #16, #17 | pre-fix code (`76a43d5`): have 0 / NULL, want 1 / non-null |
+| (a) detail is whitelisted | 710 #15 | naive shim (have 3 non-whitelisted keys, want 0) |
+| (a) list row | 710 #12 | none: a positive assertion that already held before the fix |
+| (a) identity-hold, needs-review and unmapped excluded for read_only | 716 #2–#7 | naive shim (all six). #2, #3 and #6 also fail on the pre-fix `lab_report_held` state |
+| (a) no raw lab_reports (H2 stands) | 716 #1 | `1826162` (have 2, want 0) |
+| (b) nothing from another clinic | 710 #18–#23 | naive shim (have 1, want 0). #23 got an org-B treatment fixture this round; before that it passed vacuously |
+| (c) refused every write/action RPC | 710 #24–#27 | variant C only (`caught: no exception, wanted: 42501`) |
+| (c) refused direct writes | 710 #28–#31 | naive shim and variant C (no exception) |
+| (d) audit row on every read-only open | 717 #6–#7 | pre-fix code and naive shim (have 0, want 1 / 2) |
+| (L32) no audit row for invisible opens | 717 #4 (cross-org), #5 (unknown id) | variant B (have 1, want 0) |
+
+L32, after the flip: the read-only open used to sit at 717 #5 and expected 0 audit rows.
+That assertion now lives at #6–#7 and expects one audit row per open, so variant B
+correctly passes it. The two invisible-patient assertions (#4 and #5) still fail
+against variant B. The earlier L32 run above used the pre-flip 717.
