@@ -244,9 +244,23 @@ create trigger trg_patient_treatments_roster_summary
 -- physician_roster_base(): read the maintained summary instead of recomputing
 -- the per-result LATERAL. The flag expression and coalesce defaults are
 -- byte-identical to 20261028154000, so every filter/sort/flag semantic (and
--- thus 710/715/716/717/719/720) is unchanged. read_only sees the summary
--- (RLS includes read_only), so its flags are real. A patient with no summary
--- row left-joins to NULL -> coalesce -> missing_labs, exactly as before.
+-- thus 710/715/716/717/719/720) is unchanged. A patient with no summary row
+-- left-joins to NULL -> coalesce -> missing_labs, exactly as before.
+--
+-- This also flips the function to SECURITY DEFINER with a one-time staff gate,
+-- superseding "Leo ruling 3" (invoker everywhere) FOR THIS FUNCTION ONLY. Why:
+-- at 5,000 patients the invoker form re-evaluated the per-row RLS helpers
+-- (current_org_id()/has_aal2()/current_role(), each an org_members lookup) on
+-- patients, patient_roster_meta AND patient_roster_summary - ~90k shared-buffer
+-- hits, ~290 ms, over the < 200 ms budget. The gate below enforces the IDENTICAL
+-- visibility the RLS did - caller must be aal2 AND physician/care_coordinator/
+-- read_only, and only their own org's rows are returned (explicit org scope) -
+-- but evaluates it ONCE instead of per row. A non-staff / non-aal2 / orgless
+-- caller gets zero rows, exactly as RLS yielded. read_only still gets REAL
+-- flags (the summary is read under definer rights, so no degradation). The
+-- patient-self branch of the old patients RLS is intentionally dropped here:
+-- this is a staff-only read surface (physician_patient_roster / chip_counts),
+-- never a patient path.
 -- ---------------------------------------------------------------------------
 create or replace function public.physician_roster_base()
 returns table (
@@ -261,11 +275,27 @@ returns table (
   open_questions int,
   flags text[]
 )
-language sql
+language plpgsql
 stable
-security invoker
+security definer
 set search_path = pg_catalog, public
 as $$
+declare
+  v_org uuid;
+begin
+  -- One-time staff gate, identical semantics to the staff-select RLS.
+  if not coalesce(
+       public.has_aal2()
+       and public.current_role() in ('physician', 'care_coordinator', 'read_only'),
+       false) then
+    return;
+  end if;
+  v_org := public.current_org_id();
+  if v_org is null then
+    return;
+  end if;
+
+  return query
   select
     p.id,
     p.display_name,
@@ -287,7 +317,8 @@ as $$
   from public.patients p
   left join public.patient_roster_meta m on m.patient_id = p.id
   left join public.patient_roster_summary s on s.patient_id = p.id
-  where p.org_id = public.current_org_id();
+  where p.org_id = v_org;
+end;
 $$;
 
 -- Backfill the rollup for every existing patient (idempotent upsert).
