@@ -44,7 +44,8 @@ export interface PhysicianRosterProps {
   api?: ClinicalApi;
   now?: Date;
   // Live route derives the role from PortalAuth; the preview harness passes it
-  // explicitly. read_only rows are NOT links (Henry 26 Oct).
+  // explicitly. read_only rows ARE links too (Leo ruling, fix round 28 Oct:
+  // physician/care_coordinator/read_only all view the same detail page).
   role?: string | null;
   initialSearch?: string;
   initialFilter?: RosterFilter;
@@ -65,7 +66,7 @@ const PhysicianRoster: React.FC<PhysicianRosterProps> = ({
 }) => {
   const auth = usePortalAuth();
   const role = roleProp ?? auth.role;
-  const canOpen = role === 'physician' || role === 'care_coordinator';
+  const canOpen = role === 'physician' || role === 'care_coordinator' || role === 'read_only';
   const nowDate = now ?? new Date();
 
   const [search, setSearch] = useState(initialSearch);
