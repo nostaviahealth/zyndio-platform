@@ -10,9 +10,10 @@
 #   SUPABASE_URL (ES256 JWKS for user access tokens) - required by TC-011
 #   process-outbox signature verify.
 # - Always stops `supabase functions serve` on exit, even on failure.
-# - TC-014: waits until an edge function answers with a non-503 status
-#   (warm / ready). A connection error or sustained 503 times out the run;
-#   individual test assertions are never retried.
+# - TC-014/TC-011: waits until an edge function answers with a status other
+#   than 502 or 503 (warm / ready). A refused connection, 502 or 503 all count
+#   as not ready; if that lasts 60s the run fails. Individual test assertions
+#   are never retried.
 #
 # Assumes `supabase start` has already been run. Local Supabase only.
 set -euo pipefail
@@ -52,8 +53,9 @@ ENV
 nohup supabase functions serve --no-verify-jwt --env-file "$FN_ENV_FILE" >/tmp/tc005-functions-serve.log 2>&1 &
 echo $! > "$FN_SERVE_PID_FILE"
 
-# Poll via node's built-in fetch (never curl) until invite-user answers with
-# anything other than 503. Connection refused / network errors keep polling.
+# Poll via node's built-in fetch (never curl) every 0.5s until invite-user
+# answers with anything other than 502/503. Connection refused / network
+# errors (no HTTP status) also keep polling.
 # Clear timeout → fail the run (do not start tests against a cold serve).
 node -e '
   const url = process.env.SUPABASE_FUNCTIONS_URL + "/invite-user";
@@ -66,7 +68,7 @@ node -e '
           headers: { "Content-Type": "application/json" },
           body: "{}",
         });
-        if (res.status !== 503) {
+        if (res.status !== 502 && res.status !== 503) {
           process.exit(0);
         }
       } catch {
@@ -74,7 +76,7 @@ node -e '
       }
       await new Promise((r) => setTimeout(r, 500));
     }
-    console.error("integration-local: edge functions still returning 503 (or unreachable) after 60s");
+    console.error("integration-local: edge functions still returning 502/503 (or unreachable) after 60s");
     process.exit(1);
   })();
 '
