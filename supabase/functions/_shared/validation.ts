@@ -105,3 +105,177 @@ export function generatePlaceholderPassword(): string {
   }
   return chars.join('')
 }
+
+// TC-011: process-outbox must reject forged JWTs. Kong/gateway JWT verification
+// must stay enabled in every deployed environment; this helper is defense in
+// depth for direct function invocation (local `functions serve`, misconfigured
+// gateway). Local GoTrue issues ES256 user JWTs (JWKS); legacy
+// service_role/anon keys remain HS256 — verifyBearerJwt covers both.
+function base64UrlToBytes(input: string): Uint8Array {
+  const base64 = input.replace(/-/g, '+').replace(/_/g, '/')
+  const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
+  const binary = atob(padded)
+  const out = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i)
+  return out
+}
+
+function bytesToBase64Url(bytes: ArrayBuffer): string {
+  const bin = String.fromCharCode(...new Uint8Array(bytes))
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+}
+
+/** Clock skew leeway for exp/nbf checks (seconds). Documented for M9. */
+export const JWT_EXP_LEEWAY_SECONDS = 5
+
+/**
+ * Reject payloads with missing or past `exp` (and future `nbf` if present).
+ * Applied after signature verify on both HS256 and ES256 paths (Clara M9).
+ */
+export function assertJwtFresh(
+  payload: Record<string, unknown>,
+  nowSec: number = Math.floor(Date.now() / 1000),
+): void {
+  const exp = payload.exp
+  if (typeof exp !== 'number' || !Number.isFinite(exp)) {
+    throw new Error('JWT missing exp')
+  }
+  if (exp < nowSec - JWT_EXP_LEEWAY_SECONDS) {
+    throw new Error('JWT expired')
+  }
+  const nbf = payload.nbf
+  if (typeof nbf === 'number' && Number.isFinite(nbf)) {
+    if (nbf > nowSec + JWT_EXP_LEEWAY_SECONDS) {
+      throw new Error('JWT not yet valid')
+    }
+  }
+}
+
+export async function verifyHs256Jwt(
+  token: string,
+  secret: string,
+): Promise<Record<string, unknown>> {
+  const parts = token.split('.')
+  if (parts.length !== 3) throw new Error('not a JWT')
+  const [headerB64, payloadB64, signatureB64] = parts
+  const headerJson = new TextDecoder().decode(base64UrlToBytes(headerB64))
+  const header = JSON.parse(headerJson) as { alg?: string; typ?: string }
+  if (header.alg !== 'HS256') throw new Error('unsupported JWT alg')
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const data = new TextEncoder().encode(`${headerB64}.${payloadB64}`)
+  const expected = bytesToBase64Url(await crypto.subtle.sign('HMAC', key, data))
+  if (expected !== signatureB64) throw new Error('bad JWT signature')
+  const payload = JSON.parse(new TextDecoder().decode(base64UrlToBytes(payloadB64))) as Record<
+    string,
+    unknown
+  >
+  assertJwtFresh(payload)
+  return payload
+}
+
+export function jwtSecretFromEnv(env: { get(key: string): string | undefined }): string {
+  const secret = env.get('JWT_SECRET') || env.get('SUPABASE_JWT_SECRET')
+  if (!secret) throw new Error('JWT secret not configured')
+  return secret
+}
+
+export type JwtVerifyEnv = {
+  get(key: string): string | undefined
+}
+
+// Fetches GoTrue's JWKS once per isolate. Used for ES256 user access tokens.
+let cachedJwks: { keys: JsonWebKey[] } | null = null
+
+async function fetchJwks(env: JwtVerifyEnv): Promise<{ keys: JsonWebKey[] }> {
+  if (cachedJwks) return cachedJwks
+  const base =
+    env.get('SUPABASE_URL') ||
+    env.get('API_URL') ||
+    'http://127.0.0.1:54321'
+  const res = await fetch(`${base.replace(/\/$/, '')}/auth/v1/.well-known/jwks.json`)
+  if (!res.ok) throw new Error(`jwks fetch failed: ${res.status}`)
+  cachedJwks = (await res.json()) as { keys: JsonWebKey[] }
+  return cachedJwks
+}
+
+/** Reset JWKS cache (tests only). */
+export function resetJwksCacheForTests(): void {
+  cachedJwks = null
+}
+
+/** Inject JWKS for tests (skips network fetch). */
+export function setJwksForTests(jwks: { keys: JsonWebKey[] }): void {
+  cachedJwks = jwks
+}
+
+async function verifyEs256Jwt(
+  token: string,
+  header: { alg?: string; kid?: string },
+  headerB64: string,
+  payloadB64: string,
+  signatureB64: string,
+  env: JwtVerifyEnv,
+): Promise<Record<string, unknown>> {
+  const jwks = await fetchJwks(env)
+  if (!header.kid) throw new Error('JWT missing kid')
+  const jwk = jwks.keys.find((k) => (k as { kid?: string }).kid === header.kid)
+  if (!jwk) throw new Error('unknown JWT kid')
+  const key = await crypto.subtle.importKey(
+    'jwk',
+    { ...jwk, key_ops: ['verify'], ext: true },
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    false,
+    ['verify'],
+  )
+  const sigBytes = base64UrlToBytes(signatureB64)
+  const sigCopy = new Uint8Array(sigBytes.byteLength)
+  sigCopy.set(sigBytes)
+  const ok = await crypto.subtle.verify(
+    { name: 'ECDSA', hash: 'SHA-256' },
+    key,
+    sigCopy,
+    new TextEncoder().encode(`${headerB64}.${payloadB64}`),
+  )
+  if (!ok) throw new Error('bad JWT signature')
+  const payload = JSON.parse(new TextDecoder().decode(base64UrlToBytes(payloadB64))) as Record<
+    string,
+    unknown
+  >
+  assertJwtFresh(payload)
+  return payload
+}
+
+/**
+ * Verify a bearer JWT for process-outbox defense-in-depth.
+ * - HS256 (legacy service_role / anon): project JWT_SECRET
+ * - ES256 (GoTrue user access tokens): JWKS at SUPABASE_URL/auth/v1/.well-known/jwks.json
+ * - Both paths require a numeric `exp` that is not in the past (JWT_EXP_LEEWAY_SECONDS
+ *   skew). Unknown ES256 `kid` is rejected — no fallback to jwks.keys[0] (Clara M9 / L13).
+ */
+export async function verifyBearerJwt(
+  token: string,
+  env: JwtVerifyEnv,
+): Promise<Record<string, unknown>> {
+  const parts = token.split('.')
+  if (parts.length !== 3) throw new Error('not a JWT')
+  const [headerB64, payloadB64, signatureB64] = parts
+  const header = JSON.parse(new TextDecoder().decode(base64UrlToBytes(headerB64))) as {
+    alg?: string
+    kid?: string
+    typ?: string
+  }
+  if (header.alg === 'HS256') {
+    return verifyHs256Jwt(token, jwtSecretFromEnv(env))
+  }
+  if (header.alg === 'ES256') {
+    return verifyEs256Jwt(token, header, headerB64, payloadB64, signatureB64, env)
+  }
+  throw new Error(`unsupported JWT alg: ${header.alg ?? 'missing'}`)
+}

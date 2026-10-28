@@ -81,8 +81,15 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
         }
     }, []);
 
-    // Load data on mount
+    // Load data on mount. Preview builds (__PREVIEW_BUILD__) serve the
+    // /__preview harness for Ava screenshots with no live Supabase, so skip
+    // the patients/diet fetches to avoid the stray "Failed to load patients"
+    // toast covering dialog captures.
     useEffect(() => {
+        if (typeof __PREVIEW_BUILD__ !== 'undefined' && __PREVIEW_BUILD__) {
+            setLoading(false);
+            return;
+        }
         fetchPatients();
         fetchDietPlans();
     }, [fetchPatients, fetchDietPlans]);

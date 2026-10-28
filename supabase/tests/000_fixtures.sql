@@ -122,7 +122,9 @@ from (values
   -- 200_cross_org_matrix.sql reuses this id as the throwaway target of
   -- cross-org INSERT attempts into org_members/patients (FK requires a real
   -- auth.users row; the insert itself is always expected to be denied).
-  ('00000000-0000-0000-0000-0000000a9001'::uuid, 'spare-xorg@example.test')
+  ('00000000-0000-0000-0000-0000000a9001'::uuid, 'spare-xorg@example.test'),
+  -- Zyndio platform admin (not org_members): TC-011 create_patient_record refusal
+  ('00000000-0000-0000-0000-0000000af001'::uuid, 'zyndio-admin@example.test')
 ) as u(id, email);
 
 -- ---------------------------------------------------------------------------
@@ -135,6 +137,10 @@ insert into public.org_members (user_id, org_id, role, status) values
   ('00000000-0000-0000-0000-0000000a0003', '00000000-0000-0000-0000-00000000000a', 'care_coordinator', 'active'),
   ('00000000-0000-0000-0000-0000000a0004', '00000000-0000-0000-0000-00000000000a', 'read_only', 'active'),
   ('00000000-0000-0000-0000-0000000b0001', '00000000-0000-0000-0000-00000000000b', 'physician', 'active');
+
+-- TC-011: Zyndio platform admin (service-role table; fixture via SQL).
+insert into public.platform_admins (user_id) values
+  ('00000000-0000-0000-0000-0000000af001');
 
 -- ---------------------------------------------------------------------------
 -- patients: one per org, so cross-org denial has a real row to deny.

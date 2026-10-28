@@ -37,6 +37,7 @@ interface PortalAuthContextType extends PortalAuthState {
   signIn: (email: string, password: string) => Promise<SignInResult>;
   requestPasswordReset: (email: string) => Promise<{ ok: boolean; networkError?: boolean }>;
   acceptInvite: (token: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  changePassword: (password: string) => Promise<{ ok: boolean; error?: string }>;
   enrollTotp: () => Promise<{ factorId: string; qrCode: string; secret: string }>;
   verifyTotpEnrollment: (factorId: string, code: string) => Promise<ChallengeResult>;
   challengeTotp: (factorId: string) => Promise<{ challengeId: string }>;
@@ -164,6 +165,19 @@ export const PortalAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return { ok: true };
   }, []);
 
+  // B2 (M3)/rule 7: the only sanctioned self-service password-set path once
+  // a session exists (recovery link or already signed in) - shared by
+  // reset-password and change-password so both get the blocklist check and
+  // audit log that only the change-password edge function provides.
+  const changePassword = useCallback(async (password: string) => {
+    const { data, error } = await supabase.functions.invoke('change-password', {
+      body: { password },
+    });
+    if (error) return { ok: false, error: 'internal_error' };
+    if (data?.error) return { ok: false, error: data.error as string };
+    return { ok: true };
+  }, []);
+
   const enrollTotp = useCallback(async () => {
     const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', issuer: 'Zyndio' });
     if (error || !data) throw error ?? new Error('enroll failed');
@@ -246,6 +260,7 @@ export const PortalAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         signIn,
         requestPasswordReset,
         acceptInvite,
+        changePassword,
         enrollTotp,
         verifyTotpEnrollment,
         challengeTotp,

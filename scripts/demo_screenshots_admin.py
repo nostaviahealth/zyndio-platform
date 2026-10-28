@@ -48,6 +48,8 @@ MANIFEST: dict[str, list[str]] = {
         "deactivated",
         "last-admin",
         "reset-2fa",
+        "request-2fa-reset",
+        "reset-requested",
     ],
 }
 

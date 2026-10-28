@@ -5,17 +5,22 @@ import {
     Stethoscope, Apple, Route, User, Brain, Lock, Unlock, BookOpen, Activity
 } from 'lucide-react';
 import { useAdmin } from '../../contexts/AdminContext';
+import { usePortalAuth } from '../../contexts/PortalAuthContext';
 import { PatientProfile } from '../../types';
 import HealthJourneyPanel from './HealthJourneyPanel';
 import IntelligencePanel from './IntelligencePanel';
 import { supabase } from '../../lib/supabase';
+import { getLatestLabReport, LatestLabReport } from '../../lib/labReportsApi';
+import LabReportReviewFlag from '../../components/admin/LabReportReviewFlag';
 
 const PatientDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { getPatient } = useAdmin();
+    const { role } = usePortalAuth();
 
     const [patient, setPatient] = useState<PatientProfile | null>(null);
+    const [latestLabReport, setLatestLabReport] = useState<LatestLabReport | null>(null);
     const [activeTab, setActiveTab] = useState<'status' | 'journey' | 'logs'>('status');
     const [activeModal, setActiveModal] = useState<string | null>(null);
 
@@ -49,6 +54,12 @@ const PatientDetail: React.FC = () => {
             }
         }
     }, [id, getPatient]);
+
+    useEffect(() => {
+        if (id) {
+            getLatestLabReport(id).then(setLatestLabReport);
+        }
+    }, [id]);
 
     // Fetch user logs when 'logs' tab is active
     useEffect(() => {
@@ -221,6 +232,15 @@ const PatientDetail: React.FC = () => {
                                 <p className="text-xs text-slate-500">
                                     {item.status === 'pending' ? 'Not completed' : 'Click to view/edit'}
                                 </p>
+                                {item.id === 'lab' && latestLabReport && (
+                                    <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                                        <LabReportReviewFlag
+                                            labReportId={latestLabReport.id}
+                                            initialNeedsReview={latestLabReport.needs_review}
+                                            canFlag={role === 'care_coordinator' || role === 'physician'}
+                                        />
+                                    </div>
+                                )}
                             </button>
                         ))}
                     </div>

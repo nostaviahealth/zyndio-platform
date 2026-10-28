@@ -6,7 +6,7 @@
 // the identical `{ status: 'ok' }` body.
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
+import { corsHeadersFor, jsonResponse } from '../_shared/cors.ts'
 import { AuthError, requireOrgAdminActor } from '../_shared/requireOrgAdminActor.ts'
 import { writeAuditLog, insertNotification } from '../_shared/auditAndNotify.ts'
 import {
@@ -32,7 +32,7 @@ async function findUserIdByEmail(admin: SupabaseClient, email: string): Promise<
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeadersFor(req) })
 
   try {
     const { actor, admin } = await requireOrgAdminActor(req)
@@ -42,7 +42,7 @@ serve(async (req) => {
     const role = body.role
 
     if (!email || !isValidEmail(email) || !isValidAppRole(role)) {
-      return jsonResponse({ error: 'invalid_request' }, 400)
+      return jsonResponse(req, { error: 'invalid_request' }, 400)
     }
 
     let userId: string
@@ -66,7 +66,7 @@ serve(async (req) => {
         // (e.g. provisioned outside the invite flow, such as the bootstrap
         // admin). Never reveal that via an error - respond exactly like a
         // successful invite and do nothing further.
-        return jsonResponse({ status: 'ok' })
+        return jsonResponse(req, { status: 'ok' })
       }
       userId = existingId
       isFreshAuthUser = false
@@ -93,25 +93,27 @@ serve(async (req) => {
         .ilike('email', email)
         .is('accepted_at', null)
         .is('revoked_at', null)
+      // TC-011: role changes on re-invite stay inside the inviter's org only.
       const { error: roleUpdateError } = await admin
         .from('org_members')
         .update({ role })
         .eq('user_id', userId)
+        .eq('org_id', actor.orgId)
       if (roleUpdateError) {
         console.error('invite-user: org_members role update on resend failed', roleUpdateError)
-        return jsonResponse({ error: 'internal_error' }, 500)
+        return jsonResponse(req, { error: 'internal_error' }, 500)
       }
     } else if (existingMember) {
       // Already active/deactivated in this org, or belongs to a different
       // org entirely - nothing to do, but looks identical to success.
-      return jsonResponse({ status: 'ok' })
+      return jsonResponse(req, { status: 'ok' })
     } else if (!isFreshAuthUser) {
       // M6: an account that existed before this invite call (a patient
       // account, or anything else never routed through invite-user) and
       // has no org_members row at all. Never silently attach org/staff
       // access to it, and never let accept-invite later overwrite its real
       // password - refuse, but look identical to a successful invite.
-      return jsonResponse({ status: 'ok' })
+      return jsonResponse(req, { status: 'ok' })
     } else {
       const { error: memberError } = await admin.from('org_members').insert({
         user_id: userId,
@@ -121,7 +123,7 @@ serve(async (req) => {
       })
       if (memberError) {
         console.error('invite-user: org_members insert failed', memberError)
-        return jsonResponse({ error: 'internal_error' }, 500)
+        return jsonResponse(req, { error: 'internal_error' }, 500)
       }
     }
 
@@ -138,7 +140,7 @@ serve(async (req) => {
     })
     if (inviteError) {
       console.error('invite-user: invites insert failed', inviteError)
-      return jsonResponse({ error: 'internal_error' }, 500)
+      return jsonResponse(req, { error: 'internal_error' }, 500)
     }
 
     await writeAuditLog(admin, {
@@ -162,10 +164,10 @@ serve(async (req) => {
       payload: { email, token },
     })
 
-    return jsonResponse({ status: 'ok' })
+    return jsonResponse(req, { status: 'ok' })
   } catch (err) {
-    if (err instanceof AuthError) return jsonResponse({ error: err.message }, err.status)
+    if (err instanceof AuthError) return jsonResponse(req, { error: err.message }, err.status)
     console.error('invite-user error', err)
-    return jsonResponse({ error: 'internal_error' }, 500)
+    return jsonResponse(req, { error: 'internal_error' }, 500)
   }
 })

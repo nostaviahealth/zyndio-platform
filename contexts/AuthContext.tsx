@@ -8,7 +8,6 @@ interface AuthContextType {
     session: Session | null;
     loading: boolean;
     signIn: (email: string, password: string) => Promise<void>;
-    signUp: (email: string, password: string, name: string) => Promise<void>;
     signOut: () => Promise<void>;
     isAdmin: boolean;
 }
@@ -144,34 +143,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
-    const signUp = async (email: string, password: string, name: string) => {
-        try {
-            console.log('📝 Creating new user:', email);
-
-            const { data, error } = await supabase.auth.signUp({
-                email,
-                password,
-                options: {
-                    data: {
-                        name
-                    }
-                }
-            });
-
-            if (error) throw error;
-
-            // Profile is automatically created via database trigger
-            console.log('✅ User created successfully');
-
-            // Sign in automatically
-            if (data.user) {
-                await signIn(email, password);
-            }
-        } catch (error: any) {
-            console.error('❌ Sign up error:', error);
-            throw new Error(error.message || 'Failed to sign up');
-        }
-    };
 
     const signOut = async () => {
         try {
@@ -197,7 +168,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 session,
                 loading,
                 signIn,
-                signUp,
                 signOut,
                 isAdmin,
             }}
