@@ -60,13 +60,13 @@ describe('PhysicianRoster', () => {
   it('whole row is a link named "Open <name>" for physician/care_coordinator', async () => {
     renderRoster({ role: 'physician' });
     const link = await screen.findByRole('link', { name: 'Open Jordan Rivera' });
-    expect(link).toHaveAttribute('href', '/admin/roster/p-jordan');
+    expect(link).toHaveAttribute('href', '/admin/patients/p-jordan');
   });
 
   it('read_only rows ARE links too (Leo ruling, fix round 28 Oct: supersedes Henry 26 Oct)', async () => {
     renderRoster({ role: 'read_only' });
     const link = await screen.findByRole('link', { name: 'Open Jordan Rivera' });
-    expect(link).toHaveAttribute('href', '/admin/roster/p-jordan');
+    expect(link).toHaveAttribute('href', '/admin/patients/p-jordan');
   });
 
   it('shows the no-results state with the query kept and a Clear button', async () => {

@@ -89,6 +89,12 @@ describe('PhysicianPatientDetail', () => {
     expect(document.body.textContent).not.toMatch(/mg weekly/i);
   });
 
+  it('back link points at /admin/patients', async () => {
+    renderDetail(makeApi());
+    await screen.findByRole('heading', { name: 'Jordan Rivera' });
+    expect(screen.getByRole('link', { name: 'Patients' })).toHaveAttribute('href', '/admin/patients');
+  });
+
   it('calls open_patient_detail exactly once per open, even under StrictMode', async () => {
     const api = makeApi();
     render(
