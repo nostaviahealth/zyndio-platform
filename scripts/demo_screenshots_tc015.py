@@ -4,10 +4,11 @@
 Serves the already-built preview bundle (`npm run build:preview`, which gates
 the /__preview harness behind __PREVIEW_BUILD__ - see vite.config.ts) and
 drives headless Chromium to the HashRouter URL
-`#/__preview?screen=...&state=...&mode=...` for the two TC-015 screens, each in
-6 states, light + dark, at desktop (1440x900) and tablet (1024x768).
+`#/__preview?screen=...&state=...&mode=...` for the two TC-015 screens
+(01-patient-list: 6 states; 02-patient-detail: 7 states, incl. not-found),
+light + dark, at desktop (1440x900) and tablet (1024x768).
 
-Output (48 PNGs):
+Output (52 PNGs):
     docs/screenshots/tc-015/<screen>/<state>--<mode>.png          (desktop)
     docs/screenshots/tc-015/<screen>/tablet/<state>--<mode>.png   (tablet)
 
@@ -34,7 +35,7 @@ OUT_DIR = REPO_ROOT / "docs" / "screenshots" / "tc-015"
 # Source of truth: the handoff README state list for 01 and 02 (6 each).
 MANIFEST: dict[str, list[str]] = {
     "01-patient-list": ["default", "loading", "empty", "no-results", "filtered", "error"],
-    "02-patient-detail": ["default", "loading", "empty", "single", "needs-review", "error"],
+    "02-patient-detail": ["default", "loading", "empty", "single", "needs-review", "error", "not-found"],
 }
 
 MODES = ["light", "dark"]
