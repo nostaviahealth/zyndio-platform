@@ -111,6 +111,24 @@ def capture(screens: list[str] | None, states: list[str] | None) -> list[Path]:
                         url = f"{base_url}#/__preview?screen={screen}&state={state}&mode={mode}"
                         page.goto(url, wait_until="domcontentloaded")
                         page.wait_for_selector("[data-preview-marker]", timeout=10_000)
+                        # Tailwind CDN generates dark: utilities after hydration;
+                        # wait until a known dark surface rule exists so dialogs
+                        # and buttons aren't shot mid-theme.
+                        if mode == "dark":
+                            page.wait_for_function(
+                                """() => {
+                                  for (const sheet of document.styleSheets) {
+                                    let rules;
+                                    try { rules = sheet.cssRules; } catch (e) { continue; }
+                                    for (const r of rules) {
+                                      if ((r.cssText || "").includes("10141F")) return true;
+                                    }
+                                  }
+                                  return false;
+                                }""",
+                                timeout=10_000,
+                            )
+                            page.wait_for_timeout(150)
                         out_path = screen_dir / f"{state}--{mode}.png"
                         page.screenshot(path=str(out_path))
                         written.append(out_path)

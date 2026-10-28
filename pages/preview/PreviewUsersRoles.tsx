@@ -4,25 +4,34 @@ import DataTable, { DataTableColumn } from '../../components/ui/DataTable';
 import Dialog from '../../components/ui/Dialog';
 import Button from '../../components/admin-auth/Button';
 import RowActionsMenu, { RowActionItem } from '../../components/ui/RowActionsMenu';
+import StatusBadge from '../../components/ui/StatusBadge';
+import TwoFactorStatus from '../../components/ui/TwoFactorStatus';
+import NameCell from '../../components/ui/NameCell';
+import SearchField from '../../components/ui/SearchField';
+import SelectField from '../../components/ui/SelectField';
+import { Plus } from 'lucide-react';
 import { ROLE_LABELS, roleDescriptionsFor } from '../admin/UsersRoles';
 import { PreviewMember, PREVIEW_MEMBERS, SELF_USER_ID } from './previewFixtures';
 
-const STATUS_LABELS: Record<string, string> = { invited: 'Invited', active: 'Active', deactivated: 'Deactivated' };
-
-function row(member: PreviewMember, extraStatus?: string) {
-  return member.status === 'invited' ? `${STATUS_LABELS[member.status]} · ${extraStatus ?? '7 days left'}` : STATUS_LABELS[member.status];
+function renderStatusBadge(member: PreviewMember, daysLeft = 7) {
+  if (member.status === 'invited') return <StatusBadge kind="invited">Invited · {daysLeft} days left</StatusBadge>;
+  if (member.status === 'deactivated') return <StatusBadge kind="deactivated">Deactivated</StatusBadge>;
+  return <StatusBadge kind="active">Active</StatusBadge>;
 }
 
 const Legend: React.FC<{ isPlatformAdmin?: boolean }> = ({ isPlatformAdmin = false }) => (
-  <section className="mt-10 rounded-xl border border-slate-200 bg-white p-6">
-    <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-      What each role can do <span className="normal-case text-slate-400">(Draft, to confirm with Zyndio)</span>
-    </h2>
-    <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+  <section className="mt-10 rounded-xl border border-slate-200 bg-white p-6 dark:border-[#222838] dark:bg-[#10141F]">
+    <div className="flex flex-wrap items-center gap-3">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-[#A6B0C3]">What each role can do</h2>
+      <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:border-[#F2B65A]/40 dark:bg-[#2F220D] dark:text-[#F2B65A]">
+        Draft, to confirm with Zyndio
+      </span>
+    </div>
+    <dl className="mt-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
       {(['physician', 'care_coordinator', 'org_admin', 'read_only'] as const).map((role) => (
         <div key={role}>
-          <dt className="font-semibold text-[#030616]">{ROLE_LABELS[role]}</dt>
-          <dd className="text-sm text-slate-600">{roleDescriptionsFor(isPlatformAdmin)[role]}</dd>
+          <dt className="font-semibold text-[#030616] dark:text-[#EEF1F8]">{ROLE_LABELS[role]}</dt>
+          <dd className="text-sm text-slate-600 dark:text-[#A6B0C3]">{roleDescriptionsFor(isPlatformAdmin)[role]}</dd>
         </div>
       ))}
     </dl>
@@ -58,20 +67,19 @@ const ASSIGNABLE_ROLES = ['physician', 'care_coordinator', 'org_admin', 'read_on
 const Table: React.FC<{ members: PreviewMember[]; isPlatformAdmin?: boolean }> = ({ members, isPlatformAdmin = false }) => {
   const resetActionLabel = isPlatformAdmin ? 'Reset two-factor' : 'Request two-factor reset';
   const columns: DataTableColumn<PreviewMember>[] = [
-    { key: 'name', header: 'Name', render: (m) => m.name },
-    { key: 'email', header: '', render: (m) => <span className="text-slate-500">{m.email}</span> },
+    { key: 'name', header: 'Name', render: (m) => <NameCell name={m.name} email={m.email} /> },
     {
       key: 'role',
       header: 'Role',
       render: (m) => {
         const isSelf = m.user_id === SELF_USER_ID;
         if (m.status === 'deactivated' || isSelf) {
-          return <>{ROLE_LABELS[m.role]}</>;
+          return <span className="text-[#030616] dark:text-[#EEF1F8]">{ROLE_LABELS[m.role]}</span>;
         }
         return (
-          <select
+          <SelectField
             aria-label={`Change role for ${m.email}`}
-            className="min-h-[44px] rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-900"
+            wrapperClassName="w-full"
             value={m.role}
             onChange={() => {}}
           >
@@ -80,16 +88,16 @@ const Table: React.FC<{ members: PreviewMember[]; isPlatformAdmin?: boolean }> =
                 {ROLE_LABELS[r]}
               </option>
             ))}
-          </select>
+          </SelectField>
         );
       },
     },
-    { key: 'twofactor', header: 'Two-factor', render: (m) => m.twoFactor },
+    { key: 'twofactor', header: 'Two-factor', render: (m) => <TwoFactorStatus value={m.twoFactor} /> },
     { key: 'lastsignin', header: 'Last sign-in', render: (m) => m.lastSignIn },
-    { key: 'status', header: 'Status', render: (m) => row(m) },
+    { key: 'status', header: 'Status', render: (m) => renderStatusBadge(m) },
     {
       key: 'actions',
-      header: 'Actions',
+      header: '',
       render: (m) => {
         const isSelf = m.user_id === SELF_USER_ID;
         if (isSelf) {
@@ -107,7 +115,7 @@ const Table: React.FC<{ members: PreviewMember[]; isPlatformAdmin?: boolean }> =
     },
   ];
   return (
-    <div className="mt-2 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_#0306160A,0_8px_24px_#2C5CF214] dark:border-[#222838] dark:bg-[#10141F] dark:shadow-none">
       <DataTable columns={columns} rows={members} getRowId={(m) => m.user_id} caption="Users and roles" />
     </div>
   );
@@ -117,25 +125,23 @@ const Header: React.FC = () => (
   <PageHeader
     title="Users and roles"
     description="People at Zyndio who can sign in to the care portal. Everyone must use two-factor sign-in."
-    actions={<Button>Invite user</Button>}
+    actions={
+      <Button>
+        <Plus className="h-4 w-4" aria-hidden="true" />
+        Invite user
+      </Button>
+    }
   />
 );
 
 const Toolbar: React.FC<{ count: number }> = ({ count }) => (
-  <>
-    <div className="mt-6 flex flex-wrap items-center gap-3">
-      <input
-        aria-label="Search by name or email"
-        placeholder="Search by name or email"
-        className="min-h-[44px] flex-1 rounded-full border border-slate-300 px-4 text-sm"
-        readOnly
-      />
-      <select aria-label="Filter by status" className="min-h-[44px] rounded-full border border-slate-300 px-4 text-sm" readOnly>
-        <option>Status: All</option>
-      </select>
-    </div>
-    <p className="mt-3 text-sm text-slate-500">{count} people</p>
-  </>
+  <div className="mt-6 flex flex-wrap items-center gap-3">
+    <SearchField aria-label="Search by name or email" placeholder="Search by name or email" className="flex-1" readOnly />
+    <SelectField aria-label="Filter by status" value="all" onChange={() => {}}>
+      <option value="all">Status: All</option>
+    </SelectField>
+    <p className="ml-auto text-sm text-slate-500 dark:text-[#A6B0C3]">{count} people</p>
+  </div>
 );
 
 // 07-users-roles preview states (handoff README state list, low-codes n/a
@@ -150,7 +156,7 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
       <div>
         <Header />
         <Toolbar count={PREVIEW_MEMBERS.length} />
-        <div className="mt-8 text-sm text-slate-500" role="status">
+        <div className="mt-8 text-sm text-slate-500 dark:text-[#A6B0C3]" role="status">
           Loading users…
         </div>
       </div>
@@ -162,13 +168,16 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
       <div>
         <Header />
         <Table members={[PREVIEW_MEMBERS[0]]} />
-        <div className="mt-8 rounded-xl border border-slate-200 bg-white p-8 text-center">
-          <p className="font-semibold text-[#030616]">You&apos;re the only user so far</p>
-          <p className="mt-2 text-sm text-slate-600">
+        <div className="mt-8 rounded-xl border border-slate-200 bg-white p-8 text-center dark:border-[#222838] dark:bg-[#10141F]">
+          <p className="font-semibold text-[#030616] dark:text-[#EEF1F8]">You&apos;re the only user so far</p>
+          <p className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
             Invite your physicians and care team. Each person sets their own password and two-factor sign-in from
             the invite link.
           </p>
-          <Button className="mt-4">Invite user</Button>
+          <Button className="mt-4">
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Invite user
+          </Button>
         </div>
       </div>
     );
@@ -178,8 +187,8 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
     return (
       <div>
         <Header />
-        <div className="mt-8 rounded-xl border border-slate-200 bg-white p-8 text-center">
-          <p className="text-sm text-slate-600">
+        <div className="mt-8 rounded-xl border border-slate-200 bg-white p-8 text-center dark:border-[#222838] dark:bg-[#10141F]">
+          <p className="text-sm text-slate-600 dark:text-[#A6B0C3]">
             We couldn&apos;t load the user list. Check your connection and try again. No changes were made.
           </p>
           <Button className="mt-4" variant="outline">
@@ -219,22 +228,22 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
       <>
         {base}
         <Dialog titleId="invite-title" title="Invite a user" onClose={() => {}} initialFocusSelector="#preview-invite-email">
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
             They&apos;ll get an email with a link to set a password and two-factor sign-in. The link works for 7 days.
           </p>
           <div className="mt-4 space-y-4">
             <div>
-              <label htmlFor="preview-invite-email" className="text-sm font-semibold text-[#030616]">
+              <label htmlFor="preview-invite-email" className="text-sm font-semibold text-[#030616] dark:text-[#EEF1F8]">
                 Work email
               </label>
               <input
                 id="preview-invite-email"
                 readOnly
                 defaultValue="alex.lindgren@example.test"
-                className="mt-1 min-h-[44px] w-full rounded-md border border-slate-300 px-3 text-sm"
+                className="mt-1 min-h-[44px] w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-[#030616] dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8]"
               />
               {state === 'invite-validation' && (
-                <p className="mt-1 text-sm text-red-600" role="alert">
+                <p className="mt-1 text-sm text-red-600 dark:text-[#FF8F86]" role="alert">
                   Someone with this email already has an account.
                 </p>
               )}
@@ -256,11 +265,11 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
       <>
         {base}
         <Dialog titleId="role-confirm-title" title={`Change ${target.name}'s role?`} onClose={() => {}}>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
             From {ROLE_LABELS[target.role]} to {ROLE_LABELS.care_coordinator}. Riley will be able to edit patient
             records, work the review queue and enter treatment details.
           </p>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
             The change applies the next time Riley loads a page, and it&apos;s recorded in the audit log.
           </p>
           <div className="mt-6 flex justify-end gap-3">
@@ -279,7 +288,7 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
       <>
         {base}
         <Dialog titleId="deactivate-confirm-title" title={`Deactivate ${target.name}?`} onClose={() => {}}>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
             Riley will be signed out everywhere and won&apos;t be able to sign in. Their past activity stays in the
             audit log. You can reactivate them later.
           </p>
@@ -301,7 +310,7 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
       <>
         {base}
         <Dialog titleId="last-admin-title" title="You can't deactivate the only Admin" onClose={() => {}}>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
             Taylor Brooks is the only Admin, so the portal would have nobody to manage users. Make someone else an
             Admin first, then try again.
           </p>
@@ -318,19 +327,19 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
       <>
         {base}
         <Dialog titleId="reset-2fa-title" title={`Reset two-factor sign-in for ${priya.name}?`} onClose={() => {}}>
-          <div className="mt-4 flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          <div className="mt-4 flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-[#F2B65A]/40 dark:bg-[#2F220D] dark:text-[#F2B65A]">
             <span aria-hidden="true">⚠️</span>
             <p>
               Only do this after you&apos;ve confirmed it&apos;s really {priya.name}, for example on a video call.
               Never because of an email alone.
             </p>
           </div>
-          <p className="mt-4 text-sm text-slate-600">
+          <p className="mt-4 text-sm text-slate-600 dark:text-[#A6B0C3]">
             {priya.name}&apos;s authenticator app and recovery codes will stop working, and {priya.name} is signed
             out on every device. At next sign-in, they&apos;ll set up two-factor sign-in again. The reset is
             recorded in the audit log.
           </p>
-          <p className="mt-2 text-sm text-slate-500">Only Zyndio admins can reset two-factor sign-in.</p>
+          <p className="mt-2 text-sm text-slate-500 dark:text-[#A6B0C3]">Only Zyndio admins can reset two-factor sign-in.</p>
           <div className="mt-6 flex justify-end gap-3">
             <Button type="button" variant="outline">
               Cancel
@@ -349,22 +358,25 @@ const PreviewUsersRoles: React.FC<{ state: string }> = ({ state }) => {
       <>
         {base}
         <Dialog titleId="request-2fa-reset-title" title={`Ask for a two-factor reset for ${priya.name}?`} onClose={() => {}}>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
             Only a Zyndio admin can reset two-factor sign-in. They&apos;ll confirm it&apos;s really{' '}
             {priya.name} before they reset it, then {priya.name} is signed out on every device and sets it up
             again at next sign-in.
           </p>
           <div className="mt-4">
-            <label htmlFor="preview-request-2fa-reset-reason" className="text-sm font-semibold text-[#030616]">
+            <label htmlFor="preview-request-2fa-reset-reason" className="text-sm font-semibold text-[#030616] dark:text-[#EEF1F8]">
               Reason (optional)
             </label>
-            <input
+            <textarea
               id="preview-request-2fa-reset-reason"
               readOnly
+              maxLength={500}
               defaultValue="Priya got a new phone and can't open the authenticator app."
-              className="mt-1 min-h-[44px] w-full rounded-md border border-slate-300 px-3 text-sm"
+              className="mt-1 min-h-[88px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-[#030616] placeholder:text-slate-400 dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8] dark:placeholder:text-[#8F9AAF]"
             />
-            <p className="mt-1 text-xs text-slate-500">Zyndio admins see this with your name and time.</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-[#A6B0C3]">
+              Zyndio admins see this with your name and time. Do not include patient details.
+            </p>
           </div>
           <div className="mt-6 flex justify-end gap-3">
             <Button type="button" variant="outline">

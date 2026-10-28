@@ -11,8 +11,10 @@ interface PageHeaderProps {
 const PageHeader: React.FC<PageHeaderProps> = ({ title, description, actions }) => (
   <div className="flex flex-wrap items-start justify-between gap-4">
     <div>
-      <h1 className="text-2xl font-bold text-[#030616]">{title}</h1>
-      {description && <p className="mt-2 max-w-2xl text-sm text-slate-600">{description}</p>}
+      <h1 className="text-2xl font-bold text-[#030616] dark:text-[#EEF1F8]">{title}</h1>
+      {description && (
+        <p className="mt-2 max-w-2xl text-sm text-[#48556A] dark:text-[#A6B0C3]">{description}</p>
+      )}
     </div>
     {actions && <div className="flex shrink-0 items-center gap-3">{actions}</div>}
   </div>

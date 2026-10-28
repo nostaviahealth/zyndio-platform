@@ -1,5 +1,6 @@
 import React from 'react';
 import { Users, LogOut } from 'lucide-react';
+import FictionalDataTag from '../../components/ui/FictionalDataTag';
 
 interface PreviewShellProps {
   mode: 'light' | 'dark';
@@ -11,17 +12,25 @@ interface PreviewShellProps {
 // entirely. This mirrors components/admin-shell/Sidebar.tsx's structure
 // with a hardcoded, fictional signed-in user (Taylor Brooks, Admin) - no
 // usePortalAuth/router wiring, since this is fixture-only screenshot chrome.
+//
+// TC-013 dark fix: put Tailwind's `dark` class on the root so shared UI
+// `dark:` token classes (surfaces, text, selects) activate. Do NOT force a
+// light text color on <main> — that made uncolored cells invisible on the
+// still-light table card.
 const PreviewShell: React.FC<PreviewShellProps> = ({ mode, children }) => {
   const isDark = mode === 'dark';
-  const navSurface = isDark ? 'border-slate-800 bg-[#0B0F1A]' : 'border-slate-200 bg-white';
-  const textPrimary = isDark ? 'text-white' : 'text-[#030616]';
-  const textSecondary = isDark ? 'text-slate-400' : 'text-slate-500';
-  const badgeBorder = isDark ? 'border-slate-600 text-slate-400' : 'border-slate-400 text-slate-500';
-  const navActive = isDark ? 'bg-[#1E2A6B] text-[#8FB0FF]' : 'bg-[#E8EDFD] text-[#2C5CF2]';
+  const navSurface = isDark ? 'border-slate-800 bg-[#0B0F19]' : 'border-slate-200 bg-white';
+  const textPrimary = isDark ? 'text-[#EEF1F8]' : 'text-[#030616]';
+  const textSecondary = isDark ? 'text-[#A6B0C3]' : 'text-slate-500';
+  const badgeBorder = isDark ? 'border-[#6C7690] text-[#A6B0C3]' : 'border-slate-400 text-slate-500';
+  const navActive = isDark ? 'bg-[#18224A] text-[#AFC3FF]' : 'bg-[#E8EDFD] text-[#2C5CF2]';
   const footerBorder = isDark ? 'border-slate-800' : 'border-slate-100';
 
   return (
-    <div className={`flex min-h-screen ${isDark ? 'bg-[#030616]' : 'bg-[#F2F4F7]'}`}>
+    <div
+      className={`flex min-h-screen ${isDark ? 'dark bg-[#070A14] [color-scheme:dark]' : 'bg-[#F1F4FC] [color-scheme:light]'}`}
+      data-preview-theme={mode}
+    >
       <nav aria-label="Main" className={`flex h-screen w-[264px] shrink-0 flex-col border-r ${navSurface}`}>
         <div className="px-6 py-4">
           <div className="flex items-center gap-2">
@@ -56,7 +65,8 @@ const PreviewShell: React.FC<PreviewShellProps> = ({ mode, children }) => {
         </div>
       </nav>
 
-      <main className="flex-1 px-10 py-8" style={isDark ? { color: '#F2F4F7' } : undefined}>
+      <main className="relative flex-1 px-10 py-8">
+        <FictionalDataTag />
         {children}
       </main>
     </div>
