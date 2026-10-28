@@ -1,0 +1,120 @@
+Pager usage is off.
+BEGIN
+SET
+                                     set_config                                     
+------------------------------------------------------------------------------------
+ {"sub":"0000f015-0000-0000-0000-0000000a0002","role":"authenticated","aal":"aal2"}
+(1 row)
+
+== row counts (perf org) ==
+ patients | summary_rows 
+----------+--------------
+     5000 |         5000
+(1 row)
+
+== physician_patient_roster(null,all,recent,8,0) : default first page ==
+                                                          QUERY PLAN                                                           
+-------------------------------------------------------------------------------------------------------------------------------
+ Function Scan on physician_patient_roster  (cost=0.25..10.25 rows=1000 width=180) (actual time=11.578..11.580 rows=8 loops=1)
+   Buffers: shared hit=1083
+ Planning Time: 0.056 ms
+ Execution Time: 11.605 ms
+(4 rows)
+
+== physician_patient_roster(null,flagged,recent,8,0) ==
+                                                         QUERY PLAN                                                          
+-----------------------------------------------------------------------------------------------------------------------------
+ Function Scan on physician_patient_roster  (cost=0.25..10.25 rows=1000 width=180) (actual time=6.990..6.991 rows=8 loops=1)
+   Buffers: shared hit=389
+ Planning Time: 0.025 ms
+ Execution Time: 7.009 ms
+(4 rows)
+
+== physician_patient_roster(null,missing_labs,recent,8,0) ==
+                                                         QUERY PLAN                                                          
+-----------------------------------------------------------------------------------------------------------------------------
+ Function Scan on physician_patient_roster  (cost=0.25..10.25 rows=1000 width=180) (actual time=5.605..5.605 rows=0 loops=1)
+   Buffers: shared hit=389
+ Planning Time: 0.018 ms
+ Execution Time: 5.619 ms
+(4 rows)
+
+== physician_patient_roster(null,questions_waiting,recent,8,0) ==
+                                                         QUERY PLAN                                                          
+-----------------------------------------------------------------------------------------------------------------------------
+ Function Scan on physician_patient_roster  (cost=0.25..10.25 rows=1000 width=180) (actual time=5.839..5.839 rows=8 loops=1)
+   Buffers: shared hit=389
+ Planning Time: 0.016 ms
+ Execution Time: 5.852 ms
+(4 rows)
+
+== physician_patient_roster(Patient 123,all,recent,8,0) : name search ==
+                                                          QUERY PLAN                                                           
+-------------------------------------------------------------------------------------------------------------------------------
+ Function Scan on physician_patient_roster  (cost=0.25..10.25 rows=1000 width=180) (actual time=10.734..10.735 rows=8 loops=1)
+   Buffers: shared hit=389
+ Planning Time: 0.019 ms
+ Execution Time: 10.749 ms
+(4 rows)
+
+== physician_patient_roster(null,all,recent,8,8) : page 2 ==
+                                                         QUERY PLAN                                                          
+-----------------------------------------------------------------------------------------------------------------------------
+ Function Scan on physician_patient_roster  (cost=0.25..10.25 rows=1000 width=180) (actual time=9.099..9.101 rows=8 loops=1)
+   Buffers: shared hit=394
+ Planning Time: 0.020 ms
+ Execution Time: 9.117 ms
+(4 rows)
+
+== physician_roster_chip_counts() ==
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Function Scan on physician_roster_chip_counts  (cost=0.25..10.25 rows=1000 width=32) (actual time=7.804..7.805 rows=1 loops=1)
+   Buffers: shared hit=370
+ Planning Time: 0.017 ms
+ Execution Time: 7.817 ms
+(4 rows)
+
+ROLLBACK
+== inlined base body ==
+Pager usage is off.
+BEGIN
+SET
+                                     set_config                                     
+------------------------------------------------------------------------------------
+ {"sub":"0000f015-0000-0000-0000-0000000a0002","role":"authenticated","aal":"aal2"}
+(1 row)
+
+                                                                                                                                                                                                                                                           QUERY PLAN                                                                                                                                                                                                                                                            
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=10741.51..10741.53 rows=8 width=122) (actual time=313.819..313.822 rows=8 loops=1)
+   Buffers: shared hit=92670
+   ->  Sort  (cost=10741.51..10741.57 rows=25 width=122) (actual time=313.817..313.819 rows=8 loops=1)
+         Sort Key: m.last_activity_at DESC NULLS LAST, p.display_name
+         Sort Method: top-N heapsort  Memory: 26kB
+         Buffers: shared hit=92670
+         ->  WindowAgg  (cost=1.10..10741.01 rows=25 width=122) (actual time=311.156..312.736 rows=5000 loops=1)
+               Buffers: shared hit=92664
+               ->  Nested Loop Left Join  (cost=1.10..10740.57 rows=25 width=87) (actual time=0.623..308.807 rows=5000 loops=1)
+                     Buffers: shared hit=92664
+                     ->  Nested Loop Left Join  (cost=0.81..10537.56 rows=25 width=74) (actual time=0.449..202.538 rows=5000 loops=1)
+                           Buffers: shared hit=55081
+                           ->  Index Scan using patients_org_id_idx on patients p  (cost=0.53..10362.03 rows=25 width=52) (actual time=0.284..98.141 rows=5000 loops=1)
+                                 Index Cond: (org_id = current_org_id())
+                                 Filter: (((org_id = current_org_id()) AND has_aal2() AND ("current_role"() = ANY ('{physician,care_coordinator}'::app_role[]))) OR ((org_id = current_org_id()) AND has_aal2() AND ("current_role"() = 'read_only'::app_role)) OR ((id = (COALESCE(NULLIF(current_setting('request.jwt.claim.sub'::text, true), ''::text), ((NULLIF(current_setting('request.jwt.claims'::text, true), ''::text))::jsonb ->> 'sub'::text)))::uuid) AND current_email_confirmed() AND current_patient_linked()))
+                                 Buffers: shared hit=20081
+                           ->  Index Scan using patient_roster_meta_pkey on patient_roster_meta m  (cost=0.28..7.00 rows=1 width=38) (actual time=0.020..0.020 rows=1 loops=5000)
+                                 Index Cond: (patient_id = p.id)
+                                 Filter: (((org_id = current_org_id()) AND has_aal2() AND ("current_role"() = ANY ('{physician,care_coordinator,read_only}'::app_role[]))) OR (patient_id = (COALESCE(NULLIF(current_setting('request.jwt.claim.sub'::text, true), ''::text), ((NULLIF(current_setting('request.jwt.claims'::text, true), ''::text))::jsonb ->> 'sub'::text)))::uuid))
+                                 Buffers: shared hit=35000
+                     ->  Index Scan using patient_roster_summary_pkey on patient_roster_summary s  (cost=0.28..8.10 rows=1 width=29) (actual time=0.021..0.021 rows=1 loops=5000)
+                           Index Cond: (patient_id = p.id)
+                           Filter: (has_aal2() AND (org_id = current_org_id()) AND ("current_role"() = ANY ('{physician,care_coordinator,read_only}'::app_role[])))
+                           Buffers: shared hit=36313
+ Planning:
+   Buffers: shared hit=617
+ Planning Time: 1.765 ms
+ Execution Time: 314.279 ms
+(28 rows)
+
+ROLLBACK

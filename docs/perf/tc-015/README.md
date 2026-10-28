@@ -73,3 +73,40 @@ supabase start                 # if not already running
 bash scripts/seed-perf-500.sh  # idempotent
 # then EXPLAIN/timing under tests.authenticate_as('0000f015-…-0000000a0002','aal2')
 ```
+
+## Fix round, 28 Oct 2026: 5,000 patients (card item 7 target)
+
+Seed: `scripts/seed-perf-5000.sh` → `supabase/seed/perf_5000_patients.sql`
+(fictional, local only; same perf org and physician as the 500 seed; MRNs
+`lpad(n,5)`). Captured by Leo on the committed migrations
+(`20261028160000_tc015_roster_summary.sql`) with
+`_driver_explain_5000.sql`, `_driver_inline.sql` and `_driver_timings_5000.sql`,
+all under the perf-org physician JWT (`authenticated`, aal2), so the same
+access path as the app.
+
+Design: (B) a maintained per-patient `patient_roster_summary` table, kept
+current by triggers on `lab_results`, `lab_reports` (identity_hold) and
+`patient_treatments`. (A) paginate-then-summarise only meets the budget for the
+`all` view: `flagged`, `missing_labs` and the chip counts need flag state for
+every patient. `physician_roster_base()` is SECURITY DEFINER with a one-time
+staff gate (aal2, physician / care_coordinator / read_only, own org only).
+`roster-explain-5000.txt` ends with the same body run as invoker: 314 ms and
+~92k buffers, mostly per-row RLS helper calls. That is why the gate runs once.
+
+`timings-5000.txt` (psql `\timing`, 5 runs each, round trip included):
+
+| Call (first page, limit 8)          | median   | max      | < 200 ms |
+|-------------------------------------|----------|----------|----------|
+| roster all / recent                 | 8.8 ms   | 13.6 ms  | PASS     |
+| roster flagged                      | 7.6 ms   | 7.8 ms   | PASS     |
+| roster missing_labs                 | 6.4 ms   | 8.4 ms   | PASS     |
+| roster questions_waiting            | 6.5 ms   | 6.6 ms   | PASS     |
+| roster name search "Patient 123"    | 10.1 ms  | 12.0 ms  | PASS     |
+| roster all / page 2 (offset 8)      | 8.8 ms   | 8.9 ms   | PASS     |
+| `physician_roster_chip_counts()`    | 6.7 ms   | 7.2 ms   | PASS     |
+
+`EXPLAIN (ANALYZE, BUFFERS)` execution times for the shipped RPCs at 5,000:
+5.6–11.6 ms. There is no `lab_results` node and no `loops=5000` in any shipped
+plan. Parity with the old per-result computation is covered by
+`supabase/tests/720_tc015_roster_perf_parity.sql` (37 assertions, fail-first in
+`docs/evidence/tc-015/failfirst-replay/pgtap-prefix-roster-perf.txt`).
