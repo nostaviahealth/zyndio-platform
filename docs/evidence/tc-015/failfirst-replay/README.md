@@ -208,3 +208,18 @@ against variant B. The earlier L32 run above used the pre-flip 717.
   `authenticated` could execute the SECURITY DEFINER
   `refresh_roster_summary(uuid)` and `refresh_roster_summary_all()` through
   Supabase's default privileges. Fixed in `20261028161500_tc015_roster_summary_revoke.sql`.
+
+## Definer exception hardening: 722 gate and 723 lab_report_held scope (28 Oct, Henry + Clara)
+
+Each replay was run right after a fresh `supabase db reset` at 14e1296 + the test commit (04e43d3), before the fix migrations.
+
+| Replay | Code under test | Result |
+|---|---|---|
+| `pgtap-722-current-code.txt` | 14e1296 as shipped | 1/15 fail: #1 search_path is `pg_catalog, public`, not `''` |
+| `pgtap-722-gate-removed-role_aal.txt` | + `shim_722_gate_removed_role_aal.sql.txt` (role/aal2 gate removed, org scope kept) | 3/15 fail: #1, #10 org_admin, #11 aal1 |
+| `pgtap-722-gate-removed-all.txt` | + `shim_722_gate_removed_all.sql.txt` (whole gate and org scope removed) | 7/15 fail: #1, #8 other-clinic physician, #9 forged org claim, #10 org_admin, #11 aal1, #12 patient, #13 deactivated member |
+| `pgtap-723-current-code.txt` | 14e1296 as shipped | 4/12 fail: #4, #6, #7 another clinic's report answers `false` (not like an unknown uuid), #9 a patient gets `false` |
+
+Some assertions already passed on 14e1296, so they could not fail first. That code already had no PUBLIC or anon EXECUTE on `physician_roster_base()` (722 #3–4) and no parameters (722 #6). They stay as regression guards. The fix migration also revokes PUBLIC and anon explicitly. The anon assertions (#14–15) pass even under both shims, because anon is blocked by the grant, not by the gate.
+
+After `20261028170000_tc015_roster_base_definer_hardening.sql` and `20261028171000_tc015_lab_report_held_org_scope.sql`, full pgTAP passes: 1029/1029 tests across 53 files.

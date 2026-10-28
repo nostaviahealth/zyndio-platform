@@ -110,3 +110,19 @@ staff gate (aal2, physician / care_coordinator / read_only, own org only).
 plan. Parity with the old per-result computation is covered by
 `supabase/tests/720_tc015_roster_perf_parity.sql` (37 assertions, fail-first in
 `docs/evidence/tc-015/failfirst-replay/pgtap-prefix-roster-perf.txt`).
+
+### Re-timed after the definer hardening (28 Oct, 17:1x IST)
+
+These times were taken after `search_path=''`, the PUBLIC/anon revoke and the `lab_report_held` org scope, with the same driver and 5,000-patient seed (`timings-5000-hardened.txt`). Each is the median/max of 5 runs:
+
+| Query | ms |
+|---|---|
+| all / first page | 9.9 / 14.6 |
+| flagged | 7.5 / 8.1 |
+| missing_labs | 7.8 / 9.0 |
+| questions_waiting | 6.7 / 9.5 |
+| name search | 14.2 / 15.8 |
+| page 2 | 12.5 / 20.0 |
+| chip counts | 9.4 / 10.0 |
+
+Every query is still well under 200 ms.
