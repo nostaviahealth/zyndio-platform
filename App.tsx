@@ -130,12 +130,12 @@ const App: React.FC = () => {
                     }
                   />
                   {/* TC-015 physician portal: clinical roster + patient detail
-                      (Labs tab). New /admin/roster namespace to avoid the legacy
+                      (Labs tab). /admin/patients namespace to avoid the legacy
                       /admin/patient/:id route. read_only can view the roster
-                      (rows aren't links); detail RLS returns the shared
-                      not-found view for them. */}
+                      and detail/trends for their own clinic (Leo ruling, fix
+                      round 28 Oct). */}
                   <Route
-                    path="roster"
+                    path="patients"
                     element={
                       <RequireRole roles={['physician', 'care_coordinator', 'read_only']}>
                         <PhysicianRoster />
@@ -143,7 +143,7 @@ const App: React.FC = () => {
                     }
                   />
                   <Route
-                    path="roster/:id"
+                    path="patients/:id"
                     element={
                       <RequireRole roles={['physician', 'care_coordinator', 'read_only']}>
                         <PhysicianPatientDetail />

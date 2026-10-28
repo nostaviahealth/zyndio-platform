@@ -61,7 +61,7 @@ export interface PhysicianPatientDetailProps {
 const PERIODS: TrendPeriod[] = ['3M', '6M', '1Y', 'All'];
 
 // 02-patient-detail, Labs tab. Same component backs the live
-// /admin/roster/:id route and the /__preview harness (fixtures injected at the
+// /admin/patients/:id route and the /__preview harness (fixtures injected at the
 // `api` boundary). open_patient_detail is called exactly once per open.
 const PhysicianPatientDetail: React.FC<PhysicianPatientDetailProps> = ({
   api = supabaseClinicalApi,
@@ -166,7 +166,7 @@ const PhysicianPatientDetail: React.FC<PhysicianPatientDetailProps> = ({
       {typeof __PREVIEW_BUILD__ !== 'undefined' && __PREVIEW_BUILD__ && <FictionalDataTag />}
 
       <Link
-        to="/admin/roster"
+        to="/admin/patients"
         className="inline-flex min-h-[44px] items-center gap-1 text-sm font-semibold text-[#2C5CF2] hover:underline dark:text-[#7C9CFF]"
       >
         <ChevronLeft className="h-4 w-4" aria-hidden="true" />
@@ -574,7 +574,7 @@ const NotFound: React.FC = () => (
   <div className="relative">
     {typeof __PREVIEW_BUILD__ !== 'undefined' && __PREVIEW_BUILD__ && <FictionalDataTag />}
     <Link
-      to="/admin/roster"
+      to="/admin/patients"
       className="inline-flex min-h-[44px] items-center gap-1 text-sm font-semibold text-[#2C5CF2] hover:underline dark:text-[#7C9CFF]"
     >
       <ChevronLeft className="h-4 w-4" aria-hidden="true" />

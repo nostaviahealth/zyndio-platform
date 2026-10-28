@@ -53,7 +53,7 @@ export interface PhysicianRosterProps {
 }
 
 // 01-patient-list, built on the step-A read model (clinicalApi). The same
-// component backs the live /admin/roster route and the /__preview harness;
+// component backs the live /admin/patients route and the /__preview harness;
 // the harness injects a fixture ClinicalApi at the `api` boundary rather than
 // cloning the markup.
 const PhysicianRoster: React.FC<PhysicianRosterProps> = ({
@@ -337,7 +337,7 @@ const RosterTable: React.FC<{
           return (
             <Link
               key={r.patientId}
-              to={`/admin/roster/${r.patientId}`}
+              to={`/admin/patients/${r.patientId}`}
               state={{ flags: r.flags, openQuestions: r.openQuestions }}
               aria-label={`Open ${r.displayName}`}
               className={`${BODY_ROW} border-b border-slate-100 last:border-0 hover:bg-[#F5F7FD] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#2C5CF2] dark:border-[#222838] dark:hover:bg-[#151A27]`}
