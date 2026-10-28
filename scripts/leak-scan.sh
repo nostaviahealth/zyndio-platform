@@ -8,9 +8,22 @@
 #   - an unzipped Flutter debug APK (flutter_app/build/app/outputs/flutter-apk/app-debug.apk)
 # Exits 1 on any hit. Also exits 1 if any required build output is missing
 # (missing outputs are treated as a scan failure, not silently skipped).
+#
+# LEAK_SCAN_FLUTTER=skip opts out of the two Flutter outputs (web build and
+# the debug APK) when no Flutter-relevant path changed, printing a SKIPPED
+# line for each instead of failing. Any other non-empty value is an error.
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
+
+LEAK_SCAN_FLUTTER="${LEAK_SCAN_FLUTTER:-}"
+case "$LEAK_SCAN_FLUTTER" in
+    "" | "skip") ;;
+    *)
+        echo "LEAK SCAN FAILED: unknown LEAK_SCAN_FLUTTER value: $LEAK_SCAN_FLUTTER (expected unset or 'skip')" >&2
+        exit 1
+        ;;
+esac
 
 P1="nost"
 P2="avia"
@@ -38,6 +51,7 @@ fi
 
 scan_dir() {
     local dir="$1"
+    local skippable="${2:-false}"
     if [ -d "$dir" ]; then
         echo "== Scanning $dir =="
         if grep -rliE "$PAT" "$dir" 2>/dev/null | grep -q .; then
@@ -51,6 +65,8 @@ scan_dir() {
         else
             echo "clean"
         fi
+    elif [ "$skippable" = "true" ] && [ "$LEAK_SCAN_FLUTTER" = "skip" ]; then
+        echo "SKIPPED (LEAK_SCAN_FLUTTER=skip: no Flutter paths changed): $dir"
     else
         echo "LEAK SCAN FAILED: required build output missing: $dir (build it first; see CLAUDE.md)" >&2
         FOUND=1
@@ -59,7 +75,7 @@ scan_dir() {
 
 scan_dir "dist"
 scan_dir "space/dist"
-scan_dir "flutter_app/build/web"
+scan_dir "flutter_app/build/web" "true"
 
 APK="flutter_app/build/app/outputs/flutter-apk/app-debug.apk"
 if [ -f "$APK" ]; then
@@ -80,6 +96,8 @@ if [ -f "$APK" ]; then
     fi
     rm -rf "$TMPDIR"
     trap - EXIT
+elif [ "$LEAK_SCAN_FLUTTER" = "skip" ]; then
+    echo "SKIPPED (LEAK_SCAN_FLUTTER=skip: no Flutter paths changed): $APK"
 else
     echo "LEAK SCAN FAILED: required build output missing: $APK (build it first; see CLAUDE.md)" >&2
     FOUND=1

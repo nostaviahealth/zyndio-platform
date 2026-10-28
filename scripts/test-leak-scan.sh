@@ -106,6 +106,67 @@ fi
 
 rm -f flutter_app/build/web/leak.txt
 
+# (e) skip mode with clean web outputs and no Flutter outputs -> passes, prints SKIPPED
+rm -rf flutter_app
+set +e
+OUT_E=$(LEAK_SCAN_FLUTTER=skip bash scripts/leak-scan.sh 2>&1)
+RC_E=$?
+set -e
+if [ "$RC_E" -eq 0 ] && echo "$OUT_E" | grep -q "LEAK SCAN PASSED" \
+    && echo "$OUT_E" | grep -q "SKIPPED (LEAK_SCAN_FLUTTER=skip: no Flutter paths changed): flutter_app/build/web" \
+    && echo "$OUT_E" | grep -q "SKIPPED (LEAK_SCAN_FLUTTER=skip: no Flutter paths changed): flutter_app/build/app/outputs/flutter-apk/app-debug.apk"; then
+    pass "(e) skip mode with clean web outputs and no Flutter outputs passes and prints SKIPPED"
+else
+    fail "(e) skip mode with clean web outputs and no Flutter outputs passes and prints SKIPPED (rc=$RC_E)"
+    echo "$OUT_E"
+fi
+
+# (f) skip mode still fails when dist is missing
+rm -rf dist
+set +e
+OUT_F=$(LEAK_SCAN_FLUTTER=skip bash scripts/leak-scan.sh 2>&1)
+RC_F=$?
+set -e
+if [ "$RC_F" -ne 0 ] && echo "$OUT_F" | grep -q "required build output missing: dist"; then
+    pass "(f) skip mode still fails when dist is missing"
+else
+    fail "(f) skip mode still fails when dist is missing (rc=$RC_F)"
+    echo "$OUT_F"
+fi
+mkdir -p dist
+echo "<html>clean</html>" > dist/index.html
+
+# (g) skip mode still fails on a planted old-brand reference in a tracked file
+BRAND_P1="nost"
+BRAND_P2="avia"
+echo "leftover reference to ${BRAND_P1}${BRAND_P2} health" > tracked-leak.txt
+git add tracked-leak.txt
+git -c user.email="demo@example.com" -c user.name="Demo User" commit -q -m "plant tracked leak"
+set +e
+OUT_G=$(LEAK_SCAN_FLUTTER=skip bash scripts/leak-scan.sh 2>&1)
+RC_G=$?
+set -e
+if [ "$RC_G" -ne 0 ]; then
+    pass "(g) skip mode still fails on a planted old-brand reference in a tracked file"
+else
+    fail "(g) skip mode still fails on a planted old-brand reference in a tracked file (rc=$RC_G)"
+    echo "$OUT_G"
+fi
+git rm -q tracked-leak.txt
+git -c user.email="demo@example.com" -c user.name="Demo User" commit -q -m "remove planted tracked leak"
+
+# (h) unknown LEAK_SCAN_FLUTTER value fails
+set +e
+OUT_H=$(LEAK_SCAN_FLUTTER=bogus bash scripts/leak-scan.sh 2>&1)
+RC_H=$?
+set -e
+if [ "$RC_H" -ne 0 ] && echo "$OUT_H" | grep -q "unknown LEAK_SCAN_FLUTTER value"; then
+    pass "(h) unknown LEAK_SCAN_FLUTTER value fails"
+else
+    fail "(h) unknown LEAK_SCAN_FLUTTER value fails (rc=$RC_H)"
+    echo "$OUT_H"
+fi
+
 if [ "$FAIL" -ne 0 ]; then
     echo "TEST-LEAK-SCAN: one or more cases FAILED"
     exit 1
