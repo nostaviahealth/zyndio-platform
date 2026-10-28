@@ -116,3 +116,44 @@ is a positive `lives_ok` and is expected to pass.
 Note: #5 encodes the pre-flip rule that read_only gets no detail. The read-only
 fix round replaces it (read_only opens must now be audited); see the
 read-only section below once it lands.
+
+## Read-only: no raw lab_reports
+
+1826162 ("read_only can view own-clinic detail + trends, audited") restored a
+`lab_reports_staff_read_only_select` policy so read_only could pass through
+`patient_trend`'s NOT EXISTS check and `patient_latest_results`'s join on
+`lab_reports`. Leo's fix-round ruling: that is broader than the card.
+read_only gets the roster, the detail (header + treatment whitelist) and the
+Labs tab data (`lab_results`, trends, latest) - not the raw `lab_reports`
+rows/`data` (the report viewer is TC-016). Henry's H2 ruling stands for
+`lab_reports` (also `patient_profiles`, `consents`).
+
+`704e8ef` restored `050_lab_reports.sql`, `210_in_org_role_matrix.sql` and
+`500_review_probes.sql` to their exact pre-1826162 content (read_only sees 0
+`lab_reports` rows again), added `716_tc015_read_only_exclusions.sql`
+asserting the identity-hold exclusion still holds for read_only, and added
+migration `20261028153000_tc015_read_only_no_raw_reports.sql` which drops
+only `lab_reports_staff_read_only_select`. With nothing else changed, the
+identity-hold exclusion in `patient_trend` and `patient_latest_results`
+depends on a join/NOT EXISTS against `lab_reports` that read_only can no
+longer see, so it silently fails open instead of excluding:
+
+Replay (9-file prefix, `supabase db reset` then `supabase test db` over
+000_fixtures/050/210/500/710/715/716/717/719):
+`pgtap-prefix-read-only-no-raw-reports.txt`.
+
+| Assertion | Result |
+|---|---|
+| 050/210/500 (H2 restored) | ok |
+| 710 #17 `read_only_a gets latest results for a1001` | **not ok** (have 0, want 1) |
+| 716 #2 `read_only_a HbA1c trend has only the visible point` | **not ok** (have 2, want 1 - identity-hold 9.9 leaks in) |
+| 716 #3 `identity-hold HbA1c value (9.9) is absent from the trend` | **not ok** (have 1, want 0) |
+| 716 #6 `latest HbA1c is the visible 5.5` | **not ok** (have NULL, want 5.5 - the join excludes everything once lab_reports is unreadable) |
+
+`145b2b5` fixes this: `20261028154000_tc015_identity_hold_helper.sql` adds
+`public.lab_report_held(uuid)` - SECURITY DEFINER, STABLE, fails CLOSED (an
+unreadable or nonexistent report counts as held) - and switches
+`physician_roster_base`, `patient_trend` and `patient_latest_results` to call
+it instead of joining/NOT EXISTS'ing `lab_reports` directly. All three RPCs
+stay SECURITY INVOKER; only the one boolean check moved to a definer
+function. Full `supabase test db`: 959/959 green (49 files).
