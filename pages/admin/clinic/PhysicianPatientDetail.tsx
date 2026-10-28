@@ -11,6 +11,7 @@ import {
   supabaseClinicalApi,
 } from '../../../lib/clinicalApi';
 import FictionalDataTag from '../../../components/ui/FictionalDataTag';
+import Tooltip from '../../../components/ui/Tooltip';
 import FlagBadge from '../../../components/clinical/FlagBadge';
 import TrendChart from '../../../components/clinical/TrendChart';
 import {
@@ -185,7 +186,11 @@ const PhysicianPatientDetail: React.FC<PhysicianPatientDetailProps> = ({
           </div>
           <p className="mt-1 text-sm text-[#48556A] dark:text-[#A6B0C3]">{metaParts.join(' · ')}</p>
         </div>
-        <DisabledPill label="Export data" icon={<Upload className="h-4 w-4" aria-hidden="true" />} />
+        <DisabledPill
+          label="Export data"
+          icon={<Upload className="h-4 w-4" aria-hidden="true" />}
+          tooltip="Export is coming in the next update."
+        />
       </div>
 
       {detail.treatment && <TreatmentStrip treatment={detail.treatment} />}
@@ -221,18 +226,29 @@ const PhysicianPatientDetail: React.FC<PhysicianPatientDetailProps> = ({
   );
 };
 
-const DisabledPill: React.FC<{ label: string; icon?: React.ReactNode }> = ({ label, icon }) => (
-  <button
-    type="button"
-    disabled
-    aria-disabled="true"
-    title="Not available yet"
-    className="inline-flex min-h-[44px] cursor-not-allowed items-center gap-2 rounded-full border border-slate-300 bg-white px-6 text-sm font-semibold text-[#030616] opacity-60 dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8]"
-  >
-    {icon}
-    {label}
-    <span className="sr-only">(not available yet)</span>
-  </button>
+const SoonTag: React.FC = () => (
+  <span className="ml-2 inline-flex items-center rounded-md bg-[#EEF1F6] px-2 py-0.5 text-xs font-semibold leading-4 text-[#48556A] dark:bg-[#0B0F19] dark:text-[#A6B0C3]">
+    Soon
+  </span>
+);
+
+const DisabledPill: React.FC<{ label: string; icon?: React.ReactNode; tooltip: string }> = ({
+  label,
+  icon,
+  tooltip,
+}) => (
+  <Tooltip label={tooltip}>
+    <button
+      type="button"
+      aria-disabled="true"
+      className="inline-flex min-h-[44px] cursor-not-allowed items-center gap-2 rounded-full border border-slate-300 bg-white px-6 text-sm font-semibold text-[#030616] opacity-60 dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8]"
+      onClick={(e) => e.preventDefault()}
+    >
+      {icon}
+      {label}
+      <SoonTag />
+    </button>
+  </Tooltip>
 );
 
 const TreatmentStrip: React.FC<{ treatment: NonNullable<PatientDetail['treatment']> }> = ({ treatment }) => (
@@ -254,6 +270,11 @@ const Field: React.FC<{ label: string; value: string; strong?: boolean }> = ({ l
   </div>
 );
 
+const DISABLED_TAB_TOOLTIPS: Record<string, string> = {
+  Timeline: 'Timeline is coming in the next update.',
+  'Pre-visit brief': 'Pre-visit briefs are coming in the next update.',
+};
+
 const Tabs: React.FC<{ questionsCount?: number }> = ({ questionsCount }) => {
   const questionsLabel =
     questionsCount && questionsCount > 0 ? `Questions and notes (${questionsCount})` : 'Questions and notes';
@@ -266,17 +287,27 @@ const Tabs: React.FC<{ questionsCount?: number }> = ({ questionsCount }) => {
       >
         Labs
       </span>
-      {[questionsLabel, 'Timeline', 'Pre-visit brief'].map((t) => (
-        <span
-          key={t}
-          role="tab"
-          aria-selected="false"
-          aria-disabled="true"
-          title="Not available yet"
-          className="relative -mb-px inline-flex min-h-[44px] cursor-not-allowed items-center px-1 text-[15px] font-semibold text-slate-400 dark:text-[#6C7690]"
-        >
-          {t}
-        </span>
+      <span
+        role="tab"
+        aria-selected="false"
+        aria-disabled="true"
+        className="relative -mb-px inline-flex min-h-[44px] cursor-not-allowed items-center px-1 text-[15px] font-semibold text-slate-400 dark:text-[#6C7690]"
+      >
+        {questionsLabel}
+      </span>
+      {['Timeline', 'Pre-visit brief'].map((t) => (
+        <Tooltip key={t} label={DISABLED_TAB_TOOLTIPS[t]}>
+          <span
+            role="tab"
+            aria-selected="false"
+            aria-disabled="true"
+            tabIndex={0}
+            className="relative -mb-px inline-flex min-h-[44px] cursor-not-allowed items-center px-1 text-[15px] font-semibold text-slate-400 dark:text-[#6C7690]"
+          >
+            {t}
+            <SoonTag />
+          </span>
+        </Tooltip>
       ))}
     </div>
   );
@@ -458,7 +489,6 @@ const TrendBody: React.FC<{ marker: LatestResult; trend: TrendPoint[] | null; mo
               </span>
               <span
                 aria-disabled="true"
-                title="Not available yet"
                 className="cursor-not-allowed font-semibold text-[#2C5CF2] opacity-50 dark:text-[#7C9CFF]"
               >
                 View report
@@ -495,17 +525,16 @@ const NeedsReviewBody: React.FC<{ marker: LatestResult; detail?: ReviewDetail }>
       </p>
     </div>
 
-    {/* "Check in report" opens the TC-016 report viewer - disabled here. */}
+    {/* "Check in report" opens the TC-016 report viewer - disabled here. Not
+        covered by Ava's TC-015 copy (flagged as an open question for her). */}
     <button
       type="button"
       disabled
       aria-disabled="true"
-      title="Not available yet"
       className="mt-5 inline-flex min-h-[44px] cursor-not-allowed items-center gap-2 rounded-full bg-[#2C5CF2] px-6 text-sm font-semibold text-white opacity-60 dark:bg-[#7C9CFF] dark:text-[#030616]"
     >
       <FileText className="h-4 w-4" aria-hidden="true" />
       Check in report
-      <span className="sr-only">(not available yet)</span>
     </button>
 
     {detail && (
@@ -568,8 +597,10 @@ const LabsError: React.FC<{ name: string; onRetry: () => void }> = ({ name, onRe
   );
 };
 
-// Invisible / other-clinic / unknown id all land here (no "forbidden"
-// wording). Copy is neutral and not from Ava's deck - flagged for her.
+// Invisible / other-clinic / unknown id all land here - one state for every
+// case (wrong link, patient left the program, another clinic's patient, no
+// access). It never hints whether the patient exists. Copy per Ava's TC-015
+// additions (handoff/physician/README.md).
 const NotFound: React.FC = () => (
   <div className="relative">
     {typeof __PREVIEW_BUILD__ !== 'undefined' && __PREVIEW_BUILD__ && <FictionalDataTag />}
@@ -580,12 +611,18 @@ const NotFound: React.FC = () => (
       <ChevronLeft className="h-4 w-4" aria-hidden="true" />
       Patients
     </Link>
+    <h1 className="mt-1 text-[28px] font-bold leading-tight text-[#030616] dark:text-[#EEF1F8]">Patient not found</h1>
     <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-12 text-center dark:border-[#222838] dark:bg-[#10141F]">
-      <p className="text-[17px] font-semibold text-[#030616] dark:text-[#EEF1F8]">We couldn&apos;t find this patient</p>
+      <p className="text-[17px] font-semibold text-[#030616] dark:text-[#EEF1F8]">We can&apos;t show this patient</p>
       <p className="mx-auto mt-2 max-w-md text-sm text-[#48556A] dark:text-[#A6B0C3]">
-        This patient isn&apos;t on your list, or the link may be wrong. Go back to Patients to find who you&apos;re
-        looking for.
+        The link may be wrong, or they&apos;re no longer in your clinic&apos;s program.
       </p>
+      <Link
+        to="/admin/patients"
+        className="mt-5 inline-flex min-h-[44px] items-center rounded-full bg-[#2C5CF2] px-6 text-sm font-semibold text-white hover:bg-[#2449C9] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2C5CF2] dark:bg-[#7C9CFF] dark:text-[#030616] dark:hover:bg-[#6487EC]"
+      >
+        Back to Patients
+      </Link>
     </div>
   </div>
 );

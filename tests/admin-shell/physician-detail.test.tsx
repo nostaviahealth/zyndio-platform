@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -161,17 +161,19 @@ describe('PhysicianPatientDetail', () => {
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Timeline is coming in the next update.');
     await user.unhover(timelineTab);
 
-    timelineTab.focus();
+    fireEvent.focus(timelineTab);
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Timeline is coming in the next update.');
-    timelineTab.blur();
+    fireEvent.blur(timelineTab);
+    await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
 
-    previsitTab.focus();
+    fireEvent.focus(previsitTab);
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Pre-visit briefs are coming in the next update.');
-    previsitTab.blur();
+    fireEvent.blur(previsitTab);
+    await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
 
-    exportButton.focus();
+    fireEvent.focus(exportButton);
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Export is coming in the next update.');
-    exportButton.blur();
+    fireEvent.blur(exportButton);
 
     expect(document.body.textContent).not.toMatch(/Not available yet/);
   });
