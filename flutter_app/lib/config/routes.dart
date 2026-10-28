@@ -8,6 +8,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/signup_screen.dart';
+import '../screens/auth/verify_email_screen.dart';
+import '../screens/auth/forgot_password_screen.dart';
+import '../screens/auth/reset_password_screen.dart';
+import '../screens/auth/delete_account_screen.dart';
+import '../screens/auth/link_record_screen.dart';
 import '../screens/home/home_screen.dart'; // Preserved but unreferenced
 
 import '../screens/health_data/health_data_screen.dart';
@@ -75,7 +80,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isLoggedInState = isLoggedIn;
       final isLoggingIn = state.matchedLocation == '/login';
       final isSigningUp = state.matchedLocation == '/signup';
-      final isAuthPage = isLoggingIn || isSigningUp;
+      // TC-012: verify-email/forgot-password/reset-password all happen
+      // before (or without) a session - a freshly signed-up patient has no
+      // session until they verify and sign in, so these must be reachable
+      // without tripping the "not logged in -> /login" redirect below.
+      final isPatientPreAuthPage = state.matchedLocation == '/verify-email' ||
+          state.matchedLocation == '/forgot-password' ||
+          state.matchedLocation == '/reset-password';
+      final isAuthPage = isLoggingIn || isSigningUp || isPatientPreAuthPage;
 
       // If not logged in and not on auth page, redirect to login
       if (!isLoggedInState && !isAuthPage) {
@@ -113,6 +125,36 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/signup',
         name: 'signup',
         builder: (context, state) => const SignupScreen(),
+      ),
+      GoRoute(
+        path: '/verify-email',
+        name: 'verify-email',
+        builder: (context, state) {
+          final email = state.extra is String ? state.extra as String : null;
+          final token = state.uri.queryParameters['token'];
+          return VerifyEmailScreen(email: email, token: token);
+        },
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        name: 'forgot-password',
+        builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: '/reset-password',
+        name: 'reset-password',
+        builder: (context, state) =>
+            ResetPasswordScreen(token: state.uri.queryParameters['token']),
+      ),
+      GoRoute(
+        path: '/delete-account',
+        name: 'delete-account',
+        builder: (context, state) => const DeleteAccountScreen(),
+      ),
+      GoRoute(
+        path: '/link-record',
+        name: 'link-record',
+        builder: (context, state) => const LinkRecordScreen(),
       ),
 
       // Main app routes with bottom navigation shell

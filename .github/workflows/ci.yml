@@ -32,6 +32,7 @@ jobs:
               - 'packages/**'
               - '.github/workflows/ci.yml'
               - 'scripts/analyze-gate.sh'
+              - 'scripts/check-auth-external-disabled.sh'
               - 'scripts/leak-scan.sh'
               - 'scripts/test-leak-scan.sh'
 
@@ -79,6 +80,9 @@ jobs:
 
       - name: Analyze gate
         run: bash scripts/analyze-gate.sh
+
+      - name: Auth external providers must stay disabled (H-M1)
+        run: bash scripts/check-auth-external-disabled.sh
 
       - name: Run tests
         working-directory: flutter_app

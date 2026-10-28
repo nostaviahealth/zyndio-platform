@@ -101,3 +101,51 @@ supabase stop
 
 `supabase stop --no-backup` also discards the local database if you want a truly clean restart
 (equivalent to never having run `supabase db reset`).
+
+## Deploy checklist (Henry) — TC-012 record matching
+
+Before any environment that issues or redeems link codes goes live:
+
+1. **Create the Vault pepper** (fictional example value shown — use a long random secret per env; **never commit the real value**):
+
+   ```sql
+   -- Run as a privileged role against the target database (once per environment).
+   select vault.create_secret(
+     '<generate-a-long-random-pepper-per-environment>',
+     'link_code_pepper',
+     'HMAC pepper for patient link codes (TC-012)'
+   );
+   ```
+
+   Verify (should return one row; do not select `decrypted_secret` into logs):
+
+   ```sql
+   select name, created_at from vault.secrets where name = 'link_code_pepper';
+   ```
+
+   If this secret is missing, `issue_telehealth_link_otp` / `issue_clinic_link_code` /
+   `redeem_*` refuse with `link_code_pepper secret is not configured in Vault`.
+
+2. **Edge env — org id (Clara L19):** set `ZYNDIO_DEFAULT_ORG_ID` to the clinic org UUID
+   for this environment, **or** ensure the telehealth connector `locateForCodeRequest`
+   returns `orgId` on a unique match. There is no hard-coded fallback UUID.
+
+3. **Optional — clinic-code breaker (Clara L20):** documented default is **100 failures /
+   15 minutes**. Override with GUC if needed:
+
+   ```sql
+   alter database postgres set app.clinic_code_breaker_threshold = '100';
+   ```
+
+4. Confirm `TELEHEALTH_ADAPTER=fake` (or unset) for non-production; live adapter stays
+   refused without `TELEHEALTH_LIVE_ALLOW=1` (phase 2).
+
+5. **Stale-OTP outbox scrub (Clara L21) is automatic via pg_cron** — job
+   `tc012_scrub_stale_otp` runs every 5 minutes and calls
+   `public.scrub_stale_telehealth_outbox()` (via a SECURITY DEFINER wrapper, since
+   pg_cron jobs run outside `service_role`). No manual scheduling needed on the
+   local stack. **Hosted Supabase projects must enable the `pg_cron` extension**
+   (Dashboard → Database → Extensions) before this migration applies — if it's
+   not enabled, the migration enabling it will fail and must be applied after
+   turning pg_cron on for that project.
+

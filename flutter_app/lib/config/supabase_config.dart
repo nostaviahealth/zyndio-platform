@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/secure_local_storage.dart';
 
 /// Supabase Configuration
 class SupabaseConfig {
@@ -40,8 +41,11 @@ class SupabaseConfig {
       await Supabase.initialize(
         url: url,
         anonKey: anonKey,
-        authOptions: const FlutterAuthClientOptions(
+        authOptions: FlutterAuthClientOptions(
           authFlowType: AuthFlowType.pkce,
+          // TC-012 / PSU-SES-01: access + refresh tokens in Keychain /
+          // EncryptedSharedPreferences, never SharedPreferences plaintext.
+          localStorage: SecureLocalStorage(),
         ),
         realtimeClientOptions: const RealtimeClientOptions(
           logLevel: RealtimeLogLevel.info,

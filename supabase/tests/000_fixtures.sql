@@ -162,6 +162,23 @@ insert into public.consents (id, org_id, patient_id, consent_type, granted) valu
   ('00000000-0000-0000-0000-0000000a4001', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', 'data_sharing', true),
   ('00000000-0000-0000-0000-0000000b4001', '00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000b1001', 'data_sharing', true);
 
+-- M12: clinic-provisioned patients need an active link (no org_id grandfather).
+insert into public.patient_record_links (
+  app_user_id, org_id, telehealth_patient_id, status, linked_at, proof_method
+) values
+  (
+    '00000000-0000-0000-0000-0000000a1001',
+    '00000000-0000-0000-0000-00000000000a',
+    'clinic:00000000-0000-0000-0000-0000000a1001',
+    'active', now(), 'clinic_provisioned'
+  ),
+  (
+    '00000000-0000-0000-0000-0000000b1001',
+    '00000000-0000-0000-0000-00000000000b',
+    'clinic:00000000-0000-0000-0000-0000000b1001',
+    'active', now(), 'clinic_provisioned'
+  );
+
 insert into public.invites (id, org_id, email, role, token_hash, invited_by) values
   ('00000000-0000-0000-0000-0000000a5001', '00000000-0000-0000-0000-00000000000a', 'invitee-a@example.test', 'physician', 'fixturehash-a', '00000000-0000-0000-0000-0000000a0001'),
   -- org B row, so the cross-org matrix (200_cross_org_matrix.sql) has a real

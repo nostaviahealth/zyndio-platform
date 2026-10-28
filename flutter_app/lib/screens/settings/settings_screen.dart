@@ -261,6 +261,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const MyLabRecordsScreen())),
           ),
           _SettingsCard(
+            icon: LucideIcons.link,
+            title: 'Link clinic record',
+            subtitle: 'Connect this account to your clinic or telehealth record',
+            onTap: () => context.push('/link-record'),
+          ),
+          _SettingsCard(
             icon: LucideIcons.fileDown,
             title: 'Export Health Data',
             subtitle: 'Generate a clinical PDF snapshot for your doctor',
@@ -678,15 +684,56 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 16),
           
-          // Delete Account (Compliance)
-          SizedBox(
+          // Delete Account (Apple 5.1.1(v) / Ava 12-delete-account settings row)
+          Container(
             width: double.infinity,
-            child: TextButton(
-               onPressed: () => _showDeleteAccountDialog(context),
-               child: const Text('Delete Account', style: TextStyle(color: BrandColors.red500)),
+            decoration: BoxDecoration(
+              color: Theme.of(context).extension<ZyndioColors>()?.bgSurface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Theme.of(context).extension<ZyndioColors>()?.borderSubtle ??
+                    BrandColors.slate200,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ListTile(
+                  title: Text(
+                    'Delete account',
+                    style: TextStyle(
+                      color: Theme.of(context)
+                              .extension<ZyndioColors>()
+                              ?.statusCritical ??
+                          BrandColors.red500,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  trailing: Icon(
+                    Icons.chevron_right,
+                    color: Theme.of(context)
+                            .extension<ZyndioColors>()
+                            ?.textTertiary ??
+                        BrandColors.slate400,
+                  ),
+                  onTap: () => context.push('/delete-account'),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                  child: Text(
+                    'Permanently deletes your Zyndio app account and the data you added in the app.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(context)
+                              .extension<ZyndioColors>()
+                              ?.textTertiary ??
+                          BrandColors.slate500,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          
           const SizedBox(height: 24),
 
           // App Version
@@ -732,31 +779,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         .join('&');
   }
 
-  void _showDeleteAccountDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      useRootNavigator: true, // Fix for hidden dialog
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Account', style: TextStyle(color: BrandColors.red500)),
-        content: const Text(
-          'This action is permanent. Do you want to request account deletion? This will open your email client to send a deletion request to our support team.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: BrandColors.slate500)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _sendEmail('support@zyndio.example', 'Urgent: Delete My Account Request');
-            },
-            child: const Text('Request Deletion', style: TextStyle(color: BrandColors.red500, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // ... Keep _SectionHeader and _SettingsCard classes ...

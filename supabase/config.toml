@@ -60,7 +60,17 @@ password_requirements = "lower_upper_letters_digits_symbols"
 # email_provider_disabled on password sign-in with this at false. Public
 # sign-up is still closed, by [auth] enable_signup above, not by this.
 enable_signup = true
-enable_confirmations = false
+# TC-012: flipped true so GoTrue itself refuses signInWithPassword for any
+# auth.users row with email_confirmed_at still null - a second, server-side
+# gate behind the RLS email_confirmed_at check (current_email_confirmed(),
+# patient_auth migration) for PSU-EV-01. Staff accounts are unaffected: every
+# staff auth.users row is created with email_confirm: true at invite-accept
+# time (accept-invite/index.ts), so none of them are ever unconfirmed.
+# Patient self-signup (patient-signup Edge Function) deliberately does NOT
+# rely on GoTrue's own confirmation mailer - it issues its own 24h token
+# (patient_email_verifications) via the stub notification_outbox, so this
+# flag only matters for the sign-in gate, not for email delivery.
+enable_confirmations = true
 # M8 (Henry): requires reauthentication (a nonce) to change password on a
 # session GoTrue doesn't consider "recent". OBSERVED.md records what this
 # actually gates locally - see work/.claude-runs/tc005/m8/OBSERVED.md.
