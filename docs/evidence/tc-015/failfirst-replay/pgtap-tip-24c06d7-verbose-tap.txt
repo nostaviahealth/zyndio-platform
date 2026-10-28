@@ -1,0 +1,47 @@
+## supabase/tests/710_tc015_roster_detail_isolation.sql
+ok 1 - physician_a cannot see org B lab_results (cross-org denied)
+ok 2 - physician_a sees their own org patient a1001 lab_results
+ok 3 - physician_a roster includes same-org patient a1001
+ok 4 - physician_a roster never includes org B patient b1001
+ok 5 - physician_a can open a1001 detail
+ok 6 - physician_a opening org B patient returns not-found (null), same as unknown
+ok 7 - physician_a opening an unknown patient id returns not-found (null)
+ok 8 - physician_a gets trend points for a1001
+ok 9 - physician_a gets no trend points for org B patient b1001
+ok 10 - care_coordinator_a can open a1001 detail
+ok 11 - care_coordinator_a gets trend points for a1001
+ok 12 - read_only_a CAN see the roster row for a1001
+ok 13 - read_only_a sees no lab_results rows at all (no clinical detail)
+ok 14 - read_only_a opening a1001 detail returns not-found (null), same as unknown
+ok 15 - read_only_a gets no trend points
+ok 16 - physician_b cannot direct-select a1001 lab_results
+ok 17 - physician_b opening a1001 detail returns not-found (null), same as unknown
+ok 18 - physician_b gets no trend points for org A patient a1001
+1..18
+## supabase/tests/715_tc015_trend_exclusions.sql
+ok 1 - HbA1c trend ALL = 4 valid points (identity-hold 9.9 excluded)
+ok 2 - HbA1c trend 6M drops the 200-day-old baseline point
+ok 3 - HbA1c trend default period is 6M (3 points)
+ok 4 - identity-hold HbA1c value (9.9) is absent from the trend
+ok 5 - corrected HbA1c point carries original_value 5.6 ("was 5.6")
+ok 6 - needs-review hsCRP is absent from the trend
+ok 7 - unmapped Lp-PLA2 is absent from the trend
+ok 8 - latest HbA1c is the 20-day-old 5.5 (identity-hold 9.9 excluded from latest)
+ok 9 - identity-hold value (9.9) is absent from the latest-results data
+ok 10 - needs-review hsCRP DOES appear in latest-results with its Needs review status
+1..10
+## supabase/tests/717_tc015_detail_open_audit.sql
+ok 1 - open_patient_detail succeeds for a visible patient
+ok 2 - exactly one patient_detail_opened row after one open (actor, patient, org recorded)
+ok 3 - a second open writes exactly one more row (one audit row per call)
+ok 4 - cross-org open writes no patient_detail_opened row
+ok 5 - read_only open writes no patient_detail_opened row
+ok 6 - unknown-id open writes no patient_detail_opened row
+1..6
+## supabase/tests/719_tc015_no_dose.sql
+ok 1 - patient_treatments has no dose column - treatment storage cannot hold a dose
+ok 2 - open_patient_detail exposes the treatment name
+ok 3 - treatment JSON has no dose key
+ok 4 - treatment JSON keys are exactly the whitelist (name/started_on/status/source)
+ok 5 - no dose key at the top level of the detail payload
+1..5
