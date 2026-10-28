@@ -89,3 +89,30 @@ At the tip: 39 of 39 pass, plus the fixture file (`Files=5, Tests=40, Result: PA
   and this shim doesn't exercise it.
 - **719 #5** (no top-level `dose` key) passes, because the shim nests the
   treatment row under `treatment`. The nested dose is caught by #3 and #4.
+
+## Clara L32: shim variant B ("audits without a visibility check")
+
+Under the naive shim, 717 #4–#6 passed trivially because it never audits. To make
+them bite, `shim_audit_no_visibility.sql.txt` repeats the naive shim with one
+change: `open_patient_detail` writes a `patient_detail_opened` row on every
+call, before and without any visibility check. Like the first shim, it is test-only
+(`.sql.txt`) and was applied only in a throwaway worktree at `c2514d6` (removed afterwards).
+
+Replay on 28 Oct 2026, ~15:05 IST: `supabase db reset`, then `supabase test db 000_fixtures.sql 717_…sql`.
+The output is in `pgtap-c2514d6-l32-shim-717.txt`.
+
+| 717 assertion | Variant B result |
+|---|---|
+| #1 open succeeds | ok |
+| #2 one row after one open | ok |
+| #3 a second open adds one row | ok |
+| #4 cross-org open writes no row | **not ok** (have 1, want 0) |
+| #5 read_only open writes no row | **not ok** (have 1, want 0) |
+| #6 unknown-id open writes no row | **not ok** (have 1, want 0) |
+
+So all six 717 assertions have now failed at their assertions against an
+unsafe implementation: #2–#3 under the naive shim, and #4–#6 under variant B. #1
+is a positive `lives_ok` and is expected to pass.
+Note: #5 encodes the pre-flip rule that read_only gets no detail. The read-only
+fix round replaces it (read_only opens must now be audited); see the
+read-only section below once it lands.

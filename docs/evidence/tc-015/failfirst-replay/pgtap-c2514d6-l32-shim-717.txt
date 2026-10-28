@@ -1,0 +1,23 @@
+Connecting to local database...
+psql:<throwaway c2514d6>/supabase/tests/000_fixtures.sql:9: NOTICE:  extension "pgtap" already exists, skipping
+<throwaway c2514d6>/supabase/tests/000_fixtures.sql ................. ok
+<throwaway c2514d6>/supabase/tests/717_tc015_detail_open_audit.sql .. 
+# Failed test 4: "cross-org open writes no patient_detail_opened row"
+#         have: 1
+#         want: 0
+# Failed test 5: "read_only open writes no patient_detail_opened row"
+#         have: 1
+#         want: 0
+# Failed test 6: "unknown-id open writes no patient_detail_opened row"
+#         have: 1
+#         want: 0
+# Looks like you failed 3 tests of 6
+Failed 3/6 subtests 
+
+Test Summary Report
+-------------------
+<throwaway c2514d6>/supabase/tests/717_tc015_detail_open_audit.sql (Wstat: 0 Tests: 6 Failed: 3)
+  Failed tests:  4-6
+Files=2, Tests=7,  0 wallclock secs ( 0.02 usr  0.01 sys +  0.00 cusr  0.01 csys =  0.04 CPU)
+Result: FAIL
+error running container: exit 1

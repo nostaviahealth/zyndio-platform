@@ -1,0 +1,130 @@
+-- TC-015 Clara L32 — SHIM VARIANT B: "audit without visibility check".
+-- TEST-ONLY. Never committed as a migration (stored as .sql.txt). Applied only
+-- in a throwaway worktree at c2514d6, exactly like shim_naive_unsafe.sql.txt,
+-- whose content this file repeats with ONE change: open_patient_detail writes a
+-- patient_detail_opened audit row on every call, before any visibility check.
+-- Purpose: prove 717 #4-#6 ("no row for an invisible patient") fail at their
+-- assertions against an implementation that audits but does not gate.
+-- TC-015 FAIL-FIRST REPLAY SHIM — TEST-ONLY, NEVER COMMITTED AS A MIGRATION.
+--
+-- Applied ONLY in a throwaway worktree at c2514d6 (the commit just before the
+-- real schema commit 038e46b), so the pgTAP files 710/715/717/719 can insert
+-- their fixtures and reach their assertions on the old schema.
+--
+-- It models the naive / unsafe version of TC-015 that the tests exist to
+-- reject:
+--   * tables exist with the columns the fixtures need, but NO RLS, and SELECT
+--     granted to authenticated (anyone signed in can read any clinic's rows);
+--   * patient_treatments is a plain "whatever the source sent" table that
+--     includes a `dose` column;
+--   * the RPCs are SECURITY DEFINER and return unfiltered rows: no clinic/role
+--     scoping, no needs_review / unmapped / identity-hold exclusions, no audit
+--     write, and the detail payload is to_jsonb() of whole rows (no whitelist);
+--   * open_patient_detail returns null only when the patient id does not exist.
+-- The only behaviour kept is what is NOT a safety rule: the trend period
+-- window (3M/6M/1Y/ALL, default 6M) and latest-per-analyte ordering, so that a
+-- failing assertion points at the missing safety rule and nothing else.
+
+alter table public.lab_reports add column identity_hold boolean not null default false;
+
+create table public.lab_results (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null,
+  patient_id uuid not null,
+  lab_report_id uuid not null,
+  analyte_key text not null,
+  analyte_label text not null,
+  value numeric,
+  original_value numeric,
+  unit text,
+  status text not null default 'within_range',
+  is_unmapped boolean not null default false,
+  range_low numeric,
+  range_high numeric,
+  taken_at timestamptz not null default now()
+);
+
+create table public.patient_treatments (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null,
+  patient_id uuid not null,
+  name text not null,
+  started_on date,
+  status text,
+  source text,
+  dose text
+);
+
+create table public.patient_roster_meta (
+  patient_id uuid primary key,
+  org_id uuid not null,
+  sex text,
+  birth_date date,
+  program_started_on date,
+  last_activity_at timestamptz,
+  open_questions int not null default 0
+);
+
+grant select on public.lab_results, public.patient_treatments, public.patient_roster_meta to authenticated;
+
+create function public.physician_patient_roster(
+  p_search text default null, p_filter text default 'all', p_sort text default 'recent',
+  p_limit int default 50, p_offset int default 0)
+returns table (patient_id uuid, display_name text, mrn text, sex text, birth_date date,
+  program_started_on date, latest_lab_at timestamptz, last_activity_at timestamptz,
+  open_questions int, flags text[], total_count bigint)
+language sql stable security definer set search_path = pg_catalog, public as $$
+  select p.id, p.display_name, p.mrn, m.sex, m.birth_date, m.program_started_on,
+         (select max(lr.taken_at) from public.lab_results lr where lr.patient_id = p.id),
+         m.last_activity_at, coalesce(m.open_questions, 0), array[]::text[], count(*) over ()
+  from public.patients p
+  left join public.patient_roster_meta m on m.patient_id = p.id
+  order by m.last_activity_at desc nulls last
+  limit p_limit offset p_offset
+$$;
+
+create function public.patient_trend(p_patient_id uuid, p_analyte text, p_period text default '6M')
+returns table (taken_at timestamptz, value numeric, original_value numeric, unit text,
+  status text, range_low numeric, range_high numeric)
+language sql stable security definer set search_path = pg_catalog, public as $$
+  select lr.taken_at, lr.value, lr.original_value, lr.unit, lr.status, lr.range_low, lr.range_high
+  from public.lab_results lr
+  where lr.patient_id = p_patient_id and lr.analyte_key = p_analyte
+    and lr.taken_at >= case upper(coalesce(p_period, '6M'))
+          when '3M' then now() - interval '3 months'
+          when '1Y' then now() - interval '1 year'
+          when 'ALL' then '-infinity'::timestamptz
+          else now() - interval '6 months' end
+  order by lr.taken_at
+$$;
+
+create function public.patient_latest_results(p_patient_id uuid)
+returns table (analyte_key text, analyte_label text, value numeric, original_value numeric,
+  unit text, status text, is_unmapped boolean, range_low numeric, range_high numeric, taken_at timestamptz)
+language sql stable security definer set search_path = pg_catalog, public as $$
+  select distinct on (lr.analyte_key) lr.analyte_key, lr.analyte_label, lr.value, lr.original_value,
+         lr.unit, lr.status, lr.is_unmapped, lr.range_low, lr.range_high, lr.taken_at
+  from public.lab_results lr
+  where lr.patient_id = p_patient_id
+  order by lr.analyte_key, lr.taken_at desc
+$$;
+
+create function public.open_patient_detail(p_patient_id uuid)
+returns jsonb
+language plpgsql volatile security definer set search_path = pg_catalog, public as $$
+begin
+  -- L32 variant: audits EVERY open, BEFORE and WITHOUT any visibility check
+  -- (cross-org, read_only and unknown ids all get a row).
+  perform public._audit_log_insert('patient_detail_opened', auth.uid(), p_patient_id,
+                                   public.current_org_id(), '{}'::jsonb);
+  return (select to_jsonb(p) || jsonb_build_object(
+           'treatment', (select to_jsonb(t) from public.patient_treatments t
+                         where t.patient_id = p.id limit 1))
+          from public.patients p
+          where p.id = p_patient_id);
+end;
+$$;
+
+grant execute on function public.physician_patient_roster(text, text, text, int, int),
+  public.patient_trend(uuid, text, text), public.patient_latest_results(uuid),
+  public.open_patient_detail(uuid) to authenticated;
