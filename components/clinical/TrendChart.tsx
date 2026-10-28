@@ -49,8 +49,10 @@ const TrendChart: React.FC<TrendChartProps> = ({ points, analyteLabel, unit, mod
 
   const values = points.map((p) => p.value).filter((v): v is number => v !== null);
   const bounds = [...values, ...(rangeLow !== null ? [rangeLow] : []), ...(rangeHigh !== null ? [rangeHigh] : [])];
-  const min = bounds.length ? Math.min(...bounds) - 0.3 : 0;
-  const max = bounds.length ? Math.max(...bounds) + 0.3 : 1;
+  // Round the domain out to the nearest 0.5 so recharts picks clean ticks
+  // (e.g. 5.0 / 5.5 / 6.0 / 6.5) that match the design's axis.
+  const min = bounds.length ? Math.floor((Math.min(...bounds) - 0.3) * 2) / 2 : 0;
+  const max = bounds.length ? Math.ceil((Math.max(...bounds) + 0.3) * 2) / 2 : 1;
 
   const label =
     `${analyteLabel} chart: ` +

@@ -199,7 +199,7 @@ const PhysicianPatientDetail: React.FC<PhysicianPatientDetailProps> = ({
       ) : latest.length === 0 ? (
         <LabsEmpty name={detail.displayName} />
       ) : (
-        <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-[360px_1fr]">
+        <div className="mt-6 grid grid-cols-[288px_1fr] gap-4 xl:grid-cols-[360px_1fr] xl:gap-6">
           <MarkerList
             markers={latest}
             selectedKey={selected?.analyteKey}
@@ -526,7 +526,7 @@ const ProvRow: React.FC<{ label: string; value: string }> = ({ label, value }) =
 );
 
 const LabsLoading: React.FC = () => (
-  <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-[360px_1fr]" aria-busy="true">
+  <div className="mt-6 grid grid-cols-[288px_1fr] gap-4 xl:grid-cols-[360px_1fr] xl:gap-6" aria-busy="true">
     <div className="h-80 rounded-2xl border border-slate-200 bg-white dark:border-[#222838] dark:bg-[#10141F]" />
     <div className="h-80 rounded-2xl border border-slate-200 bg-white dark:border-[#222838] dark:bg-[#10141F]" />
     <p className="sr-only" role="status">
