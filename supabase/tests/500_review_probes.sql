@@ -56,11 +56,14 @@ select throws_ok(
 
 -- P5: read_only sees clinical detail - fixed by dropping read_only's SELECT
 -- on patient_profiles/lab_reports/consents (H2). patients (list columns
--- only) is unaffected and still readable.
+-- only) is unaffected and still readable. TC-015 fix round (Leo ruling,
+-- 28 Oct) supersedes H2 for lab_reports only (read_only needs it for the
+-- identity_hold exclusion in its own-clinic detail/trend view); the other
+-- two stay denied.
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0004', 'aal2');
 select is(
-  (select count(*) from public.lab_reports)::int, 0,
-  'P5 denied: read_only_a sees no lab_reports rows at all'
+  (select count(*) from public.lab_reports)::int, 1,
+  'P5 allowed (fix round): read_only_a sees same-org lab_reports, no write'
 );
 select is(
   (select count(*) from public.patient_profiles)::int, 0,
