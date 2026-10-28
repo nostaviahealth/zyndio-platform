@@ -1,0 +1,85 @@
+# Local-only Supabase config for TC-005. No remotes, no project ref, no hosted URL.
+# This project is never linked to a hosted Supabase project (`supabase link` must not be run here).
+project_id = "zyndio-local"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[db.pooler]
+enabled = false
+
+[studio]
+enabled = true
+port = 54323
+
+# CI may start with `-x inbucket,storage,edge-runtime` (or similar) to skip services this card
+# doesn't exercise yet; defaults below are intentionally the stock local-dev set.
+[inbucket]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3001"
+additional_redirect_urls = ["http://127.0.0.1:3001"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+# Invite-only: [auth] enable_signup = false alone closes /auth/v1/signup
+# server-side (no public self-registration), independent of which auth
+# providers are enabled.
+enable_signup = false
+enable_anonymous_sign_ins = false
+minimum_password_length = 12
+# M8 (Henry): strictest free-plan value - matches Ava's 27 Oct rules
+# (upper + lower + number + symbol). GoTrue enforces this on every password
+# set it sees, including direct updateUser() calls that skip our blocklist.
+password_requirements = "lower_upper_letters_digits_symbols"
+
+[auth.email]
+# This must stay true: it toggles the email/password PROVIDER itself (sign
+# IN with a password, not sign-up). Setting it to false disables password
+# sign-in entirely - a live check showed GoTrue returning 422
+# email_provider_disabled on password sign-in with this at false. Public
+# sign-up is still closed, by [auth] enable_signup above, not by this.
+enable_signup = true
+enable_confirmations = false
+# M8 (Henry): requires reauthentication (a nonce) to change password on a
+# session GoTrue doesn't consider "recent". OBSERVED.md records what this
+# actually gates locally - see work/.claude-runs/tc005/m8/OBSERVED.md.
+secure_password_change = true
+
+[auth.mfa]
+max_enrolled_factors = 1
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[auth.hook.password_verification_attempt]
+enabled = true
+uri = "pg-functions://postgres/auth_hooks/password_verification_attempt"
+
+[auth.hook.mfa_verification_attempt]
+enabled = true
+uri = "pg-functions://postgres/auth_hooks/mfa_verification_attempt"
+
+[edge_runtime]
+enabled = true
+policy = "oneshot"
+
+[analytics]
+enabled = false

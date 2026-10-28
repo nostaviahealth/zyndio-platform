@@ -4,6 +4,7 @@ import '../data/demo_backend.dart';
 import '../data/fixtures.dart';
 import '../data/supabase_repository.dart';
 import '../data/zyndio_repository.dart';
+import '../demo_build_flag.dart';
 import '../logic/clock.dart';
 import '../logic/upload_queue.dart';
 
@@ -58,6 +59,9 @@ final currentSessionProvider = NotifierProvider<CurrentSessionNotifier, RepoSess
 /// repository call made with the returned session is still scoped to that
 /// one patient like any other session.
 RepoSession requireDemoSession(Ref ref) {
+  if (!kDemoBuild) {
+    throw UnsupportedError('requireDemoSession is only available in demo builds.');
+  }
   final existing = ref.read(currentSessionProvider);
   if (existing != null) return existing;
   final repo = ref.read(zyndioRepositoryProvider);

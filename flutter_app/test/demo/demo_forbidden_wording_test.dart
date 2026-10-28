@@ -143,7 +143,10 @@ void main() {
     expectNoForbiddenWording(tester);
   });
 
-  testWidgets('DemoApp (?flow=journey): no forbidden wording on any screen reached', (tester) async {
+  testWidgets(
+    'DemoApp (?flow=journey): no forbidden wording on any screen reached',
+    tags: ['demo_flow'],
+    (tester) async {
     tester.view.physicalSize = const Size(800, 2000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);

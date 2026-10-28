@@ -25,7 +25,10 @@ void main() {
       expect(container.read(signInControllerProvider).hasError, isFalse);
     });
 
-    test('T-AUTH-04: there is no self-sign-up — no code is ever issued to an unknown email', () {
+    test(
+      'T-AUTH-04: there is no self-sign-up — no code is ever issued to an unknown email',
+      tags: ['demo_flow'],
+      () {
       final clock = FakeClock(DateTime(2026, 1, 1, 9, 0, 0));
       final backend = DemoBackend(clock: clock);
       final container = ProviderContainer(
@@ -56,7 +59,10 @@ void main() {
       expect(state.hasError, isTrue);
     });
 
-    test('a successful verify stores the session for downstream screens', () {
+    test(
+      'a successful verify stores the session for downstream screens',
+      tags: ['demo_flow'],
+      () {
       final clock = FakeClock(DateTime(2026, 1, 1, 9, 0, 0));
       final backend = DemoBackend(clock: clock);
       final container = ProviderContainer(

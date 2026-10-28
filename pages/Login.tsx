@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
 
 const Login: React.FC = () => {
     const { signIn } = useAuth();
-    const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -30,19 +28,6 @@ const Login: React.FC = () => {
             <div className="bg-white rounded-[32px] shadow-xl w-full max-w-[480px] p-8 md:p-10 relative overflow-hidden">
 
 
-
-                {/* Toggle */}
-                <div className="flex bg-gray-100 p-1 rounded-full w-fit mb-8">
-                    <button
-                        onClick={() => navigate('/signup')}
-                        className="px-6 py-2 rounded-full text-slate-500 hover:text-slate-900 text-sm font-medium transition-all"
-                    >
-                        Sign up
-                    </button>
-                    <button className="px-6 py-2 rounded-full bg-white text-slate-900 shadow-sm text-sm font-medium transition-all">
-                        Sign in
-                    </button>
-                </div>
 
                 <h1 className="text-3xl font-bold text-slate-900 mb-8">Welcome back</h1>
 

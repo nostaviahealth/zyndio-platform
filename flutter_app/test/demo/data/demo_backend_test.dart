@@ -1,3 +1,6 @@
+@Tags(['demo_flow'])
+library;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zyndio_patient/demo/data/demo_backend.dart';
 import 'package:zyndio_patient/demo/data/fixtures.dart';

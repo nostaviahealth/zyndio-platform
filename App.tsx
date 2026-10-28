@@ -4,7 +4,11 @@ import { AuthProvider } from './contexts/AuthContext';
 import { AdminProvider } from './contexts/AdminContext';
 import { SidebarProvider } from './contexts/SidebarContext';
 import { UserProvider } from './contexts/UserContext';
+import { PortalAuthProvider } from './contexts/PortalAuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import RequireSession from './components/admin-shell/RequireSession';
+import RequireRole from './components/admin-shell/RequireRole';
+import AppShell from './components/admin-shell/AppShell';
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
 import Home from './pages/Home';
@@ -20,22 +24,34 @@ import Chat from './pages/Chat';
 import Tools from './pages/Tools';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
-import Signup from './pages/Signup';
 import HealthQuestionnaire from './pages/HealthQuestionnaire';
 import LabTestUpload from './pages/LabTestUpload';
-import AdminLayout from './components/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import CreatePatient from './pages/admin/CreatePatient';
 import PatientDetail from './pages/admin/PatientDetail';
 import NutritionWorkbench from './pages/admin/NutritionWorkbench';
 import NutritionLab from './pages/admin/NutritionLab';
-import AdminLogin from './pages/admin/AdminLogin';
+import UsersRoles from './pages/admin/UsersRoles';
+import SignIn from './pages/admin/SignIn';
+import AcceptInvite from './pages/admin/AcceptInvite';
+import TwoFactorSetup from './pages/admin/TwoFactorSetup';
+import TwoFactorChallenge from './pages/admin/TwoFactorChallenge';
+import RecoverySignIn from './pages/admin/RecoverySignIn';
+import SessionExpired from './pages/admin/SessionExpired';
+import SessionEndedByAdmin from './pages/admin/SessionEndedByAdmin';
 import HealthVault from './pages/HealthVault';
 import GutMicrobiomeDetail from './pages/panels/GutMicrobiomeDetail';
 import GeneticPanelDetail from './pages/panels/GeneticPanelDetail';
 import BiologicalAgeDetail from './pages/panels/BiologicalAgeDetail';
 import HeavyMetalsDetail from './pages/panels/HeavyMetalsDetail';
 import ToxicityDetail from './pages/panels/ToxicityDetail';
+
+// __PREVIEW_BUILD__ is a build-time literal (false outside `vite build
+// --mode preview` / `npm run build:preview`) - gating both the route and
+// the dynamic import means rollup's dead-code elimination drops the
+// /__preview harness (and its fixture strings) from the default
+// `npm run build` bundle entirely. See tests/preview-harness.test.ts.
+const LazyPreviewHarness = __PREVIEW_BUILD__ ? React.lazy(() => import('./pages/preview/PreviewHarness')) : null;
 
 // Placeholder for missing pages
 const Profile = () => <div className="p-8">Profile Page Coming Soon</div>;
@@ -45,30 +61,101 @@ const App: React.FC = () => {
     <ErrorBoundary>
       <Router>
         <AuthProvider>
+          <PortalAuthProvider>
           <AdminProvider>
             <SidebarProvider>
               <Routes>
                 {/* Public Routes */}
                 <Route path="/login" element={<Login />} />
-                <Route path="/signup" element={<Signup />} />
 
-                {/* Admin Login - Separate from regular login */}
-                <Route path="/admin/login" element={<AdminLogin />} />
+                {/* Admin auth routes (TC-005): sign-in, invite accept, 2FA setup/challenge/recovery */}
+                <Route path="/admin/login" element={<SignIn />} />
+                <Route path="/admin/invite/:token" element={<AcceptInvite />} />
+                <Route
+                  path="/admin/2fa/setup"
+                  element={
+                    <RequireSession requireAal2={false}>
+                      <TwoFactorSetup />
+                    </RequireSession>
+                  }
+                />
+                <Route
+                  path="/admin/2fa/challenge"
+                  element={
+                    <RequireSession requireAal2={false}>
+                      <TwoFactorChallenge />
+                    </RequireSession>
+                  }
+                />
+                <Route
+                  path="/admin/2fa/recovery"
+                  element={
+                    <RequireSession requireAal2={false}>
+                      <RecoverySignIn />
+                    </RequireSession>
+                  }
+                />
+                <Route path="/admin/session-expired" element={<SessionExpired />} />
+                <Route path="/admin/session-ended" element={<SessionEndedByAdmin />} />
 
-                {/* Admin Portal Routes - Protected */}
+                {/* Admin Portal Routes - Protected, role-gated per route (06-access-denied
+                    renders in place for the wrong role rather than redirecting). */}
                 <Route
                   path="/admin"
                   element={
-                    <ProtectedRoute requireAdmin>
-                      <AdminLayout />
-                    </ProtectedRoute>
+                    <RequireSession>
+                      <AppShell />
+                    </RequireSession>
                   }
                 >
-                  <Route index element={<AdminDashboard />} />
-                  <Route path="patients/create" element={<CreatePatient />} />
-                  <Route path="patient/:id" element={<PatientDetail />} />
-                  <Route path="nutrition" element={<NutritionWorkbench />} />
-                  <Route path="nutrition-lab" element={<NutritionLab />} />
+                  <Route
+                    index
+                    element={
+                      <RequireRole roles={['physician', 'care_coordinator', 'read_only']}>
+                        <AdminDashboard />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="patients/create"
+                    element={
+                      <RequireRole roles={['physician', 'care_coordinator']}>
+                        <CreatePatient />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="patient/:id"
+                    element={
+                      <RequireRole roles={['physician', 'care_coordinator']}>
+                        <PatientDetail />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="nutrition"
+                    element={
+                      <RequireRole roles={['physician', 'care_coordinator']}>
+                        <NutritionWorkbench />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="nutrition-lab"
+                    element={
+                      <RequireRole roles={['physician', 'care_coordinator']}>
+                        <NutritionLab />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="users"
+                    element={
+                      <RequireRole roles={['org_admin']} pageLabel="Users and roles">
+                        <UsersRoles />
+                      </RequireRole>
+                    }
+                  />
                 </Route>
 
                 {/* User Portal Routes - Protected */}
@@ -105,11 +192,24 @@ const App: React.FC = () => {
                   <Route path="health-vault/toxicity" element={<ToxicityDetail />} />
                 </Route>
 
+                {/* Screenshot harness, build:preview only (OVERRIDES #8). */}
+                {__PREVIEW_BUILD__ && LazyPreviewHarness && (
+                  <Route
+                    path="/__preview"
+                    element={
+                      <React.Suspense fallback={null}>
+                        <LazyPreviewHarness />
+                      </React.Suspense>
+                    }
+                  />
+                )}
+
                 {/* Catch all - redirect to home */}
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </SidebarProvider>
           </AdminProvider>
+          </PortalAuthProvider>
         </AuthProvider>
       </Router>
     </ErrorBoundary>

@@ -17,15 +17,24 @@ Flutter (`cd flutter_app` unless noted):
 ```bash
 bash scripts/analyze-gate.sh                                             # analyzer gate (from repo root)
 flutter test
+flutter test --dart-define=DEMO_BUILD=true                               # demo-only flows (kDemoBuild gated)
 flutter build apk --debug --dart-define-from-file=dart_defines.json
 flutter build web --dart-define-from-file=dart_defines.json
 ```
 
+Local Supabase (`supabase start` first — see [SUPABASE-SETUP.md](./SUPABASE-SETUP.md)):
+```bash
+supabase db reset && supabase test db   # reapply migrations + run pgTAP suite (supabase/tests/*.sql)
+bash scripts/integration-local.sh       # vitest integration suite against the local stack + Edge Functions
+```
+
 Root admin web app:
 ```bash
-npm run lint      # tsc --noEmit
-npm test          # vitest run
-npm run build
+npm run lint             # tsc --noEmit
+npm test                 # vitest run (unit/component)
+npm run build             # production bundle (preview harness excluded)
+npm run build:preview      # --mode preview build (adds the screenshot/preview harness)
+npm run admin:setup       # bootstrap the first org admin — see admin-setup.md
 ```
 
 `space/`:
@@ -54,5 +63,5 @@ bash scripts/test-leak-scan.sh     # self-test proving the above
 
 - [README.md](./README.md) — setup, prerequisites, run/test/build commands.
 - [SUPABASE-SETUP.md](./SUPABASE-SETUP.md) — standing up a dev Supabase project.
-- [admin-setup-guide.md](./admin-setup-guide.md) — creating and troubleshooting admin access.
+- [admin-setup.md](./admin-setup.md) — creating and troubleshooting admin access.
 - [PROACTIVE_INTELLIGENCE.md](./PROACTIVE_INTELLIGENCE.md) — feature documentation for the notification/coaching engine.

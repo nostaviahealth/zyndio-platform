@@ -84,6 +84,10 @@ jobs:
         working-directory: flutter_app
         run: flutter test
 
+      - name: Run demo-flow tests (DEMO_BUILD=true)
+        working-directory: flutter_app
+        run: flutter test --tags demo_flow --run-skipped --dart-define=DEMO_BUILD=true
+
       - name: Build debug APK
         working-directory: flutter_app
         run: flutter build apk --debug
@@ -158,6 +162,42 @@ jobs:
             space/dist
           retention-days: 1
           if-no-files-found: error
+
+  supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Deno unit tests (Edge Function shared code)
+        run: deno test --config supabase/functions/deno.json supabase/functions/_shared
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
+
+      - name: Start local Supabase (studio/storage/inbucket unused this card)
+        run: supabase start -x studio,storage,inbucket
+
+      - name: Reset DB + pgTAP
+        run: |
+          supabase db reset
+          supabase test db
+
+      - name: Run integration tests (CI=true -> hard-fail if env is missing)
+        env:
+          CI: 'true'
+        run: bash scripts/integration-local.sh
 
   secrets:
     runs-on: ubuntu-latest
