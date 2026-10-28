@@ -1,0 +1,42 @@
+-- TC-015 722 fail-first replay shim. NOT a migration. Applied by hand to the
+-- local db, then the 722 test is run, then `supabase db reset` restores the code.
+CREATE OR REPLACE FUNCTION public.physician_roster_base()
+ RETURNS TABLE(patient_id uuid, display_name text, mrn text, sex text, birth_date date, program_started_on date, latest_lab_at timestamp with time zone, last_activity_at timestamp with time zone, open_questions integer, flags text[])
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'public'
+AS $function$
+declare
+  v_org uuid;
+begin
+  -- REPLAY SHIM A: role/aal2 gate REMOVED (org scope kept).
+  v_org := public.current_org_id();
+  if v_org is null then
+    return;
+  end if;
+
+  return query
+  select
+    p.id,
+    p.display_name,
+    p.mrn,
+    m.sex,
+    m.birth_date,
+    m.program_started_on,
+    s.latest_lab_at,
+    m.last_activity_at,
+    coalesce(m.open_questions, 0),
+    array_remove(array[
+      case when coalesce(s.has_treatment, false) then 'clinical_context' end,
+      case when coalesce(s.has_outside_range, false) then 'outside_range' end,
+      case when coalesce(s.has_needs_review, false) then 'needs_review' end,
+      case when coalesce(s.has_identity_hold, false) then 'identity_hold' end,
+      case when not coalesce(s.has_any_labs, false) then 'missing_labs' end,
+      case when coalesce(m.open_questions, 0) > 0 then 'question_waiting' end
+    ], null)
+  from public.patients p
+  left join public.patient_roster_meta m on m.patient_id = p.id
+  left join public.patient_roster_summary s on s.patient_id = p.id
+  where p.org_id = v_org;
+end;
+$function$;
