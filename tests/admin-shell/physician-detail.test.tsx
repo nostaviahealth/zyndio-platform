@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
 import PhysicianPatientDetail from '../../pages/admin/clinic/PhysicianPatientDetail';
@@ -111,8 +112,68 @@ describe('PhysicianPatientDetail', () => {
   it('maps a null detail payload to the shared not-found view (no "forbidden")', async () => {
     const api = makeApi({ openPatientDetail: vi.fn().mockResolvedValue(null) });
     renderDetail(api);
-    expect(await screen.findByText("We couldn't find this patient")).toBeInTheDocument();
+    expect(await screen.findByText("We can't show this patient")).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/forbidden/i);
+  });
+
+  it("not-found: Ava's exact copy, primary button to /admin/patients, page title set", async () => {
+    const api = makeApi({ openPatientDetail: vi.fn().mockResolvedValue(null) });
+    renderDetail(api);
+    expect(await screen.findByText("We can't show this patient")).toBeInTheDocument();
+    expect(
+      screen.getByText("The link may be wrong, or they're no longer in your clinic's program.")
+    ).toBeInTheDocument();
+    const button = screen.getByRole('link', { name: 'Back to Patients' });
+    expect(button).toHaveAttribute('href', '/admin/patients');
+    expect(screen.getByRole('heading', { name: 'Patient not found' })).toBeInTheDocument();
+  });
+
+  it('not-found: same view for unknown, other-clinic and no-access (no hint the patient exists)', async () => {
+    const unknown = makeApi({ openPatientDetail: vi.fn().mockResolvedValue(null) });
+    const { unmount } = renderDetail(unknown);
+    const firstTree = await screen.findByText("We can't show this patient");
+    expect(firstTree).toBeInTheDocument();
+    unmount();
+
+    const otherClinic = makeApi({ openPatientDetail: vi.fn().mockResolvedValue(null) });
+    renderDetail(otherClinic, { patientId: 'p-other-clinic' });
+    expect(await screen.findByText("We can't show this patient")).toBeInTheDocument();
+  });
+
+  it('Timeline, Pre-visit brief and Export data each show a Soon tag, are aria-disabled but focusable, and show a tooltip on hover and keyboard focus', async () => {
+    const user = userEvent.setup();
+    renderDetail(makeApi());
+    await screen.findByRole('heading', { name: 'Jordan Rivera' });
+
+    const timelineTab = screen.getByRole('tab', { name: /Timeline/ });
+    const previsitTab = screen.getByRole('tab', { name: /Pre-visit brief/ });
+    const exportButton = screen.getByRole('button', { name: /Export data/ });
+
+    for (const control of [timelineTab, previsitTab, exportButton]) {
+      expect(control).toHaveAttribute('aria-disabled', 'true');
+      expect(control).not.toBeDisabled();
+    }
+    expect(within(timelineTab).getByText('Soon')).toBeInTheDocument();
+    expect(within(previsitTab).getByText('Soon')).toBeInTheDocument();
+    expect(within(exportButton).getByText('Soon')).toBeInTheDocument();
+
+    await user.hover(timelineTab);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Timeline is coming in the next update.');
+    await user.unhover(timelineTab);
+
+    timelineTab.focus();
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Timeline is coming in the next update.');
+    timelineTab.blur();
+
+    previsitTab.focus();
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Pre-visit briefs are coming in the next update.');
+    previsitTab.blur();
+
+    exportButton.focus();
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Export is coming in the next update.');
+    exportButton.blur();
+
+    expect(document.body.textContent).not.toMatch(/Not available yet/);
   });
 
   it('default state: selects HbA1c, shows the trend meta and an accessible chart label', async () => {
@@ -122,6 +183,8 @@ describe('PhysicianPatientDetail', () => {
     expect(
       await screen.findByRole('img', { name: /HbA1c chart: Apr 2 6.2%, Aug 6 5.7%, Oct 14 5.5%/ })
     ).toBeInTheDocument();
+    expect(screen.getAllByText('View report')[0]).toHaveAttribute('aria-disabled', 'true');
+    expect(document.body.textContent).not.toMatch(/Not available yet/);
   });
 
   it('single state: one trend point shows "One result so far" and the caveat, no chart', async () => {
@@ -141,6 +204,7 @@ describe('PhysicianPatientDetail', () => {
     expect(btn).toBeDisabled();
     // needs-review markers are never fed to the trend RPC.
     expect(api.fetchTrend).not.toHaveBeenCalledWith('p-jordan', 'hscrp', expect.anything());
+    expect(document.body.textContent).not.toMatch(/Not available yet/);
   });
 
   it('empty state: no markers shows "No lab results yet"', async () => {
