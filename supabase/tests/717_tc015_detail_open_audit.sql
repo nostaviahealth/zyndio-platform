@@ -3,7 +3,9 @@
 -- open_patient_detail(p_patient_id) writes exactly ONE audit row
 -- ('patient_detail_opened', actor, patient, time) per successful open, via the
 -- existing write_audit_log path - and writes NONE for an invisible patient
--- (other clinic / read_only / unknown id all return not-found with no row).
+-- (other clinic / unknown id return not-found with no row). read_only is now
+-- a legitimate same-clinic open (Leo ruling, fix round 28 Oct): it IS audited,
+-- same as physician/care_coordinator.
 --
 -- Fixtures live in this transaction only, rolled back. Expect FAIL until the
 -- schema + open_patient_detail land.
@@ -55,9 +57,6 @@ select is(
 -- cross-org (physician_b opening org A patient)
 select tests.authenticate_as('00000000-0000-0000-0000-0000000b0001', 'aal2'); -- physician_b
 select public.open_patient_detail('00000000-0000-0000-0000-0000000a1001');
--- read_only (no clinical detail)
-select tests.authenticate_as('00000000-0000-0000-0000-0000000a0004', 'aal2'); -- read_only_a
-select public.open_patient_detail('00000000-0000-0000-0000-0000000a1001');
 -- unknown id
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal2'); -- physician_a
 select public.open_patient_detail('00000000-0000-0000-0000-0000009e9e9e');
@@ -74,16 +73,37 @@ select is(
 select is(
   (select count(*)::int from public.audit_log
     where event_type = 'patient_detail_opened'
-      and actor_user_id = '00000000-0000-0000-0000-0000000a0004'),
-  0,
-  'read_only open writes no patient_detail_opened row'
-);
-select is(
-  (select count(*)::int from public.audit_log
-    where event_type = 'patient_detail_opened'
       and target_user_id = '00000000-0000-0000-0000-0000009e9e9e'),
   0,
   'unknown-id open writes no patient_detail_opened row'
+);
+
+-- ----- read_only_a: a legitimate open, audited exactly once; twice -> two rows -----
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0004', 'aal2'); -- read_only_a
+select public.open_patient_detail('00000000-0000-0000-0000-0000000a1001');
+reset role;
+select set_config('request.jwt.claims', '', true);
+select is(
+  (select count(*)::int from public.audit_log
+    where event_type = 'patient_detail_opened'
+      and actor_user_id = '00000000-0000-0000-0000-0000000a0004'
+      and target_user_id = '00000000-0000-0000-0000-0000000a1001'
+      and org_id = '00000000-0000-0000-0000-00000000000a'),
+  1,
+  'read_only_a open writes exactly one patient_detail_opened row'
+);
+
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0004', 'aal2'); -- read_only_a
+select public.open_patient_detail('00000000-0000-0000-0000-0000000a1001');
+reset role;
+select set_config('request.jwt.claims', '', true);
+select is(
+  (select count(*)::int from public.audit_log
+    where event_type = 'patient_detail_opened'
+      and actor_user_id = '00000000-0000-0000-0000-0000000a0004'
+      and target_user_id = '00000000-0000-0000-0000-0000000a1001'),
+  2,
+  'a second read_only_a open writes exactly one more row'
 );
 
 select * from finish();

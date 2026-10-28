@@ -1,10 +1,12 @@
 -- TC-015 slice 1 (physician list + detail), fail-first RLS isolation.
 --
--- Leo's ruling R1 (Henry 26 Oct): read_only may SELECT the roster (patients +
--- roster RPC columns) but gets NO lab_results / trend / detail. Its detail
--- open returns not-found (identical to unknown id / other clinic) - never a
--- distinct "forbidden". Physician + care_coordinator (same org, aal2) get the
--- list and the detail. Another clinic's patient is invisible everywhere.
+-- Leo ruling, fix round (28 Oct, supersedes R1 26 Oct): physician,
+-- care_coordinator and read_only all see the list, detail and trends for
+-- their own clinic; every detail open is audited; read_only gets no actions
+-- (enforced by every write/action RPC and by the absence of any insert/
+-- update/delete grant on the clinical tables - see the read_only block
+-- below). Another clinic's patient is invisible to every role, identical
+-- not-found (never a distinct "forbidden") whether cross-org or unknown id.
 --
 -- Fixtures are built inside this file's own transaction (as the pg_prove
 -- superuser, before authenticate_as) with TC-015-namespaced UUIDs, and rolled
@@ -110,7 +112,10 @@ select is(
 );
 
 -- ---------------------------------------------------------------------------
--- read_only_a: roster YES; lab_results / trend / detail NO (not-found).
+-- read_only_a (Leo ruling, fix round 28 Oct): may view own-clinic list,
+-- detail and trends, every open audited, but no actions. Org B stays
+-- invisible everywhere, identical to every other role. Write/action RPCs and
+-- direct table writes are refused.
 -- ---------------------------------------------------------------------------
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0004', 'aal2'); -- read_only_a
 select is(
@@ -120,19 +125,113 @@ select is(
   'read_only_a CAN see the roster row for a1001'
 );
 select is(
-  (select count(*) from public.lab_results)::int,
-  0,
-  'read_only_a sees no lab_results rows at all (no clinical detail)'
+  (select count(*) from public.lab_results where patient_id = '00000000-0000-0000-0000-0000000a1001')::int,
+  1,
+  'read_only_a sees a1001 lab_results (own clinic)'
 );
-select is(
+select isnt(
   (select public.open_patient_detail('00000000-0000-0000-0000-0000000a1001')),
   null,
-  'read_only_a opening a1001 detail returns not-found (null), same as unknown'
+  'read_only_a can open a1001 detail (own clinic)'
+);
+select is(
+  (select count(*)::int from jsonb_object_keys(
+     public.open_patient_detail('00000000-0000-0000-0000-0000000a1001')) k
+   where k not in ('patient_id', 'display_name', 'mrn', 'sex', 'birth_date', 'program_started_on', 'last_activity_at', 'treatment')),
+  0,
+  'read_only_a detail payload has only the whitelisted keys'
 );
 select is(
   (select count(*) from public.patient_trend('00000000-0000-0000-0000-0000000a1001', 'hba1c', 'ALL'))::int,
+  1,
+  'read_only_a gets trend points for a1001'
+);
+select is(
+  (select count(*) from public.patient_latest_results('00000000-0000-0000-0000-0000000a1001'))::int,
+  1,
+  'read_only_a gets latest results for a1001'
+);
+
+-- ----- org B stays invisible to read_only_a, same as every other role -----
+select is(
+  (select count(*) from public.physician_patient_roster(null, 'all', 'recent', 50, 0)
+    where patient_id = '00000000-0000-0000-0000-0000000b1001')::int,
   0,
-  'read_only_a gets no trend points'
+  'read_only_a roster never includes org B patient b1001'
+);
+select is(
+  (select public.open_patient_detail('00000000-0000-0000-0000-0000000b1001')),
+  null,
+  'read_only_a opening org B patient returns not-found (null)'
+);
+select is(
+  (select count(*) from public.patient_trend('00000000-0000-0000-0000-0000000b1001', 'hba1c', 'ALL'))::int,
+  0,
+  'read_only_a gets no trend points for org B patient b1001'
+);
+select is(
+  (select count(*) from public.patient_latest_results('00000000-0000-0000-0000-0000000b1001'))::int,
+  0,
+  'read_only_a gets no latest results for org B patient b1001'
+);
+select is(
+  (select count(*) from public.lab_results where patient_id = '00000000-0000-0000-0000-0000000b1001')::int,
+  0,
+  'read_only_a sees no org B lab_results'
+);
+select is(
+  (select count(*) from public.patient_treatments where patient_id = '00000000-0000-0000-0000-0000000b1001')::int,
+  0,
+  'read_only_a sees no org B patient_treatments'
+);
+
+-- ----- read_only_a is refused every write/action RPC -----
+select throws_ok(
+  $$ select public.flag_lab_report_needs_review('00000000-0000-0000-0000-00000015a301') $$,
+  '42501',
+  'not authorized',
+  'read_only_a is refused flag_lab_report_needs_review'
+);
+select throws_ok(
+  $$ select public.create_patient_record('00000000-0000-0000-0000-0000000a1001') $$,
+  '42501',
+  'not authorized',
+  'read_only_a is refused create_patient_record'
+);
+select throws_ok(
+  $$ select public.change_member_role('00000000-0000-0000-0000-0000000a0002', 'read_only') $$,
+  '42501',
+  'not authorized',
+  'read_only_a is refused change_member_role'
+);
+select throws_ok(
+  $$ select public.request_mfa_reset('00000000-0000-0000-0000-0000000a0002') $$,
+  '42501',
+  'not authorized',
+  'read_only_a is refused request_mfa_reset'
+);
+
+-- ----- direct table writes are refused (no insert/update/delete grant) -----
+select throws_ok(
+  $$ insert into public.lab_results (org_id, patient_id, lab_report_id, analyte_key, analyte_label, value, unit, status, taken_at)
+     values ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', '00000000-0000-0000-0000-00000015a301', 'hba1c', 'HbA1c', 9.9, '%', 'within_range', now()) $$,
+  '42501', null,
+  'read_only_a is refused a direct INSERT on lab_results'
+);
+select throws_ok(
+  $$ update public.lab_results set value = 1.0 where patient_id = '00000000-0000-0000-0000-0000000a1001' $$,
+  '42501', null,
+  'read_only_a is refused a direct UPDATE on lab_results'
+);
+select throws_ok(
+  $$ delete from public.patient_treatments where patient_id = '00000000-0000-0000-0000-0000000a1001' $$,
+  '42501', null,
+  'read_only_a is refused a direct DELETE on patient_treatments'
+);
+select throws_ok(
+  $$ update public.patient_roster_meta set open_questions = 99 where patient_id = '00000000-0000-0000-0000-0000000a1001' $$,
+  '42501', null,
+  'read_only_a is refused a direct UPDATE on patient_roster_meta'
 );
 
 -- ---------------------------------------------------------------------------

@@ -1,0 +1,39 @@
+Connecting to local database...
+psql:<worktree>/supabase/tests/000_fixtures.sql:9: NOTICE:  extension "pgtap" already exists, skipping
+<worktree>/supabase/tests/000_fixtures.sql ....................... ok
+<worktree>/supabase/tests/710_tc015_roster_detail_isolation.sql .. 
+# Failed test 13: "read_only_a sees a1001 lab_results (own clinic)"
+#         have: 0
+#         want: 1
+# Failed test 14: "read_only_a can open a1001 detail (own clinic)"
+#         have: NULL
+#         want: anything else
+# Failed test 16: "read_only_a gets trend points for a1001"
+#         have: 0
+#         want: 1
+# Failed test 17: "read_only_a gets latest results for a1001"
+#         have: 0
+#         want: 1
+# Looks like you failed 4 tests of 34
+Failed 4/34 subtests 
+<worktree>/supabase/tests/715_tc015_trend_exclusions.sql ......... ok
+<worktree>/supabase/tests/717_tc015_detail_open_audit.sql ........ 
+# Failed test 6: "read_only_a open writes exactly one patient_detail_opened row"
+#         have: 0
+#         want: 1
+# Failed test 7: "a second read_only_a open writes exactly one more row"
+#         have: 0
+#         want: 2
+# Looks like you failed 2 tests of 7
+Failed 2/7 subtests 
+<worktree>/supabase/tests/719_tc015_no_dose.sql .................. ok
+
+Test Summary Report
+-------------------
+<worktree>/supabase/tests/710_tc015_roster_detail_isolation.sql (Wstat: 0 Tests: 34 Failed: 4)
+  Failed tests:  13-14, 16-17
+<worktree>/supabase/tests/717_tc015_detail_open_audit.sql      (Wstat: 0 Tests: 7 Failed: 2)
+  Failed tests:  6-7
+Files=5, Tests=57,  0 wallclock secs ( 0.02 usr  0.01 sys +  0.03 cusr  0.01 csys =  0.07 CPU)
+Result: FAIL
+error running container: exit 1
