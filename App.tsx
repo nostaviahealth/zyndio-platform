@@ -33,6 +33,7 @@ import NutritionWorkbench from './pages/admin/NutritionWorkbench';
 import NutritionLab from './pages/admin/NutritionLab';
 import UsersRoles from './pages/admin/UsersRoles';
 import PhysicianRoster from './pages/admin/clinic/PhysicianRoster';
+import PhysicianPatientDetail from './pages/admin/clinic/PhysicianPatientDetail';
 import SignIn from './pages/admin/SignIn';
 import AcceptInvite from './pages/admin/AcceptInvite';
 import ResetPassword from './pages/admin/ResetPassword';
@@ -138,6 +139,14 @@ const App: React.FC = () => {
                     element={
                       <RequireRole roles={['physician', 'care_coordinator', 'read_only']}>
                         <PhysicianRoster />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="roster/:id"
+                    element={
+                      <RequireRole roles={['physician', 'care_coordinator', 'read_only']}>
+                        <PhysicianPatientDetail />
                       </RequireRole>
                     }
                   />

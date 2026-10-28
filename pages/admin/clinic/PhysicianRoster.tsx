@@ -337,7 +337,7 @@ const RosterTable: React.FC<{
             <Link
               key={r.patientId}
               to={`/admin/roster/${r.patientId}`}
-              state={{ flags: r.flags }}
+              state={{ flags: r.flags, openQuestions: r.openQuestions }}
               aria-label={`Open ${r.displayName}`}
               className={`${BODY_ROW} border-b border-slate-100 last:border-0 hover:bg-[#F5F7FD] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#2C5CF2] dark:border-[#222838] dark:hover:bg-[#151A27]`}
             >
