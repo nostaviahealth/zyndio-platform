@@ -195,3 +195,16 @@ L32, after the flip: the read-only open used to sit at 717 #5 and expected 0 aud
 That assertion now lives at #6–#7 and expects one audit row per open, so variant B
 correctly passes it. The two invisible-patient assertions (#4 and #5) still fail
 against variant B. The earlier L32 run above used the pre-flip 717.
+
+## Roster speed: 720 parity and 721 privileges (28 Oct 2026)
+
+- `720_tc015_roster_perf_parity.sql` (37 assertions, by C3):
+  `pgtap-prefix-roster-perf.txt`. Before the summary-table migration, the 10
+  structural assertions fail and the 27 parity and drift assertions pass. The
+  test checks the new summary against the old per-result computation, so it is
+  meant to pass before the migration.
+- `721_tc015_roster_summary_privs.sql` (6 assertions, Leo's review of C3):
+  `pgtap-prefix-721-summary-privs.txt`. At 5b3d0c7, #2 and #4 fail:
+  `authenticated` could execute the SECURITY DEFINER
+  `refresh_roster_summary(uuid)` and `refresh_roster_summary_all()` through
+  Supabase's default privileges. Fixed in `20261028161500_tc015_roster_summary_revoke.sql`.
