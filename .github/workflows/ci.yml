@@ -8,8 +8,36 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      flutter: ${{ steps.filter.outputs.flutter }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            flutter:
+              - 'flutter_app/**'
+              - 'packages/**'
+              - '.github/workflows/ci.yml'
+              - 'scripts/analyze-gate.sh'
+              - 'scripts/leak-scan.sh'
+              - 'scripts/test-leak-scan.sh'
+
   flutter:
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.flutter == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Free disk space
@@ -64,6 +92,16 @@ jobs:
         working-directory: flutter_app
         run: flutter build web
 
+      - name: Upload Flutter build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-build
+          path: |
+            flutter_app/build/web
+            flutter_app/build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 1
+          if-no-files-found: error
+
   web:
     runs-on: ubuntu-latest
     strategy:
@@ -110,6 +148,17 @@ jobs:
         working-directory: space
         run: npm run build
 
+      - name: Upload web build output
+        if: matrix.node-version == 22
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: |
+            dist
+            space/dist
+          retention-days: 1
+          if-no-files-found: error
+
   secrets:
     runs-on: ubuntu-latest
     steps:
@@ -132,64 +181,27 @@ jobs:
         run: gitleaks git --config .gitleaks.toml --redact
 
   leak-scan:
-    needs: [flutter, web]
+    needs: [changes, flutter, web]
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.web.result == 'success' && (needs.flutter.result == 'success' || needs.flutter.result == 'skipped') }}
     runs-on: ubuntu-latest
     steps:
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift
-          sudo docker image prune --all --force || true
-          df -h /
-
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - name: Download web build output
+        uses: actions/download-artifact@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          name: web-build
 
-      - uses: subosito/flutter-action@v2
+      - name: Download Flutter build output
+        if: needs.flutter.result == 'success'
+        uses: actions/download-artifact@v4
         with:
-          flutter-version: '3.47.8'
-          channel: 'stable'
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: pub get (flutter_app)
-        working-directory: flutter_app
-        run: flutter pub get
-
-      - name: Gradle memory limits for CI runner
-        run: |
-          mkdir -p ~/.gradle
-          cat >> ~/.gradle/gradle.properties <<'EOF'
-          org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError
-          kotlin.daemon.jvmargs=-Xmx1g
-          org.gradle.workers.max=2
-          org.gradle.daemon=false
-          EOF
-          free -h
-
-      - name: Build web (root)
-        run: |
-          npm ci
-          npm run build
-
-      - name: Build web (space)
-        working-directory: space
-        run: |
-          npm ci
-          npm run build
-
-      - name: Build Flutter web
-        working-directory: flutter_app
-        run: flutter build web
-
-      - name: Build Flutter debug APK
-        working-directory: flutter_app
-        run: flutter build apk --debug
+          name: flutter-build
+          # upload-artifact roots a multi-path artifact at the paths' common
+          # ancestor (flutter_app/build), so restore it there.
+          path: flutter_app/build
 
       - name: Leak scan
+        env:
+          LEAK_SCAN_FLUTTER: ${{ needs.flutter.result == 'skipped' && 'skip' || '' }}
         run: bash scripts/leak-scan.sh
