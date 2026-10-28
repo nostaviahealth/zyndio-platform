@@ -1,5 +1,6 @@
 import React from 'react';
 import { Search } from 'lucide-react';
+import { FOCUS_RING_CLASS } from './focusRing';
 
 interface SearchFieldProps {
   value?: string;
@@ -21,7 +22,7 @@ const SearchField: React.FC<SearchFieldProps> = ({ value, onChange, placeholder,
     <input
       type="search"
       placeholder={placeholder}
-      className="min-h-[44px] w-full rounded-full border border-slate-300 bg-white pl-11 pr-4 text-sm text-[#030616] placeholder:text-slate-400 dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8] dark:placeholder:text-[#8F9AAF]"
+      className={`min-h-[44px] w-full rounded-full border border-slate-300 bg-white pl-11 pr-4 text-sm text-[#030616] placeholder:text-slate-400 dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8] dark:placeholder:text-[#8F9AAF] ${FOCUS_RING_CLASS}`}
       value={value}
       onChange={onChange ? (e) => onChange(e.target.value) : undefined}
       {...rest}

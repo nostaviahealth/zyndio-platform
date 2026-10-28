@@ -4,28 +4,29 @@
 // reveals whether the email already has an account anywhere else - every
 // outcome that isn't a validation error on the *caller's own input* returns
 // the identical `{ status: 'ok' }` body.
+//
+// TC-014 / Clara M16: Full name is required; role must be one the inviter
+// can grant (canGrantRole / public.can_grant_role). Role and full_name are
+// stored on invites and org_members at invite time (server-owned name —
+// not user_metadata) and applied at accept - never trusted from the client
+// then.
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeadersFor, jsonResponse } from '../_shared/cors.ts'
 import { AuthError, requireOrgAdminActor } from '../_shared/requireOrgAdminActor.ts'
 import { writeAuditLog, insertNotification } from '../_shared/auditAndNotify.ts'
 import {
+  canGrantRole,
   generatePlaceholderPassword,
   generateToken,
   hashTokenHex,
   isValidAppRole,
   isValidEmail,
   normalizeEmail,
+  normalizeFullName,
 } from '../_shared/validation.ts'
+import { isCancelledInviteLeftover } from '../_shared/cancelInviteAuthDelete.ts'
 
-// Resolves an email that already has an auth.users row (createUser just
-// failed with "already registered") back to its user id - via the
-// find_user_id_by_email() SQL function, not GoTrue's admin listUsers
-// endpoint. listUsers() scans every user in the instance and is one bad row
-// away from a hard failure (observed live: a NULL confirmation_token on an
-// unrelated account 500s the whole list, which would otherwise turn a
-// routine re-invite into an error - and a 500-vs-200 split is itself an
-// enumeration side channel).
 async function findUserIdByEmail(admin: SupabaseClient, email: string): Promise<string | null> {
   const { data } = await admin.rpc('find_user_id_by_email', { p_email: email })
   return (data as string | null) ?? null
@@ -40,9 +41,19 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}))
     const email = normalizeEmail(body.email)
     const role = body.role
+    const fullName = normalizeFullName(body.full_name ?? body.fullName)
 
-    if (!email || !isValidEmail(email) || !isValidAppRole(role)) {
-      return jsonResponse(req, { error: 'invalid_request' }, 400)
+    if (!fullName) {
+      return jsonResponse(req, { error: 'invalid_request', field: 'full_name' }, 400)
+    }
+    if (!email || !isValidEmail(email)) {
+      return jsonResponse(req, { error: 'invalid_request', field: 'email' }, 400)
+    }
+    if (!isValidAppRole(role)) {
+      return jsonResponse(req, { error: 'invalid_request', field: 'role' }, 400)
+    }
+    if (!canGrantRole(actor.role, role)) {
+      return jsonResponse(req, { error: 'role_not_allowed' }, 403)
     }
 
     let userId: string
@@ -85,7 +96,7 @@ serve(async (req) => {
       // Resend: supersede any still-live invite for this org/email before
       // issuing a fresh token (the partial unique index only allows one
       // live invite per org+email at a time). Also pick up a changed role
-      // (L7): a resend with a different role must not keep the stale one.
+      // (L7) and name (TC-014).
       await admin
         .from('invites')
         .update({ revoked_at: new Date().toISOString() })
@@ -93,14 +104,13 @@ serve(async (req) => {
         .ilike('email', email)
         .is('accepted_at', null)
         .is('revoked_at', null)
-      // TC-011: role changes on re-invite stay inside the inviter's org only.
       const { error: roleUpdateError } = await admin
         .from('org_members')
-        .update({ role })
+        .update({ role, full_name: fullName })
         .eq('user_id', userId)
         .eq('org_id', actor.orgId)
       if (roleUpdateError) {
-        console.error('invite-user: org_members role update on resend failed', roleUpdateError)
+        console.error('invite-user: org_members role/name update on resend failed', roleUpdateError)
         return jsonResponse(req, { error: 'internal_error' }, 500)
       }
     } else if (existingMember) {
@@ -111,15 +121,31 @@ serve(async (req) => {
       // M6: an account that existed before this invite call (a patient
       // account, or anything else never routed through invite-user) and
       // has no org_members row at all. Never silently attach org/staff
-      // access to it, and never let accept-invite later overwrite its real
-      // password - refuse, but look identical to a successful invite.
-      return jsonResponse(req, { status: 'ok' })
+      // access to it — unless Clara L30: it is only a leftover from a
+      // cancelled invite whose auth delete failed (no patient / platform
+      // admin / self-signup, only revoked invite history).
+      const leftover = await isCancelledInviteLeftover(admin, userId)
+      if (!leftover) {
+        return jsonResponse(req, { status: 'ok' })
+      }
+      const { error: memberError } = await admin.from('org_members').insert({
+        user_id: userId,
+        org_id: actor.orgId,
+        role,
+        status: 'invited',
+        full_name: fullName,
+      })
+      if (memberError) {
+        console.error('invite-user: org_members insert on leftover re-invite failed', memberError)
+        return jsonResponse(req, { error: 'internal_error' }, 500)
+      }
     } else {
       const { error: memberError } = await admin.from('org_members').insert({
         user_id: userId,
         org_id: actor.orgId,
         role,
         status: 'invited',
+        full_name: fullName,
       })
       if (memberError) {
         console.error('invite-user: org_members insert failed', memberError)
@@ -134,6 +160,7 @@ serve(async (req) => {
       org_id: actor.orgId,
       email,
       role,
+      full_name: fullName,
       token_hash: tokenHash,
       invited_by: actor.userId,
       user_id: userId,
@@ -148,15 +175,9 @@ serve(async (req) => {
       actorUserId: actor.userId,
       targetUserId: userId,
       orgId: actor.orgId,
-      metadata: { email, role },
+      metadata: { email, role, full_name: fullName },
     })
 
-    // B5: stays 'pending' with the plaintext token until process-outbox (the
-    // stub email worker) "sends" it - see supabase/functions/process-outbox.
-    // Modeled as an async worker rather than inline here because a real
-    // provider (TC-006) would be async too, and because the plaintext token
-    // genuinely needs to survive until *something* delivers it; nulling it
-    // at insert time would make the invite link unrecoverable by anyone.
     await insertNotification(admin, {
       userId,
       orgId: actor.orgId,

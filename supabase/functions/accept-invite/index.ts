@@ -22,7 +22,7 @@ serve(async (req) => {
 
     const { data: invite } = await admin
       .from('invites')
-      .select('id, org_id, user_id, expires_at, accepted_at, revoked_at')
+      .select('id, org_id, user_id, role, full_name, expires_at, accepted_at, revoked_at')
       .eq('token_hash', tokenHash)
       .maybeSingle()
 
@@ -88,9 +88,11 @@ serve(async (req) => {
     // silently reverse that (H3). select() + .length lets us see how many
     // rows actually matched, since an .eq('status','invited') that matches
     // zero rows otherwise looks identical to success.
+    // Clara M16: refresh server-owned full_name from the invite row in case
+    // a resend changed it after the org_members insert.
     const { data: activated, error: memberError } = await admin
       .from('org_members')
-      .update({ status: 'active' })
+      .update({ status: 'active', full_name: invite!.full_name ?? null })
       .eq('user_id', invite!.user_id)
       .eq('org_id', invite!.org_id)
       .eq('status', 'invited')
@@ -112,11 +114,17 @@ serve(async (req) => {
       return jsonResponse(req, { error: 'internal_error' }, 500)
     }
 
+    // Role was stored on the invite / org_members at invite time - never
+    // taken from the accept-invite client body (TC-014).
     await writeAuditLog(admin, {
       eventType: 'invite_accepted',
       actorUserId: invite!.user_id,
       targetUserId: invite!.user_id,
       orgId: invite!.org_id,
+      metadata: {
+        role: invite!.role,
+        full_name: invite!.full_name ?? null,
+      },
     })
 
     return jsonResponse(req, { status: 'ok' })

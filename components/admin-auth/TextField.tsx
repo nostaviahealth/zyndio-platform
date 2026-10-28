@@ -1,4 +1,5 @@
 import React, { useId } from 'react';
+import { FOCUS_RING_CLASS } from '../ui/focusRing';
 
 interface TextFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
@@ -22,7 +23,7 @@ const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
           id={fieldId}
           aria-invalid={error || undefined}
           aria-describedby={hintId}
-          className={`w-full min-h-[44px] px-4 rounded-xl border bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[#2C5CF2] ${
+          className={`w-full min-h-[44px] px-4 rounded-xl border bg-white text-slate-900 placeholder-slate-400 ${FOCUS_RING_CLASS} ${
             error ? 'border-red-500' : 'border-slate-300'
           } ${className}`}
           {...rest}

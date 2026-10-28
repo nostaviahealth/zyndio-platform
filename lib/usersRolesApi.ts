@@ -6,6 +6,7 @@ export type MemberStatus = 'invited' | 'active' | 'deactivated';
 export interface OrgMember {
   user_id: string;
   email: string;
+  full_name: string | null;
   role: AppRole;
   status: MemberStatus;
   created_at: string;
@@ -27,11 +28,26 @@ export async function listOrgMembers(): Promise<OrgMember[]> {
   return (data ?? []) as OrgMember[];
 }
 
-export async function inviteUser(email: string, role: AppRole): Promise<ApiResult> {
-  const { data, error } = await supabase.functions.invoke('invite-user', { body: { email, role } });
+export async function inviteUser(
+  email: string,
+  role: AppRole,
+  fullName: string
+): Promise<ApiResult> {
+  const { data, error } = await supabase.functions.invoke('invite-user', {
+    body: { email, role, full_name: fullName },
+  });
   if (error) return { ok: false, error: 'internal_error' };
   if (data?.error) return { ok: false, error: data.error as string };
   return { ok: true };
+}
+
+export async function cancelInvite(targetUserId: string): Promise<ApiResult & { email?: string }> {
+  const { data, error } = await supabase.functions.invoke('cancel-invite', {
+    body: { target_user_id: targetUserId },
+  });
+  if (error) return { ok: false, error: 'internal_error' };
+  if (data?.error) return { ok: false, error: data.error as string };
+  return { ok: true, email: (data?.email as string | undefined) ?? undefined };
 }
 
 export async function changeMemberRole(targetUserId: string, newRole: AppRole): Promise<ApiResult> {

@@ -6,6 +6,7 @@ import {
   OrgMember,
   changeMemberRole,
   checkIsPlatformAdmin,
+  cancelInvite,
   deactivateUser,
   inviteUser,
   listOrgMembers,
@@ -24,6 +25,7 @@ import TwoFactorStatus from '../../components/ui/TwoFactorStatus';
 import NameCell from '../../components/ui/NameCell';
 import SearchField from '../../components/ui/SearchField';
 import SelectField from '../../components/ui/SelectField';
+import TextInput from '../../components/ui/TextInput';
 import FictionalDataTag from '../../components/ui/FictionalDataTag';
 import { Plus } from 'lucide-react';
 
@@ -65,10 +67,9 @@ function formatLastSignIn(member: OrgMember): string {
   return member.status === 'invited' ? 'Never' : 'Unknown';
 }
 
-// list_org_members() has no display-name column (auth.users is the source
-// of truth for email only - see list_org_members()'s own comment). Derive a
-// readable name from the local part of the email instead of adding one, the
-// same stopgap this page already uses for last-sign-in/two-factor.
+// Prefer the Full name captured at invite (list_org_members.full_name from
+// auth user_metadata). Fall back to a readable email local-part for older
+// rows that predate TC-014.
 function displayNameFromEmail(email: string): string {
   const local = email.split('@')[0] ?? email;
   return local
@@ -76,6 +77,11 @@ function displayNameFromEmail(email: string): string {
     .filter(Boolean)
     .map((part) => part[0].toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+function memberDisplayName(member: OrgMember): string {
+  const named = member.full_name?.trim();
+  return named && named.length > 0 ? named : displayNameFromEmail(member.email);
 }
 
 function formatTwoFactor(member: OrgMember): string {
@@ -106,6 +112,7 @@ type DialogState =
   | { kind: 'invite' }
   | { kind: 'role-confirm'; member: OrgMember; newRole: AppRole }
   | { kind: 'deactivate-confirm'; member: OrgMember }
+  | { kind: 'cancel-invite-confirm'; member: OrgMember }
   | { kind: 'last-admin' }
   // Zyndio (platform) admin only - performs the reset directly.
   | { kind: 'reset-2fa'; member: OrgMember }
@@ -146,29 +153,36 @@ const UsersRolesPage: React.FC = () => {
     const term = search.trim().toLowerCase();
     return members.filter((m) => {
       if (statusFilter !== 'all' && m.status !== statusFilter) return false;
-      if (term && !m.email.toLowerCase().includes(term)) return false;
+      if (
+        term &&
+        !m.email.toLowerCase().includes(term) &&
+        !(m.full_name ?? '').toLowerCase().includes(term)
+      )
+        return false;
       return true;
     });
   }, [members, search, statusFilter]);
 
   const closeDialog = () => setDialog(null);
 
-  const handleInvite = async (email: string, role: AppRole) => {
-    const result = await inviteUser(email, role);
+  const handleInvite = async (email: string, role: AppRole, fullName: string) => {
+    const result = await inviteUser(email, role, fullName);
     if (!result.ok) return result;
     closeDialog();
     await load();
-    showToast({
-      message: `Invite sent to ${email}.`,
-      actionLabel: 'Undo',
-      onAction: async () => {
-        const target = (await listOrgMembers()).find((m) => m.email.toLowerCase() === email.toLowerCase());
-        if (target) {
-          await deactivateUser(target.user_id);
-          await load();
-        }
-      },
-    });
+    // Ava TC-014: toast has no Undo — withdraw via Cancel invite on the row.
+    showToast({ message: `Invite sent to ${email}.` });
+    return result;
+  };
+
+  const handleCancelInvite = async (member: OrgMember) => {
+    setBusyUserId(member.user_id);
+    const result = await cancelInvite(member.user_id);
+    setBusyUserId(null);
+    if (!result.ok) return result;
+    closeDialog();
+    await load();
+    showToast({ message: `Invite cancelled for ${result.email ?? member.email}.` });
     return result;
   };
 
@@ -247,6 +261,15 @@ const UsersRolesPage: React.FC = () => {
           },
         ];
       }
+      if (m.status === 'invited') {
+        return [
+          {
+            label: 'Cancel invite',
+            destructive: true,
+            onClick: () => setDialog({ kind: 'cancel-invite-confirm', member: m }),
+          },
+        ];
+      }
       const items: RowActionItem[] = [];
       if (isPlatformAdmin) {
         items.push({ label: 'Reset two-factor', onClick: () => setDialog({ kind: 'reset-2fa', member: m }) });
@@ -269,7 +292,7 @@ const UsersRolesPage: React.FC = () => {
       header: 'Name',
       render: (m) => (
         <NameCell
-          name={`${displayNameFromEmail(m.email)}${m.user_id === selfUserId ? ' (you)' : ''}`}
+          name={`${memberDisplayName(m)}${m.user_id === selfUserId ? ' (you)' : ''}`}
           email={m.email}
         />
       ),
@@ -453,6 +476,14 @@ const UsersRolesPage: React.FC = () => {
         </Dialog>
       )}
 
+      {dialog?.kind === 'cancel-invite-confirm' && (
+        <CancelInviteDialog
+          member={dialog.member}
+          onClose={closeDialog}
+          onConfirm={handleCancelInvite}
+        />
+      )}
+
       {dialog?.kind === 'last-admin' && (
         <Dialog
           titleId="last-admin-title"
@@ -594,91 +625,209 @@ const RequestTwoFactorResetDialog: React.FC<{
 
 interface InviteDialogProps {
   onClose: () => void;
-  onSubmit: (email: string, role: AppRole) => Promise<{ ok: boolean; error?: string }>;
+  onSubmit: (
+    email: string,
+    role: AppRole,
+    fullName: string
+  ) => Promise<{ ok: boolean; error?: string }>;
 }
 
+// Ava TC-014: opening state empty + no role selected; Send stays enabled;
+// validation / sending / error / role_not_allowed follow the admin README.
 const InviteDialog: React.FC<InviteDialogProps> = ({ onClose, onSubmit }) => {
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<AppRole>('physician');
-  const [error, setError] = useState<string | null>(null);
+  const [role, setRole] = useState<AppRole | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{
+    fullName?: string;
+    email?: string;
+    role?: string;
+  }>({});
+  const [bannerError, setBannerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) {
-      setError('Enter a work email.');
-      return;
-    }
+    const next: typeof fieldErrors = {};
+    if (!fullName.trim()) next.fullName = 'Enter their full name.';
+    if (!email.trim()) next.email = 'Enter a work email.';
+    if (!role) next.role = 'Choose a role.';
+    setFieldErrors(next);
+    setBannerError(null);
+    if (Object.keys(next).length > 0) return;
+
     setSubmitting(true);
-    setError(null);
-    const result = await onSubmit(email.trim(), role);
+    const result = await onSubmit(email.trim(), role!, fullName.trim());
     setSubmitting(false);
     if (!result.ok) {
-      setError(
-        result.error === 'email_in_use' || result.error === 'already_registered'
-          ? 'Someone with this email already has an account.'
-          : "We couldn't send the invite. Try again."
-      );
+      if (result.error === 'role_not_allowed') {
+        setFieldErrors({ role: "You can't give this role. Ask a Zyndio admin." });
+      } else {
+        setBannerError(
+          "We couldn't send the invite. Nothing was saved. Check your connection and try again."
+        );
+      }
     }
   };
 
   return (
-    <Dialog titleId="invite-title" title="Invite a user" onClose={onClose} initialFocusSelector="#invite-email">
+    <Dialog titleId="invite-title" title="Invite a user" onClose={submitting ? () => {} : onClose} initialFocusSelector="#invite-full-name" panelClassName="max-w-[600px]">
       <p className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
         They&apos;ll get an email with a link to set a password and two-factor sign-in. The link works for 7 days.
       </p>
-      <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-        <div>
-          <label htmlFor="invite-email" className="text-sm font-semibold text-[#030616] dark:text-[#EEF1F8]">
-            Work email
-          </label>
-          <input
-            id="invite-email"
-            type="email"
-            required
-            className="mt-1 min-h-[44px] w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-[#030616] dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8]"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            aria-describedby={error ? 'invite-email-error' : undefined}
-            aria-invalid={error ? true : undefined}
-          />
-          {error && (
-            <p id="invite-email-error" className="mt-1 text-sm text-red-600 dark:text-[#FF8F86]" role="alert">
-              {error}
-            </p>
-          )}
+      {bannerError && (
+        <div
+          className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-[#FF8F86]/40 dark:bg-[#2F1513] dark:text-[#FF8F86]"
+          role="alert"
+        >
+          {bannerError}
         </div>
-        <div>
-          <span className="text-sm font-semibold text-[#030616] dark:text-[#EEF1F8]">Role</span>
-          <div className="mt-2 space-y-2">
+      )}
+      <form onSubmit={handleSubmit} className="mt-4 space-y-4" noValidate>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="invite-full-name" className="text-sm font-semibold text-[#030616] dark:text-[#EEF1F8]">
+              Full name
+            </label>
+            <TextInput
+              id="invite-full-name"
+              type="text"
+              autoComplete="name"
+              disabled={submitting}
+              className="mt-1"
+              error={!!fieldErrors.fullName}
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              aria-invalid={fieldErrors.fullName ? true : undefined}
+              aria-describedby={fieldErrors.fullName ? 'invite-full-name-error' : undefined}
+            />
+            {fieldErrors.fullName && (
+              <p id="invite-full-name-error" className="mt-1 text-sm text-red-600 dark:text-[#FF8F86]" role="alert">
+                {fieldErrors.fullName}
+              </p>
+            )}
+          </div>
+          <div>
+            <label htmlFor="invite-email" className="text-sm font-semibold text-[#030616] dark:text-[#EEF1F8]">
+              Work email
+            </label>
+            <TextInput
+              id="invite-email"
+              type="email"
+              autoComplete="email"
+              disabled={submitting}
+              className="mt-1"
+              error={!!fieldErrors.email}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              aria-invalid={fieldErrors.email ? true : undefined}
+              aria-describedby={fieldErrors.email ? 'invite-email-error' : undefined}
+            />
+            {fieldErrors.email && (
+              <p id="invite-email-error" className="mt-1 text-sm text-red-600 dark:text-[#FF8F86]" role="alert">
+                {fieldErrors.email}
+              </p>
+            )}
+          </div>
+        </div>
+        <fieldset disabled={submitting} className="disabled:opacity-60">
+          <legend className="text-sm font-semibold text-[#030616] dark:text-[#EEF1F8]">Role</legend>
+          <div className="mt-2 rounded-xl border border-slate-200 dark:border-[#222838]" role="radiogroup" aria-invalid={fieldErrors.role ? true : undefined} aria-describedby={fieldErrors.role ? 'invite-role-error' : undefined}>
             {ASSIGNABLE_ROLES.map((r) => (
-              <label key={r} className="flex items-start gap-2 text-sm">
+              <label
+                key={r}
+                className="flex cursor-pointer items-start gap-3 border-b border-slate-100 px-4 py-2.5 last:border-b-0 dark:border-[#222838]"
+              >
                 <input
                   type="radio"
                   name="invite-role"
                   value={r}
                   checked={role === r}
                   onChange={() => setRole(r)}
-                  className="mt-1"
+                  className={`mt-1 h-[22px] w-[22px] shrink-0 accent-[#2C5CF2] ${
+                    // Ava: red rings only for empty-role validation ("Choose a role."),
+                    // not for server role_not_allowed (inline message only).
+                    fieldErrors.role === 'Choose a role.'
+                      ? 'outline outline-2 outline-[#B42318] outline-offset-0 dark:outline-[#FF8F86]'
+                      : ''
+                  }`}
                 />
                 <span>
                   <span className="font-semibold text-[#030616] dark:text-[#EEF1F8]">{ROLE_LABELS[r]}</span>
                   <br />
-                  <span className="text-slate-600 dark:text-[#A6B0C3]">{ROLE_DESCRIPTIONS[r]}</span>
+                  <span className="text-sm text-slate-600 dark:text-[#A6B0C3]">{ROLE_DESCRIPTIONS[r]}</span>
                 </span>
               </label>
             ))}
           </div>
-        </div>
+          {fieldErrors.role && (
+            <p id="invite-role-error" className="mt-2 flex items-start gap-1.5 text-[13px] leading-[18px] text-[#B42318] dark:text-[#FF8F86]" role="alert">
+              {fieldErrors.role}
+            </p>
+          )}
+        </fieldset>
         <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
             Cancel
           </Button>
-          <Button type="submit" busy={submitting} busyLabel="Sending…">
+          <Button type="submit" busy={submitting} busyLabel="Sending invite">
             Send invite
           </Button>
         </div>
       </form>
+    </Dialog>
+  );
+};
+
+const CancelInviteDialog: React.FC<{
+  member: OrgMember;
+  onClose: () => void;
+  onConfirm: (member: OrgMember) => Promise<{ ok: boolean; error?: string }>;
+}> = ({ member, onClose, onConfirm }) => {
+  const [submitting, setSubmitting] = useState(false);
+  const [bannerError, setBannerError] = useState<string | null>(null);
+  const name = memberDisplayName(member);
+
+  return (
+    <Dialog
+      titleId="cancel-invite-title"
+      descriptionId="cancel-invite-body"
+      title={`Cancel the invite for ${name}?`}
+      onClose={submitting ? () => {} : onClose}
+    >
+      <p id="cancel-invite-body" className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
+        The link in their email stops working right away. You can invite them again later.
+      </p>
+      {bannerError && (
+        <div
+          className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-[#FF8F86]/40 dark:bg-[#2F1513] dark:text-[#FF8F86]"
+          role="alert"
+        >
+          {bannerError}
+        </div>
+      )}
+      <div className="mt-6 flex justify-end gap-3">
+        <Button type="button" variant="secondary" onClick={onClose} disabled={submitting} data-autofocus="true">
+          Keep invite
+        </Button>
+        <Button
+          type="button"
+          variant="destructive"
+          busy={submitting}
+          busyLabel="Cancelling…"
+          onClick={async () => {
+            setSubmitting(true);
+            setBannerError(null);
+            const result = await onConfirm(member);
+            setSubmitting(false);
+            if (!result.ok) {
+              setBannerError("We couldn't cancel the invite. Nothing was changed.");
+            }
+          }}
+        >
+          Cancel invite
+        </Button>
+      </div>
     </Dialog>
   );
 };
