@@ -45,17 +45,14 @@ select is(
 );
 
 -- Review group A, finding H2 (Clara PR #4 pre-review; Henry's binding
--- ruling, 26 Oct): read_only got no clinical detail at the DB level - its
--- SELECT on lab_reports was dropped entirely. TC-015 fix round (Leo ruling,
--- 28 Oct) supersedes H2: read_only now views the same own-clinic detail and
--- trends as physician/care_coordinator (still no write), so its SELECT on
--- lab_reports (read-only, same-org) is restored - see
--- 20261028150000_tc015_read_only_view_access.sql.
+-- ruling): read_only gets no clinical detail at the DB level - its SELECT on
+-- lab_reports was dropped entirely. This used to assert read_only_a could
+-- read the row; that's wrong per Henry and is corrected here, not weakened.
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0004', 'aal2'); -- read_only_a
 select is(
   (select count(*) from public.lab_reports)::int,
-  2,
-  'read_only_a sees same-org lab_reports (a3001 + a6004), no write (fix round supersedes H2)'
+  0,
+  'read_only_a cannot read any lab_reports row - no clinical detail at the DB level'
 );
 select throws_ok(
   $$ insert into public.lab_reports (id, org_id, patient_id, report_type, data)

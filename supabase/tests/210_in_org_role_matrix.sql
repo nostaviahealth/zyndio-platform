@@ -269,11 +269,6 @@ select throws_ok(
 -- its SELECT on patient_profiles/lab_reports/consents was dropped entirely.
 -- These three used to assert read access; corrected to 0 rows (not
 -- weakened - the point of the finding is that this access must not exist).
--- TC-015 fix round (Leo ruling, 28 Oct) supersedes H2 for lab_reports only:
--- read_only now views the same own-clinic detail/trends as physician/
--- care_coordinator, which needs lab_reports for the identity_hold exclusion
--- - see 20261028150000_tc015_read_only_view_access.sql. patient_profiles
--- and consents are untouched by that ruling and stay denied.
 select is((select count(*) from public.patient_profiles)::int, 0, 'read_only_a x patient_profiles x select: denied - no clinical detail at the DB level');
 update public.patient_profiles set data = '{"hacked":true}' where id = '00000000-0000-0000-0000-0000000a2001';
 select throws_ok(
@@ -281,7 +276,7 @@ select throws_ok(
      values ('00000000-0000-0000-0000-0000000f0007', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', '{}') $$,
   '42501', null, 'read_only_a x patient_profiles x insert: denied');
 
-select is((select count(*) from public.lab_reports)::int, 1, 'read_only_a x lab_reports x select: allowed, same-org only (TC-015 fix round supersedes H2)');
+select is((select count(*) from public.lab_reports)::int, 0, 'read_only_a x lab_reports x select: denied - no clinical detail at the DB level');
 select throws_ok(
   $$ insert into public.lab_reports (id, org_id, patient_id, report_type, data)
      values ('00000000-0000-0000-0000-0000000f0008', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', 'x', '{}') $$,

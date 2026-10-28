@@ -34,7 +34,8 @@ insert into public.lab_results
   ('00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000b1001', '00000000-0000-0000-0000-00000015b301', 'hba1c', 'HbA1c', 6.1, '%', 'within_range', now() - interval '20 days');
 
 insert into public.patient_treatments (org_id, patient_id, name, started_on, status, source) values
-  ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', 'Example GLP-1 medication (fictional)', date '2026-04-02', 'Active', 'Zyndio record, Oct 20, 2026');
+  ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', 'Example GLP-1 medication (fictional)', date '2026-04-02', 'Active', 'Zyndio record, Oct 20, 2026'),
+  ('00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000b1001', 'Example statin (fictional)', date '2026-05-01', 'Active', 'Zyndio record, Oct 20, 2026');
 
 insert into public.patient_roster_meta (patient_id, org_id, sex, birth_date, program_started_on, last_activity_at) values
   ('00000000-0000-0000-0000-0000000a1001', '00000000-0000-0000-0000-00000000000a', 'F', date '1985-03-01', date '2026-04-02', now()),
