@@ -56,7 +56,7 @@ class NotificationService {
 
     // 2. Configure Local Notifications with Interactive Actions
     const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('@drawable/ic_stat_zyndio');
     
     // Define iOS notification categories with action buttons
     final DarwinInitializationSettings initializationSettingsDarwin =

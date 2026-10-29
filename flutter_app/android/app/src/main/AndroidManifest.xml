@@ -35,7 +35,8 @@
     <application
         android:label="Zyndio"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -61,6 +62,7 @@
             android:enabled="true"
             android:exported="true"
             android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round"
             android:label="Zyndio"
             android:targetActivity=".MainActivity">
             <intent-filter>
@@ -146,10 +148,11 @@
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="zyndio_general" />
 
-        <!-- Set default notification icon for the status bar -->
+        <!-- Set default notification icon for the status bar: single-colour
+             white-on-transparent glyph (TC-023 follow-up, Ava's handoff) -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@mipmap/ic_launcher" />
+            android:resource="@drawable/ic_stat_zyndio" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

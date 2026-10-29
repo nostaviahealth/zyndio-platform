@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Keep the notification small icon through release resource shrinking:
+     flutter_local_notifications resolves it by name at runtime (TC-023 follow-up). -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_stat_zyndio" />
