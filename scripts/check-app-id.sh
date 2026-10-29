@@ -7,6 +7,8 @@
 #   iOS Runner Info.plist CFBundleIdentifier follows the build setting
 #   Watch xcconfig / add_watch_target.rb  == com.zyndio.app.<suffix>
 #   The old placeholder ID appears nowhere in tracked files.
+#   App Group (app + Live Activity entitlements) == group.com.zyndio.app,
+#   and the old group string appears nowhere in tracked files.
 # packages/platform_wearables keeps its own ID (com.zyndio.wearables).
 set -euo pipefail
 ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
@@ -104,6 +106,38 @@ fi
 OLD_KT_DIR="kotlin/com/zyndio/""patient/"
 if git ls-files | grep -qF "$OLD_KT_DIR"; then
   err "old Kotlin package folder $OLD_KT_DIR is still tracked"
+fi
+
+APP_GROUP="group.com.zyndio.app"
+OLD_GROUP="group.com.zyndio.""health"
+# Both targets must carry the group, and it must be the same one.
+for ent in flutter_app/ios/Runner/Runner.entitlements flutter_app/ios/BrandLiveActivityExtension.entitlements; do
+  if ! grep -q '<key>com.apple.security.application-groups</key>' "$ent"; then
+    err "$ent has no com.apple.security.application-groups entry"
+  fi
+done
+# Every app-group entry in every tracked entitlements file.
+while IFS= read -r ent; do
+  [[ -z "$ent" ]] && continue
+  groups=$(awk '
+    /<key>com.apple.security.application-groups<\/key>/ { in_k=1; next }
+    in_k && /<\/array>/ { in_k=0 }
+    in_k && /<string>/ { gsub(/^[[:space:]]*<string>|<\/string>[[:space:]]*$/, ""); print }
+  ' "$ent")
+  while IFS= read -r g; do
+    [[ -z "$g" ]] && continue
+    if [[ "$g" == "$APP_GROUP" ]]; then
+      ok "App Group $g in $ent"
+    else
+      err "App Group '$g' in $ent must be $APP_GROUP"
+    fi
+  done <<<"$groups"
+done < <(git ls-files '*.entitlements')
+if old_group_hits=$(git grep -n -F "$OLD_GROUP" -- . 2>/dev/null) && [[ -n "$old_group_hits" ]]; then
+  err "old App Group still present in tracked files:"
+  echo "$old_group_hits" >&2
+else
+  ok "old App Group appears in no tracked file"
 fi
 
 if [[ "$fail" -ne 0 ]]; then
