@@ -158,7 +158,7 @@ const RowActionsMenu: React.FC<RowActionsMenuProps> = ({ email, items }) => {
               right: position ? `${position.right}px` : undefined,
               visibility: position ? undefined : 'hidden',
             }}
-            className="z-50 w-56 rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+            className="z-50 w-56 rounded-xl border border-slate-200 bg-white py-1 shadow-lg dark:border-[#222838] dark:bg-[#10141F] dark:shadow-black/40"
           >
             {items.map((item) => (
               <button
@@ -169,8 +169,8 @@ const RowActionsMenu: React.FC<RowActionsMenuProps> = ({ email, items }) => {
                   close(true);
                   item.onClick();
                 }}
-                className={`flex min-h-[44px] w-full items-center px-4 text-left text-sm hover:bg-slate-50 ${
-                  item.destructive ? 'font-semibold text-red-600' : 'text-slate-700'
+                className={`flex min-h-[44px] w-full items-center px-4 text-left text-sm hover:bg-slate-50 dark:hover:bg-[#222838] ${FOCUS_RING_CLASS} ${
+                  item.destructive ? 'font-semibold text-red-600 dark:text-[#FF8F86]' : 'text-slate-700 dark:text-[#EEF1F8]'
                 }`}
               >
                 {item.label}
