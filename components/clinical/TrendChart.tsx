@@ -9,7 +9,7 @@ import {
   YAxis,
 } from 'recharts';
 import { TrendPoint } from '../../lib/clinicalApi';
-import { formatMonthDay, formatValue, rangeLegendText, yAxisTicks } from '../../lib/clinicalFormat';
+import { formatAxisTick, formatMonthDay, formatValue, rangeLegendText, yAxisTicks } from '../../lib/clinicalFormat';
 
 // C59 trend chart (web rendering of the patient-app C30). Line + dots, latest
 // dot filled, range band only when a range exists, legend otherwise "No range
@@ -82,7 +82,10 @@ const TrendChart: React.FC<TrendChartProps> = ({ points, analyteLabel, unit, mod
             <YAxis
               width={44}
               domain={[min, max]}
+              type="number"
               ticks={ticks}
+              interval={0}
+              tickFormatter={formatAxisTick}
               tick={{ fill: c.axis, fontSize: 12 }}
               tickLine={false}
               axisLine={false}
