@@ -9,13 +9,20 @@
 #   - the flutter_launcher_icons generator (dependency or config) comes back
 #   - index.html head icon lines or site.webmanifest icons point at missing files
 #   - the old root favicon.png comes back
+# TC-023 follow-up:
+#   - the old in-app mark (assets/icons/app_icon*.png before Ava's handoff) is
+#     anywhere under flutter_app/, or a Dart asset reference to it is missing
+#   - the Android notification icon ic_stat_zyndio is missing in a density, is not
+#     white-on-transparent, or Firebase's default_notification_icon does not use it
+#   - <application> (and the default launcher alias) has no android:roundIcon
 # Optional: ICON_HANDOFF_DIR=<handoff dir> also checks the pins against the handoff.
 # Uses python3 standard library only.
 set -euo pipefail
 ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 cd "$ROOT"
 exec python3 - "$@" <<'PY'
-import hashlib, json, os, re, struct, sys, glob
+import hashlib, json, os, re, struct, sys, glob, zlib
+import xml.etree.ElementTree as ET
 
 fail = 0
 def err(msg):
@@ -172,6 +179,103 @@ else:
     err("public/site.webmanifest missing")
 if os.path.exists('favicon.png'): err("old root favicon.png is back (icons live in public/)")
 else: ok("no root favicon.png")
+
+# 6. TC-023 follow-up: in-app mark, notification icon, roundIcon.
+# 6a. The old in-app mark must not come back under any name. These are the
+#     sha256 of the pre-handoff assets/icons/app_icon.png (== app_icon_opaque.png)
+#     and app_icon_foreground.png on main at 548d726.
+OLD_MARKS = {
+    'a87de688bc52b6902e2a682a95bf60ba8e5c89d779d3c70bfe6797c6234abb44': 'old app_icon.png / app_icon_opaque.png',
+    '0515939f770c9b50a7b5621a8b25798e7fd356419108d722e3ebef41a0a82689': 'old app_icon_foreground.png',
+}
+old_hits = []
+for dirpath, dirnames, files in os.walk('flutter_app'):
+    dirnames[:] = [d for d in dirnames if d not in ('build', '.dart_tool', 'Pods', '.gradle')]
+    for n in files:
+        if n.lower().endswith('.png'):
+            p = os.path.join(dirpath, n)
+            if sha(p) in OLD_MARKS: old_hits.append(f"{p} ({OLD_MARKS[sha(p)]})")
+if old_hits: err(f"the old in-app mark is back: {old_hits}")
+else: ok("old in-app mark appears nowhere under flutter_app/")
+refs = set()
+for dirpath, _d, files in os.walk('flutter_app/lib'):
+    for n in files:
+        if n.endswith('.dart'):
+            refs.update(re.findall(r"assets/icons/app_icon[A-Za-z0-9_]*\.png", open(os.path.join(dirpath, n)).read()))
+missing_refs = sorted(r for r in refs if not os.path.isfile('flutter_app/' + r))
+if missing_refs: err(f"Dart code references missing in-app icon assets: {missing_refs}")
+elif refs: ok(f"Dart in-app icon references resolve: {sorted(refs)}")
+
+def png_rgba_pixels(p):
+    """Decode an 8-bit, non-interlaced RGBA PNG to a list of (r, g, b, a). None if not that format."""
+    with open(p, 'rb') as f:
+        data = f.read()
+    if data[:8] != b'\x89PNG\r\n\x1a\n': return None
+    pos, idat, hdr = 8, b'', None
+    while pos + 8 <= len(data):
+        ln, typ = struct.unpack('>I4s', data[pos:pos + 8])
+        body = data[pos + 8:pos + 8 + ln]
+        if typ == b'IHDR': hdr = struct.unpack('>IIBBBBB', body)
+        elif typ == b'IDAT': idat += body
+        elif typ == b'IEND': break
+        pos += 12 + ln
+    if not hdr: return None
+    w, h, depth, ctype, _c, _f, interlace = hdr
+    if depth != 8 or ctype != 6 or interlace: return None
+    raw, bpp, stride = zlib.decompress(idat), 4, w * 4
+    out, prev, i = [], bytearray(stride), 0
+    for _ in range(h):
+        ft, line = raw[i], bytearray(raw[i + 1:i + 1 + stride]); i += 1 + stride
+        for x in range(stride):
+            a = line[x - bpp] if x >= bpp else 0
+            b = prev[x]; c = prev[x - bpp] if x >= bpp else 0
+            if ft == 1: line[x] = (line[x] + a) & 255
+            elif ft == 2: line[x] = (line[x] + b) & 255
+            elif ft == 3: line[x] = (line[x] + ((a + b) >> 1)) & 255
+            elif ft == 4:
+                pa, pb, pc = abs(b - c), abs(a - c), abs(a + b - 2 * c)
+                pr = a if pa <= pb and pa <= pc else (b if pb <= pc else c)
+                line[x] = (line[x] + pr) & 255
+        out.extend(tuple(line[x:x + 4]) for x in range(0, stride, 4))
+        prev = line
+    return out
+
+# 6b. Notification icon: white on transparent, all five densities.
+STAT = {'mdpi': 24, 'hdpi': 36, 'xhdpi': 48, 'xxhdpi': 72, 'xxxhdpi': 96}
+sb = 0
+for d, size in STAT.items():
+    p = f'{RES}/drawable-{d}/ic_stat_zyndio.png'
+    if not os.path.isfile(p): err(f"{p} missing (notification icon)"); sb += 1; continue
+    info = png_info(p)
+    if not info or (info[0], info[1]) != (size, size):
+        err(f"{p} must be a {size}x{size} PNG (got {info[:2] if info else 'not a PNG'})"); sb += 1; continue
+    px = png_rgba_pixels(p)
+    if px is None: err(f"{p} must be an 8-bit RGBA PNG (white on transparent)"); sb += 1; continue
+    coloured = sum(1 for r, g, b, a in px if a and (r, g, b) != (255, 255, 255))
+    clear = sum(1 for *_rgb, a in px if a == 0)
+    if coloured: err(f"{p} is not single-colour white: {coloured} visible non-white pixels"); sb += 1
+    if not clear: err(f"{p} has no transparent pixels; Android would draw a solid square"); sb += 1
+    if not any(a for *_rgb, a in px): err(f"{p} is empty (fully transparent)"); sb += 1
+if not sb: ok("ic_stat_zyndio: 5 densities, white on transparent")
+
+MANIFEST = 'flutter_app/android/app/src/main/AndroidManifest.xml'
+A = '{http://schemas.android.com/apk/res/android}'
+app = ET.parse(MANIFEST).getroot().find('application')
+fcm = [m.get(A + 'resource') for m in app.findall('meta-data')
+       if m.get(A + 'name') == 'com.google.firebase.messaging.default_notification_icon']
+if fcm == ['@drawable/ic_stat_zyndio']:
+    ok("Firebase default_notification_icon = @drawable/ic_stat_zyndio")
+else:
+    err(f"Firebase default_notification_icon must be exactly one meta-data = @drawable/ic_stat_zyndio (got {fcm})")
+
+# 6c. roundIcon on the application and on every component that uses the launcher icon.
+rb = 0
+if app.get(A + 'roundIcon') != '@mipmap/ic_launcher_round':
+    err(f"<application> android:roundIcon must be @mipmap/ic_launcher_round (got {app.get(A + 'roundIcon')})"); rb += 1
+for comp in list(app.iter('activity')) + list(app.iter('activity-alias')):
+    if comp.get(A + 'icon') == '@mipmap/ic_launcher' and comp.get(A + 'roundIcon') != '@mipmap/ic_launcher_round':
+        err(f"{comp.get(A + 'name')} uses @mipmap/ic_launcher without android:roundIcon=@mipmap/ic_launcher_round"); rb += 1
+if not rb: ok("android:roundIcon = @mipmap/ic_launcher_round on <application> and the default launcher alias")
 
 sys.exit(fail)
 PY
