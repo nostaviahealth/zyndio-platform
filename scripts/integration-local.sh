@@ -10,6 +10,16 @@
 #   SUPABASE_URL (ES256 JWKS for user access tokens) - required by TC-011
 #   process-outbox signature verify.
 # - Always stops `supabase functions serve` on exit, even on failure.
+# - Readiness (TC-021 item 18, hardening; the 503 root cause is the oneshot
+#   policy, see supabase/config.toml): `supabase start` already runs its own
+#   edge-runtime container behind Kong, and `functions serve` REPLACES it
+#   (removes it, starts its own, reloads Kong). A trace showed the stack's
+#   container answering before the swap, so the warm-up below could pass
+#   against the wrong container. We first wait until `functions serve`
+#   reports "Serving functions on" (printed once its container is up),
+#   failing fast if it exits, and only then warm up. No fixed sleep.
+# - On a test failure, prints the serve log's lifecycle/error lines (an
+#   Edge Function 5xx is otherwise invisible in CI).
 # - Warm-up (ci-integration-warmup): creates a throwaway fictional local
 #   account (warmup-<time>@example.test, random password generated at run
 #   time, never printed), signs it in, and makes logged-in requests to the
@@ -57,6 +67,24 @@ ENV
 
 nohup supabase functions serve --no-verify-jwt --env-file "$FN_ENV_FILE" >/tmp/tc005-functions-serve.log 2>&1 &
 echo $! > "$FN_SERVE_PID_FILE"
+FN_SERVE_LOG=/tmp/tc005-functions-serve.log
+
+# Item 18: wait for OUR functions serve (not the stack's own edge runtime).
+serve_deadline=$((SECONDS + 120))
+until grep -q "Serving functions on" "$FN_SERVE_LOG" 2>/dev/null; do
+  if ! kill -0 "$(cat "$FN_SERVE_PID_FILE")" 2>/dev/null; then
+    echo "integration-local: supabase functions serve exited before serving:" >&2
+    grep -vE '^\s*$' "$FN_SERVE_LOG" | tail -20 >&2 || true
+    exit 1
+  fi
+  if [ "$SECONDS" -ge "$serve_deadline" ]; then
+    echo "integration-local: supabase functions serve not serving after 120s:" >&2
+    grep -vE '^\s*$' "$FN_SERVE_LOG" | tail -20 >&2 || true
+    exit 1
+  fi
+  sleep 0.2
+done
+echo "integration-local: functions serve is serving (its own edge-runtime container is up, Kong reloaded)"
 
 # Logged-in warm-up via node's built-in fetch (never curl, nothing verbose).
 # Only HTTP status codes and function names are ever printed.
@@ -146,4 +174,14 @@ node -e '
   })();
 '
 
+set +e
 npm run test:integration
+rc=$?
+set -e
+if [ "$rc" -ne 0 ]; then
+  # Item 18 observability: a 5xx from an Edge Function is otherwise invisible
+  # in CI. Only edge-runtime/serve lifecycle and error lines are printed.
+  echo "integration-local: tests failed (rc=$rc); functions serve lifecycle/error lines:" >&2
+  grep -nE 'Setting up|Serving functions|File change detected|Stopped serving|connection aborted|worker error|InvalidWorker|BOOT_ERROR|failed to boot|did not respond|WorkerAlreadyRetired|Error' "$FN_SERVE_LOG" | tail -60 >&2 || true
+fi
+exit "$rc"

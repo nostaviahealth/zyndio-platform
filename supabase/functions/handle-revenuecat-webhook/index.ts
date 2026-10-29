@@ -94,8 +94,8 @@ serve(async (req) => {
       status: 200,
     })
   } catch (error) {
-    console.error('🔴 Webhook Processing CRASHED:', error.message)
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('🔴 Webhook Processing CRASHED:', error instanceof Error ? error.message : error)
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'internal error' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200, // Return 200 to RevenueCat to avoid persistent retries on known edge cases
     })

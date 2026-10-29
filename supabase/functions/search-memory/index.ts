@@ -75,7 +75,7 @@ serve(async (req) => {
     } catch (error) {
         console.error('Function Error:', error)
         return new Response(
-            JSON.stringify({ error: error.message, memories: [] }),
+            JSON.stringify({ error: error instanceof Error ? error.message : 'internal error', memories: [] }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
     }

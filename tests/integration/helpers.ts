@@ -194,6 +194,12 @@ export async function seedPlatformAdmin(userId: string) {
   await restAdmin('platform_admins', { method: 'POST', body: JSON.stringify({ user_id: userId }) });
 }
 
+// TC-021 item 9: a patient-app account is marked by a patient_self_signups
+// row (patient-signup writes it); service-role only, like platform_admins.
+export async function seedSelfSignupPatient(userId: string) {
+  await restAdmin('patient_self_signups', { method: 'POST', body: JSON.stringify({ user_id: userId }) });
+}
+
 export async function auditRows(eventType: string, targetUserId: string) {
   const res = await restAdmin(`audit_log?event_type=eq.${eventType}&target_user_id=eq.${targetUserId}`);
   return (await res.json()) as unknown[];
