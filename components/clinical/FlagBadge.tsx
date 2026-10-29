@@ -37,7 +37,7 @@ const TONE_CLASSES: Record<Tone, string> = {
 
 const FlagBadge: React.FC<{ flag: FlagKey }> = ({ flag }) => (
   <span
-    className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold leading-4 ${TONE_CLASSES[FLAG_TONE[flag]]}`}
+    className={`inline-flex items-center whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-semibold leading-4 ${TONE_CLASSES[FLAG_TONE[flag]]}`}
   >
     {FLAG_LABELS[flag]}
   </span>
