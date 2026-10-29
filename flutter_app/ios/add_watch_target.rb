@@ -7,7 +7,7 @@ project = Xcodeproj::Project.open(project_path)
 puts "Project opened."
 
 target_name = 'BrandWatch'
-bundle_id = 'com.zyndio.patient.watchkitapp'
+bundle_id = 'com.zyndio.app.watchkitapp'
 platform = :watchos
 deployment_target = '10.0'
 
