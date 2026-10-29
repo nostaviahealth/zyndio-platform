@@ -72,7 +72,9 @@ export const PortalAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   });
   const explicitSignOutRef = useRef(false);
 
-  const refresh = useCallback(async () => {
+  // Reads the session, AAL and the caller's ACTIVE staff membership, sets
+  // state, and returns what it set so signIn can act on it (TC-022 #1).
+  const load = useCallback(async (): Promise<{ signedIn: boolean; role: string | null }> => {
     const { data } = await supabase.auth.getSession();
     const session = data.session;
     if (!session) {
@@ -84,7 +86,7 @@ export const PortalAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         hasFactor: false,
         endedByAdmin: prev.endedByAdmin,
       }));
-      return;
+      return { signedIn: false, role: null };
     }
 
     const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
@@ -95,17 +97,25 @@ export const PortalAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       .from('org_members')
       .select('role, org_id')
       .eq('user_id', session.user.id)
+      // TC-022 #1: an invited or deactivated row is not staff access.
+      .eq('status', 'active')
       .maybeSingle();
 
+    const role = (member?.role as string | undefined) ?? null;
     setState({
       status,
       email: session.user.email ?? null,
-      role: (member?.role as string | undefined) ?? null,
+      role,
       orgId: (member?.org_id as string | undefined) ?? null,
       hasFactor,
       endedByAdmin: false,
     });
+    return { signedIn: true, role };
   }, []);
+
+  const refresh = useCallback(async () => {
+    await load();
+  }, [load]);
 
   useEffect(() => {
     refresh();
@@ -131,7 +141,17 @@ export const PortalAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
         return { ok: false, error: 'invalid_credentials' };
       }
-      await refresh();
+      const loaded = await load();
+      if (!loaded.role) {
+        // TC-022 #1: correct password but no ACTIVE staff membership (a
+        // deactivated member, or a patient account on the staff portal).
+        // End the half-open session and answer exactly like a wrong
+        // password, so membership status can't be probed (OVERRIDES #5).
+        explicitSignOutRef.current = true;
+        await supabase.auth.signOut();
+        await load();
+        return { ok: false, error: 'invalid_credentials' };
+      }
       const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
       const hasFactor = (aalData?.currentLevel === 'aal2' || aalData?.nextLevel === 'aal2') ?? false;
       return { ok: true, hasFactor };
@@ -139,7 +159,7 @@ export const PortalAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       if (isNetworkError(err)) return { ok: false, error: 'network_error' };
       return { ok: false, error: 'invalid_credentials' };
     }
-  }, [refresh]);
+  }, [load]);
 
   const requestPasswordReset = useCallback(async (email: string) => {
     try {
