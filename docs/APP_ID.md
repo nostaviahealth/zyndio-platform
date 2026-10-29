@@ -14,10 +14,10 @@ package name change after the first upload, so this is pinned by
 | watchOS app (`ios/Watch.xcconfig`) | `com.zyndio.app.watchapp`, companion `com.zyndio.app` |
 | watchOS target script (`ios/add_watch_target.rb`) | `com.zyndio.app.watchkitapp` |
 | Runner `Info.plist` `CFBundleIdentifier` | `$(PRODUCT_BUNDLE_IDENTIFIER)` (follows the build setting) |
+| App Group (Runner and BrandLiveActivity entitlements, pinned together) | `group.com.zyndio.app` |
 
-Unchanged on purpose (not tied to the app ID):
+Unchanged on purpose (not tied to the app ID; Apple team IDs and deep-link schemes are TC-021):
 
-- App Group `group.com.zyndio.health` (Runner and BrandLiveActivity entitlements).
 - Deep-link / auth callback schemes `com.zyndio.health://login-callback` (Android)
   and `zyndiohealth://callback` (Android and iOS).
 - `packages/platform_wearables` keeps `com.zyndio.wearables`.
@@ -29,7 +29,7 @@ Outside the repo, set by hand (not done in code):
 2. Apple Developer: register App IDs `com.zyndio.app` and
    `com.zyndio.app.BrandLiveActivity` (plus the watch ID if the watch app ships),
    with the capabilities in the entitlements (Push, Sign in with Apple, HealthKit,
-   App Groups), and attach App Group `group.com.zyndio.health` to both.
+   App Groups), register App Group `group.com.zyndio.app` and attach it to both.
 3. Firebase (if/when used): register the Android app `com.zyndio.app` and the iOS
    app `com.zyndio.app`, then add `google-services.json` /
    `GoogleService-Info.plist` through the secure build path (none are in the repo).
