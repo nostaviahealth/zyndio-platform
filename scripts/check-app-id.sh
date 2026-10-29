@@ -11,6 +11,8 @@
 #   DEVELOPMENT_TEAM is set in ONE place, flutter_app/ios/Flutter/Team.xcconfig
 #   (empty or a 10-character Apple team ID); any other hard-coded team ID in a
 #   tracked file fails, and the two old placeholder team IDs appear nowhere.
+#   Item 15: also fails on Xcode's TargetAttributes `DevelopmentTeam = <ID>` in
+#   project.pbxproj and on any SDK-conditional DEVELOPMENT_TEAM[sdk=...] setting.
 #   iOS CFBundleURLSchemes and the Android BROWSABLE deep-link schemes are the
 #   same set (SDK callback schemes for Google / Facebook sign-in excluded).
 # packages/platform_wearables keeps its own ID (com.zyndio.wearables).
@@ -132,6 +134,24 @@ if [[ -n "$team_hits" ]]; then
   echo "$team_hits" >&2
 else
   ok "no hard-coded DEVELOPMENT_TEAM outside $TEAM_CFG"
+fi
+# TC-021 item 15: Xcode also stores the team as TargetAttributes "DevelopmentTeam = <ID>;"
+# in project.pbxproj (set when a team is picked in the Signing tab).
+attr_hits=$(git grep -nE "DevelopmentTeam[[:space:]]*=[[:space:]]*['\"]?[A-Z0-9]{10}\b" -- . 2>/dev/null || true)
+if [[ -n "$attr_hits" ]]; then
+  err "hard-coded DevelopmentTeam (TargetAttributes) in tracked files; the team comes only from $TEAM_CFG:"
+  echo "$attr_hits" >&2
+else
+  ok "no hard-coded DevelopmentTeam (TargetAttributes)"
+fi
+# SDK-conditional settings (DEVELOPMENT_TEAM[sdk=...], [config=...], [arch=...]) override the
+# single setting even when empty, so none are allowed anywhere, Team.xcconfig included.
+cond_hits=$(git grep -nE "DEVELOPMENT_TEAM\[[^]]*\]['\"]?[[:space:]]*=" -- . 2>/dev/null || true)
+if [[ -n "$cond_hits" ]]; then
+  err "SDK-conditional DEVELOPMENT_TEAM[...] setting found; set DEVELOPMENT_TEAM only once, unconditionally, in $TEAM_CFG:"
+  echo "$cond_hits" >&2
+else
+  ok "no SDK-conditional DEVELOPMENT_TEAM[...] settings"
 fi
 # The two old placeholder team IDs, built from parts so this script does not match itself.
 OLD_TEAMS=("FF6X""228VNT" "3QW98""F397X")
