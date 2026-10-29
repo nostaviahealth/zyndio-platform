@@ -30,7 +30,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace "com.zyndio.patient"
+    namespace "com.zyndio.app"
     compileSdk 36
     ndkVersion "28.2.13676358"
 
@@ -45,7 +45,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.zyndio.patient"
+        applicationId "com.zyndio.app"
         minSdkVersion 28
         targetSdkVersion 35
         versionCode flutterVersionCode.toInteger()
