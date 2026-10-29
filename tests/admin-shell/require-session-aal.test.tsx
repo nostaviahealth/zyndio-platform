@@ -76,4 +76,17 @@ describe('RequireSession aal1 bounce (H-E2E-1)', () => {
     renderAtAdmin({ status: 'aal2', hasFactor: true });
     expect(screen.getByText('ADMIN SHELL')).toBeInTheDocument();
   });
+  // TC-022 #1: a session with no active staff membership (a patient on a
+  // staff URL, or a deactivated member) must never reach staff 2FA setup.
+  it('sends an aal1 session with no active staff role to login, not 2FA setup', () => {
+    renderAtAdmin({ status: 'aal1', hasFactor: false, role: null, orgId: null });
+    expect(screen.getByText('LOGIN SCREEN')).toBeInTheDocument();
+    expect(screen.queryByText('SETUP SCREEN')).not.toBeInTheDocument();
+  });
+
+  it('sends an aal2 session with no active staff role to login, not the shell', () => {
+    renderAtAdmin({ status: 'aal2', hasFactor: true, role: null, orgId: null });
+    expect(screen.getByText('LOGIN SCREEN')).toBeInTheDocument();
+    expect(screen.queryByText('ADMIN SHELL')).not.toBeInTheDocument();
+  });
 });
