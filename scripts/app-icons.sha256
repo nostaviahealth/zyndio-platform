@@ -54,3 +54,10 @@ bcb0a8dea8f8f6f10a166d079622f03cbaad0326b2aaa92ebc50cff4517a75b9  public/favicon
 b4efd6b4d0771dd2bbd0ddd76c176c7c8470071cd33617f6e9f64518c2278880  public/icon-512.png  web/icon-512.png
 86015e229ebe0ba7f067b4b395c81e4986ae634c8c75c9400f37f11dac829bba  public/maskable-512.png  web/maskable-512.png
 699cbe5ea652dba8963c7450f029a8755f2e5c74a2dc6bc3d2b0cd0f52a627b6  public/site.webmanifest  web/site.webmanifest
+# TC-023 follow-up: in-app mark and Android notification icon (Ava's handoff, 29 Oct).
+92436fbcaec6f9ddfbe7fb6c080417cf757061229a120cae6964f8f1b9ece9ee  flutter_app/assets/icons/app_icon.png  in-app/app_icon.png
+4661379bb6a4be528cc19503aa735f28047c50ca6eb8925ed11061fbe7a0a7c7  flutter_app/android/app/src/main/res/drawable-mdpi/ic_stat_zyndio.png  android/res/drawable-mdpi/ic_stat_zyndio.png
+3245794138a77037b82a8f0956c88813ba05fe7b7608d545055835d1553922e0  flutter_app/android/app/src/main/res/drawable-hdpi/ic_stat_zyndio.png  android/res/drawable-hdpi/ic_stat_zyndio.png
+4c5565f1b688fa5878d1a7dafc151120775a5b83f78050525736b32f1d52ff09  flutter_app/android/app/src/main/res/drawable-xhdpi/ic_stat_zyndio.png  android/res/drawable-xhdpi/ic_stat_zyndio.png
+1d56ea80ae3a72f916e3929ec83270de731eaede8168123ec82bfa3c00c0ab1b  flutter_app/android/app/src/main/res/drawable-xxhdpi/ic_stat_zyndio.png  android/res/drawable-xxhdpi/ic_stat_zyndio.png
+b065356b16059c6a7f9455ec5fcb1346a3f1697e862fbee7e62eb15fc264a387  flutter_app/android/app/src/main/res/drawable-xxxhdpi/ic_stat_zyndio.png  android/res/drawable-xxxhdpi/ic_stat_zyndio.png
