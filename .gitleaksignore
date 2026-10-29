@@ -1,0 +1,10 @@
+# TC-021 item 12: verified FALSE POSITIVES only (generic-api-key matched a
+# pgTAP comparison on the fictional rate-limit counter column, not a secret).
+# They live in already-pushed commit 69559b9, which cannot be rewritten (no force-push); the file was reworded in the
+# next commit so the current tree has no findings. Scoped to that one commit.
+69559b98a5a26ac0e0fe334d26b4a66f96309dd4:supabase/tests/725_tc021_intelligence_rate_limit.sql:generic-api-key:34
+69559b98a5a26ac0e0fe334d26b4a66f96309dd4:supabase/tests/725_tc021_intelligence_rate_limit.sql:generic-api-key:36
+69559b98a5a26ac0e0fe334d26b4a66f96309dd4:supabase/tests/725_tc021_intelligence_rate_limit.sql:generic-api-key:41
+69559b98a5a26ac0e0fe334d26b4a66f96309dd4:supabase/tests/725_tc021_intelligence_rate_limit.sql:generic-api-key:47
+69559b98a5a26ac0e0fe334d26b4a66f96309dd4:supabase/tests/725_tc021_intelligence_rate_limit.sql:generic-api-key:50
+69559b98a5a26ac0e0fe334d26b4a66f96309dd4:supabase/tests/725_tc021_intelligence_rate_limit.sql:generic-api-key:52

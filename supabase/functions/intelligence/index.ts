@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { classifyIntelligenceCaller } from '../_shared/intelligenceCaller.ts'
 import { AuthError, requireAuthenticatedActor } from '../_shared/requireOrgAdminActor.ts'
+import { decideIntelligenceAccess, loadIntelligenceCallerFacts } from '../_shared/intelligenceAccess.ts'
+import { consumeIntelligenceBudget, rateLimitedHeaders } from '../_shared/intelligenceRateLimit.ts'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -22,6 +24,7 @@ const corsHeaders = {
  *   "response_format": object,   // Optional (e.g. { "type": "json_object" })
  *   "tools": [...],              // Optional tool definitions
  *   "tool_choice": string,       // Optional tool choice
+ *   "patient_id": string,        // Optional; if given it must be the caller (TC-021 #9)
  * }
  */
 serve(async (req) => {
@@ -41,8 +44,9 @@ serve(async (req) => {
             )
         }
         // Then verify the user token with GoTrue itself (expired/forged -> 401).
+        let actor: Awaited<ReturnType<typeof requireAuthenticatedActor>>
         try {
-            await requireAuthenticatedActor(req)
+            actor = await requireAuthenticatedActor(req)
         } catch (err) {
             if (err instanceof AuthError) {
                 return new Response(
@@ -53,8 +57,38 @@ serve(async (req) => {
             throw err
         }
 
+        // TC-021 #9: patients only - every staff role, the Zyndio admin and
+        // any non-patient get 403 here, still before the body is read.
+        let facts: Awaited<ReturnType<typeof loadIntelligenceCallerFacts>>
+        try {
+            facts = await loadIntelligenceCallerFacts(actor.admin, actor.userId)
+        } catch (err) {
+            console.error('intelligence: access lookup failed', err instanceof Error ? err.message : 'unknown')
+            return new Response(
+                JSON.stringify({ error: 'access check unavailable' }),
+                { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+        const callerAccess = decideIntelligenceAccess(facts, undefined)
+        if (!callerAccess.ok) {
+            return new Response(
+                JSON.stringify({ error: callerAccess.error }),
+                { status: callerAccess.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+
         // Read request body
         const body = await req.json()
+
+        // ...and only on their own data: a request that names a patient must
+        // name the caller.
+        const dataAccess = decideIntelligenceAccess(facts, body?.patient_id)
+        if (!dataAccess.ok) {
+            return new Response(
+                JSON.stringify({ error: dataAccess.error }),
+                { status: dataAccess.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
         const {
             messages,
             stream = false,
@@ -68,6 +102,26 @@ serve(async (req) => {
             return new Response(
                 JSON.stringify({ error: 'messages array is required' }),
                 { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+
+        // TC-021 #12: per-patient budget (hour + day), checked before any
+        // provider call. Over budget -> 429 + Retry-After. If the counter
+        // cannot be read we fail closed (503) rather than call unmetered.
+        let budget
+        try {
+            budget = await consumeIntelligenceBudget(actor.admin, actor.userId)
+        } catch (err) {
+            console.error('intelligence rate limit check failed:', err instanceof Error ? err.message : 'unknown error')
+            return new Response(
+                JSON.stringify({ error: 'rate limit check unavailable' }),
+                { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+        if (!budget.allowed) {
+            return new Response(
+                JSON.stringify({ error: 'rate_limited', retry_after_seconds: budget.retryAfterSeconds }),
+                { status: 429, headers: { ...corsHeaders, ...rateLimitedHeaders(budget.retryAfterSeconds), 'Content-Type': 'application/json' } }
             )
         }
 
@@ -158,7 +212,8 @@ serve(async (req) => {
     } catch (error) {
         console.error('Edge Function Error:', error)
         return new Response(
-            JSON.stringify({ error: error.message }),
+            // TC-021 #9: the caught value is `unknown` (TS18046) - narrow it.
+            JSON.stringify({ error: error instanceof Error ? error.message : 'internal error' }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
     }

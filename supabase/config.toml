@@ -93,7 +93,12 @@ uri = "pg-functions://postgres/auth_hooks/mfa_verification_attempt"
 
 [edge_runtime]
 enabled = true
-policy = "oneshot"
+# TC-021 item 18: "per_worker", not "oneshot". Under oneshot the worker is
+# torn down right after it responds, and that can cancel the connection
+# before the response is handed back: a random empty-body 503 ("connection
+# aborted" in the edge-runtime log). See tests/supabase-config/
+# edge-runtime-policy.test.ts. `functions serve` still reloads on file change.
+policy = "per_worker"
 
 [analytics]
 enabled = false
