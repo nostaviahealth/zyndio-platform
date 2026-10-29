@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { classifyIntelligenceCaller } from '../_shared/intelligenceCaller.ts'
 import { AuthError, requireAuthenticatedActor } from '../_shared/requireOrgAdminActor.ts'
+import { decideIntelligenceAccess, loadIntelligenceCallerFacts } from '../_shared/intelligenceAccess.ts'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -22,6 +23,7 @@ const corsHeaders = {
  *   "response_format": object,   // Optional (e.g. { "type": "json_object" })
  *   "tools": [...],              // Optional tool definitions
  *   "tool_choice": string,       // Optional tool choice
+ *   "patient_id": string,        // Optional; if given it must be the caller (TC-021 #9)
  * }
  */
 serve(async (req) => {
@@ -41,8 +43,9 @@ serve(async (req) => {
             )
         }
         // Then verify the user token with GoTrue itself (expired/forged -> 401).
+        let actor: Awaited<ReturnType<typeof requireAuthenticatedActor>>
         try {
-            await requireAuthenticatedActor(req)
+            actor = await requireAuthenticatedActor(req)
         } catch (err) {
             if (err instanceof AuthError) {
                 return new Response(
@@ -53,8 +56,38 @@ serve(async (req) => {
             throw err
         }
 
+        // TC-021 #9: patients only - every staff role, the Zyndio admin and
+        // any non-patient get 403 here, still before the body is read.
+        let facts: Awaited<ReturnType<typeof loadIntelligenceCallerFacts>>
+        try {
+            facts = await loadIntelligenceCallerFacts(actor.admin, actor.userId)
+        } catch (err) {
+            console.error('intelligence: access lookup failed', err instanceof Error ? err.message : 'unknown')
+            return new Response(
+                JSON.stringify({ error: 'access check unavailable' }),
+                { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+        const callerAccess = decideIntelligenceAccess(facts, undefined)
+        if (!callerAccess.ok) {
+            return new Response(
+                JSON.stringify({ error: callerAccess.error }),
+                { status: callerAccess.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+
         // Read request body
         const body = await req.json()
+
+        // ...and only on their own data: a request that names a patient must
+        // name the caller.
+        const dataAccess = decideIntelligenceAccess(facts, body?.patient_id)
+        if (!dataAccess.ok) {
+            return new Response(
+                JSON.stringify({ error: dataAccess.error }),
+                { status: dataAccess.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
         const {
             messages,
             stream = false,
