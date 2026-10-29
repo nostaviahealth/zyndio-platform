@@ -216,6 +216,12 @@ jobs:
       - name: App ID pin (TC-020, store package name must not drift)
         run: bash scripts/check-app-id.sh
 
+      - name: App icons pin self-test (TC-023, check must catch regressions)
+        run: bash scripts/test-check-app-icons.sh
+
+      - name: App icons pin (TC-023, Ava's handoff icons, no icon generator)
+        run: bash scripts/check-app-icons.sh
+
       - name: Install gitleaks
         run: |
           curl -sSfL -o gitleaks.tar.gz \

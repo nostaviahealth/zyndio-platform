@@ -97,7 +97,6 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   riverpod_generator: ^4.0.3
   build_runner: ^2.4.8
-  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
@@ -130,11 +129,7 @@ flutter_native_splash:
   ios: true
   android: true
 
-flutter_launcher_icons:
-  android: true
-  ios: true
-  image_path: "assets/icons/app_icon.png"
-  min_sdk_android: 21
-  adaptive_icon_background: "#2C5CF2"
-  adaptive_icon_foreground: "assets/icons/app_icon_foreground.png"
-  remove_alpha_ios: true
+# TC-023: launcher icons are installed from Ava's handoff
+# (/workspace/design/team3/zyndio/handoff/icons) and pinned by
+# scripts/check-app-icons.sh. The flutter_launcher_icons generator was removed
+# so it can never overwrite them; do not add it back.
