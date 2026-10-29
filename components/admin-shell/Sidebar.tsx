@@ -68,7 +68,7 @@ const Sidebar: React.FC = () => {
           type="button"
           onClick={() => signOut()}
           aria-label="Sign out"
-          className="flex h-11 w-11 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-[#A6B0C3] dark:hover:bg-[#222838] dark:hover:text-[#EEF1F8]"
+          className={`flex h-11 w-11 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-[#A6B0C3] dark:hover:bg-[#222838] dark:hover:text-[#EEF1F8] ${FOCUS_RING_ON_SUNKEN_CLASS}`}
         >
           <LogOut className="h-4 w-4" aria-hidden="true" />
         </button>
