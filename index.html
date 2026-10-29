@@ -27,7 +27,9 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      darkMode: 'class',
+      // TC-019: `dark:` applies under <html class="dark">, except inside a
+      // `.light` surface (AuthCard: sign-in/2FA have no dark design yet).
+      darkMode: ['variant', '&:is(.dark *):not(.light *)'],
       theme: {
         extend: Object.assign(
           {
