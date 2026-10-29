@@ -1,4 +1,5 @@
 import React from 'react';
+import { FOCUS_RING_CLASS } from '../ui/focusRing';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'destructive';
@@ -17,7 +18,7 @@ const Button: React.FC<ButtonProps> = ({
   ...rest
 }) => {
   const base =
-    'inline-flex items-center justify-center gap-2 min-h-[44px] px-6 rounded-full font-semibold text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#2C5CF2] disabled:cursor-not-allowed';
+    `inline-flex items-center justify-center gap-2 min-h-[44px] px-6 rounded-full font-semibold text-sm transition-colors disabled:cursor-not-allowed ${FOCUS_RING_CLASS}`;
   // Ava `.btn.o` / `.btn.d` / `.btn.p`: light destructive = status-critical
   // (#B42318) on status-onCritical (#FFF); dark = #FF8F86 on #030616.
   // Outline uses bg-surface (white / #10141F), not transparent — transparent

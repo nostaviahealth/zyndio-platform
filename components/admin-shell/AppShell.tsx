@@ -25,9 +25,9 @@ const AppShell: React.FC = () => {
 
   return (
     <ToastProvider>
-      <div className="flex min-h-screen bg-[#F2F4F7]">
+      <div className="flex min-h-screen bg-[#F2F4F7] dark:bg-[#070A14]">
         <Sidebar />
-        <main className="flex-1 px-10 py-8">
+        <main className="min-w-0 flex-1 px-10 py-8">
           <Outlet />
         </main>
         {state === 'warning' && (

@@ -1,6 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import { watchSystemTheme } from './lib/theme';
+
+watchSystemTheme(window);
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
