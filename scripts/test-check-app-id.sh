@@ -98,4 +98,26 @@ expect fail "SDK-conditional DEVELOPMENT_TEAM inside Team.xcconfig" "SDK-conditi
 fresh; echo "$DT_IOS =" >> "$TMP/repo/$IOS/Watch.xcconfig"
 expect fail "empty SDK-conditional DEVELOPMENT_TEAM (overrides the single setting)" "SDK-conditional DEVELOPMENT_TEAM"
 
+# --- TC-021 item 22: multi-condition forms, any order or combination of bracket conditions.
+DT_MULTI="DEVELOPMENT_TEAM""[config=Release][sdk=iphoneos*]"
+DT_MULTI_REV="DEVELOPMENT_TEAM""[sdk=iphoneos*][config=Release]"
+DT_MULTI3="DEVELOPMENT_TEAM""[config=Debug][sdk=watchos*][arch=arm64]"
+fresh; sed -i "0,/CODE_SIGN_STYLE = Automatic;/s//CODE_SIGN_STYLE = Automatic;\n\t\t\t\t\"$DT_MULTI\" = $FAKE_TEAM;/" "$TMP/repo/$PBX"
+expect fail "multi-condition [config][sdk] DEVELOPMENT_TEAM in project.pbxproj" "SDK-conditional DEVELOPMENT_TEAM"
+
+fresh; echo "$DT_MULTI = $FAKE_TEAM" >> "$TMP/repo/$IOS/Watch.xcconfig"
+expect fail "multi-condition [config][sdk] DEVELOPMENT_TEAM in Watch.xcconfig" "SDK-conditional DEVELOPMENT_TEAM"
+
+fresh; echo "$DT_MULTI_REV = $FAKE_TEAM" >> "$TMP/repo/$IOS/Flutter/Team.xcconfig"
+expect fail "multi-condition [sdk][config] (reversed order) inside Team.xcconfig" "SDK-conditional DEVELOPMENT_TEAM"
+
+fresh; echo "$DT_MULTI3 = $FAKE_TEAM" >> "$TMP/repo/$IOS/Watch.xcconfig"
+expect fail "three bracket conditions [config][sdk][arch]" "SDK-conditional DEVELOPMENT_TEAM"
+
+fresh; echo "$DT_MULTI =" >> "$TMP/repo/$IOS/Watch.xcconfig"
+expect fail "empty multi-condition DEVELOPMENT_TEAM (overrides the single setting)" "SDK-conditional DEVELOPMENT_TEAM"
+
+fresh; printf "  config.build_settings['%s'] = '%s'\n" "$DT_MULTI" "$FAKE_TEAM" >> "$TMP/repo/$IOS/add_watch_target.rb"
+expect fail "multi-condition DEVELOPMENT_TEAM in add_watch_target.rb build_settings" "SDK-conditional DEVELOPMENT_TEAM"
+
 exit "$fail"
