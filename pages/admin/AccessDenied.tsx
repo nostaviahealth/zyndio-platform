@@ -29,18 +29,18 @@ const AccessDenied: React.FC<AccessDeniedProps> = ({ pageLabel = 'This page' }) 
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
-        <Lock className="h-5 w-5 text-slate-500" aria-hidden="true" />
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-[#18224A]">
+        <Lock className="h-5 w-5 text-slate-500 dark:text-[#AFC3FF]" aria-hidden="true" />
       </div>
-      <h1 className="mt-4 text-xl font-bold text-[#030616]">You don&apos;t have access to this page</h1>
-      <p className="mt-2 max-w-md text-sm text-slate-600">
+      <h1 className="mt-4 text-xl font-bold text-[#030616] dark:text-[#EEF1F8]">You don&apos;t have access to this page</h1>
+      <p className="mt-2 max-w-md text-sm text-slate-600 dark:text-[#A6B0C3]">
         {pageLabel} is only for some roles. Your role is <strong>{roleLabel}</strong>. If you need access
         for your work, ask a Zyndio admin to change your role.
       </p>
       <Button className="mt-6" onClick={() => navigate(isOrgAdmin ? '/admin/users' : '/admin')}>
         {isOrgAdmin ? 'Go to users and roles' : 'Go to patients'}
       </Button>
-      <p className="mt-4 text-xs text-slate-400">
+      <p className="mt-4 text-xs text-[#48556A] dark:text-[#8F9AAF]">
         Reference {requestRef}. This attempt was recorded in the audit log.
       </p>
     </div>

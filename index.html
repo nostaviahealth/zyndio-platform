@@ -6,10 +6,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Zyndio</title>
   <link rel="icon" type="image/png" href="/favicon.png" />
+  <script>
+    // TC-019 M1/M6 (Ava must-fix): set `dark` + `color-scheme` from the OS
+    // setting before first paint (no flash of light theme) and keep it live.
+    // Runs before Tailwind loads so the CDN build's initial class scan sees
+    // it. lib/theme.ts (applySystemTheme/watchSystemTheme) mirrors this for
+    // the React app and is what's unit-tested.
+    (function () {
+      var mql = window.matchMedia('(prefers-color-scheme: dark)');
+      function apply(isDark) {
+        document.documentElement.classList.toggle('dark', isDark);
+        document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+      }
+      apply(mql.matches);
+      mql.addEventListener('change', function (e) {
+        apply(e.matches);
+      });
+    })();
+  </script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      darkMode: 'class',
+      // TC-019: `dark:` applies under <html class="dark">, except inside a
+      // `.light` surface (AuthCard: sign-in/2FA have no dark design yet).
+      darkMode: ['variant', '&:is(.dark *):not(.light *)'],
       theme: {
         extend: Object.assign(
           {
@@ -47,6 +67,12 @@
       font-family: 'Inter', sans-serif;
       background-color: #f5f5f4;
       /* Stone 100 */
+    }
+
+    /* TC-019 M1: dark canvas before the app mounts, so the body behind the
+       admin shell doesn't flash the light Stone 100 fill. */
+    html.dark body {
+      background-color: #070A14;
     }
 
     /* Custom Scrollbar */

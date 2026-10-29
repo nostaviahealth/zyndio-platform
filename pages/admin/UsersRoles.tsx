@@ -308,7 +308,7 @@ const UsersRolesPage: React.FC = () => {
         return (
           <SelectField
             aria-label={`Change role for ${m.email}`}
-            wrapperClassName="w-full"
+            wrapperClassName="w-full min-w-[168px]"
             value={m.role}
             disabled={busyUserId === m.user_id}
             onChange={(e) => setDialog({ kind: 'role-confirm', member: m, newRole: e.target.value as AppRole })}
@@ -328,10 +328,15 @@ const UsersRolesPage: React.FC = () => {
     {
       key: 'actions',
       header: '',
+      stickyRight: true,
       render: (m) => {
         const isSelf = m.user_id === selfUserId;
         if (isSelf) {
-          return <div aria-label={`More actions for ${m.email} (you)`} />;
+          // role="group": a bare <div> doesn't support an accessible name
+          // (axe aria-prohibited-attr) - this placeholder keeps the cell's
+          // existing aria-label (asserted by tests/admin-shell/users-roles)
+          // while giving it a role that's allowed to carry one.
+          return <div role="group" aria-label={`More actions for ${m.email} (you)`} />;
         }
         return <RowActionsMenu email={m.email} items={buildMenuItems(m)} />;
       },
@@ -403,7 +408,7 @@ const UsersRolesPage: React.FC = () => {
               <option value="invited">Invited</option>
               <option value="deactivated">Deactivated</option>
             </SelectField>
-            <p className="ml-auto text-sm text-slate-500 dark:text-[#A6B0C3]">{filtered.length} people</p>
+            <p className="ml-auto text-sm text-[#48556A] dark:text-[#A6B0C3]">{filtered.length} people</p>
           </div>
           <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_#0306160A,0_8px_24px_#2C5CF214] dark:border-[#222838] dark:bg-[#10141F] dark:shadow-none">
             <DataTable columns={columns} rows={filtered} getRowId={(m) => m.user_id} caption="Users and roles" />
@@ -744,7 +749,7 @@ const InviteDialog: React.FC<InviteDialogProps> = ({ onClose, onSubmit }) => {
                   value={r}
                   checked={role === r}
                   onChange={() => setRole(r)}
-                  className={`mt-1 h-[22px] w-[22px] shrink-0 accent-[#2C5CF2] ${
+                  className={`mt-1 h-[22px] w-[22px] shrink-0 accent-[#2346DD] dark:accent-[#AFC3FF] ${
                     // Ava: red rings only for empty-role validation ("Choose a role."),
                     // not for server role_not_allowed (inline message only).
                     fieldErrors.role === 'Choose a role.'

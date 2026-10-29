@@ -79,7 +79,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           onMouseLeave={resume}
           onFocus={pause}
           onBlur={resume}
-          className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full bg-[#030616] px-5 py-3 text-sm text-white shadow-lg"
+          className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full bg-[#030616] px-5 py-3 text-sm text-white shadow-lg dark:bg-[#F1F4FC] dark:text-[#030616]"
         >
           <svg
             aria-hidden="true"
@@ -99,7 +99,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           {toast.actionLabel && (
             <button
               type="button"
-              className="font-semibold text-[#8FB0FF] underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              className="font-semibold text-[#8FB0FF] underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-white dark:text-[#2346DD] dark:focus-visible:ring-[#2346DD]"
               onClick={() => {
                 toast.onAction?.();
                 dismiss();
