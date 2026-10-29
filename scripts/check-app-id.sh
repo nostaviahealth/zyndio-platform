@@ -101,8 +101,9 @@ if old_hits=$(git grep -n -F "$OLD_ID" -- . 2>/dev/null) && [[ -n "$old_hits" ]]
 else
   ok "old app ID appears in no tracked file"
 fi
-if git ls-files | grep -q 'kotlin/com/zyndio/patient/'; then
-  err "old Kotlin package folder kotlin/com/zyndio/patient/ is still tracked"
+OLD_KT_DIR="kotlin/com/zyndio/""patient/"
+if git ls-files | grep -qF "$OLD_KT_DIR"; then
+  err "old Kotlin package folder $OLD_KT_DIR is still tracked"
 fi
 
 if [[ "$fail" -ne 0 ]]; then
