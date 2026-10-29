@@ -564,6 +564,13 @@ def check_last_row_menu(browser, base_url: str, creds: dict, env: dict[str, str]
             page.wait_for_selector("table tbody tr", timeout=15_000)
             page.locator("tbody tr", has_text=email).wait_for(timeout=15_000)
             page.wait_for_timeout(300)
+            # Local-stack noise, not the users screen: the legacy AdminContext
+            # fetches public.profiles/meal_plans, which the local zyndio stack
+            # does not have, and shows a 3 s "Failed to load patients" toast
+            # (fixed bottom-8 right-8, z-50). At 1024x768 it sits on top of the
+            # last row's trigger, so wait for it to time out before clicking.
+            # Nothing else is waited out: the menu itself must still hit-test.
+            page.get_by_text("Failed to load patients").wait_for(state="hidden", timeout=6_000)
             last_row = page.locator("tbody tr").last
             if not check(email in last_row.inner_text(), f"{label}: row is the last row"):
                 continue
