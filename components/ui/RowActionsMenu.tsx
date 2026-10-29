@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { MoreHorizontal } from 'lucide-react';
+import { FOCUS_RING_CLASS } from './focusRing';
 
 export interface RowActionItem {
   label: string;
@@ -45,7 +46,7 @@ const RowActionsMenu: React.FC<RowActionsMenuProps> = ({ email, items }) => {
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="flex h-11 w-11 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 dark:text-[#A6B0C3] dark:hover:bg-[#222838]"
+        className={`flex h-11 w-11 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 dark:text-[#A6B0C3] dark:hover:bg-[#222838] ${FOCUS_RING_CLASS}`}
       >
         <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
       </button>
