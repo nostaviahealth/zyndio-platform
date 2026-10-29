@@ -814,6 +814,35 @@ def check_tc021_round2(browser, scrollbar_browser, base_url: str, creds: dict, m
     screenshot(page, shots, "07-menu-item-focus", 1024, mode)
     page.keyboard.press("Escape")
 
+    # Item 7: the last row's menu can have a single item (an invite), which
+    # makes the ArrowDown check above vacuous. Repeat it on the last row whose
+    # menu has at least two items; fail if no such row exists.
+    rows = page.locator("tbody tr")
+    arrow_checked = False
+    for r in range(rows.count() - 1, -1, -1):
+        trig = rows.nth(r).get_by_role("button", name=re.compile("More actions"))
+        if trig.count() == 0:
+            continue
+        trig.scroll_into_view_if_needed()
+        trig.click()
+        m = page.get_by_role("menu")
+        m.wait_for(state="visible", timeout=3_000)
+        its = m.get_by_role("menuitem")
+        if its.count() < 2:
+            page.keyboard.press("Escape")
+            continue
+        labels = [its.nth(i).inner_text().strip() for i in range(its.count())]
+        page.keyboard.press("ArrowDown")
+        now = (page.evaluate("document.activeElement && document.activeElement.textContent") or "").strip()
+        check(now == labels[1], f"item 7 {mode}: ArrowDown on a {len(labels)}-item menu moves '{labels[0]}' -> '{labels[1]}' (now {now!r})")
+        page.keyboard.press("ArrowUp")
+        now = (page.evaluate("document.activeElement && document.activeElement.textContent") or "").strip()
+        check(now == labels[0], f"item 7 {mode}: ArrowUp moves back to '{labels[0]}' (now {now!r})")
+        page.keyboard.press("Escape")
+        arrow_checked = True
+        break
+    check(arrow_checked, f"item 7 {mode}: found a row whose ⋯ menu has >= 2 items for the arrow-key check")
+
     # Item 14: scroll the users page to the bottom; the sidebar background
     # must still fill the viewport from top to bottom.
     page.set_viewport_size({"width": 1024, "height": 600})
