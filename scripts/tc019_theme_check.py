@@ -213,8 +213,8 @@ def run_axe(page: Page, label: str, context_selector: str | None = None) -> bool
     # first time it appears in the DOM (MutationObserver, async), and Button
     # has transition-colors (150ms). Without this, a dialog opened for the
     # first time is sampled mid-transition with its light-mode colours.
-    # 400ms > CDN tick + 150ms transition; it does not change any threshold.
-    page.wait_for_timeout(400)
+    # TC-021 item 7: wait for the colours to settle instead of a fixed 400ms.
+    wait_for_colours_settled(page, context_selector)
     run_js = """
       async (sel) => {
         const opts = { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] } };
@@ -286,7 +286,8 @@ def parse_rgb(s: str) -> tuple[int, int, int]:
 def screenshot(page: Page, folder: str | None, name: str, width: int, mode: str) -> None:
     if not folder:
         return
-    out_dir = SCREENSHOT_ROOT / folder
+    root = REPO_ROOT / "docs" / "screenshots" / "tc-021" if folder.startswith("tc021r2-") else SCREENSHOT_ROOT
+    out_dir = root / folder.removeprefix("tc021r2-")
     out_dir.mkdir(parents=True, exist_ok=True)
     page.wait_for_timeout(150)
     page.screenshot(path=str(out_dir / f"{name}--{width}--{mode}.png"))
@@ -564,13 +565,10 @@ def check_last_row_menu(browser, base_url: str, creds: dict, env: dict[str, str]
             page.wait_for_selector("table tbody tr", timeout=15_000)
             page.locator("tbody tr", has_text=email).wait_for(timeout=15_000)
             page.wait_for_timeout(300)
-            # Local-stack noise, not the users screen: the legacy AdminContext
-            # fetches public.profiles/meal_plans, which the local zyndio stack
-            # does not have, and shows a 3 s "Failed to load patients" toast
-            # (fixed bottom-8 right-8, z-50). At 1024x768 it sits on top of the
-            # last row's trigger, so wait for it to time out before clicking.
-            # Nothing else is waited out: the menu itself must still hit-test.
-            page.get_by_text("Failed to load patients").wait_for(state="hidden", timeout=6_000)
+            # TC-021 item 13: the old "Failed to load patients" toast used to be
+            # waited out here (it covered the last row's trigger at 1024). It
+            # is gone (TC-022 #3) and AdminContext toasts now sit bottom-centre,
+            # so nothing is waited out: the trigger and menu must hit-test.
             last_row = page.locator("tbody tr").last
             if not check(email in last_row.inner_text(), f"{label}: row is the last row"):
                 continue
@@ -657,7 +655,7 @@ def nearest_bg_js() -> str:
 def check_auth_button(page: Page, name: str, label: str) -> None:
     btn = page.get_by_role("button", name=name, exact=True)
     btn.wait_for(timeout=10_000)
-    page.wait_for_timeout(400)  # Tailwind CDN tick + transition-colors
+    wait_for_colours_settled(page)  # TC-021 item 7: Tailwind CDN tick + transition-colors
     bg = parse_rgb(btn.evaluate("el => getComputedStyle(el).backgroundColor"))
     fg = parse_rgb(btn.evaluate("el => getComputedStyle(el).color"))
     surface = parse_rgb(btn.evaluate(nearest_bg_js()))
@@ -689,11 +687,196 @@ def check_auth_pages(browser, base_url: str, creds: dict, mode: str, screenshots
     ctx.close()
 
 
+# ---------------------------------------------------------------------------
+# TC-021 round 2 (items 6, 7, 10, 13, 14): real-app checks, both themes
+# ---------------------------------------------------------------------------
+
+SURFACE = {"dark": (16, 20, 31), "light": (255, 255, 255)}       # bg.surface
+SIDEBAR = {"dark": (11, 15, 25), "light": (255, 255, 255)}       # sidebar bg
+EDGE = {"dark": "rgb(34, 40, 56)", "light": "rgb(226, 232, 240)"}  # pinned-column edge
+THUMB = {"dark": (108, 118, 144), "light": (203, 213, 225)}      # #6C7690 / #CBD5E1
+
+
+def rgb_str(rgb: tuple[int, int, int]) -> str:
+    return f"rgb({rgb[0]}, {rgb[1]}, {rgb[2]})"
+
+
+def wait_for_colours_settled(page: Page, selector: str | None = None, timeout_ms: int = 5_000) -> None:
+    """Item 7: replaces the fixed 400 ms wait. Resolves once no CSS
+    transition/animation is running and the computed colours of the target
+    (and its descendants) are identical over 3 consecutive animation frames,
+    i.e. the Tailwind CDN has generated the classes and transitions are done."""
+    settled = page.evaluate(
+        """([sel, timeoutMs]) => new Promise((resolve) => {
+          const root = (sel && document.querySelector(sel)) || document.body;
+          const snap = () => [root, ...root.querySelectorAll('*')].slice(0, 400).map((el) => {
+            const s = getComputedStyle(el);
+            return s.color + '|' + s.backgroundColor + '|' + s.borderTopColor + '|' + s.boxShadow;
+          }).join(';');
+          // Finite transitions/animations only (a spinner never "finishes").
+          const busy = () => document.getAnimations().some((a) => a.playState === 'running' &&
+            !(a.effect && a.effect.getTiming && a.effect.getTiming().iterations === Infinity));
+          const deadline = performance.now() + timeoutMs;
+          let last = null, same = 0;
+          const step = () => {
+            const now = snap();
+            same = !busy() && now === last ? same + 1 : 0;
+            last = now;
+            if (same >= 3) resolve(true);
+            else if (performance.now() > deadline) resolve(false);
+            else requestAnimationFrame(step);
+          };
+          requestAnimationFrame(step);
+        })""",
+        [selector, timeout_ms],
+    )
+    if not settled:
+        raise RuntimeError(f"colours did not settle within {timeout_ms} ms ({selector or 'body'})")
+
+
+def computed(locator, prop: str) -> str:
+    return locator.evaluate(f"el => getComputedStyle(el).{prop}")
+
+
+def thumb_pixels(page: Page, box: dict, rgb: tuple[int, int, int], tol: int = 6) -> int:
+    from io import BytesIO
+    from PIL import Image
+
+    png = page.screenshot(clip=box)
+    img = Image.open(BytesIO(png)).convert("RGB")
+    return sum(1 for px in img.getdata() if all(abs(a - b) <= tol for a, b in zip(px, rgb)))
+
+
+def check_tc021_round2(browser, scrollbar_browser, base_url: str, creds: dict, mode: str, screenshots: str | None) -> None:
+    oa = creds["orgAdmin"]
+    shots = f"tc021r2-{screenshots}" if screenshots else None
+    ctx = browser.new_context(viewport={"width": 1024, "height": 768}, color_scheme=mode)
+    page = ctx.new_page()
+    sign_in(page, base_url, oa["email"], oa["password"], oa["totpSecret"])
+    goto_hash(page, base_url, "/admin/users")
+    page.wait_for_selector("table tbody tr", timeout=15_000)
+    wait_for_colours_settled(page)
+    inject_axe(page)
+
+    # Item 13: the "Failed to load patients" toast (TC-022 #3 removed its
+    # fetch) never appears, so nothing is waited out before the clicks below.
+    check(page.get_by_text("Failed to load patients").count() == 0, f"item 13 {mode}@1024: no 'Failed to load patients' toast on the users page")
+
+    # Item 10 F2: the table scrolls inside its card at 1024 and the pinned
+    # actions column has an edge.
+    scroller = page.locator("table").locator("xpath=..")
+    sw, cw = scroller.evaluate("el => [el.scrollWidth, el.clientWidth]")
+    check(sw > cw, f"item 10 F2 {mode}@1024: the users table scrolls sideways in its card (scrollWidth={sw} > clientWidth={cw})")
+    screenshot(page, shots, "10-table-scroll-start", 1024, mode)
+    scroller.evaluate("el => { el.scrollLeft = el.scrollWidth; }")
+    moved = scroller.evaluate("el => el.scrollLeft")
+    check(moved > 0, f"item 10 F2 {mode}@1024: table scrolled to the end (scrollLeft={moved})")
+    wait_for_colours_settled(page)
+    screenshot(page, shots, "10-table-scroll-end", 1024, mode)
+    pinned_th = page.locator("thead th").last
+    pinned_td = page.locator("tbody tr").first.locator("td").last
+    for label, cell in (("header", pinned_th), ("cell", pinned_td)):
+        shadow = computed(cell, "boxShadow")
+        check(EDGE[mode] in shadow and "inset" in shadow, f"item 10 F2 {mode}@1024: pinned actions {label} has a 1px left edge {EDGE[mode]} (box-shadow={shadow})")
+    scroller.evaluate("el => { el.scrollLeft = 0; }")
+
+    # Item 10 F5: sidebar link focus ring (offset = sidebar surface).
+    link = page.locator("nav[aria-label='Main'] a").first
+    assert_focus_ring(page, link, "sidebar link", mode, rgb_str(SIDEBAR[mode]))
+
+    # Items 6 + 7: last row's ⋯ menu - dark tokens, focus on open, arrows,
+    # menu-item focus ring.
+    last_row = page.locator("tbody tr").last
+    trigger = last_row.get_by_role("button", name=re.compile("More actions"))
+    trigger.scroll_into_view_if_needed()
+    tb = trigger.bounding_box()
+    page.mouse.click(tb["x"] + tb["width"] / 2, tb["y"] + tb["height"] / 2)
+    menu = page.get_by_role("menu")
+    menu.wait_for(state="visible", timeout=3_000)
+    wait_for_colours_settled(page, "[role='menu']")
+    panel_bg = parse_rgb(computed(menu, "backgroundColor"))
+    check(panel_bg == SURFACE[mode], f"item 6 {mode}: ⋯ menu panel bg = bg.surface {SURFACE[mode]} (got {panel_bg})")
+    items = menu.get_by_role("menuitem")
+    n = items.count()
+    worst = min(contrast_ratio(parse_rgb(computed(items.nth(i), "color")), panel_bg) for i in range(n)) if n else 0
+    check(n > 0 and worst >= 4.5, f"item 6 {mode}: every ⋯ menu item label >= 4.5:1 on the panel (min {worst:.2f})")
+    screenshot(page, shots, "06-last-row-menu-open", 1024, mode)
+    run_axe(page, f"item 6 ⋯ menu open {mode}@1024", context_selector="[role='menu']")
+    focused = page.evaluate("document.activeElement && document.activeElement.getAttribute('role')")
+    check(focused == "menuitem", f"item 7 {mode}: opening the menu by click moves focus to the first item (focus role={focused})")
+    first_label = items.nth(0).inner_text()
+    page.keyboard.press("ArrowDown")
+    second = page.evaluate("document.activeElement && document.activeElement.textContent")
+    check(n < 2 or (second and second.strip() == items.nth(1).inner_text().strip()), f"item 7 {mode}: ArrowDown moves from '{first_label}' to the next item (now {second!r})")
+    page.keyboard.press("ArrowUp")
+    focused_item = page.locator("[role='menuitem']:focus")
+    assert_focus_ring(page, focused_item, "⋯ menu item", mode, rgb_str(SURFACE[mode]))
+    screenshot(page, shots, "07-menu-item-focus", 1024, mode)
+    page.keyboard.press("Escape")
+
+    # Item 14: scroll the users page to the bottom; the sidebar background
+    # must still fill the viewport from top to bottom.
+    page.set_viewport_size({"width": 1024, "height": 600})
+    page.evaluate("window.scrollTo(0, document.documentElement.scrollHeight)")
+    page.wait_for_timeout(50)
+    scroll_y = page.evaluate("window.scrollY")
+    check(scroll_y > 0, f"item 14 {mode}@1024x600: the users page scrolls (scrollY={scroll_y})")
+    nav_box = page.evaluate("(() => { const r = document.querySelector(\"nav[aria-label='Main']\").getBoundingClientRect(); return [r.top, r.bottom, window.innerHeight]; })()")
+    bottom_hit = page.evaluate(
+        "(() => { const h = document.elementFromPoint(20, window.innerHeight - 3); return !!h && !!h.closest(\"nav[aria-label='Main']\"); })()"
+    )
+    check(nav_box[0] <= 0.5 and nav_box[1] >= nav_box[2] - 0.5 and bottom_hit,
+          f"item 14 {mode}@1024x600 scrolled: sidebar covers the full viewport height (top={nav_box[0]:.0f}, bottom={nav_box[1]:.0f}, vh={nav_box[2]}, bottom-left pixel in sidebar={bottom_hit})")
+    screenshot(page, shots, "14-sidebar-scrolled", 1024, mode)
+    ctx.close()
+
+    # Item 7: the scrollbar thumb follows the theme. Needs a browser that
+    # draws scrollbars (Playwright hides them by default in headless).
+    sctx = scrollbar_browser.new_context(viewport={"width": 1024, "height": 768}, color_scheme=mode)
+    spage = sctx.new_page()
+    sign_in(spage, base_url, oa["email"], oa["password"], oa["totpSecret"])
+    goto_hash(spage, base_url, "/admin/users")
+    spage.wait_for_selector("table tbody tr", timeout=15_000)
+    wait_for_colours_settled(spage)
+    sbox = spage.locator("table").locator("xpath=..").evaluate(
+        "el => { el.scrollIntoView({ block: 'end' }); const r = el.getBoundingClientRect(); return { x: r.left, y: r.bottom - 6, width: r.width, height: 6 }; }"
+    )
+    own = thumb_pixels(spage, sbox, THUMB[mode])
+    other = thumb_pixels(spage, sbox, THUMB["light" if mode == "dark" else "dark"])
+    check(own > 20 and other == 0, f"item 7 {mode}: table scrollbar thumb is {THUMB[mode]} ({own} px), none in the other theme's colour ({other} px)")
+    screenshot(spage, shots, "07-scrollbar", 1024, mode)
+    sctx.close()
+
+    # Item 13: IdleWarningDialog colours in this theme (clock fast-forwarded
+    # past the 13 min warning; the session stays valid).
+    ictx = browser.new_context(viewport={"width": 1024, "height": 768}, color_scheme=mode)
+    ipage = ictx.new_page()
+    ipage.clock.install()
+    sign_in(ipage, base_url, oa["email"], oa["password"], oa["totpSecret"])
+    goto_hash(ipage, base_url, "/admin/users")
+    ipage.wait_for_selector("table tbody tr", timeout=15_000)
+    ipage.clock.fast_forward("13:01")
+    dialog = ipage.get_by_role("alertdialog")
+    dialog.wait_for(state="visible", timeout=5_000)
+    wait_for_colours_settled(ipage, "[role='alertdialog']")
+    d_bg = parse_rgb(computed(dialog, "backgroundColor"))
+    check(d_bg == SURFACE[mode], f"item 13 {mode}: IdleWarningDialog bg = bg.surface {SURFACE[mode]} (got {d_bg})")
+    for sel, what in (("#idle-warning-title", "title"), ("#idle-warning-body", "body"), ("[role='timer']", "countdown")):
+        fg = parse_rgb(computed(dialog.locator(sel), "color"))
+        ratio = contrast_ratio(fg, d_bg)
+        check(ratio >= 4.5, f"item 13 {mode}: IdleWarningDialog {what} >= 4.5:1 (got {ratio:.2f}, fg={fg})")
+    inject_axe(ipage)
+    run_axe(ipage, f"item 13 IdleWarningDialog {mode}@1024", context_selector="[role='alertdialog']")
+    screenshot(ipage, shots, "13-idle-warning", 1024, mode)
+    ipage.get_by_role("button", name="Stay signed in").click()
+    ictx.close()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--screenshots", choices=["before", "after", "fixround-before", "fixround-after"], default=None)
-    parser.add_argument("--only", choices=["fixround"], default=None,
-                        help="run only the fix-round checks (F1 last-row menu, F4 auth buttons)")
+    parser.add_argument("--screenshots", choices=["before", "after", "fixround-before", "fixround-after", "round2-before", "round2-after", "round2-ci"], default=None)
+    parser.add_argument("--only", choices=["fixround", "tc021r2"], default=None,
+                        help="run only the fix-round checks (F1 last-row menu, F4 auth buttons) or only the TC-021 round-2 checks")
     args = parser.parse_args()
 
     env = supabase_env()
@@ -714,16 +897,27 @@ def main() -> int:
 
         with sync_playwright() as p:
             browser = p.chromium.launch()
+            # TC-021 item 7: a second browser that draws scrollbars (Playwright
+            # passes --hide-scrollbars in headless by default).
+            scrollbar_browser = p.chromium.launch(ignore_default_args=["--hide-scrollbars"])
+            round2_shots = None
+            if args.screenshots in ("round2-before", "round2-after", "round2-ci"):
+                round2_shots, args.screenshots = args.screenshots, None
             try:
                 if args.only is None:
                     check_first_paint_and_flip(browser, base_url)
                 for mode in ("dark", "light"):
+                    if args.only in (None, "tc021r2"):
+                        check_tc021_round2(browser, scrollbar_browser, base_url, creds, mode, round2_shots)
+                    if args.only == "tc021r2":
+                        continue
                     check_auth_pages(browser, base_url, creds, mode, args.screenshots)
                     check_last_row_menu(browser, base_url, creds, env, mode, args.screenshots)
                     if args.only is None:
                         check_authenticated(browser, base_url, creds, mode, args.screenshots)
                         check_access_denied(browser, base_url, creds, mode, args.screenshots)
             finally:
+                scrollbar_browser.close()
                 browser.close()
     finally:
         if FN_PID_FILE.exists():
