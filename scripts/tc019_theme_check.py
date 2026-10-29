@@ -814,6 +814,8 @@ def check_tc021_round2(browser, scrollbar_browser, base_url: str, creds: dict, m
         shadow = computed(cell, "boxShadow")
         check(EDGE[mode] in shadow and "inset" in shadow, f"item 10 F2 {mode}@1024: pinned actions {label} has a 1px left edge {EDGE[mode]} (box-shadow={shadow})")
     scroller.evaluate("el => { el.scrollLeft = 0; }")
+    # Item 25: where the pinned ⋯ column starts at 1024 (used by the toast check below).
+    actions_left = pinned_th.evaluate("el => el.getBoundingClientRect().left")
 
     # Item 10 F5: sidebar link focus ring (offset = sidebar surface).
     link = page.locator("nav[aria-label='Main'] a").first
@@ -939,6 +941,39 @@ def check_tc021_round2(browser, scrollbar_browser, base_url: str, creds: dict, m
     screenshot(ipage, shots, "13-idle-warning", 1024, mode)
     ipage.get_by_role("button", name="Stay signed in").click()
     ictx.close()
+
+    # Item 25 (Clara, #21): item 13's toast fix must be checked on the real
+    # toast. The "Failed to load patients" check above passes with or without
+    # that fix, because nothing raises the toast any more. So raise a real
+    # AdminContext toast (a clinician submits Create Patient with fictional
+    # data) at 1024 and require it to be bottom-centre and clear of the
+    # users table's pinned ⋯ column (left edge measured above). With the old
+    # bottom-8 right-8 toast this fails.
+    tctx = browser.new_context(viewport={"width": 1024, "height": 768}, color_scheme=mode)
+    tpage = tctx.new_page()
+    ph = creds["physician"]
+    sign_in(tpage, base_url, ph["email"], ph["password"], ph["totpSecret"])
+    goto_hash(tpage, base_url, "/admin/patients/create")
+    tpage.get_by_placeholder("John Doe").fill("Fictional Rowan Testcase")
+    tpage.get_by_placeholder("35").fill("44")
+    tpage.get_by_placeholder("john@example.com").fill(f"tc021-item25-{mode}@example.test")
+    tpage.get_by_role("button", name="Create Patient").click()
+    toast_text = tpage.get_by_text(re.compile(r"^(Failed to create patient|Patient created successfully)$"))
+    shown = True
+    try:
+        toast_text.wait_for(state="visible", timeout=10_000)
+    except Exception:
+        shown = False
+    if check(shown, f"item 25 {mode}@1024: Create Patient raises the AdminContext toast"):
+        box = toast_text.evaluate(
+            "el => { const t = el.closest('.fixed') || el; const r = t.getBoundingClientRect();"
+            " return { left: r.left, right: r.right, bottom: r.bottom, vw: window.innerWidth, vh: window.innerHeight }; }"
+        )
+        centre_off = abs((box["left"] + box["right"]) / 2 - box["vw"] / 2)
+        check(centre_off <= 2, f"item 25 {mode}@1024: AdminContext toast is bottom-centre (centre off by {centre_off:.1f}px, box={box})")
+        check(box["right"] <= actions_left, f"item 25 {mode}@1024: AdminContext toast (right={box['right']:.0f}) is clear of the pinned ⋯ column (left={actions_left:.0f})")
+        screenshot(tpage, shots, "25-admin-toast", 1024, mode)
+    tctx.close()
 
 
 def main() -> int:
