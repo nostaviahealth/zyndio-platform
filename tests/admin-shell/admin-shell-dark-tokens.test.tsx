@@ -37,7 +37,7 @@ describe('Sidebar dark tokens (Ava M2)', () => {
   it('carries dark surface, active-item and nav text tokens', () => {
     mockUsePortalAuth.mockReturnValue({ role: 'org_admin', email: 'taylor@example.test', signOut: vi.fn() });
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/admin/users']}>
         <Sidebar />
       </MemoryRouter>
     );
