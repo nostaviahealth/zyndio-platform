@@ -41,12 +41,22 @@ class MemoryFragment {
 class MemoryService {
   final AzureOpenAIService _aiService;
 
-  MemoryService(this._aiService);
+  /// [accessToken] and [userId] default to the live Supabase session; they
+  /// are injectable so tests can model a session state (TC-021 item 19).
+  MemoryService(
+    this._aiService, {
+    String? Function()? accessToken,
+    String? Function()? userId,
+  })  : _accessTokenSource = accessToken ?? (() => SupabaseConfig.currentSession?.accessToken),
+        _userIdSource = userId ?? (() => SupabaseConfig.currentUser?.id);
+
+  final String? Function() _accessTokenSource;
+  final String? Function() _userIdSource;
 
   String get _supabaseUrl => SupabaseConfig.url;
   String get _supabaseAnonKey => SupabaseConfig.anonKey;
-  String? get _accessToken => SupabaseConfig.currentSession?.accessToken;
-  String? get _userId => SupabaseConfig.currentUser?.id;
+  String? get _accessToken => _accessTokenSource();
+  String? get _userId => _userIdSource();
 
   /// Store a memory (conversation summary or user fact) in the vector store.
   Future<bool> storeMemory({
