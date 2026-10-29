@@ -112,8 +112,16 @@ const PhysicianPatientDetail: React.FC<PhysicianPatientDetailProps> = ({
     // StrictMode's double-invoked mount effect still fires it exactly once AND
     // the single result is applied - a cleanup flag would cancel the only run.
     openedFor.current = patientId;
+    // TC-022 #2: a new :id (in-app navigation, no reload) starts from a
+    // clean slate - the previous patient's not-found or detail must not stay.
+    setNotFound(false);
+    setDetail(null);
+    setLatest(null);
+    setLatestError(false);
     (async () => {
       const d = await api.openPatientDetail(patientId);
+      // Ignore a late answer for a patient we've already navigated away from.
+      if (openedFor.current !== patientId) return;
       if (d === null) {
         setNotFound(true);
         return;
