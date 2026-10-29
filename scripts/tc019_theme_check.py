@@ -807,7 +807,7 @@ def check_tc021_round2(browser, scrollbar_browser, base_url: str, creds: dict, m
     first_label = items.nth(0).inner_text()
     page.keyboard.press("ArrowDown")
     second = page.evaluate("document.activeElement && document.activeElement.textContent")
-    check(n < 2 or (second and second.strip() == items.nth(1).inner_text().strip()), f"item 7 {mode}: ArrowDown moves from '{first_label}' to the next item (now {second!r})")
+    check(n < 2 or (second and second.strip() == items.nth(1).inner_text().strip()), f"item 7 {mode}: ArrowDown on the last row's {n}-item menu moves from '{first_label}' to the next item (now {second!r})" + (" [1 item: wraps to itself; see the >= 2-item check below]" if n < 2 else ""))
     page.keyboard.press("ArrowUp")
     focused_item = page.locator("[role='menuitem']:focus")
     assert_focus_ring(page, focused_item, "⋯ menu item", mode, rgb_str(SURFACE[mode]))
