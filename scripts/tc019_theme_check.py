@@ -261,6 +261,41 @@ def assert_focus_ring(page: Page, locator, label: str, mode: str, surface_rgb: s
     return check(ok, f"focus ring token on {label} ({mode}): 3px {expected_ring} / 2px offset, no old ring")
 
 
+def box_shadow_layers_full(box_shadow: str) -> list[tuple[str, int, bool]]:
+    """[(rgb_color, spread_px, inset), ...] for every layer of a computed box-shadow."""
+    layers = []
+    for part in re.split(r",(?![^()]*\))", box_shadow or ""):
+        m = re.search(r"(rgba?\([^)]+\))\s+((?:[\d.-]+px\s*){2,4})", part)
+        if not m:
+            continue
+        px = re.findall(r"([\d.-]+)px", m.group(2))
+        spread = int(float(px[3])) if len(px) >= 4 else 0
+        layers.append((m.group(1), spread, "inset" in part))
+    return layers
+
+
+def assert_inset_focus_ring(page: Page, locator, label: str, mode: str) -> bool:
+    """TC-021 item 21: a 3px INSET ring in the focus token colour, nothing drawn
+    outside the element (no offset layer, no outer ring), and the ring >= 3:1
+    against the element's own background (or the nearest opaque one)."""
+    locator.focus()
+    handle = locator.element_handle()
+    box_shadow = page.evaluate("el => getComputedStyle(el).boxShadow", handle)
+    expected_ring = FOCUS_DARK if mode == "dark" else FOCUS_LIGHT
+    layers = box_shadow_layers_full(box_shadow)
+    has_inset_ring = any(inset and spread == 3 and expected_ring in color for color, spread, inset in layers)
+    outer = [(c, s) for c, s, inset in layers if not inset and s > 0 and "rgba(0, 0, 0, 0)" not in c]
+    bg = parse_rgb(page.evaluate("""el => { let n = el;
+      while (n) { const c = getComputedStyle(n).backgroundColor;
+        if (c && c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent') return c; n = n.parentElement; }
+      return getComputedStyle(document.body).backgroundColor; }""", handle))
+    ratio = contrast_ratio(parse_rgb(expected_ring), bg)
+    ok = has_inset_ring and not outer and ratio >= 3
+    if not ok:
+        print(f"    {label} box-shadow: {box_shadow}")
+    return check(ok, f"item 21 inset focus ring on {label} ({mode}): 3px inset {expected_ring}, nothing outside the item (outer layers={outer}), ring vs bg {bg} = {ratio:.2f}:1 (>= 3)")
+
+
 def relative_luminance(rgb: tuple[int, int, int]) -> float:
     def lin(c: int) -> float:
         c = c / 255
@@ -815,7 +850,7 @@ def check_tc021_round2(browser, scrollbar_browser, base_url: str, creds: dict, m
     check(n < 2 or (second and second.strip() == items.nth(1).inner_text().strip()), f"item 7 {mode}: ArrowDown on the last row's {n}-item menu moves from '{first_label}' to the next item (now {second!r})" + (" [1 item: wraps to itself; see the >= 2-item check below]" if n < 2 else ""))
     page.keyboard.press("ArrowUp")
     focused_item = page.locator("[role='menuitem']:focus")
-    assert_focus_ring(page, focused_item, "⋯ menu item", mode, rgb_str(SURFACE[mode]))
+    assert_inset_focus_ring(page, focused_item, "⋯ menu item", mode)
     screenshot(page, shots, "07-menu-item-focus", 1024, mode)
     page.keyboard.press("Escape")
 

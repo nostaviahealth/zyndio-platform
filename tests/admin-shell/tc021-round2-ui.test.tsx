@@ -90,7 +90,9 @@ describe('item 7: menu focus ring, focus on open, arrows; themed scrollbar', () 
     );
     await openMenu();
     for (const item of screen.getAllByRole('menuitem')) {
-      expect(classesOf(item)).toEqual(expect.arrayContaining(tokens(FOCUS_RING_CLASS)));
+      // Item 21 (Ava, #21): menu items keep the token ring but drop the
+      // 2px offset (inset instead; see tc021-items20-21.test.tsx).
+      expect(classesOf(item)).toEqual(expect.arrayContaining(tokens(FOCUS_RING_CLASS).filter((t) => !/ring-offset/.test(t))));
     }
   });
 
