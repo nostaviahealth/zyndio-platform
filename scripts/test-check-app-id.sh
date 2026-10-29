@@ -78,4 +78,24 @@ expect fail "iOS drops com.zyndio.health" "same deep-link schemes"
 fresh; sed -i '0,/android:scheme="zyndiohealth"/s//android:scheme="zyndio-extra"/' "$TMP/repo/$MANIFEST"
 expect fail "Android adds a scheme iOS lacks" "same deep-link schemes"
 
+# --- TC-021 item 15: Xcode's TargetAttributes DevelopmentTeam and SDK-conditional settings
+# Built from parts so the real check does not flag this file.
+DT_ATTR="Development""Team"
+DT_IOS="DEVELOPMENT_TEAM""[sdk=iphoneos*]"
+DT_WATCH="DEVELOPMENT_TEAM""[sdk=watchos*]"
+fresh; sed -i "0,/CreatedOnToolsVersion = 16.4.1;/s//CreatedOnToolsVersion = 16.4.1;\n\t\t\t\t\t\t$DT_ATTR = $FAKE_TEAM;/" "$TMP/repo/$PBX"
+expect fail "DevelopmentTeam in project.pbxproj TargetAttributes" "hard-coded DevelopmentTeam"
+
+fresh; sed -i "0,/CODE_SIGN_STYLE = Automatic;/s//CODE_SIGN_STYLE = Automatic;\n\t\t\t\t\"$DT_IOS\" = $FAKE_TEAM;/" "$TMP/repo/$PBX"
+expect fail "SDK-conditional DEVELOPMENT_TEAM in project.pbxproj" "SDK-conditional DEVELOPMENT_TEAM"
+
+fresh; echo "$DT_WATCH = $FAKE_TEAM" >> "$TMP/repo/$IOS/Watch.xcconfig"
+expect fail "SDK-conditional DEVELOPMENT_TEAM in Watch.xcconfig" "SDK-conditional DEVELOPMENT_TEAM"
+
+fresh; echo "$DT_IOS = $FAKE_TEAM" >> "$TMP/repo/$IOS/Flutter/Team.xcconfig"
+expect fail "SDK-conditional DEVELOPMENT_TEAM inside Team.xcconfig" "SDK-conditional DEVELOPMENT_TEAM"
+
+fresh; echo "$DT_IOS =" >> "$TMP/repo/$IOS/Watch.xcconfig"
+expect fail "empty SDK-conditional DEVELOPMENT_TEAM (overrides the single setting)" "SDK-conditional DEVELOPMENT_TEAM"
+
 exit "$fail"
