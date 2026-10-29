@@ -575,7 +575,14 @@ def check_last_row_menu(browser, base_url: str, creds: dict, env: dict[str, str]
             try:
                 menu.wait_for(state="attached", timeout=3_000)
             except Exception:
-                check(False, f"{label}: menu opened")
+                diag = page.evaluate(
+                    """([x, y]) => { const h = document.elementFromPoint(x, y);
+                      const t = [...document.querySelectorAll("tbody tr")].pop().querySelector("button[aria-haspopup='menu']");
+                      return { hit: h ? h.outerHTML.slice(0, 120) : null, expanded: t && t.getAttribute('aria-expanded'),
+                               scrollY: window.scrollY }; }""",
+                    [tb["x"] + tb["width"] / 2, tb["y"] + tb["height"] / 2],
+                )
+                check(False, f"{label}: menu opened (click at trigger centre {diag})")
                 continue
             page.wait_for_timeout(250)
             if not shot_done:
