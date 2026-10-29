@@ -220,5 +220,10 @@ describe('PhysicianPatientDetail', () => {
     renderDetail(api);
     expect(await screen.findByText(/We couldn't load Jordan's lab results/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    // components.md C35: err variant is status.critical/criticalSubtle with a
+    // 20px icon, not a plain neutral card.
+    const banner = screen.getByRole('alert');
+    expect(banner.className).toMatch(/FCE8E6/);
+    expect(banner.querySelector('svg')).toBeInTheDocument();
   });
 });

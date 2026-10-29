@@ -110,6 +110,11 @@ describe('PhysicianRoster', () => {
     );
     expect(await screen.findByText(/We couldn't load your patients/)).toBeInTheDocument();
     expect(screen.getByLabelText('Search by name or patient ID')).toBeInTheDocument();
+    // components.md C35: err variant is status.critical/criticalSubtle with a
+    // 20px icon, not a plain neutral card.
+    const banner = screen.getByRole('alert');
+    expect(banner.className).toMatch(/FCE8E6/);
+    expect(banner.querySelector('svg')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(screen.getByText('Jordan Rivera')).toBeInTheDocument());
   });
