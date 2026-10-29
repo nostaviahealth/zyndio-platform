@@ -15,6 +15,8 @@
 #   - the Android notification icon ic_stat_zyndio is missing in a density, is not
 #     white-on-transparent, or Firebase's default_notification_icon does not use it
 #   - <application> (and the default launcher alias) has no android:roundIcon
+#   - Dart/Kotlin notification code uses the launcher mipmap as the small icon, or
+#     res/raw/keep.xml does not keep @drawable/ic_stat_zyndio from resource shrinking
 # Optional: ICON_HANDOFF_DIR=<handoff dir> also checks the pins against the handoff.
 # Uses python3 standard library only.
 set -euo pipefail
@@ -276,6 +278,41 @@ for comp in list(app.iter('activity')) + list(app.iter('activity-alias')):
     if comp.get(A + 'icon') == '@mipmap/ic_launcher' and comp.get(A + 'roundIcon') != '@mipmap/ic_launcher_round':
         err(f"{comp.get(A + 'name')} uses @mipmap/ic_launcher without android:roundIcon=@mipmap/ic_launcher_round"); rb += 1
 if not rb: ok("android:roundIcon = @mipmap/ic_launcher_round on <application> and the default launcher alias")
+
+# 6d. Notification code must not use the launcher mipmap as the small icon
+#     (flutter_local_notifications init/details in Dart; setSmallIcon in Kotlin/Java).
+LAUNCHER = re.compile(r'mipmap|ic_launcher')
+small_hits = []
+for dirpath, dirnames, files in os.walk('flutter_app'):
+    dirnames[:] = [d for d in dirnames if d not in ('build', '.dart_tool', 'Pods', '.gradle', '.kotlin')]
+    for n in files:
+        if not n.endswith(('.dart', '.kt', '.java')): continue
+        p = os.path.join(dirpath, n)
+        try: src = open(p, encoding='utf-8', errors='replace').read()
+        except OSError: continue
+        found = []
+        if n.endswith('.dart'):
+            found += re.findall(r'AndroidInitializationSettings\(\s*[\'"]([^\'"]*)[\'"]', src)
+            if 'AndroidNotificationDetails' in src or 'flutter_local_notifications' in src:
+                found += re.findall(r'\bicon\s*:\s*[\'"]([^\'"]*)[\'"]', src)
+        else:
+            found += re.findall(r'setSmallIcon\(\s*([^)]*)\)', src)
+        small_hits += [f"{p}: {v.strip()}" for v in found if LAUNCHER.search(v)]
+if small_hits: err(f"notification code uses the launcher mipmap as the small icon (use @drawable/ic_stat_zyndio): {small_hits}")
+else: ok("no notification code uses the launcher mipmap as the small icon")
+
+# 6e. Resource shrinking (release: shrinkResources true) must keep ic_stat_zyndio:
+#     flutter_local_notifications looks it up by name at runtime.
+KEEP = 'flutter_app/android/app/src/main/res/raw/keep.xml'
+TOOLS = '{http://schemas.android.com/tools}'
+kept = []
+if os.path.isfile(KEEP):
+    try:
+        kept = [k.strip() for k in (ET.parse(KEEP).getroot().get(TOOLS + 'keep') or '').split(',')]
+    except ET.ParseError as e:
+        err(f"{KEEP} does not parse: {e}")
+if '@drawable/ic_stat_zyndio' in kept: ok(f"{KEEP} keeps @drawable/ic_stat_zyndio")
+else: err(f"{KEEP} must tools:keep @drawable/ic_stat_zyndio (got {kept if os.path.isfile(KEEP) else 'no file'})")
 
 sys.exit(fail)
 PY

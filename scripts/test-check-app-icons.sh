@@ -137,4 +137,25 @@ open(p, 'w').write(s)
 PY
 expect fail "default launcher alias roundIcon removed" ".MainActivityDefault uses @mipmap/ic_launcher without android:roundIcon"
 
+# --- PR #19 add-on: local-notification small icon + keep.xml -----------------
+NS=flutter_app/lib/services/notification_service.dart
+KEEPX=$RES/raw/keep.xml
+
+fresh; sed -i "s|AndroidInitializationSettings('@drawable/ic_stat_zyndio')|AndroidInitializationSettings('@mipmap/ic_launcher')|" "$TMP/repo/$NS"
+expect fail "local notifications initialised with the launcher mipmap" "uses the launcher mipmap as the small icon"
+
+fresh; sed -i "0,/'zyndio_general',/s//'zyndio_general', icon: '@mipmap\/ic_launcher',/" "$TMP/repo/$NS"
+expect fail "AndroidNotificationDetails icon: launcher mipmap" "uses the launcher mipmap as the small icon"
+
+fresh; mkdir -p "$TMP/repo/flutter_app/android/app/src/main/kotlin/com/zyndio/app"
+printf 'package com.zyndio.app\nfun f(b: androidx.core.app.NotificationCompat.Builder) = b.setSmallIcon(R.mipmap.ic_launcher)\n' \
+  > "$TMP/repo/flutter_app/android/app/src/main/kotlin/com/zyndio/app/Notify.kt"
+expect fail "Kotlin setSmallIcon(R.mipmap.ic_launcher)" "uses the launcher mipmap as the small icon"
+
+fresh; rm "$TMP/repo/$KEEPX"
+expect fail "keep.xml missing" "must tools:keep @drawable/ic_stat_zyndio"
+
+fresh; sed -i 's|@drawable/ic_stat_zyndio||' "$TMP/repo/$KEEPX"
+expect fail "keep.xml no longer keeps ic_stat_zyndio" "must tools:keep @drawable/ic_stat_zyndio"
+
 exit $fail
