@@ -83,7 +83,8 @@ serve(async (req) => {
     }
 
     const connector = createTelehealthConnector()
-    const email = normalizeEmail(user.email ?? '')
+    // TC-021 #9 deno check (TS2322): normalizeEmail returns string | null.
+    const email = normalizeEmail(user.email ?? '') ?? ''
     const locate = await connector.locateForCodeRequest({
       appUserId: user.id,
       normalisedEmail: email,

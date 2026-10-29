@@ -1,4 +1,5 @@
 import { assertEquals, assertRejects } from 'https://deno.land/std@0.168.0/testing/asserts.ts'
+import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { decideIntelligenceAccess, loadIntelligenceCallerFacts, type IntelligenceCallerFacts } from './intelligenceAccess.ts'
 
 // TC-021 item 9 (Henry ruling): the intelligence function is for patients
@@ -58,8 +59,8 @@ Deno.test('intelligence access: a patient on their own data is allowed', () => {
 })
 
 // Fake service-role client: answers .from(table).select(col).eq(col, id).maybeSingle()
-function fakeAdmin(rows: Record<string, unknown>, failTable?: string) {
-  return {
+function fakeAdmin(rows: Record<string, unknown>, failTable?: string): SupabaseClient {
+  const fake = {
     from(table: string) {
       return {
         select(_cols: string) {
@@ -79,6 +80,7 @@ function fakeAdmin(rows: Record<string, unknown>, failTable?: string) {
       }
     },
   }
+  return fake as unknown as SupabaseClient
 }
 
 Deno.test('intelligence caller facts: self-signup patient', async () => {

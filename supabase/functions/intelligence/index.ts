@@ -158,7 +158,8 @@ serve(async (req) => {
     } catch (error) {
         console.error('Edge Function Error:', error)
         return new Response(
-            JSON.stringify({ error: error.message }),
+            // TC-021 #9: the caught value is `unknown` (TS18046) - narrow it.
+            JSON.stringify({ error: error instanceof Error ? error.message : 'internal error' }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
     }
