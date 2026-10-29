@@ -57,7 +57,8 @@ bash scripts/test-leak-scan.sh     # self-test proving the above
 - The old product brand name must never appear in code, docs, assets, or generated builds. `scripts/leak-scan.sh` enforces this.
 - All changes land via pull request — never push directly to `main`.
 - Never weaken, skip, or delete a test to make it pass. Fix the underlying issue instead.
-- Don't edit generated Android/iOS/web icon or splash assets by hand — regenerate them via `dart run flutter_launcher_icons` / `dart run flutter_native_splash:create` after changing source art in `flutter_app/assets/icons/` or the config in `flutter_app/pubspec.yaml`.
+- App launcher icons (iOS `AppIcon.appiconset`, Android `mipmap-*` + `mipmap-anydpi-v26`, web `public/` favicons + `site.webmanifest`, `store-assets/`) are installed verbatim from the design handoff and pinned by `scripts/check-app-icons.sh` / `scripts/app-icons.sha256` (TC-023). Don't edit them by hand or add `flutter_launcher_icons` back; replace them only from a new handoff and update the pins in the same PR.
+- Don't edit generated splash assets by hand — regenerate them via `dart run flutter_native_splash:create` after changing source art in `flutter_app/assets/icons/` or the config in `flutter_app/pubspec.yaml`.
 
 ## Docs
 
