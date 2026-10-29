@@ -34,6 +34,7 @@ function darkVariantSelector(): string {
 function hex(cls: string, prefix: '' | 'dark:', prop: 'bg' | 'text'): string | null {
   for (const token of cls.split(/\s+/)) {
     if (token === `${prefix}${prop}-white`) return '#FFFFFF';
+    if (token === `${prefix}${prop}-slate-500`) return '#64748B';
     const m = token.match(new RegExp(`^${prefix}${prop}-\\[#([0-9A-Fa-f]{6})\\]$`));
     if (m) return `#${m[1].toUpperCase()}`;
   }
@@ -91,6 +92,25 @@ describe('Auth pages keep light button tokens with a dark OS (Ava F4)', () => {
       </AuthCard>
     );
     expect((container.firstElementChild as HTMLElement).style.colorScheme).toBe('light');
+  });
+
+  // axe on sign-in/2FA (real browser) flagged the AuthCard's own small text:
+  // "Care Portal" and the Privacy/Terms/Help footer were slate-500 (#64748B)
+  // on the #F2F4F7 page = 4.34:1. They take text.secondary light (#48556A).
+  it('"Care Portal" and the footer links meet 4.5:1 on the auth page canvas', () => {
+    render(
+      <AuthCard>
+        <p>body</p>
+      </AuthCard>
+    );
+    const canvas = '#F2F4F7';
+    const carePortal = screen.getByText('Care Portal');
+    const footer = screen.getByRole('contentinfo');
+    for (const el of [carePortal, footer]) {
+      const fg = effective(el as HTMLElement, 'text');
+      expect(fg).not.toBeUndefined();
+      expect(ratio(fg, canvas)).toBeGreaterThanOrEqual(4.5);
+    }
   });
 
   it('outside an AuthCard (the dark admin shell) the dark variant still applies', () => {
