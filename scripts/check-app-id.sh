@@ -13,6 +13,7 @@
 #   tracked file fails, and the two old placeholder team IDs appear nowhere.
 #   Item 15: also fails on Xcode's TargetAttributes `DevelopmentTeam = <ID>` in
 #   project.pbxproj and on any SDK-conditional DEVELOPMENT_TEAM[sdk=...] setting.
+#   Item 22: including multi-condition forms, e.g. [config=Release][sdk=iphoneos*].
 #   iOS CFBundleURLSchemes and the Android BROWSABLE deep-link schemes are the
 #   same set (SDK callback schemes for Google / Facebook sign-in excluded).
 # packages/platform_wearables keeps its own ID (com.zyndio.wearables).
@@ -128,7 +129,7 @@ else
   err "$WATCH_CFG must #include \"Flutter/Team.xcconfig\""
 fi
 # Any DEVELOPMENT_TEAM assignment with a team-ID-shaped value outside Team.xcconfig.
-team_hits=$(git grep -nE "DEVELOPMENT_TEAM['\"]?\]?[[:space:]]*=[[:space:]]*['\"]?[A-Z0-9]{10}\b" -- . ":!$TEAM_CFG" 2>/dev/null || true)
+team_hits=$(git grep -nE "DEVELOPMENT_TEAM(\[[^]]*\])*['\"]?\]?[[:space:]]*=[[:space:]]*['\"]?[A-Z0-9]{10}\b" -- . ":!$TEAM_CFG" 2>/dev/null || true)
 if [[ -n "$team_hits" ]]; then
   err "hard-coded DEVELOPMENT_TEAM outside $TEAM_CFG:"
   echo "$team_hits" >&2
@@ -146,7 +147,9 @@ else
 fi
 # SDK-conditional settings (DEVELOPMENT_TEAM[sdk=...], [config=...], [arch=...]) override the
 # single setting even when empty, so none are allowed anywhere, Team.xcconfig included.
-cond_hits=$(git grep -nE "DEVELOPMENT_TEAM\[[^]]*\]['\"]?[[:space:]]*=" -- . 2>/dev/null || true)
+# TC-021 item 22: one or more bracket conditions in any order/combination,
+# e.g. DEVELOPMENT_TEAM[config=Release][sdk=iphoneos*].
+cond_hits=$(git grep -nE "DEVELOPMENT_TEAM(\[[^]]*\])+['\"]?[[:space:]]*=" -- . 2>/dev/null || true)
 if [[ -n "$cond_hits" ]]; then
   err "SDK-conditional DEVELOPMENT_TEAM[...] setting found; set DEVELOPMENT_TEAM only once, unconditionally, in $TEAM_CFG:"
   echo "$cond_hits" >&2
