@@ -68,15 +68,15 @@ const IdleWarningDialog: React.FC<IdleWarningDialogProps> = ({
         aria-modal="true"
         aria-labelledby="idle-warning-title"
         aria-describedby="idle-warning-body"
-        className="w-full max-w-[420px] rounded-2xl bg-white p-6 shadow-xl"
+        className="w-full max-w-[420px] rounded-2xl bg-white p-6 shadow-xl dark:bg-[#10141F]"
       >
-        <h2 id="idle-warning-title" className="text-lg font-bold text-[#030616]">
+        <h2 id="idle-warning-title" className="text-lg font-bold text-[#030616] dark:text-[#EEF1F8]">
           Are you still there?
         </h2>
-        <p id="idle-warning-body" className="mt-2 text-sm text-slate-600">
+        <p id="idle-warning-body" className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
           For patient privacy, we sign you out after 15 minutes without activity.
         </p>
-        <p className="mt-4 text-2xl font-semibold text-[#030616]">
+        <p className="mt-4 text-2xl font-semibold text-[#030616] dark:text-[#EEF1F8]">
           Signing out in <span role="timer" aria-live="off">{formatCountdown(secondsRemaining)}</span>
         </p>
         <span className="sr-only" role="status" aria-live="polite">

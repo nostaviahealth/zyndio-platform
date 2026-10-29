@@ -281,7 +281,9 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
             {children}
             {/* Toast Component */}
             {toast && (
-                <div className={`fixed bottom-8 right-8 px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 transition-all duration-500 z-50 ${toast.type === 'success' ? 'bg-emerald-600 text-white' :
+                // TC-021 item 13: bottom-centre (like components/ui/Toast), not
+                // bottom-right, where it covered the pinned row-actions column.
+                <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 transition-all duration-500 z-50 ${toast.type === 'success' ? 'bg-emerald-600 text-white' :
                     toast.type === 'error' ? 'bg-rose-600 text-white' :
                         'bg-stone-900 text-white'
                     }`}>

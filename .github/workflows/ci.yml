@@ -208,6 +208,50 @@ jobs:
           CI: 'true'
         run: bash scripts/integration-local.sh
 
+  # TC-021 item 7: the real-app theme/focus/layout/axe check
+  # (scripts/tc019_theme_check.py) runs in CI against a fresh local stack,
+  # signed in for real with fictional seeded accounts. Captures are uploaded.
+  theme-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Playwright (Chromium) + Pillow
+        run: |
+          python -m pip install 'playwright==1.64.0' 'pillow>=10,<14'
+          python -m playwright install --with-deps chromium
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
+
+      - name: Start local Supabase (studio/storage/inbucket unused)
+        run: supabase start -x studio,storage,inbucket
+
+      - name: Theme check (both themes, 1024 + 1440)
+        run: python scripts/tc019_theme_check.py --screenshots round2-ci
+
+      - name: Upload captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: theme-check-captures
+          path: docs/screenshots/tc-021/round2-ci
+          retention-days: 14
+          if-no-files-found: ignore
+
   secrets:
     runs-on: ubuntu-latest
     steps:
