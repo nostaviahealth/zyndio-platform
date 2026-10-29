@@ -1,4 +1,4 @@
-package com.zyndio.patient
+package com.zyndio.app
 
 import android.content.ComponentName
 import android.content.pm.PackageManager
