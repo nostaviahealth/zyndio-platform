@@ -9,7 +9,7 @@ import {
   YAxis,
 } from 'recharts';
 import { TrendPoint } from '../../lib/clinicalApi';
-import { formatMonthDay, formatValue, rangeLegendText } from '../../lib/clinicalFormat';
+import { formatMonthDay, formatValue, rangeLegendText, yAxisTicks } from '../../lib/clinicalFormat';
 
 // C59 trend chart (web rendering of the patient-app C30). Line + dots, latest
 // dot filled, range band only when a range exists, legend otherwise "No range
@@ -49,10 +49,9 @@ const TrendChart: React.FC<TrendChartProps> = ({ points, analyteLabel, unit, mod
 
   const values = points.map((p) => p.value).filter((v): v is number => v !== null);
   const bounds = [...values, ...(rangeLow !== null ? [rangeLow] : []), ...(rangeHigh !== null ? [rangeHigh] : [])];
-  // Round the domain out to the nearest 0.5 so recharts picks clean ticks
-  // (e.g. 5.0 / 5.5 / 6.0 / 6.5) that match the design's axis.
-  const min = bounds.length ? Math.floor((Math.min(...bounds) - 0.3) * 2) / 2 : 0;
-  const max = bounds.length ? Math.ceil((Math.max(...bounds) + 0.3) * 2) / 2 : 1;
+  const ticks = yAxisTicks(bounds);
+  const min = ticks[0];
+  const max = ticks[ticks.length - 1];
 
   const label =
     `${analyteLabel} chart: ` +
@@ -83,6 +82,7 @@ const TrendChart: React.FC<TrendChartProps> = ({ points, analyteLabel, unit, mod
             <YAxis
               width={44}
               domain={[min, max]}
+              ticks={ticks}
               tick={{ fill: c.axis, fontSize: 12 }}
               tickLine={false}
               axisLine={false}
