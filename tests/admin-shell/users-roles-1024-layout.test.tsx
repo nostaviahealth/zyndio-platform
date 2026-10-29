@@ -93,6 +93,28 @@ describe('1024px layout fix (Ava M5)', () => {
     expect(wrapper!.className).toMatch(/min-w-\[168px\]/);
   });
 
+  it('the table scrolls inside its card and the actions column is pinned right, so ⋯ stays visible at 1024', async () => {
+    render(
+      <ToastProvider>
+        <UsersRolesPage />
+      </ToastProvider>
+    );
+    await waitFor(() => expect(screen.getByText('3 people')).toBeInTheDocument());
+    const table = screen.getByRole('table', { name: 'Users and roles' });
+    expect(table.parentElement!.className).toMatch(/\boverflow-x-auto\b/);
+    const trigger = screen.getByRole('button', { name: /More actions for morgan\.ellis@example\.test/ });
+    const cell = trigger.closest('td')!;
+    expect(cell.className).toMatch(/\bsticky\b/);
+    expect(cell.className).toMatch(/\bright-0\b/);
+    // Opaque in both themes so scrolled cells don't show through.
+    expect(cell.className).toMatch(/\bbg-white\b/);
+    expect(cell.className).toMatch(/dark:bg-\[#10141F\]/);
+    const headers = screen.getAllByRole('columnheader');
+    const actionsHeader = headers[headers.length - 1];
+    expect(actionsHeader.className).toMatch(/\bsticky\b/);
+    expect(actionsHeader.className).toMatch(/\bright-0\b/);
+  });
+
   it('the invited status badge is whitespace-nowrap so it stays on one line', async () => {
     render(
       <ToastProvider>
