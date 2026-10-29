@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreHorizontal } from 'lucide-react';
-import { FOCUS_RING_CLASS } from './focusRing';
+import { FOCUS_RING_CLASS, FOCUS_RING_INSET_CLASS } from './focusRing';
 
 export interface RowActionItem {
   label: string;
@@ -169,7 +169,7 @@ const RowActionsMenu: React.FC<RowActionsMenuProps> = ({ email, items }) => {
                   close(true);
                   item.onClick();
                 }}
-                className={`flex min-h-[44px] w-full items-center px-4 text-left text-sm hover:bg-slate-50 dark:hover:bg-[#222838] ${FOCUS_RING_CLASS} ${
+                className={`flex min-h-[44px] w-full items-center px-4 text-left text-sm hover:bg-slate-50 dark:hover:bg-[#222838] ${FOCUS_RING_INSET_CLASS} ${
                   item.destructive ? 'font-semibold text-red-600 dark:text-[#FF8F86]' : 'text-slate-700 dark:text-[#EEF1F8]'
                 }`}
               >
