@@ -16,7 +16,7 @@ const KIND_CLASSES: Record<MemberStatusBadgeKind, string> = {
 };
 
 const StatusBadge: React.FC<StatusBadgeProps> = ({ kind, children }) => (
-  <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${KIND_CLASSES[kind]}`}>
+  <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${KIND_CLASSES[kind]}`}>
     {children}
   </span>
 );

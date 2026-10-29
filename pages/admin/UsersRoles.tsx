@@ -308,7 +308,7 @@ const UsersRolesPage: React.FC = () => {
         return (
           <SelectField
             aria-label={`Change role for ${m.email}`}
-            wrapperClassName="w-full"
+            wrapperClassName="w-full min-w-[168px]"
             value={m.role}
             disabled={busyUserId === m.user_id}
             onChange={(e) => setDialog({ kind: 'role-confirm', member: m, newRole: e.target.value as AppRole })}
@@ -328,6 +328,7 @@ const UsersRolesPage: React.FC = () => {
     {
       key: 'actions',
       header: '',
+      stickyRight: true,
       render: (m) => {
         const isSelf = m.user_id === selfUserId;
         if (isSelf) {
@@ -407,7 +408,7 @@ const UsersRolesPage: React.FC = () => {
               <option value="invited">Invited</option>
               <option value="deactivated">Deactivated</option>
             </SelectField>
-            <p className="ml-auto text-sm text-slate-500 dark:text-[#A6B0C3]">{filtered.length} people</p>
+            <p className="ml-auto text-sm text-[#48556A] dark:text-[#A6B0C3]">{filtered.length} people</p>
           </div>
           <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_#0306160A,0_8px_24px_#2C5CF214] dark:border-[#222838] dark:bg-[#10141F] dark:shadow-none">
             <DataTable columns={columns} rows={filtered} getRowId={(m) => m.user_id} caption="Users and roles" />
