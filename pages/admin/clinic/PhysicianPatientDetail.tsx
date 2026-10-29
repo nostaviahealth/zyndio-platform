@@ -493,6 +493,7 @@ const TrendBody: React.FC<{ marker: LatestResult; trend: TrendPoint[] | null; mo
                 className="cursor-not-allowed font-semibold text-[#2C5CF2] opacity-50 dark:text-[#7C9CFF]"
               >
                 View report
+                <SoonTag />
               </span>
             </div>
           ))}
@@ -526,8 +527,8 @@ const NeedsReviewBody: React.FC<{ marker: LatestResult; detail?: ReviewDetail }>
       </p>
     </div>
 
-    {/* "Check in report" opens the TC-016 report viewer - disabled here. Not
-        covered by Ava's TC-015 copy (flagged as an open question for her). */}
+    {/* "Check in report" opens the TC-016 report viewer - disabled here, with
+        the same neutral Soon tag as the other entry points (Ava, TC-015 notes). */}
     <button
       type="button"
       disabled
@@ -536,6 +537,7 @@ const NeedsReviewBody: React.FC<{ marker: LatestResult; detail?: ReviewDetail }>
     >
       <FileText className="h-4 w-4" aria-hidden="true" />
       Check in report
+      <SoonTag />
     </button>
 
     {detail && (
@@ -602,30 +604,40 @@ const LabsError: React.FC<{ name: string; onRetry: () => void }> = ({ name, onRe
 // case (wrong link, patient left the program, another clinic's patient, no
 // access). It never hints whether the patient exists. Copy per Ava's TC-015
 // additions (handoff/physician/README.md).
-const NotFound: React.FC = () => (
-  <div className="relative">
-    {typeof __PREVIEW_BUILD__ !== 'undefined' && __PREVIEW_BUILD__ && <FictionalDataTag />}
-    <Link
-      to="/admin/patients"
-      className="inline-flex min-h-[44px] items-center gap-1 text-sm font-semibold text-[#2C5CF2] hover:underline dark:text-[#7C9CFF]"
-    >
-      <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-      Patients
-    </Link>
-    <h1 className="mt-1 text-[28px] font-bold leading-tight text-[#030616] dark:text-[#EEF1F8]">Patient not found</h1>
-    <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-12 text-center dark:border-[#222838] dark:bg-[#10141F]">
-      <p className="text-[17px] font-semibold text-[#030616] dark:text-[#EEF1F8]">We can&apos;t show this patient</p>
-      <p className="mx-auto mt-2 max-w-md text-sm text-[#48556A] dark:text-[#A6B0C3]">
-        The link may be wrong, or they&apos;re no longer in your clinic&apos;s program.
-      </p>
+// Ava's TC-015 notes: one heading only. Her card title is the page's single
+// heading; "Patient not found" is the document title (restored on unmount).
+const NotFound: React.FC = () => {
+  useEffect(() => {
+    const previous = document.title;
+    document.title = 'Patient not found';
+    return () => {
+      document.title = previous;
+    };
+  }, []);
+  return (
+    <div className="relative">
+      {typeof __PREVIEW_BUILD__ !== 'undefined' && __PREVIEW_BUILD__ && <FictionalDataTag />}
       <Link
         to="/admin/patients"
-        className="mt-5 inline-flex min-h-[44px] items-center rounded-full bg-[#2C5CF2] px-6 text-sm font-semibold text-white hover:bg-[#2449C9] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2C5CF2] dark:bg-[#7C9CFF] dark:text-[#030616] dark:hover:bg-[#6487EC]"
+        className="inline-flex min-h-[44px] items-center gap-1 text-sm font-semibold text-[#2C5CF2] hover:underline dark:text-[#7C9CFF]"
       >
-        Back to Patients
+        <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+        Patients
       </Link>
+      <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-12 text-center dark:border-[#222838] dark:bg-[#10141F]">
+        <h1 className="text-[17px] font-semibold text-[#030616] dark:text-[#EEF1F8]">We can&apos;t show this patient</h1>
+        <p className="mx-auto mt-2 max-w-md text-sm text-[#48556A] dark:text-[#A6B0C3]">
+          The link may be wrong, or they&apos;re no longer in your clinic&apos;s program.
+        </p>
+        <Link
+          to="/admin/patients"
+          className="mt-5 inline-flex min-h-[44px] items-center rounded-full bg-[#2C5CF2] px-6 text-sm font-semibold text-white hover:bg-[#2449C9] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2C5CF2] dark:bg-[#7C9CFF] dark:text-[#030616] dark:hover:bg-[#6487EC]"
+        >
+          Back to Patients
+        </Link>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default PhysicianPatientDetail;
