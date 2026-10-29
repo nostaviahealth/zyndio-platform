@@ -783,6 +783,11 @@ def check_tc021_round2(browser, scrollbar_browser, base_url: str, creds: dict, m
     # Item 10 F5: sidebar link focus ring (offset = sidebar surface).
     link = page.locator("nav[aria-label='Main'] a").first
     assert_focus_ring(page, link, "sidebar link", mode, rgb_str(SIDEBAR[mode]))
+    # Item 20: the sidebar sign-out button gets the same ring as the links.
+    sign_out = page.locator("nav[aria-label='Main']").get_by_role("button", name="Sign out")
+    assert_focus_ring(page, sign_out, "sidebar sign-out button", mode, rgb_str(SIDEBAR[mode]))
+    screenshot(page, shots, "20-sidebar-sign-out-focus", 1024, mode)
+    link.focus()
 
     # Items 6 + 7: last row's ⋯ menu - dark tokens, focus on open, arrows,
     # menu-item focus ring.
