@@ -331,7 +331,11 @@ const UsersRolesPage: React.FC = () => {
       render: (m) => {
         const isSelf = m.user_id === selfUserId;
         if (isSelf) {
-          return <div aria-label={`More actions for ${m.email} (you)`} />;
+          // role="group": a bare <div> doesn't support an accessible name
+          // (axe aria-prohibited-attr) - this placeholder keeps the cell's
+          // existing aria-label (asserted by tests/admin-shell/users-roles)
+          // while giving it a role that's allowed to carry one.
+          return <div role="group" aria-label={`More actions for ${m.email} (you)`} />;
         }
         return <RowActionsMenu email={m.email} items={buildMenuItems(m)} />;
       },
