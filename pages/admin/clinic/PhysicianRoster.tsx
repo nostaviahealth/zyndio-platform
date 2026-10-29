@@ -245,7 +245,7 @@ const Toolbar: React.FC<{
       })}
     </div>
 
-    <div className="relative ml-auto inline-flex min-w-0">
+    <div className="relative inline-flex min-w-0 xl:ml-auto">
       <ArrowDownUp
         className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#48556A] dark:text-[#A6B0C3]"
         aria-hidden="true"
@@ -276,7 +276,7 @@ const Toolbar: React.FC<{
 const CARD = 'mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_#0306160A,0_8px_24px_#2C5CF214] dark:border-[#222838] dark:bg-[#10141F] dark:shadow-none';
 
 const HEADER_ROW = 'grid grid-cols-[1.6fr_0.8fr_1.1fr_1.4fr_1.1fr] xl:grid-cols-[1.8fr_0.8fr_0.8fr_1fr_1.6fr_1fr_44px] items-center gap-4 px-6 py-3 text-xs font-semibold text-slate-500 dark:text-[#A6B0C3]';
-const BODY_ROW = 'grid grid-cols-[1.6fr_0.8fr_1.1fr_1.4fr_1.1fr] xl:grid-cols-[1.8fr_0.8fr_0.8fr_1fr_1.6fr_1fr_44px] items-center gap-4 px-6 py-4';
+const BODY_ROW = 'grid min-h-[60px] grid-cols-[1.6fr_0.8fr_1.1fr_1.4fr_1.1fr] xl:grid-cols-[1.8fr_0.8fr_0.8fr_1fr_1.6fr_1fr_44px] items-center gap-4 px-5 py-2';
 
 const RosterTable: React.FC<{
   rows: RosterPatient[];
@@ -300,7 +300,7 @@ const RosterTable: React.FC<{
         <span>Latest lab</span>
         <span>Flags</span>
         <span className="hidden xl:block">Last activity</span>
-        <span className="hidden xl:block" aria-hidden="true" />
+        <span aria-hidden="true" />
       </div>
 
       {rows.map((r) => {
@@ -328,7 +328,7 @@ const RosterTable: React.FC<{
             <div className="hidden text-sm text-[#48556A] dark:text-[#A6B0C3] xl:block">
               {formatLastActivity(r.lastActivityAt, now)}
             </div>
-            <div className="hidden items-center justify-end text-slate-400 xl:flex" aria-hidden="true">
+            <div className="flex items-center justify-end text-slate-400" aria-hidden="true">
               <ChevronRight className="h-5 w-5" />
             </div>
           </>
