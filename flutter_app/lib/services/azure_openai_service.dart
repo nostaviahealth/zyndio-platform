@@ -37,7 +37,21 @@ class ToolCall {
   ToolCall({required this.id, required this.name, required this.arguments});
 }
 
+/// TC-021 #11: thrown (before any request is built) when an intelligence
+/// call is attempted without a signed-in session. Every call site already
+/// treats an exception as a failed call, so nothing is sent.
+class IntelligenceSignedOutException implements Exception {
+  @override
+  String toString() => 'IntelligenceSignedOutException: sign in to use intelligence';
+}
+
 class AzureOpenAIService {
+  AzureOpenAIService({String? Function()? accessToken})
+      : _accessToken = accessToken ?? (() => SupabaseConfig.currentSession?.accessToken);
+
+  /// Source of the signed-in user's JWT (injectable for tests).
+  final String? Function() _accessToken;
+
   /// Stores the last error message for diagnostics
   String? lastError;
 
@@ -45,11 +59,16 @@ class AzureOpenAIService {
   String get _functionsUrl => SupabaseConfig.url;
 
   /// Returns the authorization headers needed to call Edge Functions.
+  /// Only a signed-in user's JWT is ever sent: there is no anon-key
+  /// fallback, so a signed-out app cannot call intelligence (TC-021 #11).
   Map<String, String> get _headers {
-    final accessToken = SupabaseConfig.currentSession?.accessToken;
+    final accessToken = _accessToken();
+    if (accessToken == null || accessToken.isEmpty) {
+      throw IntelligenceSignedOutException();
+    }
     return {
       'Content-Type': 'application/json',
-      'Authorization': 'Bearer ${accessToken ?? SupabaseConfig.anonKey}',
+      'Authorization': 'Bearer $accessToken',
       'apikey': SupabaseConfig.anonKey,
     };
   }

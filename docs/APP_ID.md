@@ -30,7 +30,9 @@ Unchanged on purpose (not tied to the app ID):
 which is the project-level base configuration (all targets inherit it) and is
 included by `ios/Watch.xcconfig`. It stays empty until the Zyndio Apple team ID
 is confirmed. `scripts/check-app-id.sh` fails on any team ID hard-coded anywhere
-else (project file, xcconfig, Ruby script); `scripts/test-check-app-id.sh` proves
+else (project file, xcconfig, Ruby script), including Xcode's TargetAttributes
+`DevelopmentTeam` entry that the Signing tab writes into project.pbxproj, and on any
+SDK-conditional `DEVELOPMENT_TEAM[sdk=…]` override (even an empty one); `scripts/test-check-app-id.sh` proves
 the check catches each regression.
 
 Outside the repo, set by hand (not done in code):

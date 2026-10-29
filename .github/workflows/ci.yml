@@ -183,6 +183,11 @@ jobs:
         with:
           deno-version: v2.x
 
+      # TC-021 item 9: type errors (e.g. TS18046 on an unknown catch value)
+      # fail the build. Every function entrypoint plus the shared code.
+      - name: Deno type check (all Edge Functions + shared code)
+        run: deno check --config supabase/functions/deno.json supabase/functions/*/index.ts supabase/functions/_shared/*.ts
+
       - name: Deno unit tests (Edge Function shared code)
         run: deno test --config supabase/functions/deno.json supabase/functions/_shared
 
