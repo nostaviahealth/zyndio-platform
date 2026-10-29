@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { classifyIntelligenceCaller } from '../_shared/intelligenceCaller.ts'
+import { AuthError, requireAuthenticatedActor } from '../_shared/requireOrgAdminActor.ts'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -29,13 +31,26 @@ serve(async (req) => {
     }
 
     try {
-        // Verify user is authenticated
-        const authHeader = req.headers.get('Authorization')
-        if (!authHeader) {
+        // TC-022 #4: check the caller's role before reading or validating the
+        // body - wrong role is 403, never a 400 about the body.
+        const caller = classifyIntelligenceCaller(req.headers.get('Authorization'))
+        if (!caller.ok) {
             return new Response(
-                JSON.stringify({ error: 'Missing authorization header' }),
-                { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                JSON.stringify({ error: caller.error }),
+                { status: caller.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
+        }
+        // Then verify the user token with GoTrue itself (expired/forged -> 401).
+        try {
+            await requireAuthenticatedActor(req)
+        } catch (err) {
+            if (err instanceof AuthError) {
+                return new Response(
+                    JSON.stringify({ error: 'invalid session' }),
+                    { status: err.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                )
+            }
+            throw err
         }
 
         // Read request body

@@ -11,7 +11,6 @@ interface AdminContextType {
     updatePatient: (id: string, updates: Partial<PatientProfile>) => Promise<void>;
     deletePatient: (id: string) => Promise<void>;
     advanceStage: (id: string) => Promise<void>;
-    refreshPatients: () => Promise<void>;
 
     // Diet Plans
     dietPlans: WeeklyDietPlan[];
@@ -40,29 +39,15 @@ interface AdminProviderProps {
 export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
     const [patients, setPatients] = useState<PatientProfile[]>([]);
     const [dietPlans, setDietPlans] = useState<WeeklyDietPlan[]>([]);
-    const [loading, setLoading] = useState(true);
+    // TC-022 #3: nothing loads the patient list here any more (see below), so
+    // there is no loading phase.
+    const [loading] = useState(false);
     const [toast, setToast] = React.useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
-    // Fetch patients from Supabase
-    const fetchPatients = useCallback(async () => {
-        try {
-            setLoading(true);
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('role', 'user') // Only fetch users with role 'user' (not admins/doctors)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-
-            setPatients(data || []);
-        } catch (error: any) {
-            console.error('Error fetching patients:', error);
-            showToast('Failed to load patients', 'error');
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+    // TC-022 #3: the old mount-time fetch of the removed `profiles` table is
+    // gone. AdminProvider wraps every route (sign-in, 2FA, not-found too), and
+    // that failing fetch put a "Failed to load patients" toast on all of them.
+    // The clinician roster reads its own data (pages/admin/clinic).
 
     // Fetch diet plans
     const fetchDietPlans = useCallback(async () => {
@@ -81,18 +66,15 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
         }
     }, []);
 
-    // Load data on mount. Preview builds (__PREVIEW_BUILD__) serve the
+    // Load diet plans on mount. Preview builds (__PREVIEW_BUILD__) serve the
     // /__preview harness for Ava screenshots with no live Supabase, so skip
-    // the patients/diet fetches to avoid the stray "Failed to load patients"
-    // toast covering dialog captures.
+    // the fetch there.
     useEffect(() => {
         if (typeof __PREVIEW_BUILD__ !== 'undefined' && __PREVIEW_BUILD__) {
-            setLoading(false);
             return;
         }
-        fetchPatients();
         fetchDietPlans();
-    }, [fetchPatients, fetchDietPlans]);
+    }, [fetchDietPlans]);
 
     // Patient operations
     const getPatient = useCallback((id: string) => {
@@ -287,7 +269,6 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
         updatePatient,
         deletePatient,
         advanceStage,
-        refreshPatients: fetchPatients,
         dietPlans,
         getDietPlan,
         saveDietPlan,
