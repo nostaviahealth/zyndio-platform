@@ -16,3 +16,14 @@ export const FOCUS_RING_CLASS =
   'dark:focus:ring-[#AFC3FF] dark:focus-visible:ring-[#AFC3FF] ' +
   'focus:ring-offset-white focus-visible:ring-offset-white ' +
   'dark:focus:ring-offset-[#10141F] dark:focus-visible:ring-offset-[#10141F]';
+
+/** Same ring on the dark sunken surface (#0B0F19, the sidebar), so the
+ * 2px offset matches what is behind it (TC-021 item 10 F5). */
+export const FOCUS_RING_ON_SUNKEN_CLASS =
+  'outline-none focus:outline-none focus-visible:outline-none ' +
+  'focus:ring-[3px] focus-visible:ring-[3px] ' +
+  'focus:ring-offset-2 focus-visible:ring-offset-2 ' +
+  'focus:ring-[#2346DD] focus-visible:ring-[#2346DD] ' +
+  'dark:focus:ring-[#AFC3FF] dark:focus-visible:ring-[#AFC3FF] ' +
+  'focus:ring-offset-white focus-visible:ring-offset-white ' +
+  'dark:focus:ring-offset-[#0B0F19] dark:focus-visible:ring-offset-[#0B0F19]';
