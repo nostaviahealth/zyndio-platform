@@ -29,7 +29,8 @@ watch_target.build_configurations.each do |config|
   config.build_settings['SWIFT_VERSION'] = '5.0'
   config.build_settings['TARGETED_DEVICE_FAMILY'] = '4' # watchOS
   config.build_settings['WATCHOS_DEPLOYMENT_TARGET'] = deployment_target
-  config.build_settings['DEVELOPMENT_TEAM'] = '3QW98F397X' # Zyndio health team ID (just placeholder for now, usually managed via fastlane/manual)
+  # DEVELOPMENT_TEAM is not set here: the target inherits it from the project-level
+  # Flutter/Team.xcconfig (TC-021, the one place the Apple team ID lives).
   config.build_settings['CODE_SIGN_STYLE'] = 'Automatic'
   config.build_settings['ENABLE_PREVIEWS'] = 'YES'
   config.build_settings['CURRENT_PROJECT_VERSION'] = '236'

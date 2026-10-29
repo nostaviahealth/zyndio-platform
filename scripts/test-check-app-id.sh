@@ -9,6 +9,8 @@ fail=0
 
 IOS=flutter_app/ios
 PBX=$IOS/Runner.xcodeproj/project.pbxproj
+# A made-up team ID, built from parts so the real check does not flag this file.
+FAKE_TEAM="ABCDE""12345"
 MANIFEST=flutter_app/android/app/src/main/AndroidManifest.xml
 
 fresh() {
@@ -37,13 +39,13 @@ expect() { # expect <pass|fail> <name> <pattern-in-output>
 
 fresh; expect pass "current tree passes" ""
 
-fresh; sed -i '0,/CODE_SIGN_STYLE = Automatic;/s//CODE_SIGN_STYLE = Automatic;\n\t\t\t\tDEVELOPMENT_TEAM = ABCDE12345;/' "$TMP/repo/$PBX"
+fresh; sed -i "0,/CODE_SIGN_STYLE = Automatic;/s//CODE_SIGN_STYLE = Automatic;\n\t\t\t\tDEVELOPMENT_TEAM = $FAKE_TEAM;/" "$TMP/repo/$PBX"
 expect fail "team ID hard-coded in project.pbxproj" "hard-coded DEVELOPMENT_TEAM outside"
 
-fresh; printf "  config.build_settings['DEVELOPMENT_TEAM'] = 'ABCDE12345'\n" >> "$TMP/repo/$IOS/add_watch_target.rb"
+fresh; printf "  config.build_settings['DEVELOPMENT_TEAM'] = '%s'\n" "$FAKE_TEAM" >> "$TMP/repo/$IOS/add_watch_target.rb"
 expect fail "team ID hard-coded in add_watch_target.rb" "hard-coded DEVELOPMENT_TEAM outside"
 
-fresh; echo 'DEVELOPMENT_TEAM = ABCDE12345' >> "$TMP/repo/$IOS/Watch.xcconfig"
+fresh; echo "DEVELOPMENT_TEAM = $FAKE_TEAM" >> "$TMP/repo/$IOS/Watch.xcconfig"
 expect fail "team ID hard-coded in Watch.xcconfig" "hard-coded DEVELOPMENT_TEAM outside"
 
 fresh; echo "Old team: FF6X""228VNT" >> "$TMP/repo/docs/APP_ID.md"
@@ -52,10 +54,10 @@ expect fail "old placeholder team ID back in a doc" "old placeholder team ID"
 fresh; echo 'DEVELOPMENT_TEAM = not-an-id' > "$TMP/repo/$IOS/Flutter/Team.xcconfig"
 expect fail "malformed team ID in Team.xcconfig" "must set DEVELOPMENT_TEAM exactly once"
 
-fresh; printf 'DEVELOPMENT_TEAM =\nDEVELOPMENT_TEAM = ABCDE12345\n' > "$TMP/repo/$IOS/Flutter/Team.xcconfig"
+fresh; printf 'DEVELOPMENT_TEAM =\nDEVELOPMENT_TEAM = %s\n' "$FAKE_TEAM" > "$TMP/repo/$IOS/Flutter/Team.xcconfig"
 expect fail "team ID set twice in Team.xcconfig" "must set DEVELOPMENT_TEAM exactly once"
 
-fresh; echo 'DEVELOPMENT_TEAM = ABCDE12345' > "$TMP/repo/$IOS/Flutter/Team.xcconfig"
+fresh; echo "DEVELOPMENT_TEAM = $FAKE_TEAM" > "$TMP/repo/$IOS/Flutter/Team.xcconfig"
 expect pass "a real 10-character team ID in Team.xcconfig passes" ""
 
 fresh; rm "$TMP/repo/$IOS/Flutter/Team.xcconfig"

@@ -1,0 +1,6 @@
+// TC-021: the ONE place the Apple Developer team ID is set. It is the
+// project-level base configuration in Runner.xcodeproj (every target inherits
+// it) and Watch.xcconfig includes it. Leave it empty until the Zyndio Apple
+// team ID is confirmed, then put the 10-character ID after the "=".
+// scripts/check-app-id.sh fails on a DEVELOPMENT_TEAM value anywhere else.
+DEVELOPMENT_TEAM =
