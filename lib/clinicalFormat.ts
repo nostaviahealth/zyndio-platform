@@ -103,6 +103,23 @@ export const STATUS_LABELS: Record<LabStatus, string> = {
   no_range: 'No range set yet',
 };
 
+/**
+ * C59/C30 trend chart y-axis: grid at 0.5 steps over the domain rounded out
+ * to the nearest 0.5 (e.g. values 5.5-6.2 -> ticks 5 / 5.5 / 6 / 6.5). Takes
+ * every plotted value plus any range band bounds, so the band is always
+ * inside the drawn grid.
+ */
+export function yAxisTicks(values: number[]): number[] {
+  if (values.length === 0) return [0, 1];
+  const min = Math.floor((Math.min(...values) - 0.3) * 2) / 2;
+  const max = Math.ceil((Math.max(...values) + 0.3) * 2) / 2;
+  const ticks: number[] = [];
+  for (let v = min; v <= max + 1e-9; v += 0.5) {
+    ticks.push(Math.round(v * 2) / 2);
+  }
+  return ticks;
+}
+
 /** "Default range below 5.7%" / "4.0–5.6%" / "above 2.6%", or null for no band. */
 export function rangeLegendText(
   rangeLow: number | null,
