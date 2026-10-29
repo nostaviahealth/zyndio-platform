@@ -36,7 +36,7 @@ const Sidebar: React.FC = () => {
             Placeholder
           </span>
         </div>
-        <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.2em] text-slate-400 dark:text-[#A6B0C3]">Care Portal</p>
+        <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.2em] text-[#48556A] dark:text-[#A6B0C3]">Care Portal</p>
       </div>
 
       <div className="flex-1 space-y-1 px-3">

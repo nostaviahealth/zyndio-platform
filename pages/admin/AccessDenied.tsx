@@ -40,7 +40,7 @@ const AccessDenied: React.FC<AccessDeniedProps> = ({ pageLabel = 'This page' }) 
       <Button className="mt-6" onClick={() => navigate(isOrgAdmin ? '/admin/users' : '/admin')}>
         {isOrgAdmin ? 'Go to users and roles' : 'Go to patients'}
       </Button>
-      <p className="mt-4 text-xs text-slate-400 dark:text-[#8F9AAF]">
+      <p className="mt-4 text-xs text-[#48556A] dark:text-[#8F9AAF]">
         Reference {requestRef}. This attempt was recorded in the audit log.
       </p>
     </div>
