@@ -209,6 +209,12 @@ def inject_axe(page: Page) -> None:
 
 
 def run_axe(page: Page, label: str, context_selector: str | None = None) -> bool:
+    # Settle first: the Tailwind CDN runtime generates CSS for a class the
+    # first time it appears in the DOM (MutationObserver, async), and Button
+    # has transition-colors (150ms). Without this, a dialog opened for the
+    # first time is sampled mid-transition with its light-mode colours.
+    # 400ms > CDN tick + 150ms transition; it does not change any threshold.
+    page.wait_for_timeout(400)
     run_js = """
       async (sel) => {
         const opts = { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] } };
@@ -217,6 +223,7 @@ def run_axe(page: Page, label: str, context_selector: str | None = None) -> bool
         return results.violations.map(v => ({
           id: v.id, impact: v.impact, nodes: v.nodes.length,
           summary: v.nodes.slice(0, 2).map(n => n.target.join(' ')),
+          details: v.nodes.map(n => (n.html || '').slice(0, 600) + ' :: ' + ((n.any[0] && n.any[0].message) || '')),
         }));
       }
     """
@@ -225,6 +232,9 @@ def run_axe(page: Page, label: str, context_selector: str | None = None) -> bool
     if not ok:
         for v in violations:
             print(f"    axe violation [{label}] {v['id']} ({v['impact']}) x{v['nodes']}: {v['summary']}")
+            if os.environ.get("TC019_AXE_DETAILS"):
+                for d in v.get("details", []):
+                    print(f"      - {d}")
     return check(ok, f"axe wcag2a/2aa zero violations: {label}")
 
 
@@ -371,6 +381,23 @@ def check_authenticated(browser, base_url: str, creds: dict, mode: str, screensh
             invite_btn = page.get_by_role("button", name="Invite user")
             invite_right = invite_btn.evaluate("el => el.getBoundingClientRect().right")
             check(invite_right <= inner_w, f"Invite user button right edge <= viewport at 1024 (right={invite_right}, vw={inner_w})")
+
+            # Card M5: the actions column stays fully visible at 1024. A
+            # trigger clipped by an overflow container is not visible even if
+            # its rect is inside the viewport, so hit-test its centre and its
+            # right edge (elementFromPoint must land on the trigger itself).
+            triggers = page.locator("button[aria-haspopup='menu']")
+            t_n = triggers.count()
+            hidden = []
+            for i in range(t_n):
+                ok_vis = triggers.nth(i).evaluate(
+                    """el => { const r = el.getBoundingClientRect();
+                      const pts = [[r.left + r.width / 2, r.top + r.height / 2], [r.right - 2, r.top + r.height / 2]];
+                      return r.right <= window.innerWidth && pts.every(([x, y]) => { const h = document.elementFromPoint(x, y); return !!h && (h === el || el.contains(h)); }); }"""
+                )
+                if not ok_vis:
+                    hidden.append(i)
+            check(t_n > 0 and not hidden, f"row actions (⋯) column fully visible at 1024 {mode} ({t_n} triggers, hidden={hidden})")
 
             badges = page.locator("span:has-text('days left')")
             if badges.count() > 0:
