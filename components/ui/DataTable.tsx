@@ -10,8 +10,11 @@ export interface DataTableColumn<T> {
 }
 
 // Opaque backgrounds so cells scrolling underneath don't show through.
-const STICKY_TH = 'sticky right-0 bg-[#E6ECFA] dark:bg-[#0B0F19]';
-const STICKY_TD = 'sticky right-0 bg-white dark:bg-[#10141F]';
+// TC-021 item 10 (Ava F2): a 1px inset left edge (border.subtle) marks the
+// pinned column, so it reads as fixed while the rest of the row scrolls.
+const PINNED_EDGE = 'shadow-[inset_1px_0_0_#E2E8F0] dark:shadow-[inset_1px_0_0_#222838]';
+const STICKY_TH = `sticky right-0 bg-[#E6ECFA] dark:bg-[#0B0F19] ${PINNED_EDGE}`;
+const STICKY_TD = `sticky right-0 bg-white dark:bg-[#10141F] ${PINNED_EDGE}`;
 
 interface DataTableProps<T> {
   columns: DataTableColumn<T>[];

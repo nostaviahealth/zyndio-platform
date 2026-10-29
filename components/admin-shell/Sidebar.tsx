@@ -2,6 +2,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Users, ClipboardList, LogOut } from 'lucide-react';
 import { usePortalAuth } from '../../contexts/PortalAuthContext';
+import { FOCUS_RING_ON_SUNKEN_CLASS } from '../ui/focusRing';
 
 const ROLE_LABELS: Record<string, string> = {
   org_admin: 'Admin',
@@ -18,16 +19,18 @@ const Sidebar: React.FC = () => {
   const isOrgAdmin = role === 'org_admin';
 
   const navItemClass = ({ isActive }: { isActive: boolean }) =>
-    `flex min-h-[44px] items-center gap-3 rounded-[10px] px-3 text-sm font-medium transition-colors ${
+    `flex min-h-[44px] items-center gap-3 rounded-[10px] px-3 text-sm font-medium transition-colors ${FOCUS_RING_ON_SUNKEN_CLASS} ${
       isActive
         ? 'bg-[#E8EDFD] text-[#2C5CF2] dark:bg-[#18224A] dark:text-[#AFC3FF]'
         : 'text-slate-700 hover:bg-slate-50 dark:text-[#A6B0C3] dark:hover:bg-[#18224A]'
     }`;
 
+  // TC-021 item 14: sticky + full viewport height, so the sidebar surface
+  // still fills the screen when a long page (users at 1024) is scrolled.
   return (
     <nav
       aria-label="Main"
-      className="flex h-screen w-[264px] shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-[#0B0F19]"
+      className="sticky top-0 flex h-screen w-[264px] shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-[#0B0F19]"
     >
       <div className="px-6 py-4">
         <div className="flex items-center gap-2">
