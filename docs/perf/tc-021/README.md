@@ -18,7 +18,4 @@ call recomputes that patient's whole rollup from `patient_latest_results`.
   change it now. Switch to a statement-level trigger, `FOR EACH STATEMENT` with a
   `REFERENCING NEW/OLD TABLE` transition table, that refreshes each distinct
   patient once. Only do this if a card is written for a lab-result importer or
-  bulk-load path. Until then, results arrive one report at a time.
-- **If a one-off backfill is ever needed before then:** load the rows, then run
-  `refresh_roster_summary_all()` (service_role) once. Don't depend on the per-row
-  trigger for that.
+  bulk-load path.
