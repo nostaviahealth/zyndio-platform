@@ -124,7 +124,7 @@ expect fail "opaque notification icon (no transparency)" "has no transparent pix
 fresh; sed -i 's|android:resource="@drawable/ic_stat_zyndio"|android:resource="@mipmap/ic_launcher"|' "$TMP/repo/$MAN"
 expect fail "Firebase notification icon back to the launcher icon" "default_notification_icon must be"
 
-fresh; sed -i '0,/android:roundIcon="@mipmap\/ic_launcher_round"/{/android:roundIcon="@mipmap\/ic_launcher_round"/d}' "$TMP/repo/$MAN"
+fresh; sed -i '0,/android:roundIcon="@mipmap\/ic_launcher_round"/s///' "$TMP/repo/$MAN"   # first one = <application>
 expect fail "application roundIcon removed" "<application> android:roundIcon must be"
 
 fresh; python3 - "$TMP/repo/$MAN" <<'PY'
