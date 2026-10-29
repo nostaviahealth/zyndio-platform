@@ -115,12 +115,22 @@ const NavItem: React.FC<{
       active ? activeClass : idleClass
     }`}
   >
-    {icon}
+    <span className="relative">
+      {icon}
+      {badge && (
+        <span
+          aria-label={badgeLabel}
+          className="absolute -right-2 -top-2 rounded-full bg-[#2C5CF2] px-1.5 py-0.5 text-[10px] font-semibold text-white xl:hidden"
+        >
+          {badge}
+        </span>
+      )}
+    </span>
     <span className="xl:flex-1">{label}</span>
     {badge && (
       <span
         aria-label={badgeLabel}
-        className="rounded-full bg-[#2C5CF2] px-1.5 py-0.5 text-[10px] font-semibold text-white xl:text-xs"
+        className="hidden rounded-full bg-[#2C5CF2] px-1.5 py-0.5 text-[10px] font-semibold text-white xl:inline-block xl:text-xs"
       >
         {badge}
       </span>
