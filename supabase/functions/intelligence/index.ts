@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { classifyIntelligenceCaller } from '../_shared/intelligenceCaller.ts'
 import { AuthError, requireAuthenticatedActor } from '../_shared/requireOrgAdminActor.ts'
 import { decideIntelligenceAccess, loadIntelligenceCallerFacts } from '../_shared/intelligenceAccess.ts'
+import { consumeIntelligenceBudget, rateLimitedHeaders } from '../_shared/intelligenceRateLimit.ts'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -101,6 +102,26 @@ serve(async (req) => {
             return new Response(
                 JSON.stringify({ error: 'messages array is required' }),
                 { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+
+        // TC-021 #12: per-patient budget (hour + day), checked before any
+        // provider call. Over budget -> 429 + Retry-After. If the counter
+        // cannot be read we fail closed (503) rather than call unmetered.
+        let budget
+        try {
+            budget = await consumeIntelligenceBudget(actor.admin, actor.userId)
+        } catch (err) {
+            console.error('intelligence rate limit check failed:', err instanceof Error ? err.message : 'unknown error')
+            return new Response(
+                JSON.stringify({ error: 'rate limit check unavailable' }),
+                { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+        if (!budget.allowed) {
+            return new Response(
+                JSON.stringify({ error: 'rate_limited', retry_after_seconds: budget.retryAfterSeconds }),
+                { status: 429, headers: { ...corsHeaders, ...rateLimitedHeaders(budget.retryAfterSeconds), 'Content-Type': 'application/json' } }
             )
         }
 
