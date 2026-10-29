@@ -51,4 +51,27 @@ void main() {
     );
     expect(sent, isEmpty, reason: 'no intelligence call may be made before sign-in; sent: ${sent.map((r) => '${r.url} auth=${r.headers['Authorization']}').toList()}');
   });
+
+  test('signed in: the request carries the user JWT, never the anon key', () async {
+    final result = await http.runWithClient(
+      () => AzureOpenAIService(accessToken: () => 'fictional-user-jwt').callAzureAPI([
+        {'role': 'user', 'content': 'hello'}
+      ]),
+      () => mock,
+    );
+    expect(sent, hasLength(1));
+    expect(sent.single.url.path, '/functions/v1/intelligence');
+    expect(sent.single.headers['Authorization'], 'Bearer fictional-user-jwt');
+    expect(result, 'hi');
+  });
+
+  test('an empty token counts as signed out', () async {
+    await http.runWithClient(
+      () => AzureOpenAIService(accessToken: () => '').callAzureAPI([
+        {'role': 'user', 'content': 'hello'}
+      ]),
+      () => mock,
+    );
+    expect(sent, isEmpty);
+  });
 }
