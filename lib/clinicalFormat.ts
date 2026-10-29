@@ -109,6 +109,11 @@ export const STATUS_LABELS: Record<LabStatus, string> = {
  * every plotted value plus any range band bounds, so the band is always
  * inside the drawn grid.
  */
+/** Trend-chart y-axis label: always one decimal ("5.0", "5.5"), TC-021 item 1. */
+export function formatAxisTick(value: number): string {
+  return value.toFixed(1);
+}
+
 export function yAxisTicks(values: number[]): number[] {
   if (values.length === 0) return [0, 1];
   const min = Math.floor((Math.min(...values) - 0.3) * 2) / 2;

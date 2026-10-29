@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { ChevronLeft, Upload, FlaskConical, Info, FileText, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, Upload, FlaskConical, Info, FileText, AlertTriangle, RotateCw } from 'lucide-react';
 import {
   ClinicalApi,
   FlagKey,
@@ -600,8 +600,9 @@ const LabsError: React.FC<{ name: string; onRetry: () => void }> = ({ name, onRe
       <button
         type="button"
         onClick={onRetry}
-        className="mt-4 inline-flex min-h-[44px] items-center rounded-full border border-slate-300 bg-white px-6 text-sm font-semibold text-[#030616] hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2C5CF2] dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8] dark:hover:bg-[#222838]"
+        className="mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-slate-300 bg-white px-6 text-sm font-semibold text-[#030616] hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2C5CF2] dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8] dark:hover:bg-[#222838]"
       >
+        <RotateCw className="h-4 w-4" aria-hidden="true" />
         Try again
       </button>
     </div>

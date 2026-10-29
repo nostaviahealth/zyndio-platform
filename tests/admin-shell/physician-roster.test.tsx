@@ -115,6 +115,10 @@ describe('PhysicianRoster', () => {
     const banner = screen.getByRole('alert');
     expect(banner.className).toMatch(/FCE8E6/);
     expect(banner.querySelector('svg')).toBeInTheDocument();
+    // TC-021 item 1 (Ava): "Try again" carries the refresh icon, decorative only.
+    const retryIcon = screen.getByRole('button', { name: 'Try again' }).querySelector('svg');
+    expect(retryIcon).not.toBeNull();
+    expect(retryIcon).toHaveAttribute('aria-hidden', 'true');
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(screen.getByText('Jordan Rivera')).toBeInTheDocument());
   });

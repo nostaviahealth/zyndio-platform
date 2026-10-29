@@ -11,17 +11,27 @@ package name change after the first upload, so this is pinned by
 | iOS Runner app (Debug, Release, Profile) | `com.zyndio.app` |
 | iOS RunnerTests | `com.zyndio.app.RunnerTests` |
 | iOS Live Activity extension | `com.zyndio.app.BrandLiveActivity` |
-| watchOS app (`ios/Watch.xcconfig`) | `com.zyndio.app.watchapp`, companion `com.zyndio.app` |
-| watchOS target script (`ios/add_watch_target.rb`) | `com.zyndio.app.watchkitapp` |
+| watchOS app (`ios/Watch.xcconfig` and `ios/add_watch_target.rb`, one value, TC-021) | `com.zyndio.app.watchkitapp`, companion `com.zyndio.app` |
 | Runner `Info.plist` `CFBundleIdentifier` | `$(PRODUCT_BUNDLE_IDENTIFIER)` (follows the build setting) |
 
 Unchanged on purpose (not tied to the app ID):
 
 - App Group `group.com.zyndio.health` (Runner and BrandLiveActivity entitlements).
-- Deep-link / auth callback schemes `com.zyndio.health://login-callback` (Android)
-  and `zyndiohealth://callback` (Android and iOS).
+- Deep-link / auth callback schemes `com.zyndio.health://login-callback` and
+  `zyndiohealth://callback`, declared on both Android and iOS (TC-021; the check
+  fails if the two platforms' scheme sets differ, ignoring the Google / Facebook
+  sign-in SDK schemes).
 - `packages/platform_wearables` keeps `com.zyndio.wearables`.
 - macOS / Linux / Windows desktop placeholders (`com.example.*`) are not store targets.
+
+## Apple team ID (TC-021)
+
+`DEVELOPMENT_TEAM` is set in one place, `flutter_app/ios/Flutter/Team.xcconfig`,
+which is the project-level base configuration (all targets inherit it) and is
+included by `ios/Watch.xcconfig`. It stays empty until the Zyndio Apple team ID
+is confirmed. `scripts/check-app-id.sh` fails on any team ID hard-coded anywhere
+else (project file, xcconfig, Ruby script); `scripts/test-check-app-id.sh` proves
+the check catches each regression.
 
 Outside the repo, set by hand (not done in code):
 
