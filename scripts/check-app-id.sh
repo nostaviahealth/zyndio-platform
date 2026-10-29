@@ -5,14 +5,21 @@
 #   MainActivity package + folder         == com.zyndio.app
 #   iOS PRODUCT_BUNDLE_IDENTIFIER (all)   == com.zyndio.app or com.zyndio.app.<Suffix>
 #   iOS Runner Info.plist CFBundleIdentifier follows the build setting
-#   Watch xcconfig / add_watch_target.rb  == com.zyndio.app.<suffix>
+#   Watch xcconfig / add_watch_target.rb  == com.zyndio.app.watchkitapp (TC-021)
 #   The old placeholder ID appears nowhere in tracked files.
+# TC-021 additions:
+#   DEVELOPMENT_TEAM is set in ONE place, flutter_app/ios/Flutter/Team.xcconfig
+#   (empty or a 10-character Apple team ID); any other hard-coded team ID in a
+#   tracked file fails, and the two old placeholder team IDs appear nowhere.
+#   iOS CFBundleURLSchemes and the Android BROWSABLE deep-link schemes are the
+#   same set (SDK callback schemes for Google / Facebook sign-in excluded).
 # packages/platform_wearables keeps its own ID (com.zyndio.wearables).
 set -euo pipefail
 ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 cd "$ROOT"
 
 APP_ID="com.zyndio.app"
+WATCH_ID="com.zyndio.app.watchkitapp"
 # Built from parts so this script does not match its own search.
 OLD_ID="com.zyndio.""patient"
 fail=0
@@ -76,10 +83,10 @@ fi
 WATCH_CFG="flutter_app/ios/Watch.xcconfig"
 watch_id=$(sed -nE 's/^PRODUCT_BUNDLE_IDENTIFIER[[:space:]]*=[[:space:]]*([^[:space:]]+).*/\1/p' "$WATCH_CFG")
 companion=$(sed -nE 's/^INFOPLIST_KEY_WKCompanionAppBundleIdentifier[[:space:]]*=[[:space:]]*([^[:space:]]+).*/\1/p' "$WATCH_CFG")
-if [[ "$watch_id" =~ $SUFFIX_RE && "$watch_id" != "$APP_ID" ]]; then
+if [[ "$watch_id" == "$WATCH_ID" ]]; then
   ok "Watch bundle ID = $watch_id"
 else
-  err "Watch.xcconfig PRODUCT_BUNDLE_IDENTIFIER must be $APP_ID.<suffix> (got: ${watch_id:-missing})"
+  err "Watch.xcconfig PRODUCT_BUNDLE_IDENTIFIER must be $WATCH_ID (got: ${watch_id:-missing})"
 fi
 if [[ "$companion" == "$APP_ID" ]]; then
   ok "Watch companion app = $companion"
@@ -89,10 +96,83 @@ fi
 
 WATCH_RB="flutter_app/ios/add_watch_target.rb"
 rb_id=$(sed -nE "s/^bundle_id = '([^']+)'.*/\1/p" "$WATCH_RB")
-if [[ "$rb_id" =~ $SUFFIX_RE && "$rb_id" != "$APP_ID" ]]; then
+if [[ "$rb_id" == "$WATCH_ID" ]]; then
   ok "add_watch_target.rb bundle_id = $rb_id"
 else
-  err "add_watch_target.rb bundle_id must be $APP_ID.<suffix> (got: ${rb_id:-missing})"
+  err "add_watch_target.rb bundle_id must be $WATCH_ID, the same as Watch.xcconfig (got: ${rb_id:-missing})"
+fi
+
+# --- TC-021 item 3: Apple team ID set in one place, never hard-coded --------
+TEAM_CFG="flutter_app/ios/Flutter/Team.xcconfig"
+if [[ -f "$TEAM_CFG" ]]; then
+  team_lines=$(grep -cE '^[[:space:]]*DEVELOPMENT_TEAM[[:space:]]*=' "$TEAM_CFG" || true)
+  team_val=$(sed -nE 's/^[[:space:]]*DEVELOPMENT_TEAM[[:space:]]*=[[:space:]]*([^[:space:]]*).*/\1/p' "$TEAM_CFG")
+  if [[ "$team_lines" -eq 1 && ( -z "$team_val" || "$team_val" =~ ^[A-Z0-9]{10}$ ) ]]; then
+    ok "DEVELOPMENT_TEAM set once in $TEAM_CFG (${team_val:-empty until the Apple team ID arrives})"
+  else
+    err "$TEAM_CFG must set DEVELOPMENT_TEAM exactly once, empty or a 10-character team ID (got $team_lines line(s): '${team_val}')"
+  fi
+else
+  err "$TEAM_CFG is missing (the single DEVELOPMENT_TEAM setting)"
+fi
+if grep -qF 'Team.xcconfig' "$PBX"; then
+  ok "project.pbxproj references Team.xcconfig"
+else
+  err "$PBX does not reference Team.xcconfig (targets would not get DEVELOPMENT_TEAM)"
+fi
+if grep -qE '^#include "Flutter/Team.xcconfig"' "$WATCH_CFG"; then
+  ok "Watch.xcconfig includes Team.xcconfig"
+else
+  err "$WATCH_CFG must #include \"Flutter/Team.xcconfig\""
+fi
+# Any DEVELOPMENT_TEAM assignment with a team-ID-shaped value outside Team.xcconfig.
+team_hits=$(git grep -nE "DEVELOPMENT_TEAM['\"]?\]?[[:space:]]*=[[:space:]]*['\"]?[A-Z0-9]{10}\b" -- . ":!$TEAM_CFG" 2>/dev/null || true)
+if [[ -n "$team_hits" ]]; then
+  err "hard-coded DEVELOPMENT_TEAM outside $TEAM_CFG:"
+  echo "$team_hits" >&2
+else
+  ok "no hard-coded DEVELOPMENT_TEAM outside $TEAM_CFG"
+fi
+# The two old placeholder team IDs, built from parts so this script does not match itself.
+OLD_TEAMS=("FF6X""228VNT" "3QW98""F397X")
+for t in "${OLD_TEAMS[@]}"; do
+  if old_team_hits=$(git grep -n -F "$t" -- . 2>/dev/null) && [[ -n "$old_team_hits" ]]; then
+    err "old placeholder team ID still present in tracked files:"
+    echo "$old_team_hits" >&2
+  fi
+done
+
+# --- TC-021 item 2: same deep-link schemes on iOS and Android ----------------
+MANIFEST="flutter_app/android/app/src/main/AndroidManifest.xml"
+scheme_out=$(python3 - "$MANIFEST" "$PLIST" <<'PY'
+import plistlib, re, sys
+import xml.etree.ElementTree as ET
+A = '{http://schemas.android.com/apk/res/android}'
+SDK = re.compile(r'^(com\.googleusercontent\.apps\..+|fb[0-9]+)$')
+root = ET.parse(sys.argv[1]).getroot()
+android = set()
+app = root.find('application')
+for comp in list(app.iter('activity')) + list(app.iter('activity-alias')):
+    for f in comp.iter('intent-filter'):
+        cats = {c.get(A + 'name') for c in f.iter('category')}
+        if 'android.intent.category.BROWSABLE' not in cats:
+            continue
+        for d in f.iter('data'):
+            s = d.get(A + 'scheme')
+            if s and s not in ('http', 'https'):
+                android.add(s)
+with open(sys.argv[2], 'rb') as fh:
+    pl = plistlib.load(fh)
+ios = {s for t in pl.get('CFBundleURLTypes', []) for s in t.get('CFBundleURLSchemes', []) if not SDK.match(s)}
+print('android=' + ','.join(sorted(android)))
+print('ios=' + ','.join(sorted(ios)))
+sys.exit(0 if android == ios and android else 3)
+PY
+) && scheme_rc=0 || scheme_rc=$?
+if [[ "$scheme_rc" -eq 0 ]]; then
+  ok "deep-link schemes match on iOS and Android ($(sed -n 's/^android=//p' <<<"$scheme_out"))"
+else
+  err "iOS and Android must declare the same deep-link schemes ($(tr '\n' ' ' <<<"$scheme_out"))"
 fi
 
 if old_hits=$(git grep -n -F "$OLD_ID" -- . 2>/dev/null) && [[ -n "$old_hits" ]]; then

@@ -213,6 +213,9 @@ jobs:
       - name: Leak scan self-test (fails on missing build output)
         run: bash scripts/test-leak-scan.sh
 
+      - name: App ID pin self-test (TC-021, team ID / watch ID / deep-link checks must catch regressions)
+        run: bash scripts/test-check-app-id.sh
+
       - name: App ID pin (TC-020, store package name must not drift)
         run: bash scripts/check-app-id.sh
 

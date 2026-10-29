@@ -232,6 +232,10 @@ describe('PhysicianPatientDetail', () => {
     renderDetail(api);
     expect(await screen.findByText(/We couldn't load Jordan's lab results/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    // TC-021 item 1 (Ava): "Try again" carries the refresh icon, decorative only.
+    const retryIcon = screen.getByRole('button', { name: 'Try again' }).querySelector('svg');
+    expect(retryIcon).not.toBeNull();
+    expect(retryIcon).toHaveAttribute('aria-hidden', 'true');
     // components.md C35: err variant is status.critical/criticalSubtle with a
     // 20px icon, not a plain neutral card.
     const banner = screen.getByRole('alert');
