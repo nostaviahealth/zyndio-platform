@@ -127,7 +127,7 @@ def wait_for_functions(env: dict[str, str], timeout_s: int = 60) -> bool:
     return False
 
 
-def run_seed(env: dict[str, str]) -> dict:
+def run_seed(env: dict[str, str], last: str = "invited") -> dict:
     import json
 
     full_env = {
@@ -137,7 +137,7 @@ def run_seed(env: dict[str, str]) -> dict:
         "SUPABASE_SERVICE_ROLE_KEY": env["SERVICE_ROLE_KEY"],
     }
     result = subprocess.run(
-        ["npx", "tsx", "scripts/tc019_seed_local.mts"],
+        ["npx", "tsx", "scripts/tc019_seed_local.mts", "--last", last],
         cwd=REPO_ROOT,
         env=full_env,
         capture_output=True,
@@ -512,9 +512,174 @@ def check_access_denied(browser, base_url: str, creds: dict, mode: str, screensh
     ctx.close()
 
 
+
+# ---------------------------------------------------------------------------
+# Fix round (Ava's review of a0e5ddd): F1 last-row menu, F4 auth buttons
+# ---------------------------------------------------------------------------
+
+# Menu item hit-test: the item's box is inside the viewport and
+# elementFromPoint at its centre and near both ends lands on the item itself
+# (nothing paints over it, no ancestor clips it).
+HIT_TEST_JS = """el => { const r = el.getBoundingClientRect();
+  const inView = r.width > 0 && r.height > 0 && r.left >= 0 && r.top >= 0 &&
+    r.right <= window.innerWidth && r.bottom <= window.innerHeight;
+  const y = r.top + r.height / 2;
+  const pts = [[r.left + r.width / 2, y], [r.left + 6, y], [r.right - 6, y]];
+  const hits = pts.map(([x, yy]) => { const h = document.elementFromPoint(x, yy); return !!h && (h === el || el.contains(h)); });
+  return { inView, hits, box: [Math.round(r.left), Math.round(r.top), Math.round(r.right), Math.round(r.bottom)],
+           vw: window.innerWidth, vh: window.innerHeight }; }"""
+
+# (seed --last key, row email key, menu item to click, how to confirm the click landed)
+LAST_ROW_ACTIONS = [
+    ("invited", "invited", "Cancel invite"),
+    ("lastActive", "lastActive", "Request two-factor reset"),
+    ("lastActive", "lastActive", "Deactivate"),
+    ("deactivated", "deactivated", "Reactivate"),
+]
+
+
+def check_last_row_menu(browser, base_url: str, creds: dict, env: dict[str, str], mode: str,
+                        screenshots: str | None) -> None:
+    """F1: open the LAST row's ⋯ menu and click every action from it.
+
+    Each action is opened from the last row of the full list (the seed moves
+    the row that has that action to the end). Every menu item must hit-test
+    as visible inside the viewport, and the chosen item is clicked with a
+    real mouse click at its on-screen centre (no auto-scroll), and the result
+    of that click must appear.
+    """
+    ctx = browser.new_context(viewport={"width": 1440, "height": 900}, color_scheme=mode)
+    page = ctx.new_page()
+    sign_in(page, base_url, creds["orgAdmin"]["email"], creds["orgAdmin"]["password"], creds["orgAdmin"]["totpSecret"])
+    for width in (1024, 1440):
+        height = 768 if width == 1024 else 900
+        page.set_viewport_size({"width": width, "height": height})
+        shot_done = False
+        for seed_key, row_key, item_label in LAST_ROW_ACTIONS:
+            creds = run_seed(env, last=seed_key)
+            email = creds[row_key]["email"]
+            label = f"F1 last-row menu {mode}@{width}: {item_label} ({email})"
+            goto_hash(page, base_url, "/admin/users")
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector("table tbody tr", timeout=15_000)
+            page.locator("tbody tr", has_text=email).wait_for(timeout=15_000)
+            page.wait_for_timeout(300)
+            last_row = page.locator("tbody tr").last
+            if not check(email in last_row.inner_text(), f"{label}: row is the last row"):
+                continue
+            trigger = last_row.get_by_role("button", name=re.compile("More actions"))
+            trigger.scroll_into_view_if_needed()
+            tb = trigger.bounding_box()
+            page.mouse.click(tb["x"] + tb["width"] / 2, tb["y"] + tb["height"] / 2)
+            menu = page.get_by_role("menu")
+            try:
+                menu.wait_for(state="attached", timeout=3_000)
+            except Exception:
+                check(False, f"{label}: menu opened")
+                continue
+            page.wait_for_timeout(250)
+            if not shot_done:
+                screenshot(page, screenshots, "07-last-row-menu-open", width, mode)
+                shot_done = True
+            items = menu.get_by_role("menuitem")
+            n = items.count()
+            bad = []
+            for i in range(n):
+                res = items.nth(i).evaluate(HIT_TEST_JS)
+                if not (res["inView"] and all(res["hits"])):
+                    bad.append((items.nth(i).inner_text(), res))
+            check(n > 0 and not bad, f"{label}: all {n} menu items visible and unobstructed {bad if bad else ''}")
+            target = menu.get_by_role("menuitem", name=item_label, exact=True)
+            if target.count() != 1:
+                check(False, f"{label}: item present in menu")
+                continue
+            r = target.evaluate("el => { const b = el.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; }")
+            page.mouse.click(r[0], r[1])
+            try:
+                if item_label == "Cancel invite":
+                    page.wait_for_selector("text=Cancel the invite", timeout=4_000)
+                    page.get_by_role("button", name="Keep invite").click()
+                elif item_label == "Request two-factor reset":
+                    page.get_by_role("alertdialog").or_(page.get_by_role("dialog")).first.wait_for(timeout=4_000)
+                    page.get_by_text(re.compile(f"two-factor reset for {re.escape(email)}")).first.wait_for(timeout=4_000)
+                    page.keyboard.press("Escape")
+                elif item_label == "Deactivate":
+                    page.get_by_text(f"Deactivate {email}?").wait_for(timeout=4_000)
+                    page.get_by_role("button", name="Cancel").click()
+                elif item_label == "Reactivate":
+                    page.locator("tbody tr", has_text=email).get_by_text("Active", exact=True).wait_for(timeout=8_000)
+                check(True, f"{label}: clicking the item worked")
+            except Exception as exc:  # noqa: BLE001 - recorded as a FAIL, run continues
+                check(False, f"{label}: clicking the item worked ({type(exc).__name__})")
+                page.keyboard.press("Escape")
+        # Keyboard + Escape on the real page (last row).
+        creds = run_seed(env, last="lastActive")
+        goto_hash(page, base_url, "/admin/users")
+        page.reload(wait_until="domcontentloaded")
+        page.wait_for_selector("table tbody tr", timeout=15_000)
+        page.wait_for_timeout(300)
+        trigger = page.locator("tbody tr").last.get_by_role("button", name=re.compile("More actions"))
+        trigger.focus()
+        page.keyboard.press("Enter")
+        page.wait_for_timeout(200)
+        focused_item = page.evaluate("document.activeElement && document.activeElement.getAttribute('role')")
+        check(focused_item == "menuitem", f"F1 keyboard {mode}@{width}: Enter opens the menu and focuses the first item (focus role={focused_item})")
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(150)
+        closed = page.get_by_role("menu").count() == 0
+        back = page.evaluate("document.activeElement && document.activeElement.getAttribute('aria-haspopup')")
+        check(closed and back == "menu", f"F1 keyboard {mode}@{width}: Escape closes the menu and returns focus to ⋯ (closed={closed})")
+    run_seed(env)  # leave the default order (invited last) for the other checks
+    ctx.close()
+
+
+def nearest_bg_js() -> str:
+    return """el => { let n = el.parentElement;
+      while (n) { const c = getComputedStyle(n).backgroundColor;
+        if (c && c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent') return c; n = n.parentElement; }
+      return getComputedStyle(document.body).backgroundColor; }"""
+
+
+def check_auth_button(page: Page, name: str, label: str) -> None:
+    btn = page.get_by_role("button", name=name, exact=True)
+    btn.wait_for(timeout=10_000)
+    page.wait_for_timeout(400)  # Tailwind CDN tick + transition-colors
+    bg = parse_rgb(btn.evaluate("el => getComputedStyle(el).backgroundColor"))
+    fg = parse_rgb(btn.evaluate("el => getComputedStyle(el).color"))
+    surface = parse_rgb(btn.evaluate(nearest_bg_js()))
+    text_ratio = contrast_ratio(fg, bg)
+    edge_ratio = contrast_ratio(bg, surface)
+    check(text_ratio >= 4.5, f"F4 {label}: '{name}' label vs button >= 4.5:1 (got {text_ratio:.2f}, fg={fg} bg={bg})")
+    check(edge_ratio >= 3.0, f"F4 {label}: '{name}' button vs surrounding surface >= 3:1 (got {edge_ratio:.2f}, bg={bg} surface={surface})")
+
+
+def check_auth_pages(browser, base_url: str, creds: dict, mode: str, screenshots: str | None) -> None:
+    """F4: sign-in and 2FA with the OS theme set; buttons must match their surface."""
+    ctx = browser.new_context(viewport={"width": 1440, "height": 900}, color_scheme=mode)
+    page = ctx.new_page()
+    goto_hash(page, base_url, "/admin/login")
+    page.get_by_label("Work email").wait_for(timeout=15_000)
+    inject_axe(page)
+    check_auth_button(page, "Continue", f"sign-in {mode}")
+    screenshot(page, screenshots, "00a-sign-in", 1440, mode)
+    run_axe(page, f"sign-in {mode}")
+    page.get_by_label("Work email").fill(creds["orgAdmin"]["email"])
+    page.get_by_label("Password", exact=True).fill(creds["orgAdmin"]["password"])
+    page.get_by_role("button", name="Continue").click()
+    page.wait_for_url("**/#/admin/2fa/challenge", timeout=15_000)
+    page.locator("#code-input").wait_for(state="attached", timeout=10_000)
+    inject_axe(page)
+    check_auth_button(page, "Verify", f"2FA {mode}")
+    screenshot(page, screenshots, "00b-2fa", 1440, mode)
+    run_axe(page, f"2FA challenge {mode}")
+    ctx.close()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--screenshots", choices=["before", "after"], default=None)
+    parser.add_argument("--screenshots", choices=["before", "after", "fixround-before", "fixround-after"], default=None)
+    parser.add_argument("--only", choices=["fixround"], default=None,
+                        help="run only the fix-round checks (F1 last-row menu, F4 auth buttons)")
     args = parser.parse_args()
 
     env = supabase_env()
@@ -536,10 +701,14 @@ def main() -> int:
         with sync_playwright() as p:
             browser = p.chromium.launch()
             try:
-                check_first_paint_and_flip(browser, base_url)
+                if args.only is None:
+                    check_first_paint_and_flip(browser, base_url)
                 for mode in ("dark", "light"):
-                    check_authenticated(browser, base_url, creds, mode, args.screenshots)
-                    check_access_denied(browser, base_url, creds, mode, args.screenshots)
+                    check_auth_pages(browser, base_url, creds, mode, args.screenshots)
+                    check_last_row_menu(browser, base_url, creds, env, mode, args.screenshots)
+                    if args.only is None:
+                        check_authenticated(browser, base_url, creds, mode, args.screenshots)
+                        check_access_denied(browser, base_url, creds, mode, args.screenshots)
             finally:
                 browser.close()
     finally:

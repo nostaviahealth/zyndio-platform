@@ -11,6 +11,13 @@
 // resolve in the DB, it's reused as-is (refreshing the invited member's
 // created_at so the "N days left" badge stays meaningful). Otherwise
 // everything is (re)created.
+//
+// TC-019 fix round (F1): two more fictional rows so every row action exists
+// on a row that can be placed LAST in the table (list_org_members orders by
+// created_at): an active "last-active" row (Request two-factor reset,
+// Deactivate) and a deactivated row (Reactivate); the invited row has
+// Cancel invite. `--last <invited|lastActive|deactivated>` bumps that row's
+// created_at so it is the last row; without it the invited row is last.
 import { randomBytes, createHmac } from 'node:crypto';
 import { writeFileSync, chmodSync, readFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -139,6 +146,53 @@ interface Creds {
   coordinator: { email: string; userId: string };
   readOnly: { email: string; userId: string };
   invited: { email: string; userId: string };
+  lastActive?: { email: string; userId: string };
+  deactivated?: { email: string; userId: string };
+}
+
+type LastKey = 'invited' | 'lastActive' | 'deactivated';
+const LAST_ARG = process.argv.indexOf('--last');
+const LAST: LastKey = (LAST_ARG > -1 ? process.argv[LAST_ARG + 1] : 'invited') as LastKey;
+if (!['invited', 'lastActive', 'deactivated'].includes(LAST)) throw new Error(`bad --last ${LAST}`);
+
+const EXTRA_ROWS = {
+  lastActive: { email: 'tc019-last-active@example.test', role: 'care_coordinator', status: 'active', full_name: 'Fictional Lee Lastrow' },
+  deactivated: { email: 'tc019-deactivated@example.test', role: 'read_only', status: 'deactivated', full_name: 'Fictional Kim Deactivated' },
+} as const;
+
+// Ensures the F1 extra rows exist, re-asserts their status, and orders the
+// tail of the table: lastActive, deactivated, invited, then --last on top.
+async function ensureTail(creds: Creds): Promise<void> {
+  for (const key of ['lastActive', 'deactivated'] as const) {
+    const spec = EXTRA_ROWS[key];
+    const userId = (await findUserId(spec.email)) ?? (await createUser(spec.email, genPassword()));
+    creds[key] = { email: spec.email, userId };
+  }
+  const now = Date.now();
+  const at = (offsetMs: number) => new Date(now + offsetMs).toISOString();
+  const order: Record<LastKey, number> = { lastActive: -120_000, deactivated: -60_000, invited: 0 };
+  order[LAST] = 60_000;
+  for (const key of ['lastActive', 'deactivated'] as const) {
+    const spec = EXTRA_ROWS[key];
+    await upsertMember({
+      user_id: creds[key]!.userId,
+      org_id: creds.orgId,
+      role: spec.role,
+      status: spec.status,
+      full_name: spec.full_name,
+      created_at: at(order[key]),
+    });
+  }
+  await upsertMember({
+    user_id: creds.invited.userId,
+    org_id: creds.orgId,
+    role: 'physician',
+    status: 'invited',
+    full_name: 'Fictional Taylor Invitee',
+    created_at: at(order.invited),
+  });
+  writeFileSync(CREDS_PATH, JSON.stringify(creds), { mode: 0o600 });
+  chmodSync(CREDS_PATH, 0o600);
 }
 
 async function stillValid(creds: Creds): Promise<boolean> {
@@ -207,7 +261,8 @@ async function main() {
         full_name: 'Fictional Taylor Invitee',
         created_at: new Date().toISOString(),
       });
-      console.log(JSON.stringify({ reused: true, orgId: existing.orgId }));
+      await ensureTail(existing);
+      console.log(JSON.stringify({ reused: true, orgId: existing.orgId, last: LAST }));
       return;
     }
   }
@@ -254,9 +309,8 @@ async function main() {
     readOnly: { email: readOnlyEmail, userId: readOnlyId },
     invited: { email: invitedEmail, userId: invitedId },
   };
-  writeFileSync(CREDS_PATH, JSON.stringify(creds), { mode: 0o600 });
-  chmodSync(CREDS_PATH, 0o600);
-  console.log(JSON.stringify({ reused: false, orgId }));
+  await ensureTail(creds);
+  console.log(JSON.stringify({ reused: false, orgId, last: LAST }));
 }
 
 main().catch((err) => {
