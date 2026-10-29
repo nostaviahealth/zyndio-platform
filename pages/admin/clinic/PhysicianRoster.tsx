@@ -12,6 +12,7 @@ import {
 import { usePortalAuth } from '../../../contexts/PortalAuthContext';
 import FictionalDataTag from '../../../components/ui/FictionalDataTag';
 import FlagBadge from '../../../components/clinical/FlagBadge';
+import CriticalBanner from '../../../components/ui/CriticalBanner';
 import {
   ageSexShort,
   formatLastActivity,
@@ -467,11 +468,11 @@ const EmptyRoster: React.FC<{ searchValue: string; onSearch: (v: string) => void
 );
 
 const ErrorPanel: React.FC<{ onRetry: () => void }> = ({ onRetry }) => (
-  <div className={`${CARD} p-8`} role="alert">
-    <p className="text-sm text-[#48556A] dark:text-[#A6B0C3]">
+  <div className={`${CARD} p-8`}>
+    <CriticalBanner>
       We couldn&apos;t load your patients. Check your connection and try again. If it keeps happening, contact Zyndio
       support.
-    </p>
+    </CriticalBanner>
     <button
       type="button"
       onClick={onRetry}

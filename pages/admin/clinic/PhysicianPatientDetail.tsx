@@ -14,6 +14,7 @@ import FictionalDataTag from '../../../components/ui/FictionalDataTag';
 import Tooltip from '../../../components/ui/Tooltip';
 import FlagBadge from '../../../components/clinical/FlagBadge';
 import TrendChart from '../../../components/clinical/TrendChart';
+import CriticalBanner from '../../../components/ui/CriticalBanner';
 import {
   STATUS_LABELS,
   formatMonthDay,
@@ -581,11 +582,11 @@ const LabsEmpty: React.FC<{ name: string }> = ({ name }) => {
 const LabsError: React.FC<{ name: string; onRetry: () => void }> = ({ name, onRetry }) => {
   const first = name.split(' ')[0];
   return (
-    <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-8 dark:border-[#222838] dark:bg-[#10141F]" role="alert">
-      <p className="text-sm text-[#48556A] dark:text-[#A6B0C3]">
+    <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-8 dark:border-[#222838] dark:bg-[#10141F]">
+      <CriticalBanner>
         We couldn&apos;t load {first}&apos;s lab results. Check your connection and try again. Nothing has changed in
         the record.
-      </p>
+      </CriticalBanner>
       <button
         type="button"
         onClick={onRetry}
