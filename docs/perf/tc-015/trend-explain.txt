@@ -1,0 +1,16 @@
+BEGIN
+ authenticate_as 
+-----------------
+ 
+(1 row)
+
+== patient_trend(patient n=2, hba1c, ALL) : RPC call ==
+                                                    QUERY PLAN                                                    
+------------------------------------------------------------------------------------------------------------------
+ Function Scan on patient_trend  (cost=0.25..10.25 rows=1000 width=200) (actual time=5.330..5.331 rows=5 loops=1)
+   Buffers: shared hit=914
+ Planning Time: 0.049 ms
+ Execution Time: 5.375 ms
+(4 rows)
+
+ROLLBACK

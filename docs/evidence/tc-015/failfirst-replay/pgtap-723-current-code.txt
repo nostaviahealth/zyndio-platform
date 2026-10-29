@@ -1,0 +1,27 @@
+# 723 on current code (HEAD 14e1296, before the scoping migration) - 2026-10-28 17:05:25 IST (fresh supabase db reset)
+Connecting to local database...
+psql:/workspace/techteam/team3/projects/zyndio/work/zp-tc015/supabase/tests/000_fixtures.sql:9: NOTICE:  extension "pgtap" already exists, skipping
+/workspace/techteam/team3/projects/zyndio/work/zp-tc015/supabase/tests/000_fixtures.sql ......................... ok
+/workspace/techteam/team3/projects/zyndio/work/zp-tc015/supabase/tests/723_tc015_lab_report_held_org_scope.sql .. 
+# Failed test 4: "physician_a: org-B NON-held report -> true, same as a report that does not exist"
+#         have: false
+#         want: true
+# Failed test 6: "physician_a: org-B report answer == unknown-uuid answer (no cross-clinic oracle)"
+#         have: false
+#         want: true
+# Failed test 7: "physician_b: org-A NON-held report -> true, same as a report that does not exist"
+#         have: false
+#         want: true
+# Failed test 9: "patient (no clinic membership): any report -> true (fail closed)"
+#         have: false
+#         want: true
+# Looks like you failed 4 tests of 12
+Failed 4/12 subtests 
+
+Test Summary Report
+-------------------
+/workspace/techteam/team3/projects/zyndio/work/zp-tc015/supabase/tests/723_tc015_lab_report_held_org_scope.sql (Wstat: 0 Tests: 12 Failed: 4)
+  Failed tests:  4, 6-7, 9
+Files=2, Tests=13,  0 wallclock secs ( 0.02 usr  0.00 sys +  0.01 cusr  0.00 csys =  0.03 CPU)
+Result: FAIL
+error running container: exit 1

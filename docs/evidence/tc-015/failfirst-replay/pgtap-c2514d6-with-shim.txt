@@ -1,0 +1,94 @@
+Connecting to local database...
+psql:supabase/tests/000_fixtures.sql:9: NOTICE:  extension "pgtap" already exists, skipping
+supabase/tests/000_fixtures.sql ....................... ok
+supabase/tests/710_tc015_roster_detail_isolation.sql .. 
+# Failed test 1: "physician_a cannot see org B lab_results (cross-org denied)"
+#         have: 1
+#         want: 0
+# Failed test 4: "physician_a roster never includes org B patient b1001"
+#         have: 1
+#         want: 0
+# Failed test 6: "physician_a opening org B patient returns not-found (null), same as unknown"
+#         have: {"id": "00000000-0000-0000-0000-0000000b1001", "mrn": "MRN-B1", "org_id": "00000000-0000-0000-0000-00000000000b", "treatment": null, "created_at": "2026-10-28T07:44:06.153146+00:00", "display_name": "Fictional Patient B1"}
+#         want: NULL
+# Failed test 9: "physician_a gets no trend points for org B patient b1001"
+#         have: 1
+#         want: 0
+# Failed test 13: "read_only_a sees no lab_results rows at all (no clinical detail)"
+#         have: 2
+#         want: 0
+# Failed test 14: "read_only_a opening a1001 detail returns not-found (null), same as unknown"
+#         have: {"id": "00000000-0000-0000-0000-0000000a1001", "mrn": "MRN-A1", "org_id": "00000000-0000-0000-0000-00000000000a", "treatment": {"id": "97fc46cd-52a2-4825-b1cf-e15469cd3b56", "dose": null, "name": "Example GLP-1 medication (fictional)", "org_id": "00000000-0000-0000-0000-00000000000a", "source": "Zyndio record, Oct 20, 2026", "status": "Active", "patient_id": "00000000-0000-0000-0000-0000000a1001", "started_on": "2026-04-02"}, "created_at": "2026-10-28T07:44:06.153146+00:00", "display_name": "Fictional Patient A1"}
+#         want: NULL
+# Failed test 15: "read_only_a gets no trend points"
+#         have: 1
+#         want: 0
+# Failed test 16: "physician_b cannot direct-select a1001 lab_results"
+#         have: 1
+#         want: 0
+# Failed test 17: "physician_b opening a1001 detail returns not-found (null), same as unknown"
+#         have: {"id": "00000000-0000-0000-0000-0000000a1001", "mrn": "MRN-A1", "org_id": "00000000-0000-0000-0000-00000000000a", "treatment": {"id": "97fc46cd-52a2-4825-b1cf-e15469cd3b56", "dose": null, "name": "Example GLP-1 medication (fictional)", "org_id": "00000000-0000-0000-0000-00000000000a", "source": "Zyndio record, Oct 20, 2026", "status": "Active", "patient_id": "00000000-0000-0000-0000-0000000a1001", "started_on": "2026-04-02"}, "created_at": "2026-10-28T07:44:06.153146+00:00", "display_name": "Fictional Patient A1"}
+#         want: NULL
+# Failed test 18: "physician_b gets no trend points for org A patient a1001"
+#         have: 1
+#         want: 0
+# Looks like you failed 10 tests of 18
+Failed 10/18 subtests 
+supabase/tests/715_tc015_trend_exclusions.sql ......... 
+# Failed test 1: "HbA1c trend ALL = 4 valid points (identity-hold 9.9 excluded)"
+#         have: 5
+#         want: 4
+# Failed test 2: "HbA1c trend 6M drops the 200-day-old baseline point"
+#         have: 4
+#         want: 3
+# Failed test 3: "HbA1c trend default period is 6M (3 points)"
+#         have: 4
+#         want: 3
+# Failed test 4: "identity-hold HbA1c value (9.9) is absent from the trend"
+#         have: 1
+#         want: 0
+# Failed test 6: "needs-review hsCRP is absent from the trend"
+#         have: 1
+#         want: 0
+# Failed test 7: "unmapped Lp-PLA2 is absent from the trend"
+#         have: 1
+#         want: 0
+# Failed test 8: "latest HbA1c is the 20-day-old 5.5 (identity-hold 9.9 excluded from latest)"
+#         have: 9.9
+#         want: 5.5
+# Failed test 9: "identity-hold value (9.9) is absent from the latest-results data"
+#         have: 1
+#         want: 0
+# Looks like you failed 8 tests of 10
+Failed 8/10 subtests 
+supabase/tests/717_tc015_detail_open_audit.sql ........ 
+# Failed test 2: "exactly one patient_detail_opened row after one open (actor, patient, org recorded)"
+#         have: 0
+#         want: 1
+# Failed test 3: "a second open writes exactly one more row (one audit row per call)"
+#         have: 0
+#         want: 2
+# Looks like you failed 2 tests of 6
+Failed 2/6 subtests 
+supabase/tests/719_tc015_no_dose.sql .................. 
+# Failed test 1: "patient_treatments has no dose column - treatment storage cannot hold a dose"
+# Failed test 3: "treatment JSON has no dose key"
+# Failed test 4: "treatment JSON keys are exactly the whitelist (name/started_on/status/source)"
+#         have: 4
+#         want: 0
+# Looks like you failed 3 tests of 5
+Failed 3/5 subtests 
+
+Test Summary Report
+-------------------
+supabase/tests/710_tc015_roster_detail_isolation.sql (Wstat: 0 Tests: 18 Failed: 10)
+  Failed tests:  1, 4, 6, 9, 13-18
+supabase/tests/715_tc015_trend_exclusions.sql       (Wstat: 0 Tests: 10 Failed: 8)
+  Failed tests:  1-4, 6-9
+supabase/tests/717_tc015_detail_open_audit.sql      (Wstat: 0 Tests: 6 Failed: 2)
+  Failed tests:  2-3
+supabase/tests/719_tc015_no_dose.sql                (Wstat: 0 Tests: 5 Failed: 3)
+  Failed tests:  1, 3-4
+Files=5, Tests=40,  0 wallclock secs ( 0.02 usr  0.01 sys +  0.04 cusr  0.00 csys =  0.07 CPU)
+Result: FAIL
+error running container: exit 1

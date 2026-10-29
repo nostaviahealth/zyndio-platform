@@ -1,0 +1,228 @@
+Pager usage is off.
+BEGIN
+SET
+                                     set_config                                     
+------------------------------------------------------------------------------------
+ {"sub":"0000f015-0000-0000-0000-0000000a0002","role":"authenticated","aal":"aal2"}
+(1 row)
+
+Timing is on.
+== all / recent / first page (limit 8) x5 ==
+ count 
+-------
+     8
+(1 row)
+
+Time: 13.625 ms
+ count 
+-------
+     8
+(1 row)
+
+Time: 9.557 ms
+ count 
+-------
+     8
+(1 row)
+
+Time: 8.820 ms
+ count 
+-------
+     8
+(1 row)
+
+Time: 8.538 ms
+ count 
+-------
+     8
+(1 row)
+
+Time: 8.584 ms
+== flagged x5 ==
+ count 
+-------
+     8
+(1 row)
+
+Time: 7.785 ms
+ count 
+-------
+     8
+(1 row)
+
+Time: 7.111 ms
+ count 
+-------
+     8
+(1 row)
+
+Time: 7.591 ms
+ count 
+-------
+     8
+(1 row)
+
+Time: 7.821 ms
+ count 
+-------
+     8
+(1 row)
+
+Time: 7.169 ms
+== missing_labs x5 ==
+ count 
+-------
+     0
+(1 row)
+
+Time: 6.412 ms
+ count 
+-------
+     0
+(1 row)
+
+Time: 6.447 ms
+ count 
+-------
+     0
+(1 row)
+
+Time: 6.158 ms
+ count 
+-------
+     0
+(1 row)
+
+Time: 6.292 ms
+ count 
+-------
+     0
+(1 row)
+
+Time: 8.425 ms
+== questions_waiting x5 ==
+ count 
+-------
+     8
+(1 row)
+
+Time: 6.587 ms
+ count 
+-------
+     8
+(1 row)
+
+Time: 6.645 ms
+ count 
+-------
+     8
+(1 row)
+
+Time: 6.521 ms
+ count 
+-------
+     8
+(1 row)
+
+Time: 6.371 ms
+ count 
+-------
+     8
+(1 row)
+
+Time: 6.383 ms
+== name search (Patient 123) x5 ==
+ count 
+-------
+     8
+(1 row)
+
+Time: 12.032 ms
+ count 
+-------
+     8
+(1 row)
+
+Time: 9.762 ms
+ count 
+-------
+     8
+(1 row)
+
+Time: 11.081 ms
+ count 
+-------
+     8
+(1 row)
+
+Time: 10.109 ms
+ count 
+-------
+     8
+(1 row)
+
+Time: 10.011 ms
+== all / page 2 (offset 8) x5 ==
+ count 
+-------
+     8
+(1 row)
+
+Time: 8.745 ms
+ count 
+-------
+     8
+(1 row)
+
+Time: 8.852 ms
+ count 
+-------
+     8
+(1 row)
+
+Time: 8.755 ms
+ count 
+-------
+     8
+(1 row)
+
+Time: 8.862 ms
+ count 
+-------
+     8
+(1 row)
+
+Time: 8.637 ms
+== chip counts x5 ==
+ all_count | flagged_count | missing_labs_count | questions_waiting_count 
+-----------+---------------+--------------------+-------------------------
+      5000 |          1753 |                  0 |                     454
+(1 row)
+
+Time: 7.225 ms
+ all_count | flagged_count | missing_labs_count | questions_waiting_count 
+-----------+---------------+--------------------+-------------------------
+      5000 |          1753 |                  0 |                     454
+(1 row)
+
+Time: 6.573 ms
+ all_count | flagged_count | missing_labs_count | questions_waiting_count 
+-----------+---------------+--------------------+-------------------------
+      5000 |          1753 |                  0 |                     454
+(1 row)
+
+Time: 6.712 ms
+ all_count | flagged_count | missing_labs_count | questions_waiting_count 
+-----------+---------------+--------------------+-------------------------
+      5000 |          1753 |                  0 |                     454
+(1 row)
+
+Time: 6.953 ms
+ all_count | flagged_count | missing_labs_count | questions_waiting_count 
+-----------+---------------+--------------------+-------------------------
+      5000 |          1753 |                  0 |                     454
+(1 row)
+
+Time: 6.500 ms
+Timing is off.
+ROLLBACK

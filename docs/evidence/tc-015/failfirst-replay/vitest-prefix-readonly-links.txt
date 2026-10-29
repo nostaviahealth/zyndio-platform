@@ -1,0 +1,25 @@
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m21 8-4-4-4 4"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M17 4v16"[39m
+    ...
+ ❯ waitForWrapper node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/admin-shell/physician-roster.test.tsx:68:31
+     66|   it('read_only rows ARE links too (Leo ruling, fix round 28 Oct: supe…
+     67|     renderRoster({ role: 'read_only' });
+     68|     const link = await screen.findByRole('link', { name: 'Open Jordan …
+       |                               ^
+     69|     expect(link).toHaveAttribute('href', '/admin/roster/p-jordan');
+     70|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+   Start at  15:18:34
+   Duration  2.27s (transform 146ms, setup 75ms, import 321ms, tests 1.25s, environment 408ms)
+

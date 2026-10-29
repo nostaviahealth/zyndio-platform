@@ -26,6 +26,21 @@ export default defineConfig(({ mode }) => {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         __PREVIEW_BUILD__: mode === 'preview',
+        // The preview/screenshot harness (build:preview) renders pages against
+        // injected fixtures and never touches Supabase, but lib/supabase.ts
+        // still calls createClient() at import, which throws on an empty URL.
+        // Give the preview build placeholder values (real env when set) so the
+        // harness boots; production builds are untouched and use real env.
+        ...(mode === 'preview'
+          ? {
+              'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(
+                env.VITE_SUPABASE_URL || 'http://127.0.0.1:54321'
+              ),
+              'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(
+                env.VITE_SUPABASE_ANON_KEY || 'preview-anon-key'
+              ),
+            }
+          : {}),
       },
       resolve: {
         alias: {

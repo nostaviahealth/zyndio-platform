@@ -44,7 +44,7 @@ const Sidebar: React.FC = () => {
             Users and roles
           </NavLink>
         ) : (
-          <NavLink to="/admin" className={navItemClass} end>
+          <NavLink to="/admin/patients" className={navItemClass}>
             <ClipboardList className="h-4 w-4" aria-hidden="true" />
             Patients
           </NavLink>

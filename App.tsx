@@ -32,6 +32,8 @@ import PatientDetail from './pages/admin/PatientDetail';
 import NutritionWorkbench from './pages/admin/NutritionWorkbench';
 import NutritionLab from './pages/admin/NutritionLab';
 import UsersRoles from './pages/admin/UsersRoles';
+import PhysicianRoster from './pages/admin/clinic/PhysicianRoster';
+import PhysicianPatientDetail from './pages/admin/clinic/PhysicianPatientDetail';
 import SignIn from './pages/admin/SignIn';
 import AcceptInvite from './pages/admin/AcceptInvite';
 import ResetPassword from './pages/admin/ResetPassword';
@@ -124,6 +126,27 @@ const App: React.FC = () => {
                     element={
                       <RequireRole roles={['physician', 'care_coordinator', 'read_only']}>
                         <AdminDashboard />
+                      </RequireRole>
+                    }
+                  />
+                  {/* TC-015 physician portal: clinical roster + patient detail
+                      (Labs tab). /admin/patients namespace to avoid the legacy
+                      /admin/patient/:id route. read_only can view the roster
+                      and detail/trends for their own clinic (Leo ruling, fix
+                      round 28 Oct). */}
+                  <Route
+                    path="patients"
+                    element={
+                      <RequireRole roles={['physician', 'care_coordinator', 'read_only']}>
+                        <PhysicianRoster />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="patients/:id"
+                    element={
+                      <RequireRole roles={['physician', 'care_coordinator', 'read_only']}>
+                        <PhysicianPatientDetail />
                       </RequireRole>
                     }
                   />

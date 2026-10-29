@@ -1,0 +1,108 @@
+Connecting to local database...
+psql:<throwaway c2514d6 + fix-round tests>/supabase/tests/000_fixtures.sql:9: NOTICE:  extension "pgtap" already exists, skipping
+<throwaway c2514d6 + fix-round tests>/supabase/tests/000_fixtures.sql ....................... ok
+<throwaway c2514d6 + fix-round tests>/supabase/tests/710_tc015_roster_detail_isolation.sql .. 
+# Failed test 1: "physician_a cannot see org B lab_results (cross-org denied)"
+#         have: 1
+#         want: 0
+# Failed test 4: "physician_a roster never includes org B patient b1001"
+#         have: 1
+#         want: 0
+# Failed test 6: "physician_a opening org B patient returns not-found (null), same as unknown"
+#         have: {"id": "00000000-0000-0000-0000-0000000b1001", "mrn": "MRN-B1", "org_id": "00000000-0000-0000-0000-00000000000b", "treatment": {"id": "52547c0b-ec82-400f-ac0e-67f1e95dd280", "dose": null, "name": "Example statin (fictional)", "org_id": "00000000-0000-0000-0000-00000000000b", "source": "Zyndio record, Oct 20, 2026", "status": "Active", "patient_id": "00000000-0000-0000-0000-0000000b1001", "started_on": "2026-05-01"}, "created_at": "2026-10-28T09:56:45.938347+00:00", "display_name": "Fictional Patient B1"}
+#         want: NULL
+# Failed test 9: "physician_a gets no trend points for org B patient b1001"
+#         have: 1
+#         want: 0
+# Failed test 15: "read_only_a detail payload has only the whitelisted keys"
+#         have: 3
+#         want: 0
+# Failed test 18: "read_only_a roster never includes org B patient b1001"
+#         have: 1
+#         want: 0
+# Failed test 19: "read_only_a opening org B patient returns not-found (null)"
+#         have: {"id": "00000000-0000-0000-0000-0000000b1001", "mrn": "MRN-B1", "org_id": "00000000-0000-0000-0000-00000000000b", "treatment": {"id": "52547c0b-ec82-400f-ac0e-67f1e95dd280", "dose": null, "name": "Example statin (fictional)", "org_id": "00000000-0000-0000-0000-00000000000b", "source": "Zyndio record, Oct 20, 2026", "status": "Active", "patient_id": "00000000-0000-0000-0000-0000000b1001", "started_on": "2026-05-01"}, "created_at": "2026-10-28T09:56:45.938347+00:00", "display_name": "Fictional Patient B1"}
+#         want: NULL
+# Failed test 20: "read_only_a gets no trend points for org B patient b1001"
+#         have: 1
+#         want: 0
+# Failed test 21: "read_only_a gets no latest results for org B patient b1001"
+#         have: 1
+#         want: 0
+# Failed test 22: "read_only_a sees no org B lab_results"
+#         have: 1
+#         want: 0
+# Failed test 23: "read_only_a sees no org B patient_treatments"
+#         have: 1
+#         want: 0
+# Failed test 28: "read_only_a is refused a direct INSERT on lab_results"
+#       caught: no exception
+#       wanted: 42501
+# Failed test 29: "read_only_a is refused a direct UPDATE on lab_results"
+#       caught: no exception
+#       wanted: 42501
+# Failed test 30: "read_only_a is refused a direct DELETE on patient_treatments"
+#       caught: no exception
+#       wanted: 42501
+# Failed test 31: "read_only_a is refused a direct UPDATE on patient_roster_meta"
+#       caught: no exception
+#       wanted: 42501
+# Failed test 32: "physician_b cannot direct-select a1001 lab_results"
+#         have: 2
+#         want: 0
+# Failed test 33: "physician_b opening a1001 detail returns not-found (null), same as unknown"
+#         have: {"id": "00000000-0000-0000-0000-0000000a1001", "mrn": "MRN-A1", "org_id": "00000000-0000-0000-0000-00000000000a", "treatment": null, "created_at": "2026-10-28T09:56:45.938347+00:00", "display_name": "Fictional Patient A1"}
+#         want: NULL
+# Failed test 34: "physician_b gets no trend points for org A patient a1001"
+#         have: 2
+#         want: 0
+# Looks like you failed 18 tests of 34
+Failed 18/34 subtests 
+<throwaway c2514d6 + fix-round tests>/supabase/tests/716_tc015_read_only_exclusions.sql ..... 
+# Failed test 2: "read_only_a HbA1c trend has only the visible point (identity-hold 9.9 excluded)"
+#         have: 2
+#         want: 1
+# Failed test 3: "read_only_a: identity-hold HbA1c value (9.9) is absent from the trend"
+#         have: 1
+#         want: 0
+# Failed test 4: "read_only_a: needs-review hsCRP is absent from the trend"
+#         have: 1
+#         want: 0
+# Failed test 5: "read_only_a: unmapped Lp-PLA2 is absent from the trend"
+#         have: 1
+#         want: 0
+# Failed test 6: "read_only_a: latest HbA1c is the visible 5.5 (identity-hold 9.9 excluded from latest)"
+#         have: 9.9
+#         want: 5.5
+# Failed test 7: "read_only_a: identity-hold value (9.9) is absent from the latest-results data"
+#         have: 1
+#         want: 0
+# Looks like you failed 6 tests of 7
+Failed 6/7 subtests 
+<throwaway c2514d6 + fix-round tests>/supabase/tests/717_tc015_detail_open_audit.sql ........ 
+# Failed test 2: "exactly one patient_detail_opened row after one open (actor, patient, org recorded)"
+#         have: 0
+#         want: 1
+# Failed test 3: "a second open writes exactly one more row (one audit row per call)"
+#         have: 0
+#         want: 2
+# Failed test 6: "read_only_a open writes exactly one patient_detail_opened row"
+#         have: 0
+#         want: 1
+# Failed test 7: "a second read_only_a open writes exactly one more row"
+#         have: 0
+#         want: 2
+# Looks like you failed 4 tests of 7
+Failed 4/7 subtests 
+
+Test Summary Report
+-------------------
+<throwaway c2514d6 + fix-round tests>/supabase/tests/710_tc015_roster_detail_isolation.sql (Wstat: 0 Tests: 34 Failed: 18)
+  Failed tests:  1, 4, 6, 9, 15, 18-23, 28-34
+<throwaway c2514d6 + fix-round tests>/supabase/tests/716_tc015_read_only_exclusions.sql   (Wstat: 0 Tests: 7 Failed: 6)
+  Failed tests:  2-7
+<throwaway c2514d6 + fix-round tests>/supabase/tests/717_tc015_detail_open_audit.sql      (Wstat: 0 Tests: 7 Failed: 4)
+  Failed tests:  2-3, 6-7
+Files=4, Tests=49,  1 wallclock secs ( 0.02 usr  0.01 sys +  0.03 cusr  0.00 csys =  0.06 CPU)
+Result: FAIL
+error running container: exit 1
