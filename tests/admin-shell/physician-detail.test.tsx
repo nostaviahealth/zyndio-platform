@@ -125,7 +125,14 @@ describe('PhysicianPatientDetail', () => {
     ).toBeInTheDocument();
     const button = screen.getByRole('link', { name: 'Back to Patients' });
     expect(button).toHaveAttribute('href', '/admin/patients');
-    expect(screen.getByRole('heading', { name: 'Patient not found' })).toBeInTheDocument();
+    // Ava (TC-015 notes): one heading only. Her card title is the single
+    // heading; "Patient not found" is the page (document) title, not a second
+    // visible heading above the card.
+    const headings = screen.getAllByRole('heading');
+    expect(headings).toHaveLength(1);
+    expect(headings[0]).toHaveTextContent("We can't show this patient");
+    expect(screen.queryByRole('heading', { name: 'Patient not found' })).not.toBeInTheDocument();
+    expect(document.title).toBe('Patient not found');
   });
 
   it('not-found: same view for unknown, other-clinic and no-access (no hint the patient exists)', async () => {
@@ -185,7 +192,10 @@ describe('PhysicianPatientDetail', () => {
     expect(
       await screen.findByRole('img', { name: /HbA1c chart: Apr 2 6.2%, Aug 6 5.7%, Oct 14 5.5%/ })
     ).toBeInTheDocument();
-    expect(screen.getAllByText('View report')[0]).toHaveAttribute('aria-disabled', 'true');
+    const viewReport = screen.getAllByText('View report')[0].closest('[aria-disabled]') as HTMLElement;
+    expect(viewReport).toHaveAttribute('aria-disabled', 'true');
+    // Ava (TC-015 notes): TC-016 entry points get the same neutral Soon tag.
+    expect(within(viewReport).getByText('Soon')).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/Not available yet/);
   });
 
@@ -204,6 +214,8 @@ describe('PhysicianPatientDetail', () => {
     expect(screen.getByText(/isn't used in trends or outcomes until someone checks it/)).toBeInTheDocument();
     const btn = screen.getByRole('button', { name: /Check in report/ });
     expect(btn).toBeDisabled();
+    // Ava (TC-015 notes): Soon tag on "Check in report" too.
+    expect(within(btn).getByText('Soon')).toBeInTheDocument();
     // needs-review markers are never fed to the trend RPC.
     expect(api.fetchTrend).not.toHaveBeenCalledWith('p-jordan', 'hscrp', expect.anything());
     expect(document.body.textContent).not.toMatch(/Not available yet/);
