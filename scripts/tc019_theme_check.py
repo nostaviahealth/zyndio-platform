@@ -261,6 +261,41 @@ def assert_focus_ring(page: Page, locator, label: str, mode: str, surface_rgb: s
     return check(ok, f"focus ring token on {label} ({mode}): 3px {expected_ring} / 2px offset, no old ring")
 
 
+def box_shadow_layers_full(box_shadow: str) -> list[tuple[str, int, bool]]:
+    """[(rgb_color, spread_px, inset), ...] for every layer of a computed box-shadow."""
+    layers = []
+    for part in re.split(r",(?![^()]*\))", box_shadow or ""):
+        m = re.search(r"(rgba?\([^)]+\))\s+((?:[\d.-]+px\s*){2,4})", part)
+        if not m:
+            continue
+        px = re.findall(r"([\d.-]+)px", m.group(2))
+        spread = int(float(px[3])) if len(px) >= 4 else 0
+        layers.append((m.group(1), spread, "inset" in part))
+    return layers
+
+
+def assert_inset_focus_ring(page: Page, locator, label: str, mode: str) -> bool:
+    """TC-021 item 21: a 3px INSET ring in the focus token colour, nothing drawn
+    outside the element (no offset layer, no outer ring), and the ring >= 3:1
+    against the element's own background (or the nearest opaque one)."""
+    locator.focus()
+    handle = locator.element_handle()
+    box_shadow = page.evaluate("el => getComputedStyle(el).boxShadow", handle)
+    expected_ring = FOCUS_DARK if mode == "dark" else FOCUS_LIGHT
+    layers = box_shadow_layers_full(box_shadow)
+    has_inset_ring = any(inset and spread == 3 and expected_ring in color for color, spread, inset in layers)
+    outer = [(c, s) for c, s, inset in layers if not inset and s > 0 and "rgba(0, 0, 0, 0)" not in c]
+    bg = parse_rgb(page.evaluate("""el => { let n = el;
+      while (n) { const c = getComputedStyle(n).backgroundColor;
+        if (c && c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent') return c; n = n.parentElement; }
+      return getComputedStyle(document.body).backgroundColor; }""", handle))
+    ratio = contrast_ratio(parse_rgb(expected_ring), bg)
+    ok = has_inset_ring and not outer and ratio >= 3
+    if not ok:
+        print(f"    {label} box-shadow: {box_shadow}")
+    return check(ok, f"item 21 inset focus ring on {label} ({mode}): 3px inset {expected_ring}, nothing outside the item (outer layers={outer}), ring vs bg {bg} = {ratio:.2f}:1 (>= 3)")
+
+
 def relative_luminance(rgb: tuple[int, int, int]) -> float:
     def lin(c: int) -> float:
         c = c / 255
@@ -779,10 +814,17 @@ def check_tc021_round2(browser, scrollbar_browser, base_url: str, creds: dict, m
         shadow = computed(cell, "boxShadow")
         check(EDGE[mode] in shadow and "inset" in shadow, f"item 10 F2 {mode}@1024: pinned actions {label} has a 1px left edge {EDGE[mode]} (box-shadow={shadow})")
     scroller.evaluate("el => { el.scrollLeft = 0; }")
+    # Item 25: where the pinned ⋯ column starts at 1024 (used by the toast check below).
+    actions_left = pinned_th.evaluate("el => el.getBoundingClientRect().left")
 
     # Item 10 F5: sidebar link focus ring (offset = sidebar surface).
     link = page.locator("nav[aria-label='Main'] a").first
     assert_focus_ring(page, link, "sidebar link", mode, rgb_str(SIDEBAR[mode]))
+    # Item 20: the sidebar sign-out button gets the same ring as the links.
+    sign_out = page.locator("nav[aria-label='Main']").get_by_role("button", name="Sign out")
+    assert_focus_ring(page, sign_out, "sidebar sign-out button", mode, rgb_str(SIDEBAR[mode]))
+    screenshot(page, shots, "20-sidebar-sign-out-focus", 1024, mode)
+    link.focus()
 
     # Items 6 + 7: last row's ⋯ menu - dark tokens, focus on open, arrows,
     # menu-item focus ring.
@@ -810,7 +852,7 @@ def check_tc021_round2(browser, scrollbar_browser, base_url: str, creds: dict, m
     check(n < 2 or (second and second.strip() == items.nth(1).inner_text().strip()), f"item 7 {mode}: ArrowDown on the last row's {n}-item menu moves from '{first_label}' to the next item (now {second!r})" + (" [1 item: wraps to itself; see the >= 2-item check below]" if n < 2 else ""))
     page.keyboard.press("ArrowUp")
     focused_item = page.locator("[role='menuitem']:focus")
-    assert_focus_ring(page, focused_item, "⋯ menu item", mode, rgb_str(SURFACE[mode]))
+    assert_inset_focus_ring(page, focused_item, "⋯ menu item", mode)
     screenshot(page, shots, "07-menu-item-focus", 1024, mode)
     page.keyboard.press("Escape")
 
@@ -899,6 +941,39 @@ def check_tc021_round2(browser, scrollbar_browser, base_url: str, creds: dict, m
     screenshot(ipage, shots, "13-idle-warning", 1024, mode)
     ipage.get_by_role("button", name="Stay signed in").click()
     ictx.close()
+
+    # Item 25 (Clara, #21): item 13's toast fix must be checked on the real
+    # toast. The "Failed to load patients" check above passes with or without
+    # that fix, because nothing raises the toast any more. So raise a real
+    # AdminContext toast (a clinician submits Create Patient with fictional
+    # data) at 1024 and require it to be bottom-centre and clear of the
+    # users table's pinned ⋯ column (left edge measured above). With the old
+    # bottom-8 right-8 toast this fails.
+    tctx = browser.new_context(viewport={"width": 1024, "height": 768}, color_scheme=mode)
+    tpage = tctx.new_page()
+    ph = creds["physician"]
+    sign_in(tpage, base_url, ph["email"], ph["password"], ph["totpSecret"])
+    goto_hash(tpage, base_url, "/admin/patients/create")
+    tpage.get_by_placeholder("John Doe").fill("Fictional Rowan Testcase")
+    tpage.get_by_placeholder("35").fill("44")
+    tpage.get_by_placeholder("john@example.com").fill(f"tc021-item25-{mode}@example.test")
+    tpage.get_by_role("button", name="Create Patient").click()
+    toast_text = tpage.get_by_text(re.compile(r"^(Failed to create patient|Patient created successfully)$"))
+    shown = True
+    try:
+        toast_text.wait_for(state="visible", timeout=10_000)
+    except Exception:
+        shown = False
+    if check(shown, f"item 25 {mode}@1024: Create Patient raises the AdminContext toast"):
+        box = toast_text.evaluate(
+            "el => { const t = el.closest('.fixed') || el; const r = t.getBoundingClientRect();"
+            " return { left: r.left, right: r.right, bottom: r.bottom, vw: window.innerWidth, vh: window.innerHeight }; }"
+        )
+        centre_off = abs((box["left"] + box["right"]) / 2 - box["vw"] / 2)
+        check(centre_off <= 2, f"item 25 {mode}@1024: AdminContext toast is bottom-centre (centre off by {centre_off:.1f}px, box={box})")
+        check(box["right"] <= actions_left, f"item 25 {mode}@1024: AdminContext toast (right={box['right']:.0f}) is clear of the pinned ⋯ column (left={actions_left:.0f})")
+        screenshot(tpage, shots, "25-admin-toast", 1024, mode)
+    tctx.close()
 
 
 def main() -> int:

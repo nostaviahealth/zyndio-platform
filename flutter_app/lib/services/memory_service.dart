@@ -41,12 +41,35 @@ class MemoryFragment {
 class MemoryService {
   final AzureOpenAIService _aiService;
 
-  MemoryService(this._aiService);
+  /// [accessToken] and [userId] default to the live Supabase session; they
+  /// are injectable so tests can model a session state (TC-021 item 19).
+  MemoryService(
+    this._aiService, {
+    String? Function()? accessToken,
+    String? Function()? userId,
+  })  : _accessTokenSource = accessToken ?? (() => SupabaseConfig.currentSession?.accessToken),
+        _userIdSource = userId ?? (() => SupabaseConfig.currentUser?.id);
+
+  final String? Function() _accessTokenSource;
+  final String? Function() _userIdSource;
 
   String get _supabaseUrl => SupabaseConfig.url;
   String get _supabaseAnonKey => SupabaseConfig.anonKey;
-  String? get _accessToken => SupabaseConfig.currentSession?.accessToken;
-  String? get _userId => SupabaseConfig.currentUser?.id;
+  String? get _accessToken => _accessTokenSource();
+  String? get _userId => _userIdSource();
+
+  /// TC-021 item 19 (same pattern as item 11): only a signed-in user's JWT is
+  /// ever sent. There is no anon-key fallback; with no session token this
+  /// returns null and the caller sends nothing.
+  Map<String, String>? get _signedInHeaders {
+    final token = _accessToken;
+    if (token == null || token.isEmpty) return null;
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+      'apikey': _supabaseAnonKey,
+    };
+  }
 
   /// Store a memory (conversation summary or user fact) in the vector store.
   Future<bool> storeMemory({
@@ -55,16 +78,17 @@ class MemoryService {
     Map<String, dynamic>? metadata,
   }) async {
     if (_userId == null || content.trim().isEmpty) return false;
+    final headers = _signedInHeaders;
+    if (headers == null) {
+      debugPrint('RAG: not signed in, memory not stored');
+      return false;
+    }
 
     try {
       final url = Uri.parse('$_supabaseUrl/functions/v1/embed-memory');
       final response = await http.post(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${_accessToken ?? _supabaseAnonKey}',
-          'apikey': _supabaseAnonKey,
-        },
+        headers: headers,
         body: jsonEncode({
           'user_id': _userId,
           'content': content,
@@ -89,16 +113,17 @@ class MemoryService {
   /// Recall relevant memories for a given query.
   Future<List<MemoryFragment>> recallMemories(String query, {int count = 5}) async {
     if (_userId == null || query.trim().isEmpty) return [];
+    final headers = _signedInHeaders;
+    if (headers == null) {
+      debugPrint('RAG: not signed in, memories not recalled');
+      return [];
+    }
 
     try {
       final url = Uri.parse('$_supabaseUrl/functions/v1/search-memory');
       final response = await http.post(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${_accessToken ?? _supabaseAnonKey}',
-          'apikey': _supabaseAnonKey,
-        },
+        headers: headers,
         body: jsonEncode({
           'user_id': _userId,
           'query': query,

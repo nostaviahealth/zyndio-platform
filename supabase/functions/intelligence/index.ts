@@ -3,6 +3,7 @@ import { classifyIntelligenceCaller } from '../_shared/intelligenceCaller.ts'
 import { AuthError, requireAuthenticatedActor } from '../_shared/requireOrgAdminActor.ts'
 import { decideIntelligenceAccess, loadIntelligenceCallerFacts } from '../_shared/intelligenceAccess.ts'
 import { consumeIntelligenceBudget, rateLimitedHeaders } from '../_shared/intelligenceRateLimit.ts'
+import { INVALID_BODY_ERROR, readIntelligenceBody } from '../_shared/intelligenceBody.ts'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -77,8 +78,17 @@ serve(async (req) => {
             )
         }
 
-        // Read request body
-        const body = await req.json()
+        // Read request body. TC-021 item 23: invalid JSON, an empty body or a
+        // non-object (e.g. `null`) is a generic 400 - never a 500 and never the
+        // parser's own text. Still after the auth and role checks above.
+        const parsed = await readIntelligenceBody(req)
+        if (!parsed.ok) {
+            return new Response(
+                JSON.stringify({ error: INVALID_BODY_ERROR }),
+                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+        const body = parsed.body
 
         // ...and only on their own data: a request that names a patient must
         // name the caller.

@@ -27,3 +27,15 @@ export const FOCUS_RING_ON_SUNKEN_CLASS =
   'dark:focus:ring-[#AFC3FF] dark:focus-visible:ring-[#AFC3FF] ' +
   'focus:ring-offset-white focus-visible:ring-offset-white ' +
   'dark:focus:ring-offset-[#0B0F19] dark:focus-visible:ring-offset-[#0B0F19]';
+
+/** TC-021 item 21 (Ava, #21): menu items inside a rounded panel. Same token
+ * colours and 3px width, drawn INSIDE the item (ring-inset, no offset), so it
+ * never paints over the panel's rounded border. Ring vs panel/hover fill is
+ * >= 3:1 in both themes (light #2346DD on #FFFFFF/#F8FAFC, dark #AFC3FF on
+ * #10141F/#222838). */
+export const FOCUS_RING_INSET_CLASS =
+  'outline-none focus:outline-none focus-visible:outline-none ' +
+  'focus:ring-[3px] focus-visible:ring-[3px] ' +
+  'focus:ring-inset focus-visible:ring-inset ' +
+  'focus:ring-[#2346DD] focus-visible:ring-[#2346DD] ' +
+  'dark:focus:ring-[#AFC3FF] dark:focus-visible:ring-[#AFC3FF]';

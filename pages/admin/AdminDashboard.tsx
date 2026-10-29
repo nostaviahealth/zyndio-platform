@@ -54,6 +54,8 @@ const AdminDashboard: React.FC = () => {
                     <h1 className="text-2xl font-serif text-slate-900 mb-2">Patient Management</h1>
                     <p className="text-slate-600">Monitor and manage patient onboarding journey</p>
                 </div>
+                {/* TC-021 item 26: only roles that can open /admin/patients/create. */}
+                {canManagePatients && (
                 <button
                     onClick={() => navigate('/admin/patients/create')}
                     className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:from-emerald-600 hover:to-emerald-700 transition-all"
@@ -61,6 +63,7 @@ const AdminDashboard: React.FC = () => {
                     <Plus className="w-5 h-5" />
                     New Patient
                 </button>
+                )}
             </div>
 
             {/* Stats Cards */}
