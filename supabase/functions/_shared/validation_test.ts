@@ -1,10 +1,14 @@
 import { assert, assertEquals, assertRejects, assertThrows } from 'https://deno.land/std@0.168.0/testing/asserts.ts'
 import {
   JWT_EXP_LEEWAY_SECONDS,
+  MAX_EMAIL_LENGTH,
+  MAX_MRN_LENGTH,
   MIN_PASSWORD_LENGTH,
   assertJwtFresh,
   constantTimeEqual,
   decodeJwtPayload,
+  declaredBodyTooLarge,
+  actualBodyTooLarge,
   generatePlaceholderPassword,
   generateToken,
   hasAal2Claim,
@@ -399,4 +403,36 @@ Deno.test('normalizeFullName trims, collapses whitespace, rejects empty/oversize
   assertEquals(normalizeFullName(null), null)
   assertEquals(normalizeFullName('x'.repeat(201)), null)
   assertEquals(normalizeFullName('x'.repeat(200)), 'x'.repeat(200))
+})
+
+// --- TC-018 (Henry's calls, 1 Nov 2026; Clara PR #23 review findings #2/#6):
+// create-patient length caps + request body size limit ---
+
+Deno.test('MAX_MRN_LENGTH and MAX_EMAIL_LENGTH are the agreed caps', () => {
+  assertEquals(MAX_MRN_LENGTH, 64)
+  assertEquals(MAX_EMAIL_LENGTH, 254)
+})
+
+Deno.test('declaredBodyTooLarge reads Content-Length before anything is read', () => {
+  const reqWithLength = (n: number) =>
+    new Request('http://local/create-patient', {
+      method: 'POST',
+      headers: { 'content-length': String(n) },
+      body: 'x',
+    })
+  assert(declaredBodyTooLarge(reqWithLength(20_000_000), 8192))
+  assert(!declaredBodyTooLarge(reqWithLength(100), 8192))
+  // No header at all (e.g. chunked transfer) - can't tell from the header
+  // alone, so this must not itself reject; actualBodyTooLarge is the
+  // backstop once the body is actually read.
+  const noHeader = new Request('http://local/create-patient', { method: 'POST' })
+  assert(!declaredBodyTooLarge(noHeader, 8192))
+})
+
+Deno.test('actualBodyTooLarge measures real UTF-8 byte length, not JS string length', () => {
+  assert(!actualBodyTooLarge('x'.repeat(8192), 8192))
+  assert(actualBodyTooLarge('x'.repeat(8193), 8192))
+  // Multi-byte characters: 4096 chars of a 3-byte-each symbol is 12288 bytes,
+  // well over an 8192 cap, even though the JS string length is only 4096.
+  assert(actualBodyTooLarge('€'.repeat(4096), 8192))
 })
