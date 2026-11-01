@@ -20,15 +20,9 @@ const fake = vi.hoisted(() => ({
 
 vi.mock('../../lib/supabase', () => {
   // Minimal PostgREST-style builder: every .eq() narrows the fixture rows,
-  // so a query that forgets a filter sees rows it shouldn't. .order() then
-  // awaiting directly (no .maybeSingle()/.single()) resolves an array, as
-  // load() now does (TC-018 29 Oct: supports 2+ active memberships).
+  // so a query that forgets a filter sees rows it shouldn't.
   const from = (table: string) => {
     const filters: [string, unknown][] = [];
-    const matchingRows = () =>
-      fake.members.filter((r) =>
-        filters.every(([c, v]) => (r as unknown as Record<string, unknown>)[c] === v)
-      );
     const builder = {
       select: () => builder,
       eq: (col: string, val: unknown) => {
@@ -37,11 +31,10 @@ vi.mock('../../lib/supabase', () => {
       },
       maybeSingle: async () => {
         if (table !== 'org_members') return { data: null, error: null };
-        return { data: matchingRows()[0] ?? null, error: null };
-      },
-      order: () => builder,
-      then: (resolve: (v: { data: unknown[]; error: null }) => void) => {
-        resolve({ data: table === 'org_members' ? matchingRows() : [], error: null });
+        const rows = fake.members.filter((r) =>
+          filters.every(([c, v]) => (r as unknown as Record<string, unknown>)[c] === v)
+        );
+        return { data: rows[0] ?? null, error: null };
       },
     };
     return builder;

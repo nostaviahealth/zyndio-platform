@@ -104,7 +104,60 @@ describe.skipIf(!integrationEnvReady)('create-patient', () => {
     expect(body.field).toBe('email');
   });
 
-  it('refuses an email that already has an account, with no orphan patients row', async () => {
+  it('rejects a null JSON body with 400, not 500', async () => {
+    const res = await callFn('create-patient', physicianAal2Token, null);
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects a non-object JSON body (an array) with 400, not 500', async () => {
+    const res = await callFn('create-patient', physicianAal2Token, []);
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects an mrn over 64 chars with 400 and the field name, creating no patient row', async () => {
+    const email = `tc018-mrn-cap-${uniqueSuffix()}@example.test`;
+    const res = await callFn('create-patient', physicianAal2Token, {
+      email,
+      display_name: 'Fictional Over-MRN Patient',
+      mrn: 'M'.repeat(65),
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string; field: string };
+    expect(body.field).toBe('mrn');
+
+    const patientRes = await restAdmin(`patients?display_name=eq.Fictional%20Over-MRN%20Patient`);
+    expect(((await patientRes.json()) as unknown[]).length).toBe(0);
+  });
+
+  it('accepts an mrn at exactly 64 chars', async () => {
+    const email = `tc018-mrn-at-cap-${uniqueSuffix()}@example.test`;
+    const res = await callFn('create-patient', physicianAal2Token, {
+      email,
+      display_name: 'Fictional At-Cap MRN Patient',
+      mrn: 'M'.repeat(64),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { patient_id: string };
+    cleanupUserIds.push(body.patient_id);
+  });
+
+  it('rejects an oversized request body with 413 before it ever reaches validation', async () => {
+    const email = `tc018-oversized-body-${uniqueSuffix()}@example.test`;
+    const res = await callFn('create-patient', physicianAal2Token, {
+      email,
+      display_name: 'Fictional Oversized Body Patient',
+      // Clara PR #23 review finding #2: this used to be stored verbatim in
+      // patients.mrn (a real 20MB value made it through) - now rejected by
+      // the body-size cap before display_name/email/mrn are even read.
+      mrn: 'x'.repeat(20_000),
+    });
+    expect(res.status).toBe(413);
+
+    const patientRes = await restAdmin(`patients?display_name=eq.Fictional%20Oversized%20Body%20Patient`);
+    expect(((await patientRes.json()) as unknown[]).length).toBe(0);
+  });
+
+  it('refuses an email that already has an account with the same generic error as an unrelated internal failure (no enumeration signal), creating no orphan patients row', async () => {
     const existing = await createOrgAndMember('read_only', 'active', physician.orgId);
     cleanupUserIds.push(existing.userId);
 
@@ -112,7 +165,15 @@ describe.skipIf(!integrationEnvReady)('create-patient', () => {
       email: existing.email,
       display_name: 'Duplicate Email Attempt',
     });
-    expect(res.status).toBe(409);
+    // Clara PR #23 review finding #3: a distinct 409 "email_already_exists"
+    // let any clinical staff caller probe whether an email has an account
+    // ANYWHERE on the platform (another clinic's staff, a Zyndio admin,
+    // another clinic's patient). Folded into the exact same 500
+    // internal_error shape already used for a genuinely unrelated RPC
+    // failure below, so the two are indistinguishable to the caller.
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe('internal_error');
 
     const patientRes = await restAdmin(`patients?id=eq.${existing.userId}`);
     expect(((await patientRes.json()) as unknown[]).length).toBe(0);
