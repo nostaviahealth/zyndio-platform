@@ -17,6 +17,13 @@ class SupabaseConfig {
 
   static bool _initialized = false;
 
+  /// Test-only seam (TC-026): lets tests inject a SupabaseClient wired to a
+  /// fake HTTP client instead of the real `Supabase.initialize()` singleton,
+  /// without changing every provider's call sites. Never set in production
+  /// code - see flutter_app/test/support/fake_supabase_rest.dart.
+  @visibleForTesting
+  static SupabaseClient? debugClientOverride;
+
   /// Check if Supabase is initialized
   static bool get isInitialized => _initialized;
 
@@ -64,6 +71,7 @@ class SupabaseConfig {
 
   /// Get the Supabase client instance (only if initialized)
   static SupabaseClient? get client {
+    if (debugClientOverride != null) return debugClientOverride;
     if (!_initialized) {
       debugPrint('Warning: Trying to access Supabase client before initialization');
       return null;
