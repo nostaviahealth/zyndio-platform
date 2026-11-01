@@ -72,10 +72,13 @@ serve(async (req) => {
       email_confirm: true,
     })
     if (createError || !created?.user) {
-      // An internal, authenticated staff tool - unlike invite-user, there's
-      // no public-facing account-enumeration concern here worth hiding
-      // behind a generic response.
-      return jsonResponse(req, { error: 'email_already_exists' }, 409)
+      // Clara PR #23 review finding #3: a distinct 409 "email_already_exists"
+      // let any clinical staff caller probe whether an email has an account
+      // anywhere on the platform. Folded into the same generic 500 shape
+      // used for an unrelated internal failure below (L34 principle, as
+      // already applied to invite-user), so the two are indistinguishable.
+      console.error('create-patient: auth.admin.createUser failed', createError)
+      return jsonResponse(req, { error: 'internal_error' }, 500)
     }
 
     // RPC call under the CALLER's own JWT, not the service-role admin
