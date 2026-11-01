@@ -7,7 +7,6 @@ interface AdminContextType {
     patients: PatientProfile[];
     loading: boolean;
     getPatient: (id: string) => PatientProfile | undefined;
-    createPatient: (patient: Omit<PatientProfile, 'id'>) => Promise<PatientProfile | null>;
     updatePatient: (id: string, updates: Partial<PatientProfile>) => Promise<void>;
     deletePatient: (id: string) => Promise<void>;
     advanceStage: (id: string) => Promise<void>;
@@ -81,42 +80,11 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
         return patients.find(p => p.id === id);
     }, [patients]);
 
-    const createPatient = useCallback(async (patientData: Omit<PatientProfile, 'id'>): Promise<PatientProfile | null> => {
-        try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .insert({
-                    user_id: null, // Will be set when user actually signs up
-                    name: patientData.name,
-                    email: patientData.email,
-                    phone: patientData.phone || '',
-                    avatar_url: patientData.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(patientData.name)}&background=1e293b&color=fff`,
-                    age: patientData.age,
-                    bio_age: patientData.bioAge,
-                    health_grade: patientData.healthGrade || 'B',
-                    primary_goal: patientData.primaryGoal || 'Longevity',
-                    stage: patientData.stage || 'payment_pending',
-                    role: 'user', // Always user role for patients
-                    is_premium: patientData.isPremium || false,
-                    pace_of_aging: patientData.paceOfAging || 1.0,
-                    joined_date: new Date().toISOString(),
-                    subscription_plan: patientData.subscriptionPlan || 'pro'
-                })
-                .select()
-                .single();
-
-            if (error) throw error;
-
-            // Add to local state
-            setPatients(prev => [data, ...prev]);
-            showToast('Patient created successfully', 'success');
-            return data;
-        } catch (error: any) {
-            console.error('Error creating patient:', error);
-            showToast('Failed to create patient', 'error');
-            return null;
-        }
-    }, []);
+    // TC-018 (Henry add-on, Create Patient): the real patient-creation path
+    // is pages/admin/CreatePatient.tsx -> lib/patientsApi.createPatient ->
+    // the create-patient Edge Function -> create_patient_record() (real
+    // patients table, existing RLS + audit path, no shadow table) - not
+    // this context, which has no real patients backing store to add to.
 
     // TC-018 (29 Oct, Clara #16): these used to write to the removed
     // `profiles` table. patients is local-only state now (nothing populates
@@ -226,7 +194,6 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
         patients,
         loading,
         getPatient,
-        createPatient,
         updatePatient,
         deletePatient,
         advanceStage,
