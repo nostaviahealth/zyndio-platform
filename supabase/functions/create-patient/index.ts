@@ -15,7 +15,21 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeadersFor, jsonResponse } from '../_shared/cors.ts'
 import { AuthError, requireClinicalStaffActor } from '../_shared/requireOrgAdminActor.ts'
-import { generatePlaceholderPassword, isValidEmail, normalizeEmail, normalizeFullName } from '../_shared/validation.ts'
+import {
+  MAX_EMAIL_LENGTH,
+  MAX_MRN_LENGTH,
+  actualBodyTooLarge,
+  declaredBodyTooLarge,
+  generatePlaceholderPassword,
+  isValidEmail,
+  normalizeEmail,
+  normalizeFullName,
+} from '../_shared/validation.ts'
+
+// Clara PR #23 review finding #2: generous for the three short strings this
+// endpoint actually accepts, but small enough to reject the 20MB mrn that
+// made it through before this cap existed.
+const MAX_BODY_BYTES = 8192
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeadersFor(req) })
@@ -24,16 +38,32 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization') ?? ''
     const { admin } = await requireClinicalStaffActor(req)
 
-    const body = await req.json().catch(() => ({}))
+    if (declaredBodyTooLarge(req, MAX_BODY_BYTES)) {
+      return jsonResponse(req, { error: 'payload_too_large' }, 413)
+    }
+    const rawBody = await req.text()
+    if (actualBodyTooLarge(rawBody, MAX_BODY_BYTES)) {
+      return jsonResponse(req, { error: 'payload_too_large' }, 413)
+    }
+    let body: Record<string, unknown>
+    try {
+      body = rawBody ? JSON.parse(rawBody) : {}
+    } catch {
+      body = {}
+    }
     const email = normalizeEmail(body.email)
     const displayName = normalizeFullName(body.display_name ?? body.displayName)
-    const mrn = typeof body.mrn === 'string' && body.mrn.trim().length > 0 ? body.mrn.trim() : null
+    const rawMrn = typeof body.mrn === 'string' ? body.mrn.trim() : ''
+    const mrn = rawMrn.length > 0 ? rawMrn : null
 
     if (!displayName) {
       return jsonResponse(req, { error: 'invalid_request', field: 'display_name' }, 400)
     }
-    if (!email || !isValidEmail(email)) {
+    if (!email || email.length > MAX_EMAIL_LENGTH || !isValidEmail(email)) {
       return jsonResponse(req, { error: 'invalid_request', field: 'email' }, 400)
+    }
+    if (mrn && mrn.length > MAX_MRN_LENGTH) {
+      return jsonResponse(req, { error: 'invalid_request', field: 'mrn' }, 400)
     }
 
     const { data: created, error: createError } = await admin.auth.admin.createUser({

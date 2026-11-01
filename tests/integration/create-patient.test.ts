@@ -104,6 +104,49 @@ describe.skipIf(!integrationEnvReady)('create-patient', () => {
     expect(body.field).toBe('email');
   });
 
+  it('rejects an mrn over 64 chars with 400 and the field name, creating no patient row', async () => {
+    const email = `tc018-mrn-cap-${uniqueSuffix()}@example.test`;
+    const res = await callFn('create-patient', physicianAal2Token, {
+      email,
+      display_name: 'Fictional Over-MRN Patient',
+      mrn: 'M'.repeat(65),
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string; field: string };
+    expect(body.field).toBe('mrn');
+
+    const patientRes = await restAdmin(`patients?display_name=eq.Fictional%20Over-MRN%20Patient`);
+    expect(((await patientRes.json()) as unknown[]).length).toBe(0);
+  });
+
+  it('accepts an mrn at exactly 64 chars', async () => {
+    const email = `tc018-mrn-at-cap-${uniqueSuffix()}@example.test`;
+    const res = await callFn('create-patient', physicianAal2Token, {
+      email,
+      display_name: 'Fictional At-Cap MRN Patient',
+      mrn: 'M'.repeat(64),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { patient_id: string };
+    cleanupUserIds.push(body.patient_id);
+  });
+
+  it('rejects an oversized request body with 413 before it ever reaches validation', async () => {
+    const email = `tc018-oversized-body-${uniqueSuffix()}@example.test`;
+    const res = await callFn('create-patient', physicianAal2Token, {
+      email,
+      display_name: 'Fictional Oversized Body Patient',
+      // Clara PR #23 review finding #2: this used to be stored verbatim in
+      // patients.mrn (a real 20MB value made it through) - now rejected by
+      // the body-size cap before display_name/email/mrn are even read.
+      mrn: 'x'.repeat(20_000),
+    });
+    expect(res.status).toBe(413);
+
+    const patientRes = await restAdmin(`patients?display_name=eq.Fictional%20Oversized%20Body%20Patient`);
+    expect(((await patientRes.json()) as unknown[]).length).toBe(0);
+  });
+
   it('refuses an email that already has an account, with no orphan patients row', async () => {
     const existing = await createOrgAndMember('read_only', 'active', physician.orgId);
     cleanupUserIds.push(existing.userId);
