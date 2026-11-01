@@ -640,7 +640,7 @@ interface InviteDialogProps {
     email: string,
     role: AppRole,
     fullName: string
-  ) => Promise<{ ok: boolean; error?: string }>;
+  ) => Promise<{ ok: boolean; error?: string; field?: string }>;
 }
 
 // Ava TC-014: opening state empty + no role selected; Send stays enabled;
@@ -673,6 +673,10 @@ const InviteDialog: React.FC<InviteDialogProps> = ({ onClose, onSubmit }) => {
     if (!result.ok) {
       if (result.error === 'role_not_allowed') {
         setFieldErrors({ role: "You can't give this role. Ask a Zyndio admin." });
+      } else if (result.error === 'invalid_request' && result.field === 'full_name') {
+        setFieldErrors({ fullName: 'Enter their full name.' });
+      } else if (result.error === 'invalid_request' && result.field === 'email') {
+        setFieldErrors({ email: 'Enter a valid work email.' });
       } else {
         setBannerError(
           "We couldn't send the invite. Nothing was saved. Check your connection and try again."
@@ -706,6 +710,7 @@ const InviteDialog: React.FC<InviteDialogProps> = ({ onClose, onSubmit }) => {
               autoComplete="name"
               disabled={submitting}
               className="mt-1"
+              maxLength={120}
               error={!!fieldErrors.fullName}
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
@@ -728,6 +733,7 @@ const InviteDialog: React.FC<InviteDialogProps> = ({ onClose, onSubmit }) => {
               autoComplete="email"
               disabled={submitting}
               className="mt-1"
+              maxLength={254}
               error={!!fieldErrors.email}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
