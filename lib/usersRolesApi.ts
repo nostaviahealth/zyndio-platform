@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { mapFunctionsInvokeError } from './functionsInvokeError';
 
 export type AppRole = 'org_admin' | 'physician' | 'care_coordinator' | 'read_only';
 export type MemberStatus = 'invited' | 'active' | 'deactivated';
@@ -43,7 +44,7 @@ export async function inviteUser(
   const { data, error } = await supabase.functions.invoke('invite-user', {
     body: { email, role, full_name: fullName },
   });
-  if (error) return { ok: false, error: 'internal_error' };
+  if (error) return { ok: false, ...(await mapFunctionsInvokeError(error)) };
   if (data?.error) return { ok: false, error: data.error as string, field: data.field as string | undefined };
   return { ok: true };
 }

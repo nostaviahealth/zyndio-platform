@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { mapFunctionsInvokeError } from './functionsInvokeError';
 
 export interface CreatePatientResult {
   ok: boolean;
@@ -16,7 +17,7 @@ export async function createPatient(email: string, displayName: string, mrn?: st
   const { data, error } = await supabase.functions.invoke('create-patient', {
     body: { email, display_name: displayName, mrn: mrn || undefined },
   });
-  if (error) return { ok: false, error: 'internal_error' };
+  if (error) return { ok: false, ...(await mapFunctionsInvokeError(error)) };
   if (data?.error) return { ok: false, error: data.error as string, field: data.field as string | undefined };
   return { ok: true, patientId: data?.patient_id as string | undefined };
 }
