@@ -22,7 +22,15 @@ select throws_ok(
 );
 
 -- Unchanged: physician_b's role in org B must still be untouched by the
--- rejected attempt.
+-- rejected attempt. org_admin_a's own SELECT policies (org_members_self_select,
+-- org_members_admin_select) only ever expose org A rows, so reading this as
+-- org_admin_a would return zero rows (NULL) regardless of whether the update
+-- had actually gone through - that would pass even a broken RPC that let the
+-- cross-org write succeed. Reset to the pg_prove session role (postgres,
+-- superuser - bypasses RLS) first, same convention 200_cross_org_matrix.sql
+-- uses for its "unchanged after" checks, so this actually reads the
+-- underlying row instead of a policy-filtered empty result.
+reset role;
 select is(
   (select role from public.org_members where user_id = '00000000-0000-0000-0000-0000000b0001')::text,
   'physician',
