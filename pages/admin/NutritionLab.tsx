@@ -82,16 +82,19 @@ const NutritionLab: React.FC = () => {
     const loadPatientContext = async () => {
         if (!patientId) return;
         try {
+            // patient_profiles is the org-scoped clinical replacement for the
+            // removed `profiles` table (TC-018/TC-026); questionnaire + lab data
+            // live in its `data` jsonb, read under staff RLS by patient_id.
             const { data: profile } = await supabase
-                .from('profiles')
-                .select('questionnaire_data, lab_report_url')
-                .eq('id', patientId)
+                .from('patient_profiles')
+                .select('data')
+                .eq('patient_id', patientId)
                 .single();
 
-            if (profile) {
+            if (profile?.data) {
                 setPatientContext({
-                    questionnaire: profile.questionnaire_data,
-                    labData: profile.lab_report_url
+                    questionnaire: profile.data.questionnaire_data,
+                    labData: profile.data.lab_report_url
                 });
             }
         } catch (error) {

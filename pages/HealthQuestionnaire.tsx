@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, ChevronLeft, Check, Activity, Heart, Target, Calendar, Coffee, Moon } from 'lucide-react';
 import { useUser } from '../contexts/UserContext';
-import { supabase } from '../lib/supabase';
 import { validateAge, validateHeight, validateWeight, validateRequired, validateForm } from '../utils/validation';
 
 interface QuestionnaireData {
@@ -79,18 +78,6 @@ const HealthQuestionnaire: React.FC = () => {
                 alert(`Please fix the following errors:\n\n${errorMessages}`);
                 return;
             }
-
-            // Save questionnaire data to Supabase
-            const { error } = await supabase
-                .from('profiles')
-                .update({
-                    questionnaire_data: formData,
-                    stage: 'lab_test_scheduled',
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', patientProfile.id);
-
-            if (error) throw error;
 
             // Refresh user profile to update UI
             await refreshProfile();
