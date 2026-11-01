@@ -954,9 +954,12 @@ def check_tc021_round2(browser, scrollbar_browser, base_url: str, creds: dict, m
     ph = creds["physician"]
     sign_in(tpage, base_url, ph["email"], ph["password"], ph["totpSecret"])
     goto_hash(tpage, base_url, "/admin/patients/create")
-    tpage.get_by_placeholder("John Doe").fill("Fictional Rowan Testcase")
-    tpage.get_by_placeholder("35").fill("44")
-    tpage.get_by_placeholder("john@example.com").fill(f"tc021-item25-{mode}@example.test")
+    # TC-018 (Create Patient add-on) pointed this form at the real patients
+    # table and dropped every field without a real column - name/email
+    # placeholders changed ("Jane Doe" / "jane@example.com") and age (was
+    # "35") has no column to hold it, so it's gone rather than renamed.
+    tpage.get_by_placeholder("Jane Doe").fill("Fictional Rowan Testcase")
+    tpage.get_by_placeholder("jane@example.com").fill(f"tc021-item25-{mode}@example.test")
     tpage.get_by_role("button", name="Create Patient").click()
     toast_text = tpage.get_by_text(re.compile(r"^(Failed to create patient|Patient created successfully)$"))
     shown = True
