@@ -2,8 +2,8 @@
 // TC-021 item 26 (Clara, PR #21 hands-on, roles.log): read_only saw the
 // "New Patient" button on #/admin although /admin/patients/create is gated to
 // physician + care_coordinator. The button is shown only to roles that can
-// create patients. (org_admin never reaches #/admin: RequireRole renders its
-// "no access" page there, see require-role.test.tsx.)
+// create patients. (org_admin is routed to /admin/users before AdminDashboard
+// ever renders - TC-018 item 3, see admin-index-routing.test.tsx.)
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
