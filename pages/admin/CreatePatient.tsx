@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, User, Mail, CheckCircle, AlertCircle } from 'lucide-react';
 import { createPatient } from '../../lib/patientsApi';
+import { useAdmin } from '../../contexts/AdminContext';
 
 const CreatePatient: React.FC = () => {
     const navigate = useNavigate();
+    const { showToast } = useAdmin();
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -24,6 +26,7 @@ const CreatePatient: React.FC = () => {
             const result = await createPatient(formData.email, formData.name, formData.mrn);
 
             if (result.ok) {
+                showToast('Patient created successfully', 'success');
                 setSubmitted(true);
                 setTimeout(() => {
                     navigate('/admin/patients');
