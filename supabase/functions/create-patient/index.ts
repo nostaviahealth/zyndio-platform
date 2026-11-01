@@ -24,6 +24,7 @@ import {
   isValidEmail,
   normalizeEmail,
   normalizeFullName,
+  parseJsonObject,
 } from '../_shared/validation.ts'
 
 // Clara PR #23 review finding #2: generous for the three short strings this
@@ -45,12 +46,11 @@ serve(async (req) => {
     if (actualBodyTooLarge(rawBody, MAX_BODY_BYTES)) {
       return jsonResponse(req, { error: 'payload_too_large' }, 413)
     }
-    let body: Record<string, unknown>
-    try {
-      body = rawBody ? JSON.parse(rawBody) : {}
-    } catch {
-      body = {}
+    const parsedBody = parseJsonObject(rawBody)
+    if (!parsedBody.ok) {
+      return jsonResponse(req, { error: 'invalid_request' }, 400)
     }
+    const body = parsedBody.body
     const email = normalizeEmail(body.email)
     const displayName = normalizeFullName(body.display_name ?? body.displayName)
     const rawMrn = typeof body.mrn === 'string' ? body.mrn.trim() : ''

@@ -77,6 +77,26 @@ export function actualBodyTooLarge(text: string, maxBytes: number): boolean {
   return new TextEncoder().encode(text).length > maxBytes
 }
 
+// Clara PR #23 review finding #6: `req.json().catch(() => ({}))` only
+// catches a JSON *parse* error - valid-but-wrong-shape JSON (the literal
+// `null`, an array, a string/number/boolean) sails through as that exact
+// value, and the first `body.<field>` read on a non-object then throws an
+// uncaught TypeError. An empty body stays accepted as `{}` (unchanged prior
+// behaviour - no body at all is not the same bug as a wrongly-shaped one).
+export function parseJsonObject(raw: string): { ok: true; body: Record<string, unknown> } | { ok: false } {
+  if (raw.length === 0) return { ok: true, body: {} }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return { ok: false }
+  }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { ok: false }
+  }
+  return { ok: true, body: parsed as Record<string, unknown> }
+}
+
 export function isValidUuid(value: unknown): value is string {
   return typeof value === 'string' && UUID_RE.test(value)
 }
