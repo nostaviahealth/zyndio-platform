@@ -157,7 +157,7 @@ describe.skipIf(!integrationEnvReady)('create-patient', () => {
     expect(((await patientRes.json()) as unknown[]).length).toBe(0);
   });
 
-  it('refuses an email that already has an account, with no orphan patients row', async () => {
+  it('refuses an email that already has an account with the same generic error as an unrelated internal failure (no enumeration signal), creating no orphan patients row', async () => {
     const existing = await createOrgAndMember('read_only', 'active', physician.orgId);
     cleanupUserIds.push(existing.userId);
 
@@ -165,7 +165,15 @@ describe.skipIf(!integrationEnvReady)('create-patient', () => {
       email: existing.email,
       display_name: 'Duplicate Email Attempt',
     });
-    expect(res.status).toBe(409);
+    // Clara PR #23 review finding #3: a distinct 409 "email_already_exists"
+    // let any clinical staff caller probe whether an email has an account
+    // ANYWHERE on the platform (another clinic's staff, a Zyndio admin,
+    // another clinic's patient). Folded into the exact same 500
+    // internal_error shape already used for a genuinely unrelated RPC
+    // failure below, so the two are indistinguishable to the caller.
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe('internal_error');
 
     const patientRes = await restAdmin(`patients?id=eq.${existing.userId}`);
     expect(((await patientRes.json()) as unknown[]).length).toBe(0);
