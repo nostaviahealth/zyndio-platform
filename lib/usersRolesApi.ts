@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { mapFunctionsInvokeError } from './functionsInvokeError';
 
 export type AppRole = 'org_admin' | 'physician' | 'care_coordinator' | 'read_only';
 export type MemberStatus = 'invited' | 'active' | 'deactivated';
@@ -20,6 +21,9 @@ export interface OrgMember {
 export interface ApiResult {
   ok: boolean;
   error?: string;
+  // TC-018 item 1 (L33): invite-user's 400 names the offending field
+  // (full_name/email) so the dialog can show an inline error on it.
+  field?: string;
 }
 
 // list_org_members()/change_member_role() are plain RPCs (org_admin + aal2
@@ -40,8 +44,8 @@ export async function inviteUser(
   const { data, error } = await supabase.functions.invoke('invite-user', {
     body: { email, role, full_name: fullName },
   });
-  if (error) return { ok: false, error: 'internal_error' };
-  if (data?.error) return { ok: false, error: data.error as string };
+  if (error) return { ok: false, ...(await mapFunctionsInvokeError(error)) };
+  if (data?.error) return { ok: false, error: data.error as string, field: data.field as string | undefined };
   return { ok: true };
 }
 

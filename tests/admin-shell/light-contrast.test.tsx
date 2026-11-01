@@ -53,7 +53,7 @@ function renderPage() {
 describe('"N people" count contrast (Ava L-b)', () => {
   it('uses #48556A instead of slate-500 (#64748B, 4.32:1)', async () => {
     renderPage();
-    const count = await screen.findByText('1 people');
+    const count = await screen.findByText('1 person');
     expect(count.className).toMatch(/text-\[#48556A\]/);
     expect(count.className).not.toMatch(/text-slate-500/);
   });
@@ -62,7 +62,7 @@ describe('"N people" count contrast (Ava L-b)', () => {
 describe('Table header text contrast (Ava L-c)', () => {
   it('uses a ≥4.5:1 color on the E6ECFA header background instead of slate-500 (4.02:1)', async () => {
     renderPage();
-    await waitFor(() => expect(screen.getByText('1 people')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('1 person')).toBeInTheDocument());
     const header = screen.getByRole('columnheader', { name: 'Name' });
     const headerRow = header.parentElement!;
     expect(headerRow.className).toMatch(/dark:bg-\[#0B0F19\]/); // unchanged dark token

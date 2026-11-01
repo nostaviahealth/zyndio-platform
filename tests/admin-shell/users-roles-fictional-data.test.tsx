@@ -54,14 +54,14 @@ describe('UsersRolesPage fictional data tag', () => {
 
   it('is absent when __PREVIEW_BUILD__ is not set (default production build)', async () => {
     renderPage();
-    await waitFor(() => expect(screen.getByText('1 people')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('1 person')).toBeInTheDocument());
     expect(screen.queryByText('Fictional data')).not.toBeInTheDocument();
   });
 
   it('shows the tag when __PREVIEW_BUILD__ is true', async () => {
     vi.stubGlobal('__PREVIEW_BUILD__', true);
     renderPage();
-    await waitFor(() => expect(screen.getByText('1 people')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('1 person')).toBeInTheDocument());
     expect(screen.getByText('Fictional data')).toBeInTheDocument();
   });
 });
