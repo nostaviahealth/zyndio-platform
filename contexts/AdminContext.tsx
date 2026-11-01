@@ -118,60 +118,21 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
         }
     }, []);
 
+    // TC-018 (29 Oct, Clara #16): these used to write to the removed
+    // `profiles` table. patients is local-only state now (nothing populates
+    // it from a backing store either - see the fetch removal note above),
+    // so there is no real table to round-trip through; update/delete act on
+    // that local state directly instead of a dead network call.
     const updatePatient = useCallback(async (id: string, updates: Partial<PatientProfile>) => {
-        try {
-            // Map camelCase to snake_case for database
-            const dbUpdates: any = {};
-            if (updates.name) dbUpdates.name = updates.name;
-            if (updates.email) dbUpdates.email = updates.email;
-            if (updates.phone) dbUpdates.phone = updates.phone;
-            if (updates.avatarUrl) dbUpdates.avatar_url = updates.avatarUrl;
-            if (updates.age) dbUpdates.age = updates.age;
-            if (updates.bioAge) dbUpdates.bio_age = updates.bioAge;
-            if (updates.healthGrade) dbUpdates.health_grade = updates.healthGrade;
-            if (updates.primaryGoal) dbUpdates.primary_goal = updates.primaryGoal;
-            if (updates.stage) dbUpdates.stage = updates.stage;
-            if (updates.role) dbUpdates.role = updates.role;
-            if (updates.isPremium !== undefined) dbUpdates.is_premium = updates.isPremium;
-            if (updates.paceOfAging) dbUpdates.pace_of_aging = updates.paceOfAging;
-            if (updates.questionnaireData) dbUpdates.questionnaire_data = updates.questionnaireData;
-            if (updates.labReportUrl) dbUpdates.lab_report_url = updates.labReportUrl;
-            if (updates.isIntelligenceVerified !== undefined) dbUpdates.is_intelligence_verified = updates.isIntelligenceVerified;
-            if (updates.isProtocolPublished !== undefined) dbUpdates.is_protocol_published = updates.isProtocolPublished;
-
-            const { error } = await supabase
-                .from('profiles')
-                .update(dbUpdates)
-                .eq('id', id);
-
-            if (error) throw error;
-
-            // Update local state
-            setPatients(prev => prev.map(p =>
-                p.id === id ? { ...p, ...updates } : p
-            ));
-            showToast('Patient updated successfully', 'success');
-        } catch (error: any) {
-            console.error('Error updating patient:', error);
-            showToast('Failed to update patient', 'error');
-        }
+        setPatients(prev => prev.map(p =>
+            p.id === id ? { ...p, ...updates } : p
+        ));
+        showToast('Patient updated successfully', 'success');
     }, []);
 
     const deletePatient = useCallback(async (id: string) => {
-        try {
-            const { error } = await supabase
-                .from('profiles')
-                .delete()
-                .eq('id', id);
-
-            if (error) throw error;
-
-            setPatients(prev => prev.filter(p => p.id !== id));
-            showToast('Patient deleted successfully', 'success');
-        } catch (error: any) {
-            console.error('Error deleting patient:', error);
-            showToast('Failed to delete patient', 'error');
-        }
+        setPatients(prev => prev.filter(p => p.id !== id));
+        showToast('Patient deleted successfully', 'success');
     }, []);
 
     const getNextStage = (currentStage: OnboardingStage): OnboardingStage => {
