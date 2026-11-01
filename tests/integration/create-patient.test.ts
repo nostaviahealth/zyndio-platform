@@ -104,6 +104,16 @@ describe.skipIf(!integrationEnvReady)('create-patient', () => {
     expect(body.field).toBe('email');
   });
 
+  it('rejects a null JSON body with 400, not 500', async () => {
+    const res = await callFn('create-patient', physicianAal2Token, null);
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects a non-object JSON body (an array) with 400, not 500', async () => {
+    const res = await callFn('create-patient', physicianAal2Token, []);
+    expect(res.status).toBe(400);
+  });
+
   it('rejects an mrn over 64 chars with 400 and the field name, creating no patient row', async () => {
     const email = `tc018-mrn-cap-${uniqueSuffix()}@example.test`;
     const res = await callFn('create-patient', physicianAal2Token, {

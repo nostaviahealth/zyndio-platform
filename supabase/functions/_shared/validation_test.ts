@@ -9,6 +9,7 @@ import {
   decodeJwtPayload,
   declaredBodyTooLarge,
   actualBodyTooLarge,
+  parseJsonObject,
   generatePlaceholderPassword,
   generateToken,
   hasAal2Claim,
@@ -436,3 +437,28 @@ Deno.test('actualBodyTooLarge measures real UTF-8 byte length, not JS string len
   // well over an 8192 cap, even though the JS string length is only 4096.
   assert(actualBodyTooLarge('€'.repeat(4096), 8192))
 })
+
+// --- TC-018 (Henry's calls, 1 Nov 2026; Clara PR #23 review finding #6):
+// a null/non-object create-patient body must be a 400, not an uncaught
+// TypeError (-> 500) the first time the handler reads body.email ---
+
+Deno.test('parseJsonObject accepts a plain JSON object', () => {
+  assertEquals(parseJsonObject('{"email":"a@example.test"}'), { ok: true, body: { email: 'a@example.test' } })
+})
+
+Deno.test('parseJsonObject treats an empty body as an empty object (unchanged prior behaviour)', () => {
+  assertEquals(parseJsonObject(''), { ok: true, body: {} })
+})
+
+for (const [label, raw] of [
+  ['the literal null', 'null'],
+  ['an array', '[]'],
+  ['a string', '"hi"'],
+  ['a number', '42'],
+  ['a boolean', 'true'],
+  ['invalid JSON', '{not valid'],
+] as const) {
+  Deno.test(`parseJsonObject rejects ${label}`, () => {
+    assertEquals(parseJsonObject(raw), { ok: false })
+  })
+}
