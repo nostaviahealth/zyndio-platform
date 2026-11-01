@@ -104,6 +104,10 @@ function invitedDaysLeft(member: OrgMember): number {
   return Math.max(0, 7 - daysElapsed);
 }
 
+function formatMemberCount(count: number): string {
+  return `${count} ${count === 1 ? 'person' : 'people'}`;
+}
+
 function renderStatusBadge(member: OrgMember): React.ReactNode {
   if (member.status === 'invited') {
     return <StatusBadge kind="invited">Invited · {invitedDaysLeft(member)} days left</StatusBadge>;
@@ -423,11 +427,22 @@ const UsersRolesPage: React.FC = () => {
               <option value="invited">Invited</option>
               <option value="deactivated">Deactivated</option>
             </SelectField>
-            <p className="ml-auto text-sm text-[#48556A] dark:text-[#A6B0C3]">{filtered.length} people</p>
+            <p className="ml-auto text-sm text-[#48556A] dark:text-[#A6B0C3]">{formatMemberCount(filtered.length)}</p>
           </div>
-          <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_#0306160A,0_8px_24px_#2C5CF214] dark:border-[#222838] dark:bg-[#10141F] dark:shadow-none">
-            <DataTable columns={columns} rows={filtered} getRowId={(m) => m.user_id} caption="Users and roles" />
-          </div>
+          {filtered.length === 0 ? (
+            <div className="mt-8 rounded-xl border border-slate-200 bg-white p-8 text-center dark:border-[#222838] dark:bg-[#10141F]">
+              <p className="font-semibold text-[#030616] dark:text-[#EEF1F8]">No results</p>
+              <p className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
+                {search.trim()
+                  ? `No one matches "${search.trim()}".`
+                  : 'No one matches the selected filter.'}
+              </p>
+            </div>
+          ) : (
+            <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_#0306160A,0_8px_24px_#2C5CF214] dark:border-[#222838] dark:bg-[#10141F] dark:shadow-none">
+              <DataTable columns={columns} rows={filtered} getRowId={(m) => m.user_id} caption="Users and roles" />
+            </div>
+          )}
         </>
       )}
 

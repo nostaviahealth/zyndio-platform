@@ -49,7 +49,7 @@ function renderPage() {
 describe('UsersRolesPage toolbar', () => {
   it('search field is a pill with a leading icon, and Invite user has a + icon', async () => {
     renderPage();
-    await waitFor(() => expect(screen.getByText('1 people')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('1 person')).toBeInTheDocument());
 
     const search = screen.getByLabelText('Search by name or email');
     expect(search.className).toMatch(/rounded-full/);

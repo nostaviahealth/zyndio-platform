@@ -49,7 +49,7 @@ function renderPage() {
 describe('UsersRolesPage role legend', () => {
   it('renders the legend as a 4-column grid with a standalone Draft badge', async () => {
     renderPage();
-    await waitFor(() => expect(screen.getByText('1 people')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('1 person')).toBeInTheDocument());
 
     expect(screen.queryByText('(Draft, to confirm with Zyndio)')).not.toBeInTheDocument();
     const badge = screen.getByText('Draft, to confirm with Zyndio');
