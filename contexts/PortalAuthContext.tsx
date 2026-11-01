@@ -93,14 +93,19 @@ export const PortalAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const hasFactor = (aalData?.currentLevel === 'aal2' || aalData?.nextLevel === 'aal2') ?? false;
     const status: PortalStatus = aalData?.currentLevel === 'aal2' ? 'aal2' : 'aal1';
 
-    const { data: member } = await supabase
+    // TC-018 (29 Oct): a staff member can hold more than one active
+    // membership. .maybeSingle() errors on 2+ rows, so list and order
+    // instead; the earliest-created membership is the default until a
+    // clinic picker ships as a follow-up.
+    const { data: members } = await supabase
       .from('org_members')
       .select('role, org_id')
       .eq('user_id', session.user.id)
       // TC-022 #1: an invited or deactivated row is not staff access.
       .eq('status', 'active')
-      .maybeSingle();
+      .order('created_at', { ascending: true });
 
+    const member = (members as { role: string; org_id: string }[] | null)?.[0];
     const role = (member?.role as string | undefined) ?? null;
     setState({
       status,
