@@ -60,11 +60,13 @@ export function roleDescriptionsFor(isPlatformAdmin: boolean): Record<AppRole, s
 const ASSIGNABLE_ROLES: AppRole[] = ['physician', 'care_coordinator', 'org_admin', 'read_only'];
 
 function formatLastSignIn(member: OrgMember): string {
-  // list_org_members() doesn't surface auth.users.last_sign_in_at yet (would
-  // need a service-role join beyond this step's scope) - invited members
-  // have never signed in by definition; everyone else is "unknown" rather
-  // than a fabricated date.
-  return member.status === 'invited' ? 'Never' : 'Unknown';
+  // TC-018 item 5 (L37): list_org_members() now returns last_sign_in_at.
+  // "Never" covers both an invited member (can't have signed in) and an
+  // active member who truly never has; "Unknown" is reserved for a
+  // malformed row (the field missing entirely), not the normal case.
+  if (member.last_sign_in_at === undefined) return 'Unknown';
+  if (member.status === 'invited' || member.last_sign_in_at === null) return 'Never';
+  return new Date(member.last_sign_in_at).toLocaleDateString();
 }
 
 // Prefer the Full name captured at invite (list_org_members.full_name from
@@ -85,7 +87,11 @@ function memberDisplayName(member: OrgMember): string {
 }
 
 function formatTwoFactor(member: OrgMember): string {
-  return member.status === 'invited' ? 'Not set up yet' : 'Unknown';
+  // TC-018 item 5 (L37): list_org_members() now returns a real mfa_enrolled
+  // boolean for active members. "Unknown" is reserved for a malformed row.
+  if (member.status === 'invited') return 'Not set up yet';
+  if (member.mfa_enrolled === undefined) return 'Unknown';
+  return member.mfa_enrolled ? 'On' : 'Off';
 }
 
 // Invite links are valid 7 days from org_members.created_at (invite time -

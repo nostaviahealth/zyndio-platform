@@ -11,6 +11,10 @@ export interface OrgMember {
   status: MemberStatus;
   created_at: string;
   updated_at: string;
+  // TC-018 item 5 (L37): from list_org_members() - a verified-factor
+  // boolean and the auth.users timestamp, own-org only. Never factor detail.
+  mfa_enrolled: boolean;
+  last_sign_in_at: string | null;
 }
 
 export interface ApiResult {
