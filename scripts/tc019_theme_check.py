@@ -942,29 +942,43 @@ def check_tc021_round2(browser, scrollbar_browser, base_url: str, creds: dict, m
     ipage.get_by_role("button", name="Stay signed in").click()
     ictx.close()
 
-    # Item 25 (Clara, #21): item 13's toast fix must be checked on the real
-    # toast. The "Failed to load patients" check above passes with or without
-    # that fix, because nothing raises the toast any more. So raise a real
-    # AdminContext toast (a clinician submits Create Patient with fictional
-    # data) at 1024 and require it to be bottom-centre and clear of the
-    # users table's pinned ⋯ column (left edge measured above). With the old
-    # bottom-8 right-8 toast this fails.
+    # Item 25 (Clara, #21; CI fix round 1, 1 Nov 2026): item 13's toast fix
+    # must be checked on the real toast, raised by a REAL successful submit -
+    # a check that also passed on a failure toast could never actually catch
+    # Create Patient breaking. The regex this used to wait on (either the old
+    # failure copy or the success copy) matched neither: TC-018's rewrite
+    # (b741c04) dropped the AdminContext toast entirely on success, showing
+    # only a full-page "Patient Created Successfully!" card, so the check
+    # always timed out regardless of pass/fail. Fixed by restoring the
+    # showToast('Patient created successfully', ...) call in
+    # CreatePatient.tsx (see docs/tasks/TC-018.md, Henry's calls 1 Nov 2026).
+    # Email is unique per mode (dark/light) so the two passes don't collide
+    # on the same patient account.
     tctx = browser.new_context(viewport={"width": 1024, "height": 768}, color_scheme=mode)
     tpage = tctx.new_page()
     ph = creds["physician"]
     sign_in(tpage, base_url, ph["email"], ph["password"], ph["totpSecret"])
     goto_hash(tpage, base_url, "/admin/patients/create")
-    tpage.get_by_placeholder("John Doe").fill("Fictional Rowan Testcase")
-    tpage.get_by_placeholder("35").fill("44")
-    tpage.get_by_placeholder("john@example.com").fill(f"tc021-item25-{mode}@example.test")
-    tpage.get_by_role("button", name="Create Patient").click()
-    toast_text = tpage.get_by_text(re.compile(r"^(Failed to create patient|Patient created successfully)$"))
+    # TC-018 (Create Patient add-on) pointed this form at the real patients
+    # table and dropped every field without a real column - name/email
+    # placeholders changed ("Jane Doe" / "jane@example.com") and age (was
+    # "35") has no column to hold it, so it's gone rather than renamed.
+    tpage.get_by_placeholder("Jane Doe").fill("Fictional Rowan Testcase")
+    tpage.get_by_placeholder("jane@example.com").fill(f"tc021-item25-{mode}@example.test")
+    with tpage.expect_response(lambda r: "/functions/v1/create-patient" in r.url) as resp_info:
+        tpage.get_by_role("button", name="Create Patient").click()
+    response = resp_info.value
+    check(
+        response.status == 200,
+        f"item 25 {mode}@1024: Create Patient's submit reaches the server and succeeds (got {response.status})",
+    )
+    toast_text = tpage.get_by_text("Patient created successfully", exact=True)
     shown = True
     try:
         toast_text.wait_for(state="visible", timeout=10_000)
     except Exception:
         shown = False
-    if check(shown, f"item 25 {mode}@1024: Create Patient raises the AdminContext toast"):
+    if check(shown, f"item 25 {mode}@1024: Create Patient raises the AdminContext success toast"):
         box = toast_text.evaluate(
             "el => { const t = el.closest('.fixed') || el; const r = t.getBoundingClientRect();"
             " return { left: r.left, right: r.right, bottom: r.bottom, vw: window.innerWidth, vh: window.innerHeight }; }"

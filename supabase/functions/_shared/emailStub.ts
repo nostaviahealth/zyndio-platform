@@ -40,9 +40,17 @@ export async function sendNotificationStub(admin: SupabaseClient, row: OutboxRow
   }
   console.log(stubLogLine(row.type, recipient))
 
+  // TC-018 item 6 (L8): stamp scrubbed_at here too (not just the pg_cron
+  // backstop in _scrub_stale_notification_outbox) so a row handled by this
+  // worker is marked done immediately instead of waiting up to 5 minutes
+  // for the next cron sweep to notice the token is already gone.
   const { error } = await admin
     .from('notification_outbox')
-    .update({ status: 'sent_stub', payload: redactSentPayload(row.type, row.payload) })
+    .update({
+      status: 'sent_stub',
+      payload: redactSentPayload(row.type, row.payload),
+      scrubbed_at: new Date().toISOString(),
+    })
     .eq('id', row.id)
   if (error) throw error
 }

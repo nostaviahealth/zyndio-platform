@@ -11,6 +11,10 @@ export interface OrgMember {
   status: MemberStatus;
   created_at: string;
   updated_at: string;
+  // TC-018 item 5 (L37): from list_org_members() - a verified-factor
+  // boolean and the auth.users timestamp, own-org only. Never factor detail.
+  mfa_enrolled: boolean;
+  last_sign_in_at: string | null;
 }
 
 export interface ApiResult {
@@ -50,12 +54,15 @@ export async function cancelInvite(targetUserId: string): Promise<ApiResult & { 
   return { ok: true, email: (data?.email as string | undefined) ?? undefined };
 }
 
+// TC-018 item 4 (L36): a cross-org target raises 'PT404' (PostgREST maps
+// PTxyz -> HTTP xyz), which surfaces here as error.code - map it to the
+// same 'not_found' sentinel the other cross-clinic actions use.
 export async function changeMemberRole(targetUserId: string, newRole: AppRole): Promise<ApiResult> {
   const { error } = await supabase.rpc('change_member_role', {
     p_target_user_id: targetUserId,
     p_new_role: newRole,
   });
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: error.code === 'PT404' ? 'not_found' : error.message };
   return { ok: true };
 }
 

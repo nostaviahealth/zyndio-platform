@@ -49,6 +49,54 @@ export function normalizeFullName(name: unknown): string | null {
   return trimmed
 }
 
+// TC-018 (Henry's calls, 1 Nov 2026; Clara PR #23 review finding #2):
+// create-patient's own text field caps. mrn is generous for real-world
+// medical record number formats while still blocking abuse (a 20MB mrn made
+// it into the database before this). email matches the 254-char RFC 5321
+// mailbox cap already used client-side by the invite dialog (TC-018.md
+// item 1, L33).
+export const MAX_MRN_LENGTH = 64
+export const MAX_EMAIL_LENGTH = 254
+
+// Clara PR #23 review finding #2: reject an oversized request body with 413
+// before it is ever parsed. Content-Length is read straight off the
+// request, with no body read at all - the cheapest possible rejection for
+// an honest client that declared its real size.
+export function declaredBodyTooLarge(req: Request, maxBytes: number): boolean {
+  const declared = req.headers.get('content-length')
+  if (declared === null) return false
+  const n = Number(declared)
+  return Number.isFinite(n) && n > maxBytes
+}
+
+// Backstop for a missing or understated Content-Length: once the body text
+// is actually in hand, its real UTF-8 byte length (not JS string length,
+// which undercounts multi-byte characters) is checked before JSON.parse
+// ever sees it.
+export function actualBodyTooLarge(text: string, maxBytes: number): boolean {
+  return new TextEncoder().encode(text).length > maxBytes
+}
+
+// Clara PR #23 review finding #6: `req.json().catch(() => ({}))` only
+// catches a JSON *parse* error - valid-but-wrong-shape JSON (the literal
+// `null`, an array, a string/number/boolean) sails through as that exact
+// value, and the first `body.<field>` read on a non-object then throws an
+// uncaught TypeError. An empty body stays accepted as `{}` (unchanged prior
+// behaviour - no body at all is not the same bug as a wrongly-shaped one).
+export function parseJsonObject(raw: string): { ok: true; body: Record<string, unknown> } | { ok: false } {
+  if (raw.length === 0) return { ok: true, body: {} }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return { ok: false }
+  }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { ok: false }
+  }
+  return { ok: true, body: parsed as Record<string, unknown> }
+}
+
 export function isValidUuid(value: unknown): value is string {
   return typeof value === 'string' && UUID_RE.test(value)
 }

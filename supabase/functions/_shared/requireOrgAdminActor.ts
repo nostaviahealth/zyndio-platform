@@ -66,6 +66,49 @@ export async function requireOrgAdminActor(
   }
 }
 
+// TC-018 (Henry add-on, Create Patient): aal2 plus an ACTIVE physician or
+// care_coordinator org_members row - the only roles create_patient_record()
+// allows. org_admin is never allowed here ("admins manage users only").
+// Gating in the Edge Function too (not just the RPC) avoids minting an auth
+// user via admin.auth.admin.createUser only to have the RPC reject it.
+export async function requireClinicalStaffActor(
+  req: Request
+): Promise<{ actor: OrgAdminActor; admin: SupabaseClient }> {
+  const token = parseBearerToken(req.headers.get('Authorization'))
+  if (!token) throw new AuthError('missing bearer token', 401)
+
+  const { data: userData, error: userError } = await anonClient().auth.getUser(token)
+  if (userError || !userData?.user) throw new AuthError('invalid session', 401)
+
+  const payload = decodeJwtPayload(token)
+  if (!hasAal2Claim(payload)) throw new AuthError('aal2 required', 403)
+
+  const admin = serviceRoleClient()
+  const { data: member, error: memberError } = await admin
+    .from('org_members')
+    .select('org_id, role, status')
+    .eq('user_id', userData.user.id)
+    .maybeSingle()
+
+  if (
+    memberError ||
+    !member ||
+    member.status !== 'active' ||
+    (member.role !== 'physician' && member.role !== 'care_coordinator')
+  ) {
+    throw new AuthError('physician or care_coordinator required', 403)
+  }
+
+  return {
+    actor: {
+      userId: userData.user.id,
+      orgId: member.org_id as string,
+      role: member.role as OrgAdminActor['role'],
+    },
+    admin,
+  }
+}
+
 // Platform-level actor for reset-mfa: aal2 plus a row in
 // public.platform_admins (never org_admin - an org admin can only *request*
 // a reset via request_mfa_reset(), not perform one). platform_admins has no

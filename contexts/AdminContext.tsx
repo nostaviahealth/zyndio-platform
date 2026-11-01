@@ -7,7 +7,6 @@ interface AdminContextType {
     patients: PatientProfile[];
     loading: boolean;
     getPatient: (id: string) => PatientProfile | undefined;
-    createPatient: (patient: Omit<PatientProfile, 'id'>) => Promise<PatientProfile | null>;
     updatePatient: (id: string, updates: Partial<PatientProfile>) => Promise<void>;
     deletePatient: (id: string) => Promise<void>;
     advanceStage: (id: string) => Promise<void>;
@@ -81,97 +80,27 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
         return patients.find(p => p.id === id);
     }, [patients]);
 
-    const createPatient = useCallback(async (patientData: Omit<PatientProfile, 'id'>): Promise<PatientProfile | null> => {
-        try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .insert({
-                    user_id: null, // Will be set when user actually signs up
-                    name: patientData.name,
-                    email: patientData.email,
-                    phone: patientData.phone || '',
-                    avatar_url: patientData.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(patientData.name)}&background=1e293b&color=fff`,
-                    age: patientData.age,
-                    bio_age: patientData.bioAge,
-                    health_grade: patientData.healthGrade || 'B',
-                    primary_goal: patientData.primaryGoal || 'Longevity',
-                    stage: patientData.stage || 'payment_pending',
-                    role: 'user', // Always user role for patients
-                    is_premium: patientData.isPremium || false,
-                    pace_of_aging: patientData.paceOfAging || 1.0,
-                    joined_date: new Date().toISOString(),
-                    subscription_plan: patientData.subscriptionPlan || 'pro'
-                })
-                .select()
-                .single();
+    // TC-018 (Henry add-on, Create Patient): the real patient-creation path
+    // is pages/admin/CreatePatient.tsx -> lib/patientsApi.createPatient ->
+    // the create-patient Edge Function -> create_patient_record() (real
+    // patients table, existing RLS + audit path, no shadow table) - not
+    // this context, which has no real patients backing store to add to.
 
-            if (error) throw error;
-
-            // Add to local state
-            setPatients(prev => [data, ...prev]);
-            showToast('Patient created successfully', 'success');
-            return data;
-        } catch (error: any) {
-            console.error('Error creating patient:', error);
-            showToast('Failed to create patient', 'error');
-            return null;
-        }
-    }, []);
-
+    // TC-018 (29 Oct, Clara #16): these used to write to the removed
+    // `profiles` table. patients is local-only state now (nothing populates
+    // it from a backing store either - see the fetch removal note above),
+    // so there is no real table to round-trip through; update/delete act on
+    // that local state directly instead of a dead network call.
     const updatePatient = useCallback(async (id: string, updates: Partial<PatientProfile>) => {
-        try {
-            // Map camelCase to snake_case for database
-            const dbUpdates: any = {};
-            if (updates.name) dbUpdates.name = updates.name;
-            if (updates.email) dbUpdates.email = updates.email;
-            if (updates.phone) dbUpdates.phone = updates.phone;
-            if (updates.avatarUrl) dbUpdates.avatar_url = updates.avatarUrl;
-            if (updates.age) dbUpdates.age = updates.age;
-            if (updates.bioAge) dbUpdates.bio_age = updates.bioAge;
-            if (updates.healthGrade) dbUpdates.health_grade = updates.healthGrade;
-            if (updates.primaryGoal) dbUpdates.primary_goal = updates.primaryGoal;
-            if (updates.stage) dbUpdates.stage = updates.stage;
-            if (updates.role) dbUpdates.role = updates.role;
-            if (updates.isPremium !== undefined) dbUpdates.is_premium = updates.isPremium;
-            if (updates.paceOfAging) dbUpdates.pace_of_aging = updates.paceOfAging;
-            if (updates.questionnaireData) dbUpdates.questionnaire_data = updates.questionnaireData;
-            if (updates.labReportUrl) dbUpdates.lab_report_url = updates.labReportUrl;
-            if (updates.isIntelligenceVerified !== undefined) dbUpdates.is_intelligence_verified = updates.isIntelligenceVerified;
-            if (updates.isProtocolPublished !== undefined) dbUpdates.is_protocol_published = updates.isProtocolPublished;
-
-            const { error } = await supabase
-                .from('profiles')
-                .update(dbUpdates)
-                .eq('id', id);
-
-            if (error) throw error;
-
-            // Update local state
-            setPatients(prev => prev.map(p =>
-                p.id === id ? { ...p, ...updates } : p
-            ));
-            showToast('Patient updated successfully', 'success');
-        } catch (error: any) {
-            console.error('Error updating patient:', error);
-            showToast('Failed to update patient', 'error');
-        }
+        setPatients(prev => prev.map(p =>
+            p.id === id ? { ...p, ...updates } : p
+        ));
+        showToast('Patient updated successfully', 'success');
     }, []);
 
     const deletePatient = useCallback(async (id: string) => {
-        try {
-            const { error } = await supabase
-                .from('profiles')
-                .delete()
-                .eq('id', id);
-
-            if (error) throw error;
-
-            setPatients(prev => prev.filter(p => p.id !== id));
-            showToast('Patient deleted successfully', 'success');
-        } catch (error: any) {
-            console.error('Error deleting patient:', error);
-            showToast('Failed to delete patient', 'error');
-        }
+        setPatients(prev => prev.filter(p => p.id !== id));
+        showToast('Patient deleted successfully', 'success');
     }, []);
 
     const getNextStage = (currentStage: OnboardingStage): OnboardingStage => {
@@ -265,7 +194,6 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
         patients,
         loading,
         getPatient,
-        createPatient,
         updatePatient,
         deletePatient,
         advanceStage,

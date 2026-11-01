@@ -59,84 +59,16 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     const [currentPhaseIndex, setCurrentPhaseIndex] = useState(0);
     const [loading, setLoading] = useState(true);
 
-    // Fetch patient profile from Supabase
+    // TC-018 (29 Oct, Clara #16): this used to fetch/create a row in the
+    // removed `profiles` table. There is no replacement patient-profile
+    // table backing this legacy web portal (the real patient app is
+    // flutter_app/ - see CLAUDE.md), so patientProfile stays null, same
+    // observable result the dead query already produced (every call
+    // errored against a table that doesn't exist), minus the wasted
+    // request and the create-on-404 write attempt.
     const initializePatientProfile = useCallback(async () => {
-        if (!user) {
-            setPatientProfile(null);
-            setLoading(false);
-            return;
-        }
-
-        try {
-            setLoading(true);
-
-            // Fetch profile from Supabase by user_id
-            const { data: profile, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('user_id', user.id)
-                .single();
-
-            // Helper to map DB profile to PatientProfile
-            const mapProfile = (p: any): PatientProfile => ({
-                id: p.id,
-                name: p.name,
-                email: p.email,
-                phone: p.phone || '',
-                avatarUrl: p.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name)}&background=1e293b&color=fff`,
-                stage: p.stage || 'profile_creation',
-                joinedDate: p.joined_date || p.created_at,
-                role: p.role || 'user',
-                subscriptionPlan: p.subscription_plan || 'pro',
-                age: p.age || 30,
-                bioAge: p.bio_age || 28,
-                healthGrade: p.health_grade || 'B',
-                primaryGoal: p.primary_goal || 'Longevity',
-                isPremium: p.is_premium || false,
-                paceOfAging: p.pace_of_aging || 1.0,
-                isIntelligenceVerified: p.is_intelligence_verified || false,
-                isProtocolPublished: p.is_protocol_published || false
-            });
-
-            if (error) {
-                // If profile not found (PGRST116), create it
-                if (error.code === 'PGRST116') {
-                    console.log('Profile not found, creating new profile for user:', user.id);
-
-                    const newProfile = {
-                        user_id: user.id,
-                        name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
-                        email: user.email,
-                        role: 'user',
-                        stage: 'profile_creation',
-                        created_at: new Date().toISOString()
-                    };
-
-                    const { data: createdProfile, error: createError } = await supabase
-                        .from('profiles')
-                        .insert([newProfile])
-                        .select()
-                        .single();
-
-                    if (createError) {
-                        console.error('Error creating profile:', createError);
-                        setPatientProfile(null);
-                    } else if (createdProfile) {
-                        setPatientProfile(mapProfile(createdProfile));
-                    }
-                } else {
-                    console.error('Error fetching patient profile:', error);
-                    setPatientProfile(null);
-                }
-            } else if (profile) {
-                setPatientProfile(mapProfile(profile));
-            }
-        } catch (error) {
-            console.error('Error initializing patient profile:', error);
-            setPatientProfile(null);
-        } finally {
-            setLoading(false);
-        }
+        setPatientProfile(null);
+        setLoading(false);
     }, [user]);
 
     // Initialize patient profile when auth user changes

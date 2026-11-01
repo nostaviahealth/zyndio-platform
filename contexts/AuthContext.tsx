@@ -9,6 +9,12 @@ interface AuthContextType {
     loading: boolean;
     signIn: (email: string, password: string) => Promise<void>;
     signOut: () => Promise<void>;
+    // TC-018 (29 Oct, Clara #16): the profiles table this used to check for
+    // an 'admin' role no longer exists. /admin/* has its own role gate
+    // (contexts/PortalAuthContext.tsx + components/admin-shell/RequireRole)
+    // unrelated to this patient-portal sign-in; no caller here passes
+    // requireAdmin=true (components/ProtectedRoute.tsx), so this is kept
+    // false for API compatibility rather than removed.
     isAdmin: boolean;
 }
 
@@ -18,7 +24,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<User | null>(null);
     const [session, setSession] = useState<Session | null>(null);
     const [loading, setLoading] = useState(true);
-    const [isAdmin, setIsAdmin] = useState(false);
+    const [isAdmin] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -29,11 +35,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setSession(session);
             setUser(session?.user ?? null);
-            if (session?.user) {
-                checkAdminStatus(session.user.id);
-            } else {
-                setIsAdmin(false);
-            }
         });
 
         return () => subscription.unsubscribe();
@@ -48,7 +49,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(session?.user ?? null);
 
             if (session?.user) {
-                await checkAdminStatus(session.user.id);
                 console.log('✅ User session found');
             } else {
                 console.log('ℹ️ No active user session');
@@ -57,38 +57,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.error('Error checking session:', error);
             setUser(null);
             setSession(null);
-            setIsAdmin(false);
         } finally {
             setLoading(false);
-        }
-    };
-
-    const checkAdminStatus = async (userId: string) => {
-        try {
-            const { data: profile, error } = await supabase
-                .from('profiles')
-                .select('role')
-                .eq('user_id', userId)
-                .maybeSingle();
-
-            // If no profile found or error, silently set non-admin (this is normal for new users)
-            if (error || !profile) {
-                setIsAdmin(false);
-                return;
-            }
-
-            const hasAdminRole = profile?.role === 'admin';
-            setIsAdmin(hasAdminRole);
-
-            // Debug logging
-            console.log('🔐 Admin Status Check:', {
-                userId,
-                role: profile?.role,
-                isAdmin: hasAdminRole
-            });
-        } catch (error) {
-            // Silently handle - user is just not an admin
-            setIsAdmin(false);
         }
     };
 
@@ -105,29 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             setUser(data.user);
             setSession(data.session);
-
-            // Check admin status and wait for it
-            console.log('🔍 Checking admin status for user:', data.user.id);
-            await checkAdminStatus(data.user.id);
-
-            // Get the admin status from the profile
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('role')
-                .eq('user_id', data.user.id)
-                .single();
-
-            console.log('👤 User profile role:', profile?.role);
-
-            if (profile?.role === 'admin') {
-                console.log('✅ Admin user detected, redirecting to /admin');
-                setIsAdmin(true);
-                navigate('/admin');
-            } else {
-                console.log('👤 Regular user detected, redirecting to /');
-                setIsAdmin(false);
-                navigate('/');
-            }
+            navigate('/');
         } catch (error: any) {
             console.error('❌ Sign in error:', error);
             const errorMessage = error.message || 'Failed to sign in';
@@ -153,7 +101,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             setUser(null);
             setSession(null);
-            setIsAdmin(false);
             navigate('/login');
         } catch (error: any) {
             console.error('❌ Sign out error:', error);
