@@ -207,6 +207,7 @@ const UsersRolesPage: React.FC = () => {
     if (result.ok) {
       closeDialog();
       await load();
+      showToast({ message: `${member.email}'s role was changed to ${ROLE_LABELS[newRole]}.` });
     }
     return result;
   };
