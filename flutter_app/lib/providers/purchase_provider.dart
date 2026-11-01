@@ -4,7 +4,6 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../config/supabase_config.dart';
 import '../services/revenue_cat_service.dart';
 import '../services/branding_service.dart';
 import 'patient_provider.dart';
@@ -283,31 +282,16 @@ class PurchaseNotifier extends Notifier<PurchaseState> with WidgetsBindingObserv
     }
   }
 
-  /// Writes is_premium to the profiles table and OPTIMISTICALLY updates local state.
-  Future<void> _syncToSupabase(bool isPlus) async {
-    try {
-      final user = ref.read(currentUserProvider);
-      if (user == null) return;
+  /// Updates local state to match RevenueCat's reconciled status. Does NOT
+  /// write is_premium/subscription_plan to Supabase - patient_accounts
+  /// revokes client UPDATE on those columns (TC-026), so the database side
+  /// can only be set by the service-role RevenueCat webhook.
+  void _syncToSupabase(bool isPlus) {
+    final user = ref.read(currentUserProvider);
+    if (user == null) return;
 
-      final client = SupabaseConfig.client;
-      if (client == null) return;
-
-      // --- OPTIMISTIC UPDATE ---
-      // We manually update the local patientProfileProvider so the UI reflects the change INSTANTLY.
-      final profileNotifier = ref.read(patientProfileProvider.notifier);
-      profileNotifier.updateSubscriptionStatus(isPlus, isPlus ? 'plus' : 'free');
-
-      await client.from('profiles').upsert({
-        'user_id': user.id,
-        'is_premium': isPlus,
-        'subscription_plan': isPlus ? 'plus' : 'free',
-        'updated_at': DateTime.now().toIso8601String(),
-      }, onConflict: 'user_id');
-
-      debugPrint('✅ PurchaseNotifier: synced is_premium=$isPlus to Supabase');
-    } catch (e) {
-      debugPrint('⚠️ PurchaseNotifier: Supabase sync failed: $e');
-    }
+    final profileNotifier = ref.read(patientProfileProvider.notifier);
+    profileNotifier.updateSubscriptionStatus(isPlus, isPlus ? 'plus' : 'free');
   }
 
   Future<(bool, String?)> purchasePackage(Package package) async {
