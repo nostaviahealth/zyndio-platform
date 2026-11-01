@@ -175,5 +175,36 @@ select throws_ok(
   'TC-011: create_patient_record refuses platform_admins accounts'
 );
 
+-- TC-018 (Henry add-on, Create Patient): care_coordinator is the other
+-- allowed role (physician already covered above) - positive, own-org,
+-- audited, same as the physician path.
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0003', 'aal2'); -- care_coordinator_a
+select lives_ok(
+  $$ select public.create_patient_record('00000000-0000-0000-0000-0000000a6002', 'Fictional Patient A6002', 'MRN-A6002') $$,
+  'TC-018: care_coordinator_a can create a patient record via create_patient_record()'
+);
+select is(
+  (select org_id from public.patients where id = '00000000-0000-0000-0000-0000000a6002'),
+  '00000000-0000-0000-0000-00000000000a',
+  'TC-018: care_coordinator_a''s new patients row is bound to the caller''s own org'
+);
+reset role;
+select set_config('request.jwt.claims', '', true);
+select is(
+  (select count(*)::int from public.audit_log where event_type = 'patient_created' and target_user_id = '00000000-0000-0000-0000-0000000a6002' and actor_user_id = '00000000-0000-0000-0000-0000000a0003'),
+  1,
+  'TC-018: care_coordinator_a''s create_patient_record() writes exactly one patient_created audit row'
+);
+
+-- TC-018: a cross-org admin is refused - org_admin is never an allowed role
+-- for create_patient_record (role gate fires before any org/target check),
+-- regardless of whose account is named as the target.
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0001', 'aal2'); -- org_admin_a
+select throws_ok(
+  $$ select public.create_patient_record('00000000-0000-0000-0000-0000000b0001') $$,
+  '42501', null,
+  'TC-018: a cross-org admin (org_admin) cannot call create_patient_record()'
+);
+
 select * from finish();
 rollback;
