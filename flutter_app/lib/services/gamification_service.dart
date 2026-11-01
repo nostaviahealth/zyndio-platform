@@ -138,9 +138,9 @@ class GamificationService {
 
     try {
       final response = await client
-          .from('profiles')
+          .from('patient_accounts')
           .select('xp, coins')
-          .eq('user_id', userId)
+          .eq('patient_id', userId)
           .maybeSingle();
 
       if (response != null) {
@@ -199,14 +199,19 @@ class GamificationService {
     if (client == null) return [];
 
     try {
-      // Logic: Fetch top profiles regardless of league and sort by league_xp
-      final response = await client
-          .from('profiles')
-          .select('name, avatar_url, league_xp, user_id')
-          .order('league_xp', ascending: false)
-          .limit(10); // Show top 10 globally
-
-      return List<Map<String, dynamic>>.from(response);
+      // patient_accounts is patient-self RLS only, so a cross-patient
+      // leaderboard read goes through the security-definer
+      // patient_leaderboard_top10() RPC instead (exposes only these 4
+      // non-sensitive columns, nothing else).
+      final response = await client.rpc('patient_leaderboard_top10');
+      return List<Map<String, dynamic>>.from(response as List).map((row) {
+        return <String, dynamic>{
+          'user_id': row['patient_id'],
+          'name': row['name'],
+          'avatar_url': row['avatar_url'],
+          'league_xp': row['league_xp'],
+        };
+      }).toList();
     } catch (e) {
       debugPrint('[GAMIFICATION] Fetch standings error: $e');
       return [];

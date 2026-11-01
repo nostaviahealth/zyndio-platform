@@ -198,9 +198,9 @@ class GamificationNotifier extends Notifier<GamificationState> {
 
     try {
       final response = await client
-          .from('profiles')
+          .from('patient_accounts')
           .select('xp, coins, league_xp, league_badges')
-          .eq('user_id', userId)
+          .eq('patient_id', userId)
           .maybeSingle();
 
       if (response != null) {
