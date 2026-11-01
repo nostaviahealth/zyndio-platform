@@ -102,6 +102,16 @@ supabase stop
 `supabase stop --no-backup` also discards the local database if you want a truly clean restart
 (equivalent to never having run `supabase db reset`).
 
+## Deploy checklist (Henry) — TC-026 RevenueCat webhook
+
+Before any environment that receives RevenueCat webhooks goes live:
+
+1. Set the `REVENUECAT_WEBHOOK_AUTH` secret on the `handle-revenuecat-webhook`
+   Edge Function (`supabase secrets set REVENUECAT_WEBHOOK_AUTH=<a long random
+   value>` — never commit the real value) to the same shared secret configured
+   as the Authorization header value in the RevenueCat dashboard's webhook
+   settings. Missing/unset = every request is rejected with 401 (fail closed).
+
 ## Deploy checklist (Henry) — TC-012 record matching
 
 Before any environment that issues or redeems link codes goes live:
