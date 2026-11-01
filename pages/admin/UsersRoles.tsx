@@ -172,6 +172,14 @@ const UsersRolesPage: React.FC = () => {
   const closeDialog = () => setDialog(null);
 
   const handleInvite = async (email: string, role: AppRole, fullName: string) => {
+    // TC-018 item 2 (L34): list_org_members() is already scoped to the
+    // caller's own clinic, so a match here can only ever be an own-clinic
+    // email - catching it client-side avoids a round trip without changing
+    // what the server returns for a genuinely cross-clinic email (OVERRIDES #5).
+    const alreadyMember = (members ?? []).some(
+      (m) => m.email.trim().toLowerCase() === email.trim().toLowerCase()
+    );
+    if (alreadyMember) return { ok: false, error: 'already_member' };
     const result = await inviteUser(email, role, fullName);
     if (!result.ok) return result;
     closeDialog();
@@ -677,6 +685,8 @@ const InviteDialog: React.FC<InviteDialogProps> = ({ onClose, onSubmit }) => {
         setFieldErrors({ fullName: 'Enter their full name.' });
       } else if (result.error === 'invalid_request' && result.field === 'email') {
         setFieldErrors({ email: 'Enter a valid work email.' });
+      } else if (result.error === 'already_member') {
+        setFieldErrors({ email: 'Already a member of your clinic.' });
       } else {
         setBannerError(
           "We couldn't send the invite. Nothing was saved. Check your connection and try again."
