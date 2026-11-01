@@ -154,14 +154,8 @@ class ProtocolRepository {
       final client = SupabaseConfig.client;
       if (client == null) return adminProtocols;
 
-      String? targetProfileId = profileId;
-      if (targetProfileId == null) {
-        final userId = client.auth.currentUser?.id;
-        if (userId != null) {
-          final profileRes = await client.from('profiles').select('id').eq('user_id', userId).maybeSingle();
-          if (profileRes != null) targetProfileId = profileRes['id'];
-        }
-      }
+      // Patient identity IS their auth user id - no profiles lookup needed.
+      final String? targetProfileId = profileId ?? client.auth.currentUser?.id;
 
       if (targetProfileId == null) return adminProtocols;
 
@@ -389,14 +383,8 @@ class ProtocolRepository {
       
       final client = SupabaseConfig.client;
       if (client != null) {
-        String? targetProfileId = profileId;
-        if (targetProfileId == null) {
-            final userId = client.auth.currentUser?.id;
-            if (userId != null) {
-              final profileRes = await client.from('profiles').select('id').eq('user_id', userId).maybeSingle();
-              if (profileRes != null) targetProfileId = profileRes['id'];
-            }
-        }
+        // Patient identity IS their auth user id - no profiles lookup needed.
+        final String? targetProfileId = profileId ?? client.auth.currentUser?.id;
 
         if (targetProfileId != null) {
           final response = await client
