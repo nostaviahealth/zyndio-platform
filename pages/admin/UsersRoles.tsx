@@ -104,6 +104,10 @@ function invitedDaysLeft(member: OrgMember): number {
   return Math.max(0, 7 - daysElapsed);
 }
 
+function formatMemberCount(count: number): string {
+  return `${count} ${count === 1 ? 'person' : 'people'}`;
+}
+
 function renderStatusBadge(member: OrgMember): React.ReactNode {
   if (member.status === 'invited') {
     return <StatusBadge kind="invited">Invited · {invitedDaysLeft(member)} days left</StatusBadge>;
@@ -172,6 +176,14 @@ const UsersRolesPage: React.FC = () => {
   const closeDialog = () => setDialog(null);
 
   const handleInvite = async (email: string, role: AppRole, fullName: string) => {
+    // TC-018 item 2 (L34): list_org_members() is already scoped to the
+    // caller's own clinic, so a match here can only ever be an own-clinic
+    // email - catching it client-side avoids a round trip without changing
+    // what the server returns for a genuinely cross-clinic email (OVERRIDES #5).
+    const alreadyMember = (members ?? []).some(
+      (m) => m.email.trim().toLowerCase() === email.trim().toLowerCase()
+    );
+    if (alreadyMember) return { ok: false, error: 'already_member' };
     const result = await inviteUser(email, role, fullName);
     if (!result.ok) return result;
     closeDialog();
@@ -199,6 +211,7 @@ const UsersRolesPage: React.FC = () => {
     if (result.ok) {
       closeDialog();
       await load();
+      showToast({ message: `${member.email}'s role was changed to ${ROLE_LABELS[newRole]}.` });
     }
     return result;
   };
@@ -414,11 +427,22 @@ const UsersRolesPage: React.FC = () => {
               <option value="invited">Invited</option>
               <option value="deactivated">Deactivated</option>
             </SelectField>
-            <p className="ml-auto text-sm text-[#48556A] dark:text-[#A6B0C3]">{filtered.length} people</p>
+            <p className="ml-auto text-sm text-[#48556A] dark:text-[#A6B0C3]">{formatMemberCount(filtered.length)}</p>
           </div>
-          <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_#0306160A,0_8px_24px_#2C5CF214] dark:border-[#222838] dark:bg-[#10141F] dark:shadow-none">
-            <DataTable columns={columns} rows={filtered} getRowId={(m) => m.user_id} caption="Users and roles" />
-          </div>
+          {filtered.length === 0 ? (
+            <div className="mt-8 rounded-xl border border-slate-200 bg-white p-8 text-center dark:border-[#222838] dark:bg-[#10141F]">
+              <p className="font-semibold text-[#030616] dark:text-[#EEF1F8]">No results</p>
+              <p className="mt-2 text-sm text-slate-600 dark:text-[#A6B0C3]">
+                {search.trim()
+                  ? `No one matches "${search.trim()}".`
+                  : 'No one matches the selected filter.'}
+              </p>
+            </div>
+          ) : (
+            <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_#0306160A,0_8px_24px_#2C5CF214] dark:border-[#222838] dark:bg-[#10141F] dark:shadow-none">
+              <DataTable columns={columns} rows={filtered} getRowId={(m) => m.user_id} caption="Users and roles" />
+            </div>
+          )}
         </>
       )}
 
@@ -640,7 +664,7 @@ interface InviteDialogProps {
     email: string,
     role: AppRole,
     fullName: string
-  ) => Promise<{ ok: boolean; error?: string }>;
+  ) => Promise<{ ok: boolean; error?: string; field?: string }>;
 }
 
 // Ava TC-014: opening state empty + no role selected; Send stays enabled;
@@ -673,6 +697,12 @@ const InviteDialog: React.FC<InviteDialogProps> = ({ onClose, onSubmit }) => {
     if (!result.ok) {
       if (result.error === 'role_not_allowed') {
         setFieldErrors({ role: "You can't give this role. Ask a Zyndio admin." });
+      } else if (result.error === 'invalid_request' && result.field === 'full_name') {
+        setFieldErrors({ fullName: 'Enter their full name.' });
+      } else if (result.error === 'invalid_request' && result.field === 'email') {
+        setFieldErrors({ email: 'Enter a valid work email.' });
+      } else if (result.error === 'already_member') {
+        setFieldErrors({ email: 'Already a member of your clinic.' });
       } else {
         setBannerError(
           "We couldn't send the invite. Nothing was saved. Check your connection and try again."
@@ -706,6 +736,7 @@ const InviteDialog: React.FC<InviteDialogProps> = ({ onClose, onSubmit }) => {
               autoComplete="name"
               disabled={submitting}
               className="mt-1"
+              maxLength={120}
               error={!!fieldErrors.fullName}
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
@@ -728,6 +759,7 @@ const InviteDialog: React.FC<InviteDialogProps> = ({ onClose, onSubmit }) => {
               autoComplete="email"
               disabled={submitting}
               className="mt-1"
+              maxLength={254}
               error={!!fieldErrors.email}
               value={email}
               onChange={(e) => setEmail(e.target.value)}

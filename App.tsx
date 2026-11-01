@@ -9,6 +9,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import RequireSession from './components/admin-shell/RequireSession';
 import RequireRole from './components/admin-shell/RequireRole';
 import AppShell from './components/admin-shell/AppShell';
+import AdminIndex from './components/admin-shell/AdminIndex';
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
 import Home from './pages/Home';
@@ -26,7 +27,6 @@ import Settings from './pages/Settings';
 import Login from './pages/Login';
 import HealthQuestionnaire from './pages/HealthQuestionnaire';
 import LabTestUpload from './pages/LabTestUpload';
-import AdminDashboard from './pages/admin/AdminDashboard';
 import CreatePatient from './pages/admin/CreatePatient';
 import PatientDetail from './pages/admin/PatientDetail';
 import NutritionWorkbench from './pages/admin/NutritionWorkbench';
@@ -121,14 +121,7 @@ const App: React.FC = () => {
                     </RequireSession>
                   }
                 >
-                  <Route
-                    index
-                    element={
-                      <RequireRole roles={['physician', 'care_coordinator', 'read_only']}>
-                        <AdminDashboard />
-                      </RequireRole>
-                    }
-                  />
+                  <Route index element={<AdminIndex />} />
                   {/* TC-015 physician portal: clinical roster + patient detail
                       (Labs tab). /admin/patients namespace to avoid the legacy
                       /admin/patient/:id route. read_only can view the roster
