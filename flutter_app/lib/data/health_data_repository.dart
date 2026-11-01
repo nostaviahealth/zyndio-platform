@@ -366,15 +366,13 @@ class HealthDataRepository {
         'updated_at': DateTime.now().toIso8601String(),
       });
 
-      // 4. Update profile stage
+      // 4. Update patient account stage
       try {
-        await supabase
-            .from('profiles')
-            .update({
-              'stage': 'lab_processing',
-              'updated_at': DateTime.now().toIso8601String(),
-            })
-            .eq('id', profileId);
+        await supabase.from('patient_accounts').upsert({
+          'patient_id': profileId,
+          'stage': 'lab_processing',
+          'updated_at': DateTime.now().toIso8601String(),
+        }, onConflict: 'patient_id');
       } catch (profileError) {
         print('HealthRepo: Profile update failed (non-critical): $profileError');
       }
