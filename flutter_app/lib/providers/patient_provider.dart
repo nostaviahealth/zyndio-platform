@@ -12,6 +12,18 @@ final patientProfileProvider = AsyncNotifierProvider<PatientProfileNotifier, Pat
 });
 
 class PatientProfileNotifier extends AsyncNotifier<PatientProfile?> {
+  /// patient_accounts has no `id`/`email` columns of its own (it's keyed
+  /// directly off auth.users via `patient_id`) - fold those in from the
+  /// signed-in user before handing the row to PatientProfile.fromJson,
+  /// which still expects the flat `profiles`-shaped keys.
+  static PatientProfile _profileFromAccountRow(Map<String, dynamic> row, User user) {
+    final json = Map<String, dynamic>.from(row);
+    json['id'] = user.id;
+    json['user_id'] = row['patient_id'];
+    json['email'] ??= user.email;
+    return PatientProfile.fromJson(json);
+  }
+
   @override
   Future<PatientProfile?> build() async {
     final user = ref.watch(currentUserProvider);
@@ -32,46 +44,32 @@ class PatientProfileNotifier extends AsyncNotifier<PatientProfile?> {
       final client = SupabaseConfig.client;
       if (client != null) {
         // Setup Realtime listener for Admin Overrides
-        subscription = client.channel('public:profiles:${user.id}').onPostgresChanges(
+        subscription = client.channel('public:patient_accounts:${user.id}').onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
-          table: 'profiles',
+          table: 'patient_accounts',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
-            column: 'user_id',
+            column: 'patient_id',
             value: user.id,
           ),
           callback: (payload) {
              print('DEBUG: Supabase Realtime profile change: ${payload.newRecord}');
-             var newProfile = PatientProfile.fromJson(payload.newRecord);
+             var newProfile = _profileFromAccountRow(payload.newRecord, user);
              newProfile = _enforceAdminExpiry(newProfile, client);
              state = AsyncData(newProfile);
           }
         ).subscribe();
 
-        // Try by ID
-        var response = await client
-            .from('profiles')
+        final response = await client
+            .from('patient_accounts')
             .select()
-            .eq('user_id', user.id)
+            .eq('patient_id', user.id)
             .maybeSingle();
 
         if (response != null) {
-          profile = PatientProfile.fromJson(response);
+          profile = _profileFromAccountRow(response, user);
           profile = _enforceAdminExpiry(profile, client);
-        } else {
-           // Fallback by Email
-           if (user.email != null) {
-              response = await client
-                .from('profiles')
-                .select()
-                .eq('email', user.email!)
-                .maybeSingle();
-               if (response != null) {
-                  profile = PatientProfile.fromJson(response);
-                  profile = _enforceAdminExpiry(profile, client);
-               }
-           }
         }
       }
     } catch (e) {
@@ -123,7 +121,10 @@ class PatientProfileNotifier extends AsyncNotifier<PatientProfile?> {
             // Background sync back to DB if it's currently null there
             final client = SupabaseConfig.client;
             if (client != null) {
-              client.from('profiles').update({'avatar_url': socialAvatar}).eq('user_id', user.id).then((_) {
+              client.from('patient_accounts').upsert(
+                {'patient_id': user.id, 'avatar_url': socialAvatar},
+                onConflict: 'patient_id',
+              ).then((_) {
                 print('DEBUG: Successfully synced social avatar to DB');
               }).catchError((e) => print('DEBUG: Social avatar sync failed: $e'));
             }
@@ -147,7 +148,10 @@ class PatientProfileNotifier extends AsyncNotifier<PatientProfile?> {
       final base64String = 'data:image/jpeg;base64,${base64Encode(bytes)}';
 
       // 1. Update Profile Table directly with Base64 string
-      await client.from('profiles').update({'avatar_url': base64String}).eq('user_id', user.id);
+      await client.from('patient_accounts').upsert(
+        {'patient_id': user.id, 'avatar_url': base64String},
+        onConflict: 'patient_id',
+      );
 
       // 2. Update Local State
       final current = state.value;
@@ -197,10 +201,10 @@ class PatientProfileNotifier extends AsyncNotifier<PatientProfile?> {
         if (age != null) updates['age'] = age;
         if (organization != null) updates['organization'] = organization;
         
-        updates['user_id'] = user.id;
+        updates['patient_id'] = user.id;
         updates['updated_at'] = DateTime.now().toIso8601String();
 
-        await client.from('profiles').upsert(updates, onConflict: 'user_id');
+        await client.from('patient_accounts').upsert(updates, onConflict: 'patient_id');
         print('DEBUG: Synced profile update to Supabase');
       }
     } catch (e) {
@@ -223,10 +227,11 @@ class PatientProfileNotifier extends AsyncNotifier<PatientProfile?> {
     try {
       final client = SupabaseConfig.client;
       if (client != null) {
-        await client.from('profiles').update({
+        await client.from('patient_accounts').upsert({
+          'patient_id': user.id,
           'questionnaire_data': data,
           'updated_at': DateTime.now().toUtc().toIso8601String(),
-        }).eq('user_id', user.id);
+        }, onConflict: 'patient_id');
         print('DEBUG: Synced questionnaire to Supabase');
       }
     } catch (e) {
@@ -264,35 +269,21 @@ class PatientProfileNotifier extends AsyncNotifier<PatientProfile?> {
     }
   }
 
-  /// Checks if an admin's manual subscription override has expired.
-  /// Reverts the local state to free and mutates the database to match.
+  /// Checks if an admin's manual subscription override has expired and
+  /// reverts the local state to free. The database side (is_premium/
+  /// subscription_plan/subscription_expires_at) is never written by the
+  /// client - patient_accounts revokes client UPDATE on those columns, so
+  /// only the RevenueCat webhook (service role) can clear an expired
+  /// override there.
   PatientProfile _enforceAdminExpiry(PatientProfile p, SupabaseClient client) {
     if (p.isPremium && p.subscriptionExpiresAt != null) {
       if (DateTime.now().toUtc().isAfter(p.subscriptionExpiresAt!.toUtc())) {
-        print('DEBUG: Admin subscription override expired. Reverting to free.');
-        
-        final reverted = p.copyWith(
+        print('DEBUG: Admin subscription override expired. Reverting to free (local only).');
+        return p.copyWith(
           isPremium: false,
           subscriptionPlan: 'free',
           clearExpiresAt: true,
         );
-        
-        // Fire and forget: update database to clear the expired manual flag
-        if (p.userId != null) {
-          client.from('profiles').upsert({
-            'user_id': p.userId,
-            'is_premium': false,
-            'subscription_plan': 'free',
-            'subscription_expires_at': null,
-            'updated_at': DateTime.now().toUtc().toIso8601String(),
-          }, onConflict: 'user_id').then((_) {
-             print('DEBUG: Successfully reverted expired sub in Supabase');
-          }).catchError((e) {
-             print('DEBUG: Failed to revert expired sub in Supabase: $e');
-          });
-        }
-        
-        return reverted;
       }
     }
     return p;
