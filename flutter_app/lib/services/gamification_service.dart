@@ -202,7 +202,10 @@ class GamificationService {
       // patient_accounts is patient-self RLS only, so a cross-patient
       // leaderboard read goes through the security-definer
       // patient_leaderboard_top10() RPC instead (exposes only these 4
-      // non-sensitive columns, nothing else).
+      // non-sensitive columns, nothing else). Signed-in only, scoped
+      // server-side to the caller's own clinic, and `name` is already
+      // first name + last initial (e.g. "Jordan R.") - see
+      // 20261102110000_tc026_leaderboard_clinic_scope.sql.
       final response = await client.rpc('patient_leaderboard_top10');
       return List<Map<String, dynamic>>.from(response as List).map((row) {
         return <String, dynamic>{

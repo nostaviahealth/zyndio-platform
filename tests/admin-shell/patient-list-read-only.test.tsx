@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -36,6 +36,10 @@ function renderDashboard(role: string) {
   );
 }
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 describe('AdminDashboard patient list - read_only gating (OVERRIDES #11)', () => {
   it('read_only rows are not links: no "View Details" action', () => {
     renderDashboard('read_only');
@@ -43,7 +47,11 @@ describe('AdminDashboard patient list - read_only gating (OVERRIDES #11)', () =>
     expect(screen.getByText('View only')).toBeInTheDocument();
   });
 
-  it('physician/care_coordinator rows stay links to the patient detail page', () => {
+  // TC-026: the legacy patient detail page is behind
+  // VITE_FEATURE_LEGACY_PATIENT_SCREENS (off by default; the flag-off case is
+  // covered in tests/feature-flags/legacy-patient-screens-flag.test.tsx).
+  it('physician/care_coordinator rows stay links to the patient detail page (legacy flag on)', () => {
+    vi.stubEnv('VITE_FEATURE_LEGACY_PATIENT_SCREENS', 'true');
     renderDashboard('physician');
     expect(screen.getByText(/View Details/)).toBeInTheDocument();
   });
