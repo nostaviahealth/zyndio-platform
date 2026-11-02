@@ -162,6 +162,14 @@ class SignInView extends StatelessWidget {
         autofocus: true,
         hasError: state.hasError,
       ),
+      if (state.hasError) ...[
+        const SizedBox(height: ZyndioSpace.s8),
+        Text(
+          key: const Key('signin-code-error'),
+          state.errorText!,
+          style: ZyndioType.footnote.copyWith(color: colors.statusCritical),
+        ),
+      ],
       const SizedBox(height: ZyndioSpace.s12),
       Text(
         'Code expires after 10 minutes. Paste works, and your keyboard can fill the code from email.',

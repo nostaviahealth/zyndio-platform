@@ -54,11 +54,24 @@ class SignInController extends Notifier<SignInState> {
   CodeVerifyResult submitCode() {
     final email = state.email.trim().toLowerCase();
     final (result, session) = _repo.verifyCode(email, state.code);
-    if (result == CodeVerifyResult.locked) {
-      state = state.copyWith(isLocked: true);
-    } else if (result == CodeVerifyResult.success) {
-      state = state.copyWith(session: session);
-      ref.read(currentSessionProvider.notifier).set(session);
+    switch (result) {
+      case CodeVerifyResult.locked:
+        state = state.copyWith(isLocked: true);
+      case CodeVerifyResult.success:
+        state = state.copyWith(session: session);
+        ref.read(currentSessionProvider.notifier).set(session);
+      // Both failure results now surface an inline error on the code field;
+      // before TC-029 they set nothing, so a wrong or stale code looked like
+      // a dead "Continue" button. CodeVerifyResult carries no attempts-left
+      // count, so the invalid copy doesn't claim one.
+      case CodeVerifyResult.invalid:
+        state = state.copyWith(
+          errorText: "That code isn't right. Check it and try again.",
+        );
+      case CodeVerifyResult.expired:
+        state = state.copyWith(
+          errorText: "That code has expired. Tap “Send a new code” to get a fresh one.",
+        );
     }
     return result;
   }

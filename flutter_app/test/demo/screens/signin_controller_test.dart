@@ -82,6 +82,54 @@ void main() {
       expect(container.read(currentSessionProvider), isNotNull);
     });
 
+    test('TC-029: a wrong (invalid) code sets a clear inline error, no session', () {
+      // Fail-first: before TC-029, submitCode handled only locked/success, so
+      // an invalid result set no errorText and the code field showed nothing.
+      final clock = FakeClock(DateTime(2026, 1, 1, 9, 0, 0));
+      final backend = DemoBackend(clock: clock);
+      final container = ProviderContainer(
+        overrides: [demoBackendProvider.overrideWithValue(backend)],
+      );
+      addTearDown(container.dispose);
+
+      final controller = container.read(signInControllerProvider.notifier);
+      controller.updateEmail(demoPatient.email);
+      controller.sendCode();
+      controller.updateCode('000000'); // not the issued code
+      final result = controller.submitCode();
+
+      expect(result, CodeVerifyResult.invalid);
+      final state = container.read(signInControllerProvider);
+      expect(state.hasError, isTrue);
+      expect(state.errorText, contains("isn't right"));
+      expect(state.session, isNull);
+      expect(container.read(currentSessionProvider), isNull);
+    });
+
+    test('TC-029: an expired code sets a clear inline error telling how to get a new one', () {
+      final clock = FakeClock(DateTime(2026, 1, 1, 9, 0, 0));
+      final backend = DemoBackend(clock: clock);
+      final container = ProviderContainer(
+        overrides: [demoBackendProvider.overrideWithValue(backend)],
+      );
+      addTearDown(container.dispose);
+
+      final controller = container.read(signInControllerProvider.notifier);
+      controller.updateEmail(demoPatient.email);
+      controller.sendCode();
+      // Expiry is checked before the code is matched, so any entry hits it.
+      clock.advance(const Duration(minutes: 10, seconds: 1));
+      controller.updateCode('123456');
+      final result = controller.submitCode();
+
+      expect(result, CodeVerifyResult.expired);
+      final state = container.read(signInControllerProvider);
+      expect(state.hasError, isTrue);
+      expect(state.errorText, contains('expired'));
+      expect(state.errorText, contains('Send a new code'));
+      expect(container.read(currentSessionProvider), isNull);
+    });
+
     test('a locked verify sets isLocked', () {
       final clock = FakeClock(DateTime(2026, 1, 1, 9, 0, 0));
       final backend = DemoBackend(clock: clock);
