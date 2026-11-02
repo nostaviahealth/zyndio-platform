@@ -1,7 +1,7 @@
 // TC-012: request telehealth link OTP. Authenticated + email-confirmed.
 // PSU-TO-14: identical success body for 0 / 1 / many matches (timing padded).
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'npm:@supabase/supabase-js@2.118.0'
 import { corsHeadersFor, jsonResponse } from '../_shared/cors.ts'
 import { serviceRoleClient } from '../_shared/requireOrgAdminActor.ts'
 import { writeAuditLog } from '../_shared/auditAndNotify.ts'

@@ -1,4 +1,4 @@
-import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { SupabaseClient } from 'npm:@supabase/supabase-js@2.118.0'
 
 // Goes through public.write_audit_log() (not the internal _audit_log_insert)
 // so the same guarded entry point used by every other caller applies here

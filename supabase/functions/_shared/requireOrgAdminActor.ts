@@ -1,4 +1,4 @@
-import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient, SupabaseClient } from 'npm:@supabase/supabase-js@2.118.0'
 import { decodeJwtPayload, hasAal2Claim, parseBearerToken } from './validation.ts'
 
 export class AuthError extends Error {

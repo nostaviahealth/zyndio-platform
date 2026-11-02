@@ -7,7 +7,7 @@
 // and Ava's copy both say clinic data stays with the clinic; this slice has
 // no linking yet, so there is nothing clinic-side to leave behind anyway.
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'npm:@supabase/supabase-js@2.118.0'
 import { corsHeadersFor, jsonResponse } from '../_shared/cors.ts'
 import { AuthError, requireAuthenticatedActor } from '../_shared/requireOrgAdminActor.ts'
 import { writeAuditLog, insertNotification } from '../_shared/auditAndNotify.ts'

@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects } from 'https://deno.land/std@0.168.0/testing/asserts.ts'
-import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.118.0'
 import {
   consumeIntelligenceBudget,
   INTELLIGENCE_DAILY_LIMIT,

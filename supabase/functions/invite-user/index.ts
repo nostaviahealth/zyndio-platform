@@ -11,7 +11,7 @@
 // not user_metadata) and applied at accept - never trusted from the client
 // then.
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { SupabaseClient } from 'npm:@supabase/supabase-js@2.118.0'
 import { corsHeadersFor, jsonResponse } from '../_shared/cors.ts'
 import { AuthError, requireOrgAdminActor } from '../_shared/requireOrgAdminActor.ts'
 import { writeAuditLog, insertNotification } from '../_shared/auditAndNotify.ts'

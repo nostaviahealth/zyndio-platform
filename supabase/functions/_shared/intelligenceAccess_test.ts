@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects } from 'https://deno.land/std@0.168.0/testing/asserts.ts'
-import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.118.0'
 import { decideIntelligenceAccess, loadIntelligenceCallerFacts, type IntelligenceCallerFacts } from './intelligenceAccess.ts'
 
 // TC-021 item 9 (Henry ruling): the intelligence function is for patients
