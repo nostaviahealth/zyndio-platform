@@ -156,6 +156,9 @@ jobs:
         working-directory: space
         run: npm run build
 
+      - name: No external script/style hosts in built HTML/CSS (TC-032)
+        run: python3 scripts/check-no-external-web-assets.py dist space/dist
+
       - name: Upload web build output
         if: matrix.node-version == 22
         uses: actions/upload-artifact@v4
@@ -284,6 +287,12 @@ jobs:
 
       - name: Pinned imports (TC-031, no esm.sh or floating remote imports in Edge Functions)
         run: bash scripts/check-pinned-imports.sh
+
+      - name: No external script/style hosts self-test (TC-032, check must catch CDN scripts/styles/import maps)
+        run: bash scripts/test-check-no-external-web-assets.sh
+
+      - name: No external script/style hosts in index.html (TC-032, Tailwind/React/fonts are bundled)
+        run: python3 scripts/check-no-external-web-assets.py index.html space/index.html
 
       - name: Install gitleaks
         run: |
