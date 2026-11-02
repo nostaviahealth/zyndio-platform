@@ -288,6 +288,9 @@ jobs:
       - name: Run gitleaks
         run: gitleaks git --config .gitleaks.toml --redact
 
+      - name: No runtime references to the removed 'profiles' table (TC-026)
+        run: bash scripts/check-no-profiles.sh
+
   leak-scan:
     needs: [changes, flutter, web]
     if: ${{ !cancelled() && needs.changes.result == 'success' && needs.web.result == 'success' && (needs.flutter.result == 'success' || needs.flutter.result == 'skipped') }}
