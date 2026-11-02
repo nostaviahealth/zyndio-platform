@@ -197,14 +197,63 @@ class GamificationService {
   /// sets `is_me`; the leaderboard never carries patient ids (TC-026).
   static bool isLeaderboardSelf(Map<String, dynamic> row) => row['is_me'] == true;
 
+  /// Max characters rendered for a leaderboard display name, so a long or
+  /// malformed value can't blow out the row/podium layout (TC-030 item 9).
+  static const int leaderboardNameMaxLength = 18;
+
+  /// Formats a raw display name to the leaderboard's "First L." shape,
+  /// defensively (TC-030 item 9). The RPC already returns names in this form,
+  /// but this hardens the UI against anything odd that reaches it:
+  ///   - trims, and splits on ALL whitespace incl. NBSP/tab/newline, collapsing
+  ///     runs to single gaps;
+  ///   - "Last, First" (comma form) is read as first=First, last=Last;
+  ///   - a single word is used as-is (no empty initial);
+  ///   - an email-like value uses its local part (domain stripped);
+  ///   - the result is capped at [leaderboardNameMaxLength].
+  /// Returns [fallback] when nothing usable is left.
+  static String formatLeaderboardName(String? raw, {String fallback = 'Anonymous'}) {
+    final value = (raw ?? '').trim();
+    if (value.isEmpty) return fallback;
+
+    // Email-like: use the local part only, never the domain.
+    final atIndex = value.indexOf('@');
+    var working = atIndex > 0 ? value.substring(0, atIndex) : value;
+
+    // "Last, First" -> "First Last" before the usual split.
+    final commaIndex = working.indexOf(',');
+    if (commaIndex >= 0) {
+      final last = working.substring(0, commaIndex).trim();
+      final rest = working.substring(commaIndex + 1).trim();
+      working = [rest, last].where((p) => p.isNotEmpty).join(' ');
+    }
+
+    // Split on any run of whitespace, including NBSP/tab/newline.
+    final parts = working.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return fallback;
+
+    final first = parts.first;
+    final formatted = parts.length == 1
+        ? first
+        : '$first ${parts.last[0].toUpperCase()}.';
+
+    return formatted.length > leaderboardNameMaxLength
+        ? formatted.substring(0, leaderboardNameMaxLength)
+        : formatted;
+  }
+
   /// Maps one patient_leaderboard_top10() row to the shape the leagues UI
   /// reads: name, avatar_url, league_xp, is_me. No user/patient id.
+  ///
+  /// Henry (TC-030 item 9): no profile photos of OTHER patients on the
+  /// leaderboard - only the caller's own row keeps its avatar; every other
+  /// row drops `avatar_url` so it renders as an initials/placeholder avatar.
   static Map<String, dynamic> standingFromRow(Map<String, dynamic> row) {
+    final isMe = row['is_me'] == true;
     return <String, dynamic>{
       'name': row['name'],
-      'avatar_url': row['avatar_url'],
+      'avatar_url': isMe ? row['avatar_url'] : null,
       'league_xp': row['league_xp'],
-      'is_me': row['is_me'] == true,
+      'is_me': isMe,
     };
   }
 

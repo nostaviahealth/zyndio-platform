@@ -39,7 +39,10 @@ const Layout: React.FC = () => {
             )}
             <div className={`flex-1 ${!isImmersive ? (isCollapsed ? 'md:ml-20' : 'md:ml-64') : ''} flex flex-col min-h-screen ${!isImmersive ? 'pb-20 md:pb-0' : ''} transition-all duration-300`}>
                 {!isImmersive && <Header title={getTitle()} />}
-                <main className={`flex-1 ${!isImmersive ? 'p-4 md:p-8' : 'p-0'} overflow-y-auto`}>
+                {/* TC-030 (12): clip horizontal overflow so the patient portal
+                    does not scroll sideways by ~2px at the 768px breakpoint
+                    (content spilling out of the onboarding info cards). */}
+                <main className={`flex-1 ${!isImmersive ? 'p-4 md:p-8' : 'p-0'} overflow-y-auto overflow-x-hidden`}>
                     <div className={`${!isImmersive ? 'max-w-7xl mx-auto' : ''} animate-fade-in`}>
                         <Outlet />
                     </div>

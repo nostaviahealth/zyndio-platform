@@ -8,25 +8,29 @@ export default function HeavyMetalsDetail() {
   const [activeCategory, setActiveCategory] = useState<string>('All');
   
   const report = HEAVY_METALS_REPORT;
-  const categories = ['All', ...Array.from(new Set(report.markers.map(m => m.category).filter(Boolean)))];
-  
-  const filteredMarkers = activeCategory === 'All' 
-    ? report.markers 
-    : report.markers.filter(m => m.category === activeCategory);
+  // TC-030 (19): a QA/real report may arrive without markers; never assume the
+  // array (or any string field on a marker) is present.
+  const markers = Array.isArray(report.markers) ? report.markers : [];
+  const categories = ['All', ...Array.from(new Set(markers.map(m => m.category).filter(Boolean)))];
+
+  const filteredMarkers = activeCategory === 'All'
+    ? markers
+    : markers.filter(m => m.category === activeCategory);
 
   const stats = {
-    optimal: report.markers.filter(m => m.status === 'Optimal').length,
-    normal: report.markers.filter(m => m.status === 'Normal').length,
-    abnormal: report.markers.filter(m => m.status === 'Abnormal').length,
+    optimal: markers.filter(m => m.status === 'Optimal').length,
+    normal: markers.filter(m => m.status === 'Normal').length,
+    abnormal: markers.filter(m => m.status === 'Abnormal').length,
   };
 
-  const parseValue = (str: string) => {
-    const match = str.match(/[\d.]+/);
+  const parseValue = (str?: string | number | null) => {
+    if (typeof str === 'number') return str;
+    const match = typeof str === 'string' ? str.match(/[\d.]+/) : null;
     return match ? parseFloat(match[0]) : 0;
   };
-  
-  const extractUnit = (str: string) => {
-    return str.replace(/[<>\d.\s]/g, '');
+
+  const extractUnit = (str?: string | number | null) => {
+    return typeof str === 'string' ? str.replace(/[<>\d.\s]/g, '') : '';
   };
 
   const getStatusColor = (status: string) => {
@@ -127,6 +131,20 @@ export default function HeavyMetalsDetail() {
             </button>
           ))}
         </div>
+
+        {/* TC-030 (19): empty/partial-data state when no metals were reported. */}
+        {markers.length === 0 && (
+          <div className="bg-white rounded-2xl md:rounded-3xl p-8 shadow-sm border border-stone-100 flex flex-col items-center text-center">
+            <div className="p-3 rounded-full bg-stone-100 text-stone-400 mb-4">
+              <Activity className="w-7 h-7" />
+            </div>
+            <h3 className="font-serif font-bold text-lg text-brand-dark mb-2">No metals reported yet</h3>
+            <p className="text-sm text-stone-500 max-w-md">
+              Your heavy metals results aren't available yet. Once your panel is
+              processed, each metal's levels will appear here.
+            </p>
+          </div>
+        )}
 
         {/* Metal Thermometer Gauges */}
         <div className="flex flex-col gap-4">

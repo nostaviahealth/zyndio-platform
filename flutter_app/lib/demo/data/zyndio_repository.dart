@@ -30,6 +30,10 @@ abstract class ZyndioRepository {
   /// Verifies [code] for [email]. Returns a session on success.
   (CodeVerifyResult, RepoSession?) verifyCode(String email, String code);
 
+  /// Time left on [email]'s current lockout, or [Duration.zero] if not
+  /// locked. The sign-in UI reads this for the "Try again in {n} min" copy.
+  Duration lockRemaining(String email);
+
   /// Demo/test-only: the last code issued to [email]. Implementations that
   /// can't support this (e.g. a real email-delivered code) return `null`.
   String? debugLastIssuedCode(String email);
@@ -69,6 +73,9 @@ class OfflineDemoRepository implements ZyndioRepository {
     if (session == null) return (result, null);
     return (result, RepoSession(session.patientId, session));
   }
+
+  @override
+  Duration lockRemaining(String email) => _backend.lockRemaining(email);
 
   @override
   String? debugLastIssuedCode(String email) => _backend.debugLastIssuedCode(email);

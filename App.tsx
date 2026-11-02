@@ -172,6 +172,11 @@ const App: React.FC = () => {
                       </RequireRole>
                     }
                   />
+                  {/* TC-030 (0b): unknown /admin/* paths (old bookmarks, email
+                      links, routes hidden behind the legacy flag) must land on
+                      the staff home, never fall through the global catch-all to
+                      the patient portal ("Welcome to Zyndio"). */}
+                  <Route path="*" element={<Navigate to="/admin" replace />} />
                 </Route>
 
                 {/* User Portal Routes - Protected */}

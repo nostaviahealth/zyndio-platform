@@ -69,15 +69,22 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
 
     // Welcome notification
     if (patientProfile?.stage === 'profile_creation') {
+      const legacyScreensOn = isLegacyPatientScreensEnabled();
       newNotifications.push({
         id: 'welcome',
         type: 'info',
         title: 'Welcome to Zyndio',
-        message: 'Complete your health questionnaire to get started with your personalized journey.',
+        // TC-030 (11): the questionnaire copy only makes sense while the legacy
+        // screen exists and this notification links to it. With the flag off it
+        // has no action, so keep the copy neutral (no dead "complete your
+        // questionnaire" call to action).
+        message: legacyScreensOn
+          ? 'Complete your health questionnaire to get started with your personalized journey.'
+          : 'Welcome aboard. Your care team will guide you through the next steps of your personalized journey.',
         time: '2h ago',
         read: true,
         // TC-026: link to the questionnaire only while the legacy screen exists.
-        ...(isLegacyPatientScreensEnabled() ? { action: '/questionnaire' } : {}),
+        ...(legacyScreensOn ? { action: '/questionnaire' } : {}),
       });
     }
 
@@ -169,11 +176,17 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
 
               <div className="max-h-80 overflow-y-auto">
                 {notifications.length > 0 ? (
-                  notifications.map((notif) => (
+                  notifications.map((notif) => {
+                    // TC-030 (11): a notification with no action does nothing
+                    // when clicked, so it must not look tappable - drop the
+                    // pointer cursor, hover highlight and button role.
+                    const isClickable = !!notif.action;
+                    return (
                     <div
                       key={notif.id}
-                      onClick={() => handleNotificationClick(notif)}
-                      className={`p-4 border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors flex gap-3 ${!notif.read ? 'bg-blue-50/50' : ''
+                      onClick={isClickable ? () => handleNotificationClick(notif) : undefined}
+                      role={isClickable ? 'button' : undefined}
+                      className={`p-4 border-b border-slate-100 transition-colors flex gap-3 ${isClickable ? 'hover:bg-slate-50 cursor-pointer' : ''} ${!notif.read ? 'bg-blue-50/50' : ''
                         }`}
                     >
                       <div className="flex-shrink-0 mt-0.5">
@@ -193,7 +206,8 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
                         <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-2"></div>
                       )}
                     </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <div className="p-8 text-center">
                     <Bell className="w-8 h-8 text-slate-300 mx-auto mb-2" />

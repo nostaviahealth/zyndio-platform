@@ -1,11 +1,11 @@
 import { User, LabReport, Message } from './types';
 
 export const CURRENT_USER: User = {
-  id: 'u-1', // Matches Aditya Singh in admin panel
-  name: 'Aditya Singh',
+  id: 'u-1', // Fictional demo patient (TC-030 item 12: no real names)
+  name: 'Sam Patel',
   age: 34,
   bioAge: 31,
-  avatarUrl: 'https://ui-avatars.com/api/?name=Aditya+Singh&background=0D8ABC&color=fff',
+  avatarUrl: 'https://ui-avatars.com/api/?name=Sam+Patel&background=0D8ABC&color=fff',
   healthGrade: 'A-',
   primaryGoal: 'Longevity',
   isPremium: true,

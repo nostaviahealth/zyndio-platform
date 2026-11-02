@@ -226,5 +226,87 @@ void main() {
       // The lock banner is the one message; the stale "isn't right" goes.
       expect(state.errorText, isNull);
     });
+
+    test('TC-030 item 16: tapping submit twice on an unchanged full code spends two attempts', () {
+      // Fail-first against L-r2-2: the earlier lockout test cleared the error
+      // via updateCode before each submit, so it never proved a second submit
+      // of the SAME code (no updateCode between taps) still counts. It does.
+      final clock = FakeClock(DateTime(2026, 1, 1, 9, 0, 0));
+      final backend = _CountingBackend(clock: clock);
+      final container = ProviderContainer(
+        overrides: [demoBackendProvider.overrideWithValue(backend)],
+      );
+      addTearDown(container.dispose);
+
+      final controller = container.read(signInControllerProvider.notifier);
+      controller.updateEmail(demoPatient.email);
+      controller.sendCode();
+      controller.updateCode('000000');
+
+      // No updateCode between the two submits: both must reach the server.
+      expect(controller.submitCode(), CodeVerifyResult.invalid);
+      expect(controller.submitCode(), CodeVerifyResult.invalid);
+      expect(backend.verifyCalls, 2);
+
+      // Three more taps of the unchanged code reach the 5-attempt lock.
+      controller.submitCode();
+      controller.submitCode();
+      expect(controller.submitCode(), CodeVerifyResult.locked);
+      expect(container.read(signInControllerProvider).isLocked, isTrue);
+    });
+
+    test('TC-030 item 14: the lock banner reports the real remaining minutes', () {
+      // Fail-first: the state carried no remaining-minutes value before, so
+      // the banner was the fixed "15 minutes" regardless of the real clock.
+      final clock = FakeClock(DateTime(2026, 1, 1, 9, 0, 0));
+      final backend = DemoBackend(clock: clock);
+      final container = ProviderContainer(
+        overrides: [demoBackendProvider.overrideWithValue(backend)],
+      );
+      addTearDown(container.dispose);
+
+      final controller = container.read(signInControllerProvider.notifier);
+      controller.updateEmail(demoPatient.email);
+      controller.sendCode();
+      for (var i = 0; i < 5; i++) {
+        controller.updateCode('000000');
+        controller.submitCode();
+      }
+      expect(container.read(signInControllerProvider).lockedMinutesRemaining, 15);
+
+      // 3 minutes into the 15-minute lock, another locked submit reports 12.
+      clock.advance(const Duration(minutes: 3));
+      controller.updateCode('000000');
+      controller.submitCode();
+      expect(container.read(signInControllerProvider).lockedMinutesRemaining, 12);
+    });
+
+    test('TC-030 item 17: while locked, a short code does not overwrite the lock with the 6-digit hint', () {
+      // Fail-first: before the guard, submitCode set "Enter the 6-digit code."
+      // for any incomplete entry, even while locked, so the code step showed
+      // both the lock banner and that hint (Clara L-r2-3).
+      final clock = FakeClock(DateTime(2026, 1, 1, 9, 0, 0));
+      final backend = DemoBackend(clock: clock);
+      final container = ProviderContainer(
+        overrides: [demoBackendProvider.overrideWithValue(backend)],
+      );
+      addTearDown(container.dispose);
+
+      final controller = container.read(signInControllerProvider.notifier);
+      controller.updateEmail(demoPatient.email);
+      controller.sendCode();
+      for (var i = 0; i < 5; i++) {
+        controller.updateCode('000000');
+        controller.submitCode();
+      }
+      expect(container.read(signInControllerProvider).isLocked, isTrue);
+
+      // A short entry while locked: still locked, no inline hint set.
+      controller.updateCode('12');
+      expect(controller.submitCode(), isNull);
+      final state = container.read(signInControllerProvider);
+      expect(state.isLocked, isTrue);
+      expect(state.errorText, isNull);
+    });
   });
 }
