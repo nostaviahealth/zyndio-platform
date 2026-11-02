@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Search, ArrowDownUp, RotateCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, ArrowDownUp, RotateCw, Plus } from 'lucide-react';
 import {
   ClinicalApi,
   ChipCounts,
@@ -68,6 +68,11 @@ const PhysicianRoster: React.FC<PhysicianRosterProps> = ({
   const auth = usePortalAuth();
   const role = roleProp ?? auth.role;
   const canOpen = role === 'physician' || role === 'care_coordinator' || role === 'read_only';
+  // TC-029 (a): the "New Patient" entry point moved here from the retired
+  // Patient Management page. Creating patients is a care_coordinator task;
+  // a physician must never see a create-patient button, and read_only can't
+  // mutate - so only the coordinator gets it (route is gated to match).
+  const canCreate = role === 'care_coordinator';
   const nowDate = now ?? new Date();
 
   const [search, setSearch] = useState(initialSearch);
@@ -136,10 +141,23 @@ const PhysicianRoster: React.FC<PhysicianRosterProps> = ({
     <div className="relative">
       {typeof __PREVIEW_BUILD__ !== 'undefined' && __PREVIEW_BUILD__ && <FictionalDataTag />}
 
-      <h1 className="text-[28px] font-bold leading-tight text-[#030616] dark:text-[#EEF1F8]">Patients</h1>
-      <p className="mt-2 text-sm text-[#48556A] dark:text-[#A6B0C3]">
-        Everyone enrolled in your Zyndio program. Flags show what needs attention.
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-[28px] font-bold leading-tight text-[#030616] dark:text-[#EEF1F8]">Patients</h1>
+          <p className="mt-2 text-sm text-[#48556A] dark:text-[#A6B0C3]">
+            Everyone enrolled in your Zyndio program. Flags show what needs attention.
+          </p>
+        </div>
+        {canCreate && (
+          <Link
+            to="/admin/patients/create"
+            className="inline-flex min-h-[44px] shrink-0 items-center gap-2 rounded-full bg-[#2C5CF2] px-5 text-sm font-semibold text-white hover:bg-[#2450D8] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2C5CF2] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#070A14]"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            New Patient
+          </Link>
+        )}
+      </div>
 
       {isEmptyRoster ? (
         <EmptyRoster searchValue={search} onSearch={setSearch} />

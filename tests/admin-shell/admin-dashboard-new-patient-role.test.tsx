@@ -1,45 +1,72 @@
 // @vitest-environment jsdom
-// TC-021 item 26 (Clara, PR #21 hands-on, roles.log): read_only saw the
-// "New Patient" button on #/admin although /admin/patients/create is gated to
-// physician + care_coordinator. The button is shown only to roles that can
-// create patients. (org_admin is routed to /admin/users before AdminDashboard
-// ever renders - TC-018 item 3, see admin-index-routing.test.tsx.)
+// TC-029 (a): the "New Patient" create-patient button used to live on the old
+// Patient Management page (AdminDashboard, now retired), gated to physician +
+// care_coordinator - which is the bug Ava reported: a physician must never see
+// a create-patient button. The button now lives in the header of the real
+// roster (PhysicianRoster, /admin/patients), gated to care_coordinator only.
+// This is the TC-021-item-26 role-gate guarantee, moved to where the button
+// now lives and strengthened (physician is now excluded, not allowed).
+//
+// Fail-first: on the pre-fix roster there is no "New Patient" button at all,
+// so the care_coordinator case ("sees New Patient") goes red; and on the old
+// AdminDashboard the physician case would have been green (button shown) -
+// i.e. this file's physician assertion is strictly stronger than before.
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
-const mockUseAdmin = vi.fn();
-vi.mock('../../contexts/AdminContext', () => ({
-  useAdmin: () => mockUseAdmin(),
-}));
-
-const mockUsePortalAuth = vi.fn();
 vi.mock('../../contexts/PortalAuthContext', () => ({
-  usePortalAuth: () => mockUsePortalAuth(),
+  // role comes from the explicit `role` prop in these tests; auth is unused.
+  usePortalAuth: () => ({ role: null }),
 }));
 
-import AdminDashboard from '../../pages/admin/AdminDashboard';
+import PhysicianRoster from '../../pages/admin/clinic/PhysicianRoster';
+import { ClinicalApi, RosterPatient } from '../../lib/clinicalApi';
 
-function renderDashboard(role: string) {
-  mockUseAdmin.mockReturnValue({ patients: [], deletePatient: vi.fn(), loading: false });
-  mockUsePortalAuth.mockReturnValue({ role });
+const NOW = new Date('2026-10-18T10:00:00Z');
+
+const jordan: RosterPatient = {
+  patientId: 'p-jordan',
+  displayName: 'Jordan Rivera',
+  mrn: 'ZP-10482',
+  sex: 'female',
+  birthDate: '1985-03-01',
+  programStartedOn: '2026-04-02T00:00:00Z',
+  latestLabAt: '2026-10-14T12:00:00Z',
+  lastActivityAt: '2026-10-18T09:12:00Z',
+  openQuestions: 1,
+  flags: ['question_waiting'],
+};
+
+function makeApi(): ClinicalApi {
+  return {
+    fetchRoster: vi.fn().mockResolvedValue({ rows: [jordan], totalCount: 1 }),
+    fetchChipCounts: vi.fn().mockResolvedValue({ all: 1, flagged: 0, missingLabs: 0, questionsWaiting: 1 }),
+    openPatientDetail: vi.fn(),
+    fetchLatestResults: vi.fn(),
+    fetchTrend: vi.fn(),
+  };
+}
+
+function renderRoster(role: string) {
   return render(
     <MemoryRouter>
-      <AdminDashboard />
+      <PhysicianRoster api={makeApi()} now={NOW} role={role} />
     </MemoryRouter>
   );
 }
 
-describe('AdminDashboard "New Patient" button is role-gated (TC-021 item 26)', () => {
-  it('read_only does not see "New Patient"', () => {
-    renderDashboard('read_only');
-    expect(screen.getByRole('heading', { name: 'Patient Management' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /New Patient/ })).not.toBeInTheDocument();
+describe('PhysicianRoster "New Patient" button is role-gated (TC-029 a, was TC-021 item 26)', () => {
+  it('care_coordinator sees "New Patient" linking to the create page', () => {
+    renderRoster('care_coordinator');
+    const link = screen.getByRole('link', { name: /New Patient/ });
+    expect(link).toHaveAttribute('href', '/admin/patients/create');
   });
 
-  it.each(['physician', 'care_coordinator'])('%s still sees "New Patient"', (role) => {
-    renderDashboard(role);
-    expect(screen.getByRole('button', { name: /New Patient/ })).toBeInTheDocument();
+  it.each(['physician', 'read_only'])('%s does not see "New Patient"', (role) => {
+    renderRoster(role);
+    expect(screen.getByRole('heading', { name: 'Patients' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /New Patient/ })).not.toBeInTheDocument();
   });
 });
