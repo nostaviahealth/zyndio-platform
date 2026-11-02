@@ -77,6 +77,14 @@ class _DemoHomeState extends State<_DemoHome> {
       return const DemoJourneyFlow();
     }
     final screen = widget.params.screen;
+    // TC-029 (BUG-2): native builds have no web URL, so `?flow=`/`?screen=`
+    // are both absent and screen choice fell through to the "coming soon"
+    // placeholder. With no deep-link selected, open the real app entry — the
+    // sign-in journey — instead. Web deep-links (?flow=journey, ?screen=…,
+    // and the screenshot harness, which always passes a screen) are unchanged.
+    if (screen == null && widget.params.flow == null) {
+      return const DemoJourneyFlow();
+    }
     if (screen == 'signin') {
       // A `state` query param (the screenshot harness) renders a fixed
       // fixture state; otherwise the view is wired to the live controller
