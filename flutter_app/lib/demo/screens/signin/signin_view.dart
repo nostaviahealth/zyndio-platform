@@ -148,6 +148,17 @@ class SignInView extends StatelessWidget {
           label: const Text('Email'),
         ),
       ),
+      // TC-029 review (Clara H2): from the 5th wrong try the account is
+      // locked; say so here, on the screen the patient is actually on, not
+      // only on the email step.
+      if (state.isLocked) ...[
+        const SizedBox(height: ZyndioSpace.s16),
+        const ZyndioBanner(
+          key: Key('signin-code-locked'),
+          variant: BannerVariant.error,
+          message: 'Too many attempts. Try again in 15 minutes.',
+        ),
+      ],
       const SizedBox(height: ZyndioSpace.s16),
       Text('Enter your code', style: ZyndioType.title1.copyWith(color: colors.textPrimary)),
       const SizedBox(height: ZyndioSpace.s8),
