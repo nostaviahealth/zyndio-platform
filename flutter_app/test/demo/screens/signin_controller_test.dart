@@ -190,10 +190,16 @@ void main() {
       }
       expect(backend.verifyCalls, 0);
 
-      // None of those spent an attempt: the real code still signs in.
-      controller.updateCode(backend.debugLastIssuedCode(demoPatient.email)!);
-      expect(controller.submitCode(), CodeVerifyResult.success);
-      expect(backend.verifyCalls, 1);
+      // None of those spent an attempt: 6 incomplete entries plus 4 wrong
+      // codes would be past the 5-attempt limit if they had counted, but the
+      // 4th wrong code is still only "invalid", not "locked". (The issued
+      // code itself is readable only in DEMO_BUILD, so it isn't used here.)
+      for (var i = 0; i < 4; i++) {
+        controller.updateCode('000000');
+        expect(controller.submitCode(), CodeVerifyResult.invalid, reason: 'wrong try ${i + 1}');
+      }
+      expect(backend.verifyCalls, 4);
+      expect(container.read(signInControllerProvider).isLocked, isFalse);
     });
 
     test('TC-029 review (Clara H2): the locked result replaces the wrong-code error with the lock state', () {
