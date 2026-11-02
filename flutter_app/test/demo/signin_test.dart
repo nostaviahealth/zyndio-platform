@@ -102,6 +102,25 @@ void main() {
       expect(find.text(message), findsOneWidget);
     });
 
+    testWidgets('TC-029 review (Clara H2): a locked account shows the lock message on the code step itself', (tester) async {
+      // Fail-first: before the fix the "Too many attempts" banner rendered
+      // only on the email step, so from the 5th wrong try Continue looked dead.
+      await tester.pumpWidget(
+        _wrap(const SignInView(
+          state: SignInState(
+            stage: SignInStage.codeEntry,
+            email: 'jordan.rivera@example.com',
+            code: '000000',
+            isLocked: true,
+          ),
+        )),
+      );
+
+      expect(find.text('Enter your code'), findsOneWidget);
+      expect(find.byKey(const Key('signin-code-locked')), findsOneWidget);
+      expect(find.text('Too many attempts. Try again in 15 minutes.'), findsOneWidget);
+    });
+
     testWidgets('every state builds in dark mode too', (tester) async {
       final states = [
         SignInState.defaultState(),
@@ -110,6 +129,7 @@ void main() {
         SignInState.error(email: 'jordan.rivera@exmaple.com'),
         SignInState.locked(),
         SignInState.offline(),
+        const SignInState(stage: SignInStage.codeEntry, email: 'jordan.rivera@example.com', isLocked: true),
       ];
       for (final state in states) {
         await tester.pumpWidget(_wrap(SignInView(state: state), brightness: Brightness.dark));
@@ -150,5 +170,57 @@ void main() {
     expect(find.text('Enter your code'), findsOneWidget);
     expect(find.byKey(const Key('signin-code-error')), findsOneWidget);
     expect(find.textContaining("isn't right"), findsOneWidget);
+  });
+
+  // End-to-end Clara H2 repro through the real controller + offline backend:
+  // keep typing wrong codes past the 5-attempt limit and the code step itself
+  // must say the account is locked. Also: incomplete entries on the way must
+  // not count as attempts (3 short taps first, then 5 wrong codes to lock).
+  testWidgets('TC-029 review (Clara H2): wrong codes to lockout show the lock message on the code screen', (tester) async {
+    tester.view.physicalSize = const Size(800, 2000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: DemoApp(initialParams: DemoRouteParams(screen: 'signin')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('signin-email-field')), 'jordan.rivera@example.com');
+    await tester.pump();
+    await tester.tap(find.text('Send code'));
+    await tester.pump();
+    expect(find.text('Enter your code'), findsOneWidget);
+
+    // Incomplete entries: inline hint, no attempt used.
+    for (final entry in ['', '12', '12345']) {
+      await tester.enterText(find.byType(TextField), entry);
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      expect(find.text('Enter the 6-digit code.'), findsOneWidget, reason: 'entry "$entry"');
+      expect(find.byKey(const Key('signin-code-locked')), findsNothing);
+    }
+
+    // Four wrong codes: still the "isn't right" error, not locked yet.
+    for (var i = 0; i < 4; i++) {
+      await tester.enterText(find.byType(TextField), '000000');
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining("isn't right"), findsOneWidget, reason: 'wrong try ${i + 1}');
+      expect(find.byKey(const Key('signin-code-locked')), findsNothing);
+    }
+
+    // 5th wrong code locks; the code screen must say so, and keep saying so.
+    for (var i = 0; i < 2; i++) {
+      await tester.enterText(find.byType(TextField), '000000');
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      expect(find.text('Enter your code'), findsOneWidget);
+      expect(find.byKey(const Key('signin-code-locked')), findsOneWidget, reason: 'try ${5 + i}');
+      expect(find.text('Too many attempts. Try again in 15 minutes.'), findsOneWidget);
+    }
   });
 }
