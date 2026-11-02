@@ -148,6 +148,17 @@ class SignInView extends StatelessWidget {
           label: const Text('Email'),
         ),
       ),
+      // TC-029 review (Clara H2): from the 5th wrong try the account is
+      // locked; say so here, on the screen the patient is actually on, not
+      // only on the email step.
+      if (state.isLocked) ...[
+        const SizedBox(height: ZyndioSpace.s16),
+        const ZyndioBanner(
+          key: Key('signin-code-locked'),
+          variant: BannerVariant.error,
+          message: 'Too many attempts. Try again in 15 minutes.',
+        ),
+      ],
       const SizedBox(height: ZyndioSpace.s16),
       Text('Enter your code', style: ZyndioType.title1.copyWith(color: colors.textPrimary)),
       const SizedBox(height: ZyndioSpace.s8),
@@ -162,6 +173,14 @@ class SignInView extends StatelessWidget {
         autofocus: true,
         hasError: state.hasError,
       ),
+      if (state.hasError) ...[
+        const SizedBox(height: ZyndioSpace.s8),
+        Text(
+          key: const Key('signin-code-error'),
+          state.errorText!,
+          style: ZyndioType.footnote.copyWith(color: colors.statusCritical),
+        ),
+      ],
       const SizedBox(height: ZyndioSpace.s12),
       Text(
         'Code expires after 10 minutes. Paste works, and your keyboard can fill the code from email.',

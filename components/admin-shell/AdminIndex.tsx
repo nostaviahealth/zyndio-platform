@@ -1,22 +1,32 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { usePortalAuth } from '../../contexts/PortalAuthContext';
-import RequireRole from './RequireRole';
-import AdminDashboard from '../../pages/admin/AdminDashboard';
+import AccessDenied from '../../pages/admin/AccessDenied';
 
-// TC-018 item 3 (L35): #/admin is the app shell's index route. AdminDashboard
-// is gated to physician/care_coordinator/read_only, so an org admin landed
-// on 06-access-denied from every sign-in instead of their real home. Resolve
-// by role before any gate runs, so a clinic's own admin never sees "You
-// don't have access" just from signing in.
+// TC-029 (a): #/admin is the app shell's index route. It used to render the
+// old "Patient Management" page (pages/admin/AdminDashboard) for clinical
+// roles - an empty roster with zero counts and a stray "New Patient" button.
+// The real roster lives at /admin/patients. The index now redirects each
+// signed-in role to its own home (the same destinations the Sidebar nav
+// links to), so nobody lands on the retired page:
+//   org_admin        -> /admin/users    (Users and roles)
+//   physician        -> /admin/patients (clinical roster)
+//   care_coordinator -> /admin/patients
+//   read_only        -> /admin/patients
+// An unknown/absent role falls through to 06-access-denied rather than being
+// routed into a page it can't open.
+const HOME_BY_ROLE: Record<string, string> = {
+  org_admin: '/admin/users',
+  physician: '/admin/patients',
+  care_coordinator: '/admin/patients',
+  read_only: '/admin/patients',
+};
+
 const AdminIndex: React.FC = () => {
   const { role } = usePortalAuth();
-  if (role === 'org_admin') return <Navigate to="/admin/users" replace />;
-  return (
-    <RequireRole roles={['physician', 'care_coordinator', 'read_only']}>
-      <AdminDashboard />
-    </RequireRole>
-  );
+  const home = role ? HOME_BY_ROLE[role] : undefined;
+  if (home) return <Navigate to={home} replace />;
+  return <AccessDenied />;
 };
 
 export default AdminIndex;

@@ -956,8 +956,12 @@ def check_tc021_round2(browser, scrollbar_browser, base_url: str, creds: dict, m
     # on the same patient account.
     tctx = browser.new_context(viewport={"width": 1024, "height": 768}, color_scheme=mode)
     tpage = tctx.new_page()
-    ph = creds["physician"]
-    sign_in(tpage, base_url, ph["email"], ph["password"], ph["totpSecret"])
+    # TC-029 (Clara H1, PR #26): /admin/patients/create is care_coordinator
+    # only, so this runs as the coordinator. The seed re-asserts the
+    # coordinator's care_coordinator role on every run, and the role-change
+    # confirm above is cancelled, so the role is unchanged here.
+    co = creds["coordinator"]
+    sign_in(tpage, base_url, co["email"], co["password"], co["totpSecret"])
     goto_hash(tpage, base_url, "/admin/patients/create")
     # TC-018 (Create Patient add-on) pointed this form at the real patients
     # table and dropped every field without a real column - name/email

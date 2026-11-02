@@ -34,7 +34,6 @@ import { isLegacyPatientScreensEnabled } from '../../lib/featureFlags';
 import { legacyAdminScreenRoutes, legacyPortalScreenRoutes } from '../../components/LegacyPatientScreenRoutes';
 import Home from '../../pages/Home';
 import Header from '../../components/Header';
-import AdminDashboard from '../../pages/admin/AdminDashboard';
 
 const FLAG = 'VITE_FEATURE_LEGACY_PATIENT_SCREENS';
 
@@ -164,15 +163,30 @@ describe('no entry points into hidden legacy screens', () => {
     expect(clickWelcomeNotification()).toBe('/questionnaire');
   });
 
-  it.each(['physician', 'care_coordinator'])('AdminDashboard (%s): flag off hides "View Details" (legacy patient/:id)', (role) => {
-    mockUseAdmin.mockReturnValue({
-      patients: [{ id: 'p-fictional-1', name: 'Jordan Rivera', email: 'jordan.rivera@example.test', phone: '555-0100', age: 41, bioAge: 39, stage: 'protocol_ready' }],
-      deletePatient: vi.fn(),
-      loading: false,
-    });
-    mockUsePortalAuth.mockReturnValue({ role });
-    render(<MemoryRouter><AdminDashboard /></MemoryRouter>);
-    expect(screen.getByText('Jordan Rivera')).toBeInTheDocument();
-    expect(screen.queryByText(/View Details/)).not.toBeInTheDocument();
+  // Merge of #25 into #26 (TC-029): #26 deleted AdminDashboard, the only
+  // non-legacy page that had a "View Details" link to the legacy
+  // #/admin/patient/:id. The old render test ("flag off hides View Details")
+  // has no host page left, so it is replaced by a stronger static guard: no
+  // non-legacy page or component links to /admin/patient/ at all, flag on or
+  // off. The legacy screens themselves (and the route table) may still.
+  it('no non-legacy page or component links to the legacy /admin/patient/:id', () => {
+    const LEGACY_FILES = new Set([
+      'pages/HealthQuestionnaire.tsx',
+      'pages/LabTestUpload.tsx',
+      'pages/admin/PatientDetail.tsx',
+      'pages/admin/NutritionLab.tsx',
+      'components/LegacyPatientScreenRoutes.tsx',
+    ]);
+    const root = path.resolve(__dirname, '../..');
+    const walk = (dir: string): string[] =>
+      fs.readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap((e) => {
+        const rel = `${dir}/${e.name}`;
+        if (e.isDirectory()) return walk(rel);
+        return /\.(tsx?|jsx?)$/.test(e.name) ? [rel] : [];
+      });
+    const files = [...walk('pages'), ...walk('components')].filter((f) => !LEGACY_FILES.has(f));
+    expect(files.length).toBeGreaterThan(20);
+    const offenders = files.filter((f) => /\/admin\/patient\//.test(fs.readFileSync(path.join(root, f), 'utf8')));
+    expect(offenders).toEqual([]);
   });
 });

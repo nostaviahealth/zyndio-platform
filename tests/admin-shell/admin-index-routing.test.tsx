@@ -1,10 +1,16 @@
 // @vitest-environment jsdom
-// TC-018 item 3 (L35): #/admin is the shell's index route, gated today to
-// physician/care_coordinator/read_only only (see require-role.test.tsx) - an
-// org admin sign-in lands here first and sees 06-access-denied before ever
-// reaching their real home. #/admin must resolve to the default route for
-// the signed-in user's role instead, so a clinic's own admin never sees
-// "You don't have access" just from signing in.
+// TC-029 (a): #/admin is the app shell's index route. It used to render the
+// old "Patient Management" page (AdminDashboard) for every clinical role, so
+// coordinators and physicians landed on an empty roster with a stray "New
+// Patient" button; the real roster is /admin/patients. The index now
+// redirects each signed-in role to its own home (the same targets the Sidebar
+// nav links to). This asserts the landing route per role, one case each.
+//
+// Fail-first: on the pre-fix AdminIndex (RequireRole(['physician',
+// 'care_coordinator','read_only']) wrapping AdminDashboard) the three clinical
+// roles render "Patient Management" in place instead of redirecting to
+// /admin/patients, so each physician/care_coordinator/read_only case here goes
+// red. (org_admin already redirected pre-fix.)
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -15,36 +21,43 @@ vi.mock('../../contexts/PortalAuthContext', () => ({
   usePortalAuth: () => mockUsePortalAuth(),
 }));
 
-const mockUseAdmin = vi.fn();
-vi.mock('../../contexts/AdminContext', () => ({
-  useAdmin: () => mockUseAdmin(),
-}));
-
-// Imported after the mocks so AdminIndex and its children resolve to them.
+// Imported after the mock so AdminIndex (and AccessDenied, used for the
+// unknown-role fallback) resolve usePortalAuth to the mock.
 import AdminIndex from '../../components/admin-shell/AdminIndex';
 
-function renderAt(role: string) {
-  mockUseAdmin.mockReturnValue({ patients: [], deletePatient: vi.fn(), loading: false });
+function renderAt(role: string | null) {
   mockUsePortalAuth.mockReturnValue({ role });
   return render(
     <MemoryRouter initialEntries={['/admin']}>
       <Routes>
         <Route path="/admin" element={<AdminIndex />} />
         <Route path="/admin/users" element={<div>USERS AND ROLES PAGE</div>} />
+        <Route path="/admin/patients" element={<div>PATIENTS ROSTER PAGE</div>} />
       </Routes>
     </MemoryRouter>
   );
 }
 
-describe('#/admin index routing by role (TC-018 item 3)', () => {
-  it('org_admin never sees "You don\'t have access" - it lands on users and roles', () => {
+describe('#/admin index routing by role (TC-029 a)', () => {
+  it('org_admin lands on Users and roles', () => {
     renderAt('org_admin');
-    expect(screen.queryByText("You don't have access to this page")).not.toBeInTheDocument();
     expect(screen.getByText('USERS AND ROLES PAGE')).toBeInTheDocument();
+    expect(screen.queryByText("You don't have access to this page")).not.toBeInTheDocument();
   });
 
-  it.each(['physician', 'care_coordinator', 'read_only'])('%s still sees the admin dashboard at #/admin', (role) => {
-    renderAt(role);
-    expect(screen.getByRole('heading', { name: 'Patient Management' })).toBeInTheDocument();
+  it.each(['physician', 'care_coordinator', 'read_only'])(
+    '%s lands on the real patients roster (/admin/patients), not the old Patient Management page',
+    (role) => {
+      renderAt(role);
+      expect(screen.getByText('PATIENTS ROSTER PAGE')).toBeInTheDocument();
+      expect(screen.queryByText('Patient Management')).not.toBeInTheDocument();
+    }
+  );
+
+  it('an unknown/absent role falls through to 06-access-denied, not a roster it cannot open', () => {
+    renderAt(null);
+    expect(screen.getByText("You don't have access to this page")).toBeInTheDocument();
+    expect(screen.queryByText('PATIENTS ROSTER PAGE')).not.toBeInTheDocument();
+    expect(screen.queryByText('USERS AND ROLES PAGE')).not.toBeInTheDocument();
   });
 });

@@ -143,7 +143,9 @@ interface Creds {
   orgId: string;
   orgAdmin: { email: string; password: string; totpSecret: string; userId: string };
   physician: { email: string; password: string; totpSecret: string; userId: string };
-  coordinator: { email: string; userId: string };
+  // TC-029 (Clara H1, PR #26): the coordinator signs in too - creating a
+  // patient is coordinator-only, so theme-check item 25 runs as this account.
+  coordinator: { email: string; password?: string; totpSecret?: string; userId: string };
   readOnly: { email: string; userId: string };
   invited: { email: string; userId: string };
   lastActive?: { email: string; userId: string };
@@ -261,6 +263,20 @@ async function main() {
         full_name: 'Fictional Taylor Invitee',
         created_at: new Date().toISOString(),
       });
+      if (!existing.coordinator.password || !existing.coordinator.totpSecret) {
+        // Creds file from before TC-029: the coordinator was seeded with a
+        // throwaway password and no 2FA. Give it a known password + TOTP.
+        const password = genPassword();
+        await j(
+          await fetch(`${URL_}/auth/v1/admin/users/${existing.coordinator.userId}`, {
+            method: 'PUT',
+            headers: h(SR),
+            body: JSON.stringify({ password }),
+          }),
+        );
+        existing.coordinator.password = password;
+        existing.coordinator.totpSecret = await enrolTotp(existing.coordinator.email, password);
+      }
       await ensureTail(existing);
       console.log(JSON.stringify({ reused: true, orgId: existing.orgId, last: LAST }));
       return;
@@ -283,8 +299,10 @@ async function main() {
   const physicianSecret = await enrolTotp(physicianEmail, physicianPassword);
 
   const coordinatorEmail = 'tc019-coordinator@example.test';
-  const coordinatorId = await createUser(coordinatorEmail, genPassword());
+  const coordinatorPassword = genPassword();
+  const coordinatorId = await createUser(coordinatorEmail, coordinatorPassword);
   await upsertMember({ user_id: coordinatorId, org_id: orgId, role: 'care_coordinator', status: 'active', full_name: 'Fictional Sam Coordinator' });
+  const coordinatorSecret = await enrolTotp(coordinatorEmail, coordinatorPassword);
 
   const readOnlyEmail = 'tc019-readonly@example.test';
   const readOnlyId = await createUser(readOnlyEmail, genPassword());
@@ -305,7 +323,7 @@ async function main() {
     orgId,
     orgAdmin: { email: orgAdminEmail, password: orgAdminPassword, totpSecret: orgAdminSecret, userId: orgAdminId },
     physician: { email: physicianEmail, password: physicianPassword, totpSecret: physicianSecret, userId: physicianId },
-    coordinator: { email: coordinatorEmail, userId: coordinatorId },
+    coordinator: { email: coordinatorEmail, password: coordinatorPassword, totpSecret: coordinatorSecret, userId: coordinatorId },
     readOnly: { email: readOnlyEmail, userId: readOnlyId },
     invited: { email: invitedEmail, userId: invitedId },
   };

@@ -6,6 +6,7 @@ import '../../providers/demo_providers.dart';
 import 'signin_state.dart';
 
 final RegExp _emailShape = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+final RegExp _sixDigits = RegExp(r'^\d{6}$');
 
 /// Drives [SignInState] off the repository's real server-side policies (code
 /// expiry, lockout, single-use) for the interactive demo build and the
@@ -51,14 +52,37 @@ class SignInController extends Notifier<SignInState> {
   /// policies. Returns the outcome so the caller can navigate on success;
   /// on success the resulting session is stored on [state] for downstream
   /// screens to scope their own repository calls with.
-  CodeVerifyResult submitCode() {
+  ///
+  /// Returns `null` when the entry isn't a full 6-digit code: that is caught
+  /// here, shown inline, and never sent to the server, so an empty or short
+  /// entry can't spend one of the 5 attempts (Clara, PR #26 review H2).
+  CodeVerifyResult? submitCode() {
+    if (!_sixDigits.hasMatch(state.code)) {
+      state = state.copyWith(errorText: 'Enter the 6-digit code.');
+      return null;
+    }
     final email = state.email.trim().toLowerCase();
     final (result, session) = _repo.verifyCode(email, state.code);
-    if (result == CodeVerifyResult.locked) {
-      state = state.copyWith(isLocked: true);
-    } else if (result == CodeVerifyResult.success) {
-      state = state.copyWith(session: session);
-      ref.read(currentSessionProvider.notifier).set(session);
+    switch (result) {
+      // The code step shows the lockout banner itself (signin_view.dart), so
+      // the lock is the one message - no stale "isn't right" next to it.
+      case CodeVerifyResult.locked:
+        state = state.copyWith(isLocked: true, clearError: true);
+      case CodeVerifyResult.success:
+        state = state.copyWith(session: session);
+        ref.read(currentSessionProvider.notifier).set(session);
+      // Both failure results now surface an inline error on the code field;
+      // before TC-029 they set nothing, so a wrong or stale code looked like
+      // a dead "Continue" button. CodeVerifyResult carries no attempts-left
+      // count, so the invalid copy doesn't claim one.
+      case CodeVerifyResult.invalid:
+        state = state.copyWith(
+          errorText: "That code isn't right. Check it and try again.",
+        );
+      case CodeVerifyResult.expired:
+        state = state.copyWith(
+          errorText: "That code has expired. Tap “Send a new code” to get a fresh one.",
+        );
     }
     return result;
   }

@@ -140,10 +140,15 @@ const App: React.FC = () => {
                       </RequireRole>
                     }
                   />
+                  {/* TC-029 (a): patient creation is a care_coordinator task.
+                      A physician must never see a create-patient button - and
+                      the CreatePatient page itself carries one ("Create
+                      Patient"), so physician is gated out of the route too, not
+                      just the roster entry point. */}
                   <Route
                     path="patients/create"
                     element={
-                      <RequireRole roles={['physician', 'care_coordinator']}>
+                      <RequireRole roles={['care_coordinator']}>
                         <CreatePatient />
                       </RequireRole>
                     }
