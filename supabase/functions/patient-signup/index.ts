@@ -15,7 +15,7 @@
 // email" outbox stub instead of a confirmation mail - never a confirmation
 // link for an address the caller doesn't already own.
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { SupabaseClient } from 'npm:@supabase/supabase-js@2.118.0'
 import { corsHeadersFor, jsonResponse } from '../_shared/cors.ts'
 import { serviceRoleClient } from '../_shared/requireOrgAdminActor.ts'
 import { writeAuditLog, insertNotification } from '../_shared/auditAndNotify.ts'

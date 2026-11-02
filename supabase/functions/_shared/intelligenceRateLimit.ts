@@ -3,7 +3,7 @@
 // public.consume_intelligence_budget (service-role only; pgTAP 725). Over
 // budget the function answers 429 with Retry-After = seconds until the
 // blocking window resets, before any call to the AI provider.
-import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.118.0'
 import { sha256Hex } from './clientIp.ts'
 
 export const INTELLIGENCE_HOURLY_LIMIT = 30

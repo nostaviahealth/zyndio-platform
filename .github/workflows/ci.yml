@@ -185,14 +185,16 @@ jobs:
 
       # TC-021 item 9: type errors (e.g. TS18046 on an unknown catch value)
       # fail the build. Every function entrypoint plus the shared code.
+      # TC-031: --frozen fails if deno.lock would change, so no import can
+      # resolve to anything that is not already pinned in the lockfile.
       - name: Deno type check (all Edge Functions + shared code)
-        run: deno check --config supabase/functions/deno.json supabase/functions/*/index.ts supabase/functions/_shared/*.ts
+        run: deno check --frozen --config supabase/functions/deno.json supabase/functions/*/index.ts supabase/functions/_shared/*.ts
 
       - name: Deno unit tests (Edge Function shared code)
-        run: deno test --config supabase/functions/deno.json supabase/functions/_shared
+        run: deno test --frozen --config supabase/functions/deno.json supabase/functions/_shared
 
       - name: Deno unit tests (RevenueCat webhook auth, TC-026)
-        run: deno test --config supabase/functions/deno.json supabase/functions/handle-revenuecat-webhook
+        run: deno test --frozen --config supabase/functions/deno.json supabase/functions/handle-revenuecat-webhook
 
       - uses: supabase/setup-cli@v1
         with:
@@ -276,6 +278,12 @@ jobs:
 
       - name: App icons pin (TC-023, Ava's handoff icons, no icon generator)
         run: bash scripts/check-app-icons.sh
+
+      - name: Pinned imports self-test (TC-031, check must catch unpinned/CDN imports)
+        run: bash scripts/test-check-pinned-imports.sh
+
+      - name: Pinned imports (TC-031, no esm.sh or floating remote imports in Edge Functions)
+        run: bash scripts/check-pinned-imports.sh
 
       - name: Install gitleaks
         run: |

@@ -3,7 +3,7 @@
 // sendNotificationStub() right after, so the review's ask - "a logged,
 // tested STUB sender" - is actually exercised end to end, not just a row
 // sitting at status='pending' forever.
-import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { SupabaseClient } from 'npm:@supabase/supabase-js@2.118.0'
 
 export interface OutboxRow {
   id: string

@@ -16,7 +16,7 @@
 // have client grants). A failed lookup throws - the caller answers 5xx and
 // never treats an unknown caller as a patient.
 
-import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.118.0'
 
 export interface IntelligenceCallerFacts {
   userId: string

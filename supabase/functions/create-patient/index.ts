@@ -12,7 +12,7 @@
 // gates first only to avoid minting an orphan auth user for a caller who
 // was never going to be allowed to use it.
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'npm:@supabase/supabase-js@2.118.0'
 import { corsHeadersFor, jsonResponse } from '../_shared/cors.ts'
 import { AuthError, requireClinicalStaffActor } from '../_shared/requireOrgAdminActor.ts'
 import {
