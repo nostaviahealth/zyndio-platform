@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../config/theme.dart';
 import '../../data/fixtures.dart';
@@ -41,44 +42,69 @@ class LabTrendsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<ZyndioColors>()!;
-    return Scaffold(
-      backgroundColor: colors.bgCanvas,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(ZyndioSpace.s16,
-                    ZyndioSpace.s16, ZyndioSpace.s16, ZyndioSpace.s24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        TextButton.icon(
-                          onPressed: () => onBack?.call(),
-                          icon: const Icon(Icons.chevron_left),
-                          label: const Text('Labs'),
+    // The demo entrypoint (main_demo.dart) sets no SystemUiOverlayStyle, so the
+    // transparent Android status bar falls back to OS-default icon brightness —
+    // dark-on-dark (invisible) in dark mode. Pin it to the canvas it sits over,
+    // the same way the production screens do, so the HbA1c detail's bar stays
+    // legible as content scrolls beneath it. SafeArea below still keeps that
+    // content out from under the bar. (TC-030 item 5, Ava.)
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final overlayStyle = SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+      statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+    );
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: overlayStyle,
+      child: Scaffold(
+        backgroundColor: colors.bgCanvas,
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(
+                    ZyndioSpace.s16,
+                    ZyndioSpace.s16,
+                    ZyndioSpace.s16,
+                    ZyndioSpace.s24,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          TextButton.icon(
+                            onPressed: () => onBack?.call(),
+                            icon: const Icon(Icons.chevron_left),
+                            label: const Text('Labs'),
+                          ),
+                          const FictionalDataTag(),
+                        ],
+                      ),
+                      Text(
+                        state.title,
+                        style: ZyndioType.title1.copyWith(
+                          color: colors.textPrimary,
                         ),
-                        const FictionalDataTag(),
-                      ],
-                    ),
-                    Text(state.title,
-                        style: ZyndioType.title1
-                            .copyWith(color: colors.textPrimary)),
-                    const SizedBox(height: ZyndioSpace.s4 + 4),
-                    Text(state.subtitle,
-                        style: ZyndioType.subhead
-                            .copyWith(color: colors.textSecondary)),
-                    ..._body(context),
-                  ],
+                      ),
+                      const SizedBox(height: ZyndioSpace.s4 + 4),
+                      Text(
+                        state.subtitle,
+                        style: ZyndioType.subhead.copyWith(
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                      ..._body(context),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const DemoTabBar(selected: DemoTab.labs),
-          ],
+              const DemoTabBar(selected: DemoTab.labs),
+            ],
+          ),
         ),
       ),
     );
@@ -120,13 +146,13 @@ class LabTrendsView extends StatelessWidget {
       const EmptyState(
         icon: Icons.science_outlined,
         title: 'Add another report to see a trend',
-        message:
-            'Your care team usually orders follow-up labs. When the next result arrives, it will show here.',
+        message: 'Your care team usually orders follow-up labs. When the next result arrives, it will show here.',
       ),
       const SizedBox(height: ZyndioSpace.s16),
       FilledButton(
-          onPressed: () => onAddReport?.call(),
-          child: const Text('Add a lab report')),
+        onPressed: () => onAddReport?.call(),
+        child: const Text('Add a lab report'),
+      ),
     ];
   }
 
@@ -136,7 +162,9 @@ class LabTrendsView extends StatelessWidget {
       if (state.isCachedError) ...[
         const SizedBox(height: ZyndioSpace.s12),
         ZyndioBanner(
-            variant: BannerVariant.warning, message: state.cachedErrorMessage),
+          variant: BannerVariant.warning,
+          message: state.cachedErrorMessage,
+        ),
       ],
       const SizedBox(height: ZyndioSpace.s16),
       MetricHeader(
@@ -157,29 +185,34 @@ class LabTrendsView extends StatelessWidget {
             width: 16,
             height: 10,
             decoration: BoxDecoration(
-                color: colors.chartRange,
-                border: Border.all(color: colors.borderSubtle)),
+              color: colors.chartRange,
+              border: Border.all(color: colors.borderSubtle),
+            ),
           ),
           const SizedBox(width: ZyndioSpace.s8),
-          Text(_rangeLegendLabel,
-              style: ZyndioType.caption.copyWith(
-                  color: colors.textTertiary, fontWeight: FontWeight.w400)),
+          Text(
+            _rangeLegendLabel,
+            style: ZyndioType.caption.copyWith(
+              color: colors.textTertiary,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
         ],
       ),
       if (state.isAboveRange) ...[
         const SizedBox(height: ZyndioSpace.s12),
         const ZyndioBanner(
           variant: BannerVariant.warning,
-          message:
-              'This result is above the default range. Your care team will see it too. If you have questions, message them.',
+          message: 'This result is above the default range. Your care team will see it too. If you have questions, message them.',
         ),
         const SizedBox(height: ZyndioSpace.s12),
         MessageCareTeamButton(onPressed: () => onMessageCareTeam?.call()),
       ] else if (state.isCachedError) ...[
         const SizedBox(height: ZyndioSpace.s16),
         OutlinedButton(
-            onPressed: () => onTryAgain?.call(),
-            child: const Text('Try again')),
+          onPressed: () => onTryAgain?.call(),
+          child: const Text('Try again'),
+        ),
       ] else ...[
         const SizedBox(height: ZyndioSpace.s12),
         RangeCaveatCard(onMessageCareTeam: () => onMessageCareTeam?.call()),
@@ -215,10 +248,11 @@ class _HistoryCard extends StatelessWidget {
             ),
             if (i != reversed.length - 1)
               Divider(
-                  height: 1,
-                  color: colors.borderSubtle,
-                  indent: ZyndioSpace.s16,
-                  endIndent: ZyndioSpace.s16),
+                height: 1,
+                color: colors.borderSubtle,
+                indent: ZyndioSpace.s16,
+                endIndent: ZyndioSpace.s16,
+              ),
           ],
         ],
       ),
