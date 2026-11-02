@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../config/theme.dart';
-import '../../config/supabase_config.dart';
 import '../../providers/gamification_provider.dart';
 import '../../providers/patient_provider.dart';
 import '../../services/gamification_service.dart';
@@ -72,7 +71,7 @@ class LeaguesScreen extends ConsumerWidget {
                   // 4. League Standings
                   const _SectionHeader(title: 'Global Standings'),
                   const SizedBox(height: 32),
-                  const _LeagueStandings(),
+                  const LeagueStandings(),
                   const SizedBox(height: 60),
                 ],
               ),
@@ -90,8 +89,10 @@ class LeaguesScreen extends ConsumerWidget {
   }
 }
 
-class _LeagueStandings extends ConsumerWidget {
-  const _LeagueStandings();
+/// Clinic leaderboard (top 10). The own-row highlight comes from the
+/// server-set `is_me` flag (TC-026) - rows carry no user/patient ids.
+class LeagueStandings extends ConsumerWidget {
+  const LeagueStandings({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -111,7 +112,6 @@ class _LeagueStandings extends ConsumerWidget {
         final limitedStandings = standings.take(10).toList();
         final top3 = limitedStandings.take(3).toList();
         final others = limitedStandings.skip(3).toList();
-        final currentUserId = SupabaseConfig.currentUser?.id;
 
         return Column(
           children: [
@@ -132,7 +132,7 @@ class _LeagueStandings extends ConsumerWidget {
             // OTHERS LIST
             if (others.isNotEmpty)
               ...others.map((player) {
-                final isMe = player['user_id'] == currentUserId;
+                final isMe = GamificationService.isLeaderboardSelf(player);
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -189,7 +189,7 @@ class _LeagueStandings extends ConsumerWidget {
 
   Widget _buildPodiumUser(BuildContext context, Map<String, dynamic> player, int rank, double size) {
     final color = rank == 1 ? const Color(0xFFF59E0B) : (rank == 2 ? const Color(0xFF94A3B8) : const Color(0xFFCD7F32));
-    final isMe = player['user_id'] == SupabaseConfig.currentUser?.id;
+    final isMe = GamificationService.isLeaderboardSelf(player);
 
     return Column(
       children: [

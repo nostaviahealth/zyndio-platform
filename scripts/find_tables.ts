@@ -16,7 +16,6 @@ const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 async function checkTables() {
     console.log('Checking for health tables...');
     const tables = [
-        'profiles',
         'lab_reports',
         'lab_results',
         'biomarkers',

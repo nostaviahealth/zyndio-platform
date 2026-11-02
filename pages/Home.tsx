@@ -6,6 +6,7 @@ import { useUser } from '../contexts/UserContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { SkeletonCard, SkeletonStat } from '../components/LoadingSkeleton';
+import { isLegacyPatientScreensEnabled, LEGACY_PATIENT_SCREEN_PATHS } from '../lib/featureFlags';
 
 const Home: React.FC = () => {
     const navigate = useNavigate();
@@ -263,7 +264,14 @@ const Home: React.FC = () => {
             }
         };
 
-        const nextAction = getNextAction(currentStage);
+        // TC-026: never offer a button into a hidden legacy screen.
+        const rawNextAction = getNextAction(currentStage);
+        const nextAction =
+            !isLegacyPatientScreensEnabled() &&
+            rawNextAction.route &&
+            (LEGACY_PATIENT_SCREEN_PATHS as readonly string[]).includes(rawNextAction.route)
+                ? { ...rawNextAction, action: null, route: null }
+                : rawNextAction;
         const Icon = nextAction.icon;
 
         return (

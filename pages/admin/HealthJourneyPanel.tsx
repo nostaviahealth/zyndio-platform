@@ -278,15 +278,30 @@ const HealthJourneyPanel: React.FC<HealthJourneyPanelProps> = ({ patientId, pati
         if (allPublished) {
             updatedJourney.status = 'published';
 
-            // Update user profile to protocol_ready
-            await supabase
-                .from('profiles')
-                .update({
-                    stage: 'protocol_ready',
-                    is_protocol_published: true,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', patientId);
+            // Mark the patient's clinical profile as protocol_ready. The removed
+            // `profiles` table is replaced by the org-scoped patient_profiles
+            // (data jsonb, staff-write RLS). Merge into the existing row's data;
+            // like the old write this only updates an existing row (a fresh
+            // patient_profiles row requires org_id, which this panel doesn't hold).
+            const { data: existingProfile } = await supabase
+                .from('patient_profiles')
+                .select('id, data')
+                .eq('patient_id', patientId)
+                .single();
+
+            if (existingProfile) {
+                await supabase
+                    .from('patient_profiles')
+                    .update({
+                        data: {
+                            ...(existingProfile.data || {}),
+                            stage: 'protocol_ready',
+                            is_protocol_published: true
+                        },
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', existingProfile.id);
+            }
         }
 
         await saveJourney(updatedJourney);

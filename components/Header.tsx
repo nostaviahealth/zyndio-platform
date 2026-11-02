@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Bell, MessageSquare, Search, X, CheckCircle2, AlertCircle, Sparkles, FileText, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
+import { isLegacyPatientScreensEnabled } from '../lib/featureFlags';
 
 interface HeaderProps {
   title: string;
@@ -75,7 +76,8 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
         message: 'Complete your health questionnaire to get started with your personalized journey.',
         time: '2h ago',
         read: true,
-        action: '/questionnaire'
+        // TC-026: link to the questionnaire only while the legacy screen exists.
+        ...(isLegacyPatientScreensEnabled() ? { action: '/questionnaire' } : {}),
       });
     }
 

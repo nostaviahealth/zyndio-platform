@@ -4,6 +4,7 @@ import { Users, Plus, Search, Trash2, Clock, CheckCircle, AlertCircle, FileText,
 import { useAdmin } from '../../contexts/AdminContext';
 import { usePortalAuth } from '../../contexts/PortalAuthContext';
 import { OnboardingStage } from '../../types';
+import { isLegacyPatientScreensEnabled } from '../../lib/featureFlags';
 
 const AdminDashboard: React.FC = () => {
     const navigate = useNavigate();
@@ -169,12 +170,16 @@ const AdminDashboard: React.FC = () => {
                                         <td className="px-6 py-4">
                                             {canManagePatients ? (
                                                 <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={() => navigate(`/admin/patient/${patient.id}`)}
-                                                        className="text-emerald-600 hover:text-emerald-700 font-medium text-sm transition-colors"
-                                                    >
-                                                        View Details →
-                                                    </button>
+                                                    {/* TC-026: legacy /admin/patient/:id is behind
+                                                        VITE_FEATURE_LEGACY_PATIENT_SCREENS (off by default). */}
+                                                    {isLegacyPatientScreensEnabled() && (
+                                                        <button
+                                                            onClick={() => navigate(`/admin/patient/${patient.id}`)}
+                                                            className="text-emerald-600 hover:text-emerald-700 font-medium text-sm transition-colors"
+                                                        >
+                                                            View Details →
+                                                        </button>
+                                                    )}
                                                     <button
                                                         onClick={() => setDeleteConfirm(patient.id)}
                                                         className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"

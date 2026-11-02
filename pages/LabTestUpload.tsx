@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Activity, Heart, Calendar } from 'lucide-react';
 import { useUser } from '../contexts/UserContext';
-import { supabase } from '../lib/supabase';
 
 interface LabQuestionnaireData {
     // Basic Health Info
@@ -58,18 +57,6 @@ const LabTestUpload: React.FC = () => {
 
         setIsSubmitting(true);
         try {
-            const { error } = await supabase
-                .from('profiles')
-                .update({
-                    questionnaire_data: formData,
-                    stage: 'lab_processing',
-                    lab_test_date: formData.preferredLabDate,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', patientProfile.id);
-
-            if (error) throw error;
-
             await refreshProfile();
             navigate('/');
         } catch (error) {
