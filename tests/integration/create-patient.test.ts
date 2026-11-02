@@ -3,6 +3,11 @@
 // Create Patient at the real patients table via create_patient_record()
 // (no shadow table) - mints the auth user, then calls the RPC under the
 // caller's own JWT so org/role/audit all resolve to the real actor.
+//
+// TC-030 item 8 (Henry, 2 Nov 2026; Clara PR #26 M2): creating a patient is a
+// care_coordinator-only action. The coordinator is the "allowed actor" below;
+// physicians (even at aal2) are now refused by both the Edge Function gate and
+// the RPC.
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { integrationEnvReady, SUPABASE_ANON_KEY } from './setup';
 import {
@@ -21,21 +26,28 @@ describe.skipIf(!integrationEnvReady)('create-patient', () => {
   let physician: Awaited<ReturnType<typeof createOrgAndMember>>;
   let physicianAal1Token: string;
   let physicianAal2Token: string;
+  let coordinatorAal2Token: string;
 
   beforeAll(async () => {
     physician = await createOrgAndMember('physician');
     cleanupUserIds.push(physician.userId);
-    const aal1 = await signIn(physician.email, physician.password);
-    physicianAal1Token = aal1.access_token!;
-    const { aal2Token } = await enrollAndVerifyTotp(physicianAal1Token);
-    physicianAal2Token = aal2Token!;
+    const pAal1 = await signIn(physician.email, physician.password);
+    physicianAal1Token = pAal1.access_token!;
+    physicianAal2Token = (await enrollAndVerifyTotp(physicianAal1Token)).aal2Token!;
+
+    // The only role allowed to create a patient now — used as the "allowed
+    // actor" for the validation cases below.
+    const coordinator = await createOrgAndMember('care_coordinator', 'active', physician.orgId);
+    cleanupUserIds.push(coordinator.userId);
+    const cAal1 = await signIn(coordinator.email, coordinator.password);
+    coordinatorAal2Token = (await enrollAndVerifyTotp(cAal1.access_token!)).aal2Token!;
   });
 
   afterAll(async () => {
     while (cleanupUserIds.length) await deleteUser(cleanupUserIds.pop()!);
   });
 
-  it('rejects an aal1 physician session with 403', async () => {
+  it('rejects an aal1 session with 403', async () => {
     const res = await callFn('create-patient', physicianAal1Token, {
       email: `tc018-aal1-${uniqueSuffix()}@example.test`,
       display_name: 'Fictional Patient',
@@ -43,33 +55,45 @@ describe.skipIf(!integrationEnvReady)('create-patient', () => {
     expect(res.status).toBe(403);
   });
 
-  it('every allowed role (physician, care_coordinator) succeeds, creates the patient in its own org, and audits it', async () => {
-    for (const role of ['physician', 'care_coordinator'] as const) {
-      const actor = await createOrgAndMember(role, 'active', physician.orgId);
-      cleanupUserIds.push(actor.userId);
-      const aal1 = await signIn(actor.email, actor.password);
-      const { aal2Token } = await enrollAndVerifyTotp(aal1.access_token!);
+  // TC-030 item 8 (fail-first: this returned 200 before the card). A physician
+  // at aal2 is now refused, and no patient row is created.
+  it('rejects a physician aal2 session with 403 (care_coordinator only) and creates no patient row', async () => {
+    const email = `tc030-physician-refused-${uniqueSuffix()}@example.test`;
+    const res = await callFn('create-patient', physicianAal2Token, {
+      email,
+      display_name: 'Should Not Exist (physician)',
+    });
+    expect(res.status).toBe(403);
 
-      const email = `tc018-${role}-patient-${uniqueSuffix()}@example.test`;
-      const res = await callFn('create-patient', aal2Token!, {
-        email,
-        display_name: `Fictional Patient (${role})`,
-        mrn: `MRN-${uniqueSuffix()}`,
-      });
-      expect(res.status).toBe(200);
-      const body = (await res.json()) as { status: string; patient_id: string };
-      expect(body.status).toBe('ok');
-      cleanupUserIds.push(body.patient_id);
+    const patientRes = await restAdmin(`patients?display_name=eq.Should Not Exist (physician)`);
+    expect(((await patientRes.json()) as unknown[]).length).toBe(0);
+  });
 
-      const patientRes = await restAdmin(`patients?id=eq.${body.patient_id}`);
-      const [patientRow] = (await patientRes.json()) as { org_id: string; display_name: string }[];
-      expect(patientRow).toBeTruthy();
-      expect(patientRow.org_id).toBe(physician.orgId);
-      expect(patientRow.display_name).toBe(`Fictional Patient (${role})`);
+  it('a care_coordinator succeeds, creates the patient in its own org, and audits it', async () => {
+    const actor = await createOrgAndMember('care_coordinator', 'active', physician.orgId);
+    cleanupUserIds.push(actor.userId);
+    const aal1 = await signIn(actor.email, actor.password);
+    const { aal2Token } = await enrollAndVerifyTotp(aal1.access_token!);
 
-      const rows = await auditRows('patient_created', body.patient_id);
-      expect(rows.length).toBe(1);
-    }
+    const email = `tc018-care_coordinator-patient-${uniqueSuffix()}@example.test`;
+    const res = await callFn('create-patient', aal2Token!, {
+      email,
+      display_name: 'Fictional Patient (care_coordinator)',
+      mrn: `MRN-${uniqueSuffix()}`,
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { status: string; patient_id: string };
+    expect(body.status).toBe('ok');
+    cleanupUserIds.push(body.patient_id);
+
+    const patientRes = await restAdmin(`patients?id=eq.${body.patient_id}`);
+    const [patientRow] = (await patientRes.json()) as { org_id: string; display_name: string }[];
+    expect(patientRow).toBeTruthy();
+    expect(patientRow.org_id).toBe(physician.orgId);
+    expect(patientRow.display_name).toBe('Fictional Patient (care_coordinator)');
+
+    const rows = await auditRows('patient_created', body.patient_id);
+    expect(rows.length).toBe(1);
   });
 
   it('read_only is denied with 403 and creates no patient row', async () => {
@@ -98,25 +122,25 @@ describe.skipIf(!integrationEnvReady)('create-patient', () => {
   });
 
   it('rejects an invalid email with 400 and the field name', async () => {
-    const res = await callFn('create-patient', physicianAal2Token, { email: 'not-an-email', display_name: 'X' });
+    const res = await callFn('create-patient', coordinatorAal2Token, { email: 'not-an-email', display_name: 'X' });
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string; field: string };
     expect(body.field).toBe('email');
   });
 
   it('rejects a null JSON body with 400, not 500', async () => {
-    const res = await callFn('create-patient', physicianAal2Token, null);
+    const res = await callFn('create-patient', coordinatorAal2Token, null);
     expect(res.status).toBe(400);
   });
 
   it('rejects a non-object JSON body (an array) with 400, not 500', async () => {
-    const res = await callFn('create-patient', physicianAal2Token, []);
+    const res = await callFn('create-patient', coordinatorAal2Token, []);
     expect(res.status).toBe(400);
   });
 
   it('rejects an mrn over 64 chars with 400 and the field name, creating no patient row', async () => {
     const email = `tc018-mrn-cap-${uniqueSuffix()}@example.test`;
-    const res = await callFn('create-patient', physicianAal2Token, {
+    const res = await callFn('create-patient', coordinatorAal2Token, {
       email,
       display_name: 'Fictional Over-MRN Patient',
       mrn: 'M'.repeat(65),
@@ -131,7 +155,7 @@ describe.skipIf(!integrationEnvReady)('create-patient', () => {
 
   it('accepts an mrn at exactly 64 chars', async () => {
     const email = `tc018-mrn-at-cap-${uniqueSuffix()}@example.test`;
-    const res = await callFn('create-patient', physicianAal2Token, {
+    const res = await callFn('create-patient', coordinatorAal2Token, {
       email,
       display_name: 'Fictional At-Cap MRN Patient',
       mrn: 'M'.repeat(64),
@@ -143,7 +167,7 @@ describe.skipIf(!integrationEnvReady)('create-patient', () => {
 
   it('rejects an oversized request body with 413 before it ever reaches validation', async () => {
     const email = `tc018-oversized-body-${uniqueSuffix()}@example.test`;
-    const res = await callFn('create-patient', physicianAal2Token, {
+    const res = await callFn('create-patient', coordinatorAal2Token, {
       email,
       display_name: 'Fictional Oversized Body Patient',
       // Clara PR #23 review finding #2: this used to be stored verbatim in
@@ -161,7 +185,7 @@ describe.skipIf(!integrationEnvReady)('create-patient', () => {
     const existing = await createOrgAndMember('read_only', 'active', physician.orgId);
     cleanupUserIds.push(existing.userId);
 
-    const res = await callFn('create-patient', physicianAal2Token, {
+    const res = await callFn('create-patient', coordinatorAal2Token, {
       email: existing.email,
       display_name: 'Duplicate Email Attempt',
     });

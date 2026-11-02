@@ -106,10 +106,12 @@ select throws_ok(
   'P9 denied: a staff member can no longer create a patients row via a direct INSERT (no policy left)'
 );
 
--- Positive: physician_a creates a patient record for a9001 (a real,
--- never-bound auth user) through the RPC, and it's audited. audit_log has
--- zero client policies and revoked grants (090_audit_log.sql), so it's read
--- back as the pg_prove superuser, same pattern as 020_org_members.sql.
+-- Positive: care_coordinator_a creates a patient record for a9001 (a real,
+-- never-bound auth user) through the RPC, and it's audited. TC-030 item 8:
+-- creation is care_coordinator-only now (physician_a's refusal is proved in
+-- 740_tc030_create_patient_coordinator_only.sql). audit_log has zero client
+-- policies and revoked grants (090_audit_log.sql), so it's read back as the
+-- pg_prove superuser, same pattern as 020_org_members.sql.
 reset role;
 select set_config('request.jwt.claims', '', true);
 select is(
@@ -117,10 +119,10 @@ select is(
   0,
   'precondition: no prior patient_created audit row for a9001'
 );
-select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal2'); -- physician_a
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0003', 'aal2'); -- care_coordinator_a
 select lives_ok(
   $$ select public.create_patient_record('00000000-0000-0000-0000-0000000a9001', 'Fictional Patient A9001', 'MRN-A9001') $$,
-  'P9 RPC positive: physician_a can create a patient record for an unbound account via create_patient_record()'
+  'P9 RPC positive: care_coordinator_a can create a patient record for an unbound account via create_patient_record()'
 );
 select is(
   (select org_id from public.patients where id = '00000000-0000-0000-0000-0000000a9001'),
@@ -130,11 +132,11 @@ select is(
 reset role;
 select set_config('request.jwt.claims', '', true);
 select is(
-  (select count(*)::int from public.audit_log where event_type = 'patient_created' and target_user_id = '00000000-0000-0000-0000-0000000a9001' and actor_user_id = '00000000-0000-0000-0000-0000000a0002'),
+  (select count(*)::int from public.audit_log where event_type = 'patient_created' and target_user_id = '00000000-0000-0000-0000-0000000a9001' and actor_user_id = '00000000-0000-0000-0000-0000000a0003'),
   1,
   'P9 RPC positive: create_patient_record() writes exactly one patient_created audit row'
 );
-select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal2'); -- physician_a
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0003', 'aal2'); -- care_coordinator_a
 
 -- Negative: the target is already staff (physician_b) - refused, even
 -- though physician_b is a real, existing auth user.
@@ -159,8 +161,8 @@ select throws_ok(
   'P9 RPC negative: read_only cannot call create_patient_record()'
 );
 
--- Negative: caller is physician but only at aal1.
-select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal1'); -- physician_a
+-- Negative: caller is a care_coordinator but only at aal1 (step-up required).
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0003', 'aal1'); -- care_coordinator_a, aal1
 select throws_ok(
   $$ select public.create_patient_record('00000000-0000-0000-0000-0000000a9001') $$,
   '42501', null,
@@ -168,7 +170,7 @@ select throws_ok(
 );
 
 -- TC-011: refuse Zyndio platform_admins (not org_members, so prior staff check missed them).
-select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal2'); -- physician_a
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0003', 'aal2'); -- care_coordinator_a
 select throws_ok(
   $$ select public.create_patient_record('00000000-0000-0000-0000-0000000af001') $$,
   '42501', null,

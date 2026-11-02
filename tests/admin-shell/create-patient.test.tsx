@@ -8,12 +8,11 @@
 // no home without a shadow table) and show a visible error on failure
 // instead of only logging to console.
 //
-// CI theme-check item 25 (Clara, PR #23 review): this rewrite also stopped
-// raising the shared AdminContext toast on success - the only feedback was a
-// full-page "Patient Created Successfully!" card, which nothing elsewhere in
-// the admin app (and no toast assertion) can see. Restored below so Create
-// Patient matches every other AdminContext mutation (update/delete patient,
-// save/delete diet plan), which all raise the same toast.
+// TC-030 item 7 (Ava, 2 Nov 2026): the page showed the success twice - the
+// full-page card AND the AdminContext toast ("Patient created successfully").
+// Ava asked for a single success message in sentence case, so the toast was
+// dropped and the card heading is now "Patient created". The tests below
+// assert the card is shown and the old toast text is NOT.
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -75,12 +74,12 @@ describe('CreatePatient page', () => {
 
     await waitFor(() => expect(createPatient).toHaveBeenCalled());
     expect(createPatient.mock.calls[0]).toEqual(['fictional.patient@example.test', 'Fictional Patient', 'MRN-123']);
-    // Both the full-page "Patient Created Successfully!" card and the
-    // AdminContext toast are now present - assert each by its own exact
-    // text so the toast's existence is checked specifically, not folded
-    // into the same case-insensitive match as the card's heading.
-    await waitFor(() => expect(screen.getByText('Patient Created Successfully!')).toBeInTheDocument());
-    await waitFor(() => expect(screen.getByText('Patient created successfully')).toBeInTheDocument());
+    // One success message, in sentence case (TC-030 item 7). The full-page
+    // card is the single confirmation now...
+    await waitFor(() => expect(screen.getByText('Patient created')).toBeInTheDocument());
+    // ...and the old duplicate AdminContext toast is gone (fail-first: the
+    // previous version raised showToast('Patient created successfully')).
+    expect(screen.queryByText('Patient created successfully')).not.toBeInTheDocument();
   });
 
   it('shows a visible error banner when the API call fails, not just a console log', async () => {
@@ -94,6 +93,6 @@ describe('CreatePatient page', () => {
 
     await waitFor(() => expect(createPatient).toHaveBeenCalled());
     expect(await screen.findByText(/couldn't create|failed to create/i)).toBeInTheDocument();
-    expect(screen.queryByText(/patient created successfully/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Patient created')).not.toBeInTheDocument();
   });
 });

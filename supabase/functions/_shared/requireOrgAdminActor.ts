@@ -66,11 +66,12 @@ export async function requireOrgAdminActor(
   }
 }
 
-// TC-018 (Henry add-on, Create Patient): aal2 plus an ACTIVE physician or
-// care_coordinator org_members row - the only roles create_patient_record()
-// allows. org_admin is never allowed here ("admins manage users only").
-// Gating in the Edge Function too (not just the RPC) avoids minting an auth
-// user via admin.auth.admin.createUser only to have the RPC reject it.
+// TC-030 item 8 (Henry, 2 Nov 2026; Clara PR #26 M2): aal2 plus an ACTIVE
+// care_coordinator org_members row - the only role create_patient_record() now
+// allows. Physicians and org_admins are refused ("admins manage users only";
+// coordinators create patients). Gating in the Edge Function too (not just the
+// RPC) avoids minting an auth user via admin.auth.admin.createUser only to have
+// the RPC reject it.
 export async function requireClinicalStaffActor(
   req: Request
 ): Promise<{ actor: OrgAdminActor; admin: SupabaseClient }> {
@@ -94,9 +95,9 @@ export async function requireClinicalStaffActor(
     memberError ||
     !member ||
     member.status !== 'active' ||
-    (member.role !== 'physician' && member.role !== 'care_coordinator')
+    member.role !== 'care_coordinator'
   ) {
-    throw new AuthError('physician or care_coordinator required', 403)
+    throw new AuthError('care_coordinator required', 403)
   }
 
   return {

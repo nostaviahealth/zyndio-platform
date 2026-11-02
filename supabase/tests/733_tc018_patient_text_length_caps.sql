@@ -5,7 +5,7 @@
 begin;
 select no_plan();
 
-select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal2'); -- physician_a
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0003', 'aal2'); -- care_coordinator_a (TC-030: create_patient_record is coordinator-only)
 
 -- a9001 ("spare-xorg@example.test", 000_fixtures.sql): never given an
 -- org_members/patients row in global fixtures, and the only other reuse
