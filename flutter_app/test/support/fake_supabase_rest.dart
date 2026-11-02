@@ -26,10 +26,24 @@ class FakeSupabaseRest {
   List<http.BaseRequest> requestsFor(String table) =>
       requests.where((r) => r.url.path == '/rest/v1/$table').toList();
 
+  /// Canned JSON bodies for `POST /rest/v1/rpc/<name>`, keyed by RPC name.
+  /// RPCs not listed here fall through to the default responses below.
+  final Map<String, Object?> rpcResponses = {};
+
   late final MockClient mockClient = MockClient(_handle);
 
   Future<http.Response> _handle(http.Request request) async {
     requests.add(request);
+
+    const rpcPrefix = '/rest/v1/rpc/';
+    if (request.url.path.startsWith(rpcPrefix)) {
+      final name = request.url.path.substring(rpcPrefix.length);
+      if (rpcResponses.containsKey(name)) {
+        // postgrest parses the body only when response.request is set.
+        return http.Response(json.encode(rpcResponses[name]), 200,
+            headers: {'content-type': 'application/json'}, request: request);
+      }
+    }
 
     if (request.url.path == '/auth/v1/token') {
       final userId = _signedInUserId ?? '00000000-0000-0000-0000-000000000000';

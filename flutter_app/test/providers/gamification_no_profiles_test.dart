@@ -75,6 +75,43 @@ void main() {
     }, () => fake.mockClient);
   });
 
+  test('fetchStandings() maps is_me and never exposes a user/patient id', () async {
+    final fake = FakeSupabaseRest();
+    fake.rpcResponses['patient_leaderboard_top10'] = [
+      {'name': 'Casey L.', 'avatar_url': null, 'league_xp': 70, 'is_me': false},
+      {'name': 'Jordan R.', 'avatar_url': null, 'league_xp': 50, 'is_me': true},
+    ];
+    await http.runWithClient(() async {
+      final client = fake.buildClient();
+      SupabaseConfig.debugClientOverride = client;
+      await fake.signIn(client, _patientId);
+      await client.auth.setSession('fake-refresh-token');
+
+      final standings = await GamificationService.fetchStandings(League.bronze);
+
+      expect(standings, hasLength(2));
+      expect(standings.map((r) => r['name']), ['Casey L.', 'Jordan R.']);
+      expect(standings.map((r) => r['is_me']), [false, true]);
+      expect(standings.map(GamificationService.isLeaderboardSelf), [false, true]);
+      for (final r in standings) {
+        expect(r.containsKey('user_id'), isFalse, reason: r.toString());
+        expect(r.containsKey('patient_id'), isFalse, reason: r.toString());
+      }
+    }, () => fake.mockClient);
+  });
+
+  test('isLeaderboardSelf() is true only for is_me == true', () {
+    expect(GamificationService.isLeaderboardSelf({'is_me': true}), isTrue);
+    expect(GamificationService.isLeaderboardSelf({'is_me': false}), isFalse);
+    expect(GamificationService.isLeaderboardSelf({'is_me': null}), isFalse);
+    expect(GamificationService.isLeaderboardSelf(<String, dynamic>{}), isFalse);
+    // A stray id that happens to equal the signed-in user's id must not
+    // highlight a row - only the server's is_me flag does.
+    expect(GamificationService.isLeaderboardSelf({'user_id': _patientId}), isFalse);
+    expect(GamificationService.standingFromRow({'name': 'X', 'patient_id': _patientId, 'is_me': 'true'}),
+        {'name': 'X', 'avatar_url': null, 'league_xp': null, 'is_me': false});
+  });
+
   test('GamificationNotifier.refresh() touches patient_accounts, not profiles', () async {
     final fake = FakeSupabaseRest();
     await http.runWithClient(() async {
