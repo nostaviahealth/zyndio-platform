@@ -7,11 +7,57 @@ import '../models/patient_profile.dart';
 import 'auth_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Raised by the profile notifier when a client-supplied value exceeds the
+/// TC-030 item 3 size limits (avatar <= 2 MB and an image type; display name
+/// <= 80 characters). The UI catches it and shows the message; the DB CHECK
+/// constraints (20261102163000_tc030_patient_accounts_size_limits.sql) are the
+/// backstop behind this client-side guard.
+class ProfileValidationException implements Exception {
+  ProfileValidationException(this.message);
+  final String message;
+  @override
+  String toString() => message;
+}
+
 final patientProfileProvider = AsyncNotifierProvider<PatientProfileNotifier, PatientProfile?>(() {
   return PatientProfileNotifier();
 });
 
 class PatientProfileNotifier extends AsyncNotifier<PatientProfile?> {
+  /// Max avatar payload the client will upload (TC-030 item 3): 2 MB of raw
+  /// image bytes, matched by the DB avatar_url length cap once base64-encoded.
+  static const int maxAvatarBytes = 2 * 1024 * 1024;
+
+  /// Max display-name length (TC-030 item 3), mirroring the DB
+  /// patient_accounts_name_len CHECK and the edit-profile field's maxLength.
+  static const int maxDisplayNameLength = 80;
+
+  /// Best-effort image MIME lookup from a file name when the picker did not
+  /// supply one (TC-030 item 3). Returns null for names we can't classify as an
+  /// image, so the caller treats them as "not an image" and rejects the upload.
+  static String? _guessImageMimeType(String name) {
+    final dot = name.lastIndexOf('.');
+    if (dot < 0 || dot == name.length - 1) return null;
+    switch (name.substring(dot + 1).toLowerCase()) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'gif':
+        return 'image/gif';
+      case 'webp':
+        return 'image/webp';
+      case 'heic':
+        return 'image/heic';
+      case 'heif':
+        return 'image/heif';
+      case 'bmp':
+        return 'image/bmp';
+      default:
+        return null;
+    }
+  }
   /// patient_accounts has no `id`/`email` columns of its own (it's keyed
   /// directly off auth.users via `patient_id`) - fold those in from the
   /// signed-in user before handing the row to PatientProfile.fromJson,
@@ -139,11 +185,22 @@ class PatientProfileNotifier extends AsyncNotifier<PatientProfile?> {
     final user = ref.read(currentUserProvider);
     if (user == null) return;
 
+    // TC-030 item 3: reject a non-image or an over-2 MB file before it is ever
+    // encoded or uploaded. These checks run ahead of the Supabase client lookup
+    // so they hold even when the client is unconfigured (and are unit-testable).
+    final mimeType = file.mimeType ?? _guessImageMimeType(file.name);
+    if (mimeType == null || !mimeType.startsWith('image/')) {
+      throw ProfileValidationException('Profile photo must be an image file.');
+    }
+    final bytes = await file.readAsBytes();
+    if (bytes.length > maxAvatarBytes) {
+      throw ProfileValidationException('Profile photo must be 2 MB or smaller.');
+    }
+
     try {
       final client = SupabaseConfig.client;
       if (client == null) return;
 
-      final bytes = await file.readAsBytes();
       // Prefix with data URI so UI knows how to handle it
       final base64String = 'data:image/jpeg;base64,${base64Encode(bytes)}';
 
@@ -170,7 +227,16 @@ class PatientProfileNotifier extends AsyncNotifier<PatientProfile?> {
   Future<void> updateProfile({String? name, int? age, String? organization}) async {
     final user = ref.read(currentUserProvider);
     if (user == null) return;
-    
+
+    // TC-030 item 3: reject an over-80-character display name before it touches
+    // local state or the DB (whose patient_accounts_name_len CHECK is the
+    // backstop). Runs ahead of the Supabase lookup so it is unit-testable.
+    if (name != null && name.runes.length > maxDisplayNameLength) {
+      throw ProfileValidationException(
+        'Name must be $maxDisplayNameLength characters or fewer.',
+      );
+    }
+
     // 1. Update Local State Immediately (Optimistic UI)
     final current = state.value;
     if (current != null) {
