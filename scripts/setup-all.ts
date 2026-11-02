@@ -1,95 +1,22 @@
 #!/usr/bin/env tsx
 
-import { supabaseAdmin } from '../lib/supabaseAdmin';
+/**
+ * Complete setup (deprecated).
+ *
+ * This script used to create the old flat `profiles` table and seed an admin
+ * user with a `profiles.role = 'admin'` row. Both of those are gone:
+ *   - Schema comes only from supabase/migrations/ now (TC-005 baseline); run
+ *     `supabase db reset` to apply it.
+ *   - Roles live in `org_members`, not `profiles`; the correct, idempotent admin
+ *     bootstrap is `npm run admin:setup` (scripts/supabase-admin-setup.ts), which
+ *     creates the auth user, the organization, and the active org_admin row.
+ *
+ * It no longer touches the database. Use the two commands below instead.
+ */
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-
-async function setupEverything() {
-    if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
-        console.error('❌ Missing required environment variables: ADMIN_EMAIL and ADMIN_PASSWORD must both be set.');
-        process.exit(1);
-    }
-
-    console.log('🚀 Complete Automated Setup\n');
-
-    try {
-        // Step 1: Create tables using raw SQL
-        console.log('📊 Setting up database schema...');
-
-        const { error: schemaError } = await supabaseAdmin.rpc('exec_sql', {
-            sql: `
-                CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-                
-                CREATE TABLE IF NOT EXISTS public.profiles (
-                    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-                    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL UNIQUE,
-                    role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin', 'doctor', 'nutritionist')),
-                    name TEXT,
-                    avatar_url TEXT,
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
-                );
-            `
-        }).catch(() => ({ error: null })); // Ignore if already exists
-
-        // Step 2: Create admin user
-        console.log('👤 Creating admin user...');
-
-        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-            email: ADMIN_EMAIL,
-            password: ADMIN_PASSWORD,
-            email_confirm: true,
-            user_metadata: { name: 'Admin User' }
-        });
-
-        if (authError) {
-            if (authError.message.includes('already')) {
-                console.log('ℹ️  Admin user already exists');
-
-                // Get existing user
-                const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
-                const adminUser = users.find(u => u.email === ADMIN_EMAIL);
-
-                if (adminUser) {
-                    // Update profile with admin role using raw insert
-                    await supabaseAdmin.from('profiles').upsert({
-                        user_id: adminUser.id,
-                        role: 'admin',
-                        name: 'Admin User'
-                    }, { onConflict: 'user_id' });
-
-                    console.log('✅ Admin role assigned');
-                }
-            } else {
-                throw authError;
-            }
-        } else {
-            // Create profile for new user
-            await supabaseAdmin.from('profiles').insert({
-                user_id: authData.user.id,
-                role: 'admin',
-                name: 'Admin User'
-            });
-
-            console.log('✅ Admin user created');
-        }
-
-        console.log('\n🎉 Setup Complete!\n');
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('📌 Admin Credentials:');
-        console.log(`   Email: ${ADMIN_EMAIL}`);
-        console.log('   Password: (set via ADMIN_PASSWORD, not shown)');
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-        console.log('🌐 Login at:');
-        console.log('   Local: http://localhost:3001/login');
-        console.log('   Production: https://zyndio.example/login\n');
-        console.log('⚠️  IMPORTANT: Change the default password in production!');
-
-    } catch (error: any) {
-        console.error('\n❌ Setup failed:', error.message);
-        process.exit(1);
-    }
-}
-
-setupEverything();
+console.log('ℹ️  scripts/setup-all.ts is deprecated.');
+console.log('   The old profiles-based schema + admin seeding is gone.');
+console.log('');
+console.log('   Apply the schema:   supabase db reset');
+console.log('   Create an admin:    npm run admin:setup   (see admin-setup.md)');
+process.exit(0);

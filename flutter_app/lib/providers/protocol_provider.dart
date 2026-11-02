@@ -109,10 +109,8 @@ class ProtocolNotifier extends Notifier<ProtocolState> {
     if (savedJson.isEmpty) return; // Nothing to migrate
 
     try {
-      final userId = client.auth.currentUser!.id;
-      final profileRes = await client.from('profiles').select('id').eq('user_id', userId).maybeSingle();
-      if (profileRes == null) return;
-      final profileId = profileRes['id'];
+      // Patient identity IS their auth user id - no profiles lookup needed.
+      final profileId = client.auth.currentUser!.id;
 
       print("Migrating ${savedJson.length} local custom protocols to cloud...");
 
@@ -155,14 +153,8 @@ class ProtocolNotifier extends Notifier<ProtocolState> {
 
     try {
       final client = SupabaseConfig.client;
-      String? targetProfileId = _profileId;
-      
-      // Attempt to resolve profile ID if needed for custom protocols
-      if (client != null && targetProfileId == null && client.auth.currentUser != null) {
-          final userId = client.auth.currentUser!.id;
-          final profileRes = await client.from('profiles').select('id').eq('user_id', userId).maybeSingle();
-          if (profileRes != null) targetProfileId = profileRes['id'];
-      }
+      // Patient identity IS their auth user id - no profiles lookup needed.
+      final String? targetProfileId = _profileId ?? client?.auth.currentUser?.id;
 
       // 1. Fetch admin protocols (all phases)
       final adminProtocols = await ProtocolRepository.fetchAllAdminProtocols(
@@ -267,10 +259,8 @@ class ProtocolNotifier extends Notifier<ProtocolState> {
     }
 
     try {
-        final userId = client.auth.currentUser!.id;
-        final profileRes = await client.from('profiles').select('id').eq('user_id', userId).maybeSingle();
-        if (profileRes == null) throw Exception("Profile not found");
-        final profileId = profileRes['id'];
+        // Patient identity IS their auth user id - no profiles lookup needed.
+        final profileId = client.auth.currentUser!.id;
 
         await client.from('custom_protocols').upsert({
             'profile_id': profileId,

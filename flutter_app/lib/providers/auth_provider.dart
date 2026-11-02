@@ -65,30 +65,6 @@ final currentUserProvider = Provider<User?>((ref) {
   return ref.watch(authStateProvider).value;
 });
 
-/// Is admin provider - checks if user has admin role
-final isAdminProvider = FutureProvider<bool>((ref) async {
-  final user = ref.watch(currentUserProvider);
-  final initialized = ref.watch(supabaseInitializedProvider);
-  
-  if (user == null || !initialized) return false;
-
-  try {
-    final client = SupabaseConfig.client;
-    if (client == null) return false;
-    
-    final response = await client
-        .from('profiles')
-        .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-    return response?['role'] == 'admin';
-  } catch (e) {
-    debugPrint('Error checking admin status: $e');
-    return false;
-  }
-});
-
 /// Auth notifier for sign in/up/out actions
 class AuthNotifier extends Notifier<AsyncValue<void>> {
   @override

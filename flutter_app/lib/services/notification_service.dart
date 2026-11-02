@@ -269,7 +269,7 @@ class NotificationService {
     }
   }
 
-  /// Sync the FCM token to Supabase profiles table
+  /// Sync the FCM token to patient_accounts
   Future<void> syncTokenToSupabase([String? token]) async {
     final fcmToken = token ?? await getFcmToken();
     if (fcmToken == null) return;
@@ -281,11 +281,12 @@ class NotificationService {
       final client = SupabaseConfig.client;
       if (client == null) return;
 
-      await client.from('profiles').update({
+      await client.from('patient_accounts').upsert({
+        'patient_id': user.id,
         'fcm_token': fcmToken,
         'updated_at': DateTime.now().toIso8601String(),
-      }).eq('user_id', user.id);
-      
+      }, onConflict: 'patient_id');
+
       debugPrint('FCM Token synced to Supabase');
     } catch (e) {
       debugPrint('Error syncing FCM token: $e');

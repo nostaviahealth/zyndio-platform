@@ -4,6 +4,8 @@ interface ImportMetaEnv {
     readonly VITE_SUPABASE_URL: string;
     readonly VITE_SUPABASE_ANON_KEY: string;
     readonly SUPABASE_SERVICE_KEY: string;
+    // TC-026: "true" shows the 4 legacy patient screens (see lib/featureFlags.ts). Off by default.
+    readonly VITE_FEATURE_LEGACY_PATIENT_SCREENS?: string;
 }
 
 interface ImportMeta {

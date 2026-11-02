@@ -191,6 +191,9 @@ jobs:
       - name: Deno unit tests (Edge Function shared code)
         run: deno test --config supabase/functions/deno.json supabase/functions/_shared
 
+      - name: Deno unit tests (RevenueCat webhook auth, TC-026)
+        run: deno test --config supabase/functions/deno.json supabase/functions/handle-revenuecat-webhook
+
       - uses: supabase/setup-cli@v1
         with:
           version: 2.122.0
@@ -284,6 +287,9 @@ jobs:
 
       - name: Run gitleaks
         run: gitleaks git --config .gitleaks.toml --redact
+
+      - name: No runtime references to the removed 'profiles' table (TC-026)
+        run: bash scripts/check-no-profiles.sh
 
   leak-scan:
     needs: [changes, flutter, web]

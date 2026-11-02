@@ -2,15 +2,24 @@
 
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 
+/**
+ * Read-only database diagnostic.
+ *
+ * Roles no longer live on a flat `profiles.role` column - they live in
+ * `org_members` (TC-005). This reports each auth user's org membership and role
+ * so you can see who has access, but it does NOT create or promote anyone: the
+ * only supported way to grant an org_admin is `npm run admin:setup`
+ * (scripts/supabase-admin-setup.ts). See admin-setup.md.
+ */
 async function checkDatabase() {
-    console.log('🔍 CHECKING DATABASE\n');
+    console.log('🔍 CHECKING DATABASE (read-only)\n');
 
     try {
         // Get all users
         const { data: { users }, error: usersError } = await supabaseAdmin.auth.admin.listUsers();
 
         if (usersError) {
-            console.error('❌ Error getting users:', usersError);
+            console.error('❌ Error getting users:', usersError.message);
             return;
         }
 
@@ -20,56 +29,26 @@ async function checkDatabase() {
             console.log(`👤 User: ${user.email}`);
             console.log(`   ID: ${user.id}`);
 
-            // Check profile
-            const { data: profile, error: profileError } = await supabaseAdmin
-                .from('profiles')
-                .select('*')
-                .eq('user_id', user.id)
-                .single();
+            // Role lives in org_members now, not a flat profiles.role column.
+            const { data: memberships, error: memberError } = await supabaseAdmin
+                .from('org_members')
+                .select('org_id, role, status')
+                .eq('user_id', user.id);
 
-            if (profileError) {
-                console.log(`   ❌ NO PROFILE FOUND!`);
-                console.log(`   Error:`, profileError.message);
-
-                // Create profile with admin role
-                console.log(`   🔧 Creating admin profile...`);
-                const { error: insertError } = await supabaseAdmin
-                    .from('profiles')
-                    .insert({
-                        user_id: user.id,
-                        role: 'admin',
-                        name: user.email?.split('@')[0] || 'Admin'
-                    });
-
-                if (insertError) {
-                    console.log(`   ❌ Failed to create:`, insertError.message);
-                } else {
-                    console.log(`   ✅ Profile created with ADMIN role!`);
-                }
+            if (memberError) {
+                console.log(`   ❌ Error reading org_members:`, memberError.message);
+            } else if (!memberships || memberships.length === 0) {
+                console.log(`   ⚠️  No org membership (not staff).`);
+                console.log(`   To grant an org_admin, run: npm run admin:setup`);
             } else {
-                console.log(`   ✅ Profile exists`);
-                console.log(`   Role: ${profile.role}`);
-                console.log(`   Name: ${profile.name}`);
-
-                if (profile.role !== 'admin') {
-                    console.log(`   ⚠️  Role is NOT admin, updating...`);
-                    const { error: updateError } = await supabaseAdmin
-                        .from('profiles')
-                        .update({ role: 'admin' })
-                        .eq('user_id', user.id);
-
-                    if (updateError) {
-                        console.log(`   ❌ Update failed:`, updateError.message);
-                    } else {
-                        console.log(`   ✅ Updated to ADMIN!`);
-                    }
+                for (const m of memberships) {
+                    console.log(`   ✅ org ${m.org_id}: role=${m.role}, status=${m.status}`);
                 }
             }
             console.log('');
         }
 
         console.log('✅ Database check complete!');
-        console.log('\n📝 Try logging in again now.');
 
     } catch (error: any) {
         console.error('❌ Error:', error.message);

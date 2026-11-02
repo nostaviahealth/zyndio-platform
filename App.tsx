@@ -25,12 +25,9 @@ import Chat from './pages/Chat';
 import Tools from './pages/Tools';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
-import HealthQuestionnaire from './pages/HealthQuestionnaire';
-import LabTestUpload from './pages/LabTestUpload';
 import CreatePatient from './pages/admin/CreatePatient';
-import PatientDetail from './pages/admin/PatientDetail';
 import NutritionWorkbench from './pages/admin/NutritionWorkbench';
-import NutritionLab from './pages/admin/NutritionLab';
+import { legacyAdminScreenRoutes, legacyPortalScreenRoutes } from './components/LegacyPatientScreenRoutes';
 import UsersRoles from './pages/admin/UsersRoles';
 import PhysicianRoster from './pages/admin/clinic/PhysicianRoster';
 import PhysicianPatientDetail from './pages/admin/clinic/PhysicianPatientDetail';
@@ -157,14 +154,6 @@ const App: React.FC = () => {
                     }
                   />
                   <Route
-                    path="patient/:id"
-                    element={
-                      <RequireRole roles={['physician', 'care_coordinator']}>
-                        <PatientDetail />
-                      </RequireRole>
-                    }
-                  />
-                  <Route
                     path="nutrition"
                     element={
                       <RequireRole roles={['physician', 'care_coordinator']}>
@@ -172,14 +161,9 @@ const App: React.FC = () => {
                       </RequireRole>
                     }
                   />
-                  <Route
-                    path="nutrition-lab"
-                    element={
-                      <RequireRole roles={['physician', 'care_coordinator']}>
-                        <NutritionLab />
-                      </RequireRole>
-                    }
-                  />
+                  {/* Legacy patient/:id + nutrition-lab: only behind
+                      VITE_FEATURE_LEGACY_PATIENT_SCREENS (off by default). */}
+                  {legacyAdminScreenRoutes()}
                   <Route
                     path="users"
                     element={
@@ -213,8 +197,9 @@ const App: React.FC = () => {
                   <Route path="settings" element={<Settings />} />
                   <Route path="chat" element={<Chat />} />
                   <Route path="profile" element={<Profile />} />
-                  <Route path="questionnaire" element={<HealthQuestionnaire />} />
-                  <Route path="lab-test" element={<LabTestUpload />} />
+                  {/* Legacy questionnaire + lab-test: only behind
+                      VITE_FEATURE_LEGACY_PATIENT_SCREENS (off by default). */}
+                  {legacyPortalScreenRoutes()}
                   <Route path="food-intelligence" element={<FoodIntelligence />} />
                   <Route path="health-vault" element={<HealthVault />} />
                   <Route path="health-vault/gut-microbiome" element={<GutMicrobiomeDetail />} />

@@ -1,38 +1,60 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { isAuthorizedRevenueCatRequest } from "../_shared/revenueCatWebhookAuth.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-serve(async (req) => {
+interface WebhookDeps {
+  env: { get(key: string): string | undefined }
+  createServiceClient: () => SupabaseClient
+}
+
+const defaultDeps: WebhookDeps = {
+  env: Deno.env,
+  createServiceClient: () =>
+    createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''),
+}
+
+// TC-026: RevenueCat sends a shared secret in the Authorization header
+// (configured in the RevenueCat dashboard), checked here before anything
+// else - missing/wrong secret or an unset REVENUECAT_WEBHOOK_AUTH env var
+// (fail closed) is rejected with 401 before the body is parsed or the
+// database is touched. Writes go to patient_accounts (service role; the
+// column-level revoke on is_premium/subscription_plan only applies to
+// authenticated/anon, not service_role) instead of the removed `profiles`
+// table - app_user_id is the patient's auth uid, which is patient_accounts'
+// primary key directly, no profile-id lookup needed.
+export async function handleRevenueCatWebhook(req: Request, deps: WebhookDeps = defaultDeps): Promise<Response> {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  const expectedSecret = deps.env.get('REVENUECAT_WEBHOOK_AUTH')
+  if (!isAuthorizedRevenueCatRequest(req.headers.get('Authorization'), expectedSecret)) {
+    return new Response(JSON.stringify({ error: 'unauthorized' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 401,
+    })
+  }
+
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    const supabaseClient = deps.createServiceClient()
 
     const payload = await req.json()
-    console.log('Received RevenueCat Payload:', JSON.stringify(payload, null, 2))
 
     // Support both 'event' wrapper (v1) and flat object (v2) formats
     const event = payload.event || payload
-    const { type, app_user_id, entitlement_ids } = event
+    const { app_user_id, entitlement_ids, type } = event
 
     if (!app_user_id) {
-      console.error('No app_user_id found in RevenueCat event')
-      return new Response(JSON.stringify({ error: 'No app_user_id' }), {
+      return new Response(JSON.stringify({ error: 'no_app_user_id' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200, // Return 200 to acknowledge receipt even if invalid for us
       })
     }
-
-    console.log(`Processing event ${type} for user ${app_user_id}`)
 
     let subscriptionPlan = 'free'
     let isPremium = false
@@ -51,53 +73,39 @@ serve(async (req) => {
       }
     }
 
-    // CRITICAL: We match on 'user_id' (Auth UUID) instead of 'id' (Profile PK)
-    const { data: profile, error: fetchError } = await supabaseClient
-      .from('profiles')
-      .select('id, user_id')
-      .eq('user_id', app_user_id)
-      .maybeSingle()
-
-    if (fetchError) {
-      console.error('Error fetching profile for user_id:', app_user_id, fetchError)
-      throw fetchError
-    }
-
-    if (!profile) {
-      console.warn(`No profile found for Supabase Auth UID: ${app_user_id}. Attempting fallback...`)
-      // If we can't find them, we don't error out with a 400 (which triggers RC retries)
-      // but we do log it so we can investigate identity mismatch.
-      return new Response(JSON.stringify({ message: 'User profile not found' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      })
-    }
-
     const { error: updateError } = await supabaseClient
-      .from('profiles')
-      .update({ 
+      .from('patient_accounts')
+      .update({
         subscription_plan: subscriptionPlan,
         is_premium: isPremium,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       })
-      .eq('user_id', app_user_id) // Again, use user_id for accuracy
+      .eq('patient_id', app_user_id)
 
     if (updateError) {
-      console.error('Database update failed:', updateError)
-      throw updateError
+      console.error('handle-revenuecat-webhook: database update failed', updateError)
+      return new Response(JSON.stringify({ error: 'internal_error' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200, // Return 200 to RevenueCat to avoid persistent retries on known edge cases
+      })
     }
-
-    console.log(`✅ Success: Updated user ${app_user_id} status to ${subscriptionPlan}`)
 
     return new Response(JSON.stringify({ message: 'Success' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
   } catch (error) {
-    console.error('🔴 Webhook Processing CRASHED:', error instanceof Error ? error.message : error)
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'internal error' }), {
+    console.error('handle-revenuecat-webhook: processing crashed', error instanceof Error ? error.message : error)
+    // Never echo internal error details to the caller.
+    return new Response(JSON.stringify({ error: 'internal_error' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200, // Return 200 to RevenueCat to avoid persistent retries on known edge cases
+      status: 200,
     })
   }
-})
+}
+
+// Guarded so importing this module for tests doesn't try to bind a real
+// network listener (deno test runs without --allow-net).
+if (import.meta.main) {
+  serve((req) => handleRevenueCatWebhook(req))
+}

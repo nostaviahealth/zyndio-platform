@@ -313,15 +313,9 @@ class ProtocolProgressNotifier extends Notifier<ProtocolProgressState> {
     if (!usedCloud) {
       try {
         final prefs = await SharedPreferences.getInstance();
-        // Resolve profileId for the storage key
-        String profileId = 'guest';
-        if (client?.auth.currentUser != null) {
-          try {
-            final userId = client!.auth.currentUser!.id;
-            final profileRes = await client.from('profiles').select('id').eq('user_id', userId).maybeSingle();
-            if (profileRes != null) profileId = profileRes['id'];
-          } catch (_) {}
-        }
+        // Resolve profileId for the storage key - patient identity IS their
+        // auth user id, no profiles lookup needed.
+        final String profileId = client?.auth.currentUser?.id ?? 'guest';
 
         for (int i = 0; i < totalElapsed; i++) {
           final date = startDate.add(Duration(days: i));

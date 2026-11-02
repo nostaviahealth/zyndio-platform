@@ -138,9 +138,9 @@ class GamificationService {
 
     try {
       final response = await client
-          .from('profiles')
+          .from('patient_accounts')
           .select('xp, coins')
-          .eq('user_id', userId)
+          .eq('patient_id', userId)
           .maybeSingle();
 
       if (response != null) {
@@ -193,20 +193,39 @@ class GamificationService {
     }
   }
 
+  /// True only for the signed-in patient's own leaderboard row. The server
+  /// sets `is_me`; the leaderboard never carries patient ids (TC-026).
+  static bool isLeaderboardSelf(Map<String, dynamic> row) => row['is_me'] == true;
+
+  /// Maps one patient_leaderboard_top10() row to the shape the leagues UI
+  /// reads: name, avatar_url, league_xp, is_me. No user/patient id.
+  static Map<String, dynamic> standingFromRow(Map<String, dynamic> row) {
+    return <String, dynamic>{
+      'name': row['name'],
+      'avatar_url': row['avatar_url'],
+      'league_xp': row['league_xp'],
+      'is_me': row['is_me'] == true,
+    };
+  }
+
   /// Fetches the top players for a specific league.
   static Future<List<Map<String, dynamic>>> fetchStandings(League league) async {
     final client = SupabaseConfig.client;
     if (client == null) return [];
 
     try {
-      // Logic: Fetch top profiles regardless of league and sort by league_xp
-      final response = await client
-          .from('profiles')
-          .select('name, avatar_url, league_xp, user_id')
-          .order('league_xp', ascending: false)
-          .limit(10); // Show top 10 globally
-
-      return List<Map<String, dynamic>>.from(response);
+      // patient_accounts is patient-self RLS only, so a cross-patient
+      // leaderboard read goes through the security-definer
+      // patient_leaderboard_top10() RPC instead. Signed-in only, scoped
+      // server-side to the caller's own clinic, `name` is already first
+      // name + last initial (e.g. "Jordan R."), and it returns `is_me` for
+      // the own-row highlight instead of any patient id - see
+      // 20261102110000_tc026_leaderboard_clinic_scope.sql and
+      // 20261102130000_tc026_leaderboard_is_me.sql.
+      final response = await client.rpc('patient_leaderboard_top10');
+      return List<Map<String, dynamic>>.from(response as List)
+          .map(standingFromRow)
+          .toList();
     } catch (e) {
       debugPrint('[GAMIFICATION] Fetch standings error: $e');
       return [];

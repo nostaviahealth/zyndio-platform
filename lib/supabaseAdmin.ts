@@ -16,91 +16,15 @@ export const supabaseAdmin = createClient<Database>(supabaseUrl, supabaseService
     }
 });
 
-// Admin helper functions
+// Admin helper functions.
+//
+// The old profiles-based helpers (createAdminUser / getUserWithProfile /
+// isUserAdmin / listUsersWithProfiles / updateUserRole) were removed in TC-026:
+// roles live in `org_members` now and the supported admin bootstrap is
+// `npm run admin:setup` (scripts/supabase-admin-setup.ts), not a flat
+// `profiles.role` write. Only the auth-level delete helper, which never touched
+// `profiles`, remains.
 export const adminHelpers = {
-    // Create admin user
-    async createAdminUser(email: string, password: string, name: string) {
-        // Create auth user
-        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-            email,
-            password,
-            email_confirm: true,
-            user_metadata: { name }
-        });
-
-        if (authError) throw authError;
-
-        // Create profile with admin role
-        const { error: profileError } = await supabaseAdmin
-            .from('profiles')
-            .insert({
-                user_id: authData.user.id,
-                role: 'admin',
-                name
-            });
-
-        if (profileError) throw profileError;
-
-        return authData.user;
-    },
-
-    // Get user with profile
-    async getUserWithProfile(userId: string) {
-        const { data, error } = await supabaseAdmin
-            .from('profiles')
-            .select('*')
-            .eq('user_id', userId)
-            .single();
-
-        if (error) throw error;
-        return data;
-    },
-
-    // Check if user is admin
-    async isUserAdmin(userId: string): Promise<boolean> {
-        const { data } = await supabaseAdmin
-            .from('profiles')
-            .select('role')
-            .eq('user_id', userId)
-            .single();
-
-        return data?.role === 'admin';
-    },
-
-    // List all users with profiles
-    async listUsersWithProfiles() {
-        const { data: { users }, error: authError } = await supabaseAdmin.auth.admin.listUsers();
-
-        if (authError) throw authError;
-
-        const profiles = await Promise.all(
-            users.map(async (user) => {
-                const { data: profile } = await supabaseAdmin
-                    .from('profiles')
-                    .select('*')
-                    .eq('user_id', user.id)
-                    .single();
-
-                return {
-                    ...user,
-                    profile
-                };
-            })
-        );
-
-        return profiles;
-    },
-
-    // Update user role
-    async updateUserRole(userId: string, role: 'user' | 'admin' | 'doctor' | 'nutritionist') {
-        const { error } = await supabaseAdmin
-            .from('profiles')
-            .update({ role })
-            .eq('user_id', userId);
-
-        if (error) throw error;
-    },
-
     // Delete user
     async deleteUser(userId: string) {
         const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
