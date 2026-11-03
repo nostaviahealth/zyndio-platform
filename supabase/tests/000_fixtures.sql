@@ -82,6 +82,11 @@ $$;
 -- other org to be denied access to.
 -- ---------------------------------------------------------------------------
 
+-- TC-040 (#34 M1): migrations revoke the default PUBLIC EXECUTE on functions
+-- created by postgres, so these test-only helpers are granted explicitly to the
+-- roles the suites switch into before calling them again.
+grant execute on all functions in schema tests to anon, authenticated, service_role;
+
 insert into public.organizations (id, name) values
   ('00000000-0000-0000-0000-00000000000a', 'Org A'),
   ('00000000-0000-0000-0000-00000000000b', 'Org B');

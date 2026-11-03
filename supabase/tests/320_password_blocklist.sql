@@ -1,5 +1,5 @@
 -- password_is_blocked(): case-insensitive check against the server-side
--- blocklist (OVERRIDES #13), callable by authenticated/service_role; the
+-- blocklist (OVERRIDES #13), callable by service_role only since TC-040 (#34 M1); the
 -- underlying table stays unreachable directly (same zero-policy pattern as
 -- the other SECURITY DEFINER-only tables).
 --
@@ -52,14 +52,25 @@ select throws_ok(
 
 reset role;
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0001', 'aal2'); -- org_admin_a
-select ok(
-  public.password_is_blocked('password'),
-  'authenticated can still call password_is_blocked() (needed by change-password)'
+select throws_ok(
+  $$ select public.password_is_blocked('password') $$,
+  '42501', null,
+  'TC-040 (#34 M1): authenticated cannot call password_is_blocked() either - change-password, accept-invite, patient-signup and patient-reset-password all call it with the service-role client'
 );
 select throws_ok(
   $$ select count(*) from public.password_blocklist $$,
   '42501', null,
   'authenticated cannot read the password_blocklist table directly either'
+);
+reset role;
+select tests.authenticate_as_service_role();
+select ok(
+  public.password_is_blocked('password'),
+  'TC-040 (#34 M1): service_role (the edge functions'' client) can still call password_is_blocked()'
+);
+select ok(
+  not public.password_is_blocked('a-fictional-unguessable-pass-7Q2'),
+  'TC-040 (#34 M1): service_role gets false for a password not on the list'
 );
 reset role;
 select cmp_ok(
