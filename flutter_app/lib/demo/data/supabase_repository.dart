@@ -36,6 +36,12 @@ class SupabaseRepository implements ZyndioRepository {
   }
 
   @override
+  Duration lockRemaining(String email) {
+    _requireConfigured();
+    throw UnimplementedError('Supabase data source is not implemented yet.');
+  }
+
+  @override
   String? debugLastIssuedCode(String email) => null;
 
   @override

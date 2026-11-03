@@ -156,6 +156,15 @@ class DemoBackend {
     return (CodeVerifyResult.success, DemoSession._(account.patientId));
   }
 
+  /// Time left on [email]'s current lockout, or [Duration.zero] if the
+  /// account isn't locked (or isn't a known email). Lets the UI show an
+  /// accurate countdown instead of the fixed "15 minutes" copy.
+  Duration lockRemaining(String email) {
+    final account = _accountsByEmail[_normalize(email)];
+    if (account == null) return Duration.zero;
+    return account.lockoutPolicy.remaining(_clock.now());
+  }
+
   _PatientRecord _patientRecordFor(DemoSession session) {
     final record = _patients[session.patientId];
     if (record == null) {

@@ -166,10 +166,18 @@ describe('no entry points into hidden legacy screens', () => {
   // Merge of #25 into #26 (TC-029): #26 deleted AdminDashboard, the only
   // non-legacy page that had a "View Details" link to the legacy
   // #/admin/patient/:id. The old render test ("flag off hides View Details")
-  // has no host page left, so it is replaced by a stronger static guard: no
-  // non-legacy page or component links to /admin/patient/ at all, flag on or
-  // off. The legacy screens themselves (and the route table) may still.
-  it('no non-legacy page or component links to the legacy /admin/patient/:id', () => {
+  // has no host page left, so it is replaced by a static guard: no non-legacy
+  // source file links to /admin/patient/ at all, flag on or off. The legacy
+  // screens themselves (and the route table) may still.
+  //
+  // TC-030 item 15 (Clara PR #26 r2, L-r2-1): the first guard only walked
+  // pages/ and components/ and only matched the ABSOLUTE "/admin/patient/"
+  // form, so a relative link ("patient/${id}" inside the /admin subtree) or a
+  // link hidden in App.tsx / contexts / hooks / lib / src / utils slipped
+  // through (Clara's mutant passed). Widen the walk to the whole web source
+  // tree and anchor the match on a quoted path LITERAL that targets the legacy
+  // detail screen - absolute "/admin/patient/<id>" or relative "patient/<id>".
+  it('no non-legacy source file links to the legacy patient detail (absolute /admin/patient/ or relative patient/:id)', () => {
     const LEGACY_FILES = new Set([
       'pages/HealthQuestionnaire.tsx',
       'pages/LabTestUpload.tsx',
@@ -178,15 +186,33 @@ describe('no entry points into hidden legacy screens', () => {
       'components/LegacyPatientScreenRoutes.tsx',
     ]);
     const root = path.resolve(__dirname, '../..');
-    const walk = (dir: string): string[] =>
-      fs.readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap((e) => {
+    const walk = (dir: string): string[] => {
+      const abs = path.join(root, dir);
+      if (!fs.existsSync(abs)) return [];
+      return fs.readdirSync(abs, { withFileTypes: true }).flatMap((e) => {
         const rel = `${dir}/${e.name}`;
         if (e.isDirectory()) return walk(rel);
-        return /\.(tsx?|jsx?)$/.test(e.name) ? [rel] : [];
+        return /\.(tsx?|jsx?)$/.test(e.name) && !/\.(test|spec)\./.test(e.name) ? [rel] : [];
       });
-    const files = [...walk('pages'), ...walk('components')].filter((f) => !LEGACY_FILES.has(f));
+    };
+    const SOURCE_DIRS = ['pages', 'components', 'contexts', 'hooks', 'lib', 'src', 'utils'];
+    const ROOT_FILES = ['App.tsx', 'constants.ts', 'index.tsx', 'types.ts'];
+    const files = [
+      ...ROOT_FILES.filter((f) => fs.existsSync(path.join(root, f))),
+      ...SOURCE_DIRS.flatMap(walk),
+    ].filter((f) => !LEGACY_FILES.has(f));
     expect(files.length).toBeGreaterThan(20);
-    const offenders = files.filter((f) => /\/admin\/patient\//.test(fs.readFileSync(path.join(root, f), 'utf8')));
+    // Coverage now reaches beyond pages/ and components/ (incl. the App.tsx
+    // route table), per L-r2-1.
+    expect(files).toContain('App.tsx');
+    expect(files.some((f) => !f.startsWith('pages/') && !f.startsWith('components/'))).toBe(true);
+    // A quote/backtick-anchored path literal for the legacy patient detail
+    // screen: absolute "/admin/patient/<id>" or relative "patient/<id>".
+    // Anchoring on the opening quote skips prose mentions in comments
+    // ("/admin/patient/:id", "patient/user data") and the plural "patients/"
+    // roster route, which carry no quote immediately before "patient/".
+    const LEGACY_LINK = /['"`](?:\/admin\/)?patient\//;
+    const offenders = files.filter((f) => LEGACY_LINK.test(fs.readFileSync(path.join(root, f), 'utf8')));
     expect(offenders).toEqual([]);
   });
 });

@@ -266,13 +266,23 @@ const Home: React.FC = () => {
 
         // TC-026: never offer a button into a hidden legacy screen.
         const rawNextAction = getNextAction(currentStage);
+        const legacyScreensOff = !isLegacyPatientScreensEnabled();
+        const pointsAtLegacyScreen =
+            !!rawNextAction.route &&
+            (LEGACY_PATIENT_SCREEN_PATHS as readonly string[]).includes(rawNextAction.route);
         const nextAction =
-            !isLegacyPatientScreensEnabled() &&
-            rawNextAction.route &&
-            (LEGACY_PATIENT_SCREEN_PATHS as readonly string[]).includes(rawNextAction.route)
+            legacyScreensOff && pointsAtLegacyScreen
                 ? { ...rawNextAction, action: null, route: null }
                 : rawNextAction;
         const Icon = nextAction.icon;
+
+        // TC-030 (10): with the legacy screens hidden, the "Complete Your Health
+        // Questionnaire" card is a dead end (no button, nothing to do), so drop
+        // the whole action card rather than show buttonless copy.
+        const hideActionCard =
+            legacyScreensOff &&
+            pointsAtLegacyScreen &&
+            rawNextAction.route === '/questionnaire';
 
         return (
             <div className="max-w-4xl mx-auto py-12 px-4">
@@ -285,6 +295,7 @@ const Home: React.FC = () => {
                 </div>
 
                 {/* Action Card */}
+                {!hideActionCard && (
                 <div className="bg-gradient-to-br from-white to-slate-50 rounded-3xl border border-slate-200 p-8 md:p-10 shadow-lg">
                     <div className="flex items-start gap-6">
                         <div className={`flex-shrink-0 w-16 h-16 rounded-2xl bg-${nextAction.color}-100 flex items-center justify-center`}>
@@ -313,6 +324,7 @@ const Home: React.FC = () => {
                         </div>
                     </div>
                 </div>
+                )}
 
                 {/* Info Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">

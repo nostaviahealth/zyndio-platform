@@ -183,25 +183,78 @@ def goto_hash(page: Page, base_url: str, route: str) -> None:
     page.goto(f"{base_url}#{route}", wait_until="domcontentloaded")
 
 
-def sign_in(page: Page, base_url: str, email: str, password: str, totp_secret: str) -> None:
+# Where AdminIndex (components/admin-shell/AdminIndex.tsx, HOME_BY_ROLE)
+# sends each role once sign-in finishes. Keep in step with that map.
+HOME_BY_ROLE = {
+    "org_admin": "/admin/users",
+    "physician": "/admin/patients",
+    "care_coordinator": "/admin/patients",
+    "read_only": "/admin/patients",
+}
+
+TOTP_STEP_S = 30
+# A code typed with less than this left in its 30 s step can expire on the
+# way to the server, so wait for the next step instead of sending it.
+TOTP_MIN_REMAINING_S = 5
+
+
+def fresh_totp(secret: str, after_counter: int | None = None) -> tuple[str, int]:
+    """TC-035: a code from a step with at least TOTP_MIN_REMAINING_S left,
+    and (on a retry) from a step strictly later than `after_counter`, so a
+    retry never resends the code that was just rejected."""
+    while True:
+        now = time.time()
+        counter = int(now // TOTP_STEP_S)
+        remaining = TOTP_STEP_S - (now % TOTP_STEP_S)
+        if (after_counter is None or counter > after_counter) and remaining >= TOTP_MIN_REMAINING_S:
+            return totp_code(secret, now), counter
+        time.sleep(remaining + 0.05)  # sleep to the start of the next step
+
+
+def sign_in(page: Page, base_url: str, email: str, password: str, totp_secret: str, role: str) -> None:
+    """Signs in through the real login + 2FA screens and returns only once the
+    app has finished its post-sign-in redirect and is on the role's home.
+
+    TC-035 root cause: this used to return as soon as the URL was #/admin. That
+    is the shell's index route, which renders <Navigate replace> to the role's
+    home (AdminIndex). The redirect fires in an effect a few ms later, so a
+    caller's goto_hash() issued in that gap was overwritten by it: the item-25
+    goto to /admin/patients/create landed on /admin/patients (the roster) and
+    the "Jane Doe" field never appeared. Waiting for the role's home closes
+    the gap, since nothing navigates after it."""
+    home = HOME_BY_ROLE[role]
     goto_hash(page, base_url, "/admin/login")
     page.get_by_label("Work email").fill(email)
     page.get_by_label("Password", exact=True).fill(password)
-    page.get_by_role("button", name="Continue").click()
-    page.wait_for_url("**/#/admin/2fa/challenge", timeout=15_000)
+    # The challenge page drops a code typed before its MFA challenge exists
+    # (handleVerify returns early without a challengeId), so wait for the
+    # challenge request it sends on mount before typing anything.
+    with page.expect_response(
+        lambda r: "/auth/v1/factors/" in r.url and r.url.endswith("/challenge") and r.request.method == "POST",
+        timeout=15_000,
+    ) as challenge_info:
+        page.get_by_role("button", name="Continue").click()
+        page.wait_for_url("**/#/admin/2fa/challenge", timeout=15_000)
+    if not challenge_info.value.ok:
+        raise RuntimeError(f"MFA challenge request failed ({challenge_info.value.status})")
     code_input = page.locator("#code-input")
     code_input.wait_for(state="attached", timeout=10_000)
+    used_counter: int | None = None
     for attempt in range(2):
-        code_input.fill(totp_code(totp_secret))
-        try:
-            page.wait_for_url("**/#/admin", timeout=8_000)
-            return
-        except Exception:
-            if attempt == 0:
-                code_input.fill("")
-                continue
-            raise
-    page.wait_for_url("**/#/admin", timeout=5_000)
+        code, used_counter = fresh_totp(totp_secret, after_counter=used_counter)
+        with page.expect_response(
+            lambda r: "/auth/v1/factors/" in r.url and r.url.endswith("/verify") and r.request.method == "POST",
+            timeout=15_000,
+        ) as verify_info:
+            code_input.fill(code)  # 6 digits auto-submit
+        if verify_info.value.ok:
+            break
+        if attempt == 1:
+            raise RuntimeError(f"TOTP verify rejected twice ({verify_info.value.status})")
+        # Rejected (e.g. the step rolled over in flight): the page clears the
+        # field; retry once with a code from the NEXT step.
+        page.get_by_role("alert").wait_for(timeout=10_000)
+    page.wait_for_url(f"**/#{home}", timeout=15_000)
 
 
 def inject_axe(page: Page) -> None:
@@ -376,7 +429,7 @@ def check_authenticated(browser, base_url: str, creds: dict, mode: str, screensh
     surface = "rgb(16, 20, 31)" if mode == "dark" else "rgb(255, 255, 255)"
     ctx = browser.new_context(viewport={"width": 1440, "height": 900}, color_scheme=mode)
     page = ctx.new_page()
-    sign_in(page, base_url, creds["orgAdmin"]["email"], creds["orgAdmin"]["password"], creds["orgAdmin"]["totpSecret"])
+    sign_in(page, base_url, creds["orgAdmin"]["email"], creds["orgAdmin"]["password"], creds["orgAdmin"]["totpSecret"], "org_admin")
     goto_hash(page, base_url, "/admin/users")
     page.wait_for_selector("table", timeout=15_000)
     inject_axe(page)
@@ -530,7 +583,7 @@ def check_authenticated(browser, base_url: str, creds: dict, mode: str, screensh
 def check_access_denied(browser, base_url: str, creds: dict, mode: str, screenshots: str | None) -> None:
     ctx = browser.new_context(viewport={"width": 1440, "height": 900}, color_scheme=mode)
     page = ctx.new_page()
-    sign_in(page, base_url, creds["physician"]["email"], creds["physician"]["password"], creds["physician"]["totpSecret"])
+    sign_in(page, base_url, creds["physician"]["email"], creds["physician"]["password"], creds["physician"]["totpSecret"], "physician")
     inject_axe(page)
     for width in (1440, 1024):
         page.set_viewport_size({"width": width, "height": 900 if width == 1440 else 768})
@@ -586,7 +639,7 @@ def check_last_row_menu(browser, base_url: str, creds: dict, env: dict[str, str]
     """
     ctx = browser.new_context(viewport={"width": 1440, "height": 900}, color_scheme=mode)
     page = ctx.new_page()
-    sign_in(page, base_url, creds["orgAdmin"]["email"], creds["orgAdmin"]["password"], creds["orgAdmin"]["totpSecret"])
+    sign_in(page, base_url, creds["orgAdmin"]["email"], creds["orgAdmin"]["password"], creds["orgAdmin"]["totpSecret"], "org_admin")
     for width in (1024, 1440):
         height = 768 if width == 1024 else 900
         page.set_viewport_size({"width": width, "height": height})
@@ -787,7 +840,7 @@ def check_tc021_round2(browser, scrollbar_browser, base_url: str, creds: dict, m
     shots = f"tc021r2-{screenshots}" if screenshots else None
     ctx = browser.new_context(viewport={"width": 1024, "height": 768}, color_scheme=mode)
     page = ctx.new_page()
-    sign_in(page, base_url, oa["email"], oa["password"], oa["totpSecret"])
+    sign_in(page, base_url, oa["email"], oa["password"], oa["totpSecret"], "org_admin")
     goto_hash(page, base_url, "/admin/users")
     page.wait_for_selector("table tbody tr", timeout=15_000)
     wait_for_colours_settled(page)
@@ -905,7 +958,7 @@ def check_tc021_round2(browser, scrollbar_browser, base_url: str, creds: dict, m
     # draws scrollbars (Playwright hides them by default in headless).
     sctx = scrollbar_browser.new_context(viewport={"width": 1024, "height": 768}, color_scheme=mode)
     spage = sctx.new_page()
-    sign_in(spage, base_url, oa["email"], oa["password"], oa["totpSecret"])
+    sign_in(spage, base_url, oa["email"], oa["password"], oa["totpSecret"], "org_admin")
     goto_hash(spage, base_url, "/admin/users")
     spage.wait_for_selector("table tbody tr", timeout=15_000)
     wait_for_colours_settled(spage)
@@ -923,7 +976,7 @@ def check_tc021_round2(browser, scrollbar_browser, base_url: str, creds: dict, m
     ictx = browser.new_context(viewport={"width": 1024, "height": 768}, color_scheme=mode)
     ipage = ictx.new_page()
     ipage.clock.install()
-    sign_in(ipage, base_url, oa["email"], oa["password"], oa["totpSecret"])
+    sign_in(ipage, base_url, oa["email"], oa["password"], oa["totpSecret"], "org_admin")
     goto_hash(ipage, base_url, "/admin/users")
     ipage.wait_for_selector("table tbody tr", timeout=15_000)
     ipage.clock.fast_forward("13:01")
@@ -942,18 +995,16 @@ def check_tc021_round2(browser, scrollbar_browser, base_url: str, creds: dict, m
     ipage.get_by_role("button", name="Stay signed in").click()
     ictx.close()
 
-    # Item 25 (Clara, #21; CI fix round 1, 1 Nov 2026): item 13's toast fix
-    # must be checked on the real toast, raised by a REAL successful submit -
-    # a check that also passed on a failure toast could never actually catch
-    # Create Patient breaking. The regex this used to wait on (either the old
-    # failure copy or the success copy) matched neither: TC-018's rewrite
-    # (b741c04) dropped the AdminContext toast entirely on success, showing
-    # only a full-page "Patient Created Successfully!" card, so the check
-    # always timed out regardless of pass/fail. Fixed by restoring the
-    # showToast('Patient created successfully', ...) call in
-    # CreatePatient.tsx (see docs/tasks/TC-018.md, Henry's calls 1 Nov 2026).
-    # Email is unique per mode (dark/light) so the two passes don't collide
-    # on the same patient account.
+    # Item 25 (Clara, #21; CI fix round 1, 1 Nov 2026): item 13's success
+    # feedback must be checked on a REAL successful submit - a check that also
+    # passed on a failure state could never actually catch Create Patient
+    # breaking.
+    # TC-030 (Henry, 2 Nov 2026): the only role allowed to create a patient is
+    # now care_coordinator (item 8 - a physician gets 403 and the form would
+    # never even render), and the duplicate AdminContext success toast was
+    # dropped in favour of the single full-page "Patient created" card (item 7).
+    # So sign in as the coordinator and assert that card. Email is unique per
+    # mode (dark/light) so the two passes don't collide on the same account.
     tctx = browser.new_context(viewport={"width": 1024, "height": 768}, color_scheme=mode)
     tpage = tctx.new_page()
     # TC-029 (Clara H1, PR #26): /admin/patients/create is care_coordinator
@@ -961,36 +1012,28 @@ def check_tc021_round2(browser, scrollbar_browser, base_url: str, creds: dict, m
     # coordinator's care_coordinator role on every run, and the role-change
     # confirm above is cancelled, so the role is unchanged here.
     co = creds["coordinator"]
-    sign_in(tpage, base_url, co["email"], co["password"], co["totpSecret"])
+    sign_in(tpage, base_url, co["email"], co["password"], co["totpSecret"], "care_coordinator")
     goto_hash(tpage, base_url, "/admin/patients/create")
     # TC-018 (Create Patient add-on) pointed this form at the real patients
     # table and dropped every field without a real column - name/email
-    # placeholders changed ("Jane Doe" / "jane@example.com") and age (was
-    # "35") has no column to hold it, so it's gone rather than renamed.
+    # placeholders ("Jane Doe" / "jane@example.com") are unchanged by TC-030.
     tpage.get_by_placeholder("Jane Doe").fill("Fictional Rowan Testcase")
     tpage.get_by_placeholder("jane@example.com").fill(f"tc021-item25-{mode}@example.test")
     with tpage.expect_response(lambda r: "/functions/v1/create-patient" in r.url) as resp_info:
-        tpage.get_by_role("button", name="Create Patient").click()
+        tpage.get_by_role("button", name="Create patient").click()
     response = resp_info.value
     check(
         response.status == 200,
         f"item 25 {mode}@1024: Create Patient's submit reaches the server and succeeds (got {response.status})",
     )
-    toast_text = tpage.get_by_text("Patient created successfully", exact=True)
+    card_heading = tpage.get_by_text("Patient created", exact=True)
     shown = True
     try:
-        toast_text.wait_for(state="visible", timeout=10_000)
+        card_heading.wait_for(state="visible", timeout=10_000)
     except Exception:
         shown = False
-    if check(shown, f"item 25 {mode}@1024: Create Patient raises the AdminContext success toast"):
-        box = toast_text.evaluate(
-            "el => { const t = el.closest('.fixed') || el; const r = t.getBoundingClientRect();"
-            " return { left: r.left, right: r.right, bottom: r.bottom, vw: window.innerWidth, vh: window.innerHeight }; }"
-        )
-        centre_off = abs((box["left"] + box["right"]) / 2 - box["vw"] / 2)
-        check(centre_off <= 2, f"item 25 {mode}@1024: AdminContext toast is bottom-centre (centre off by {centre_off:.1f}px, box={box})")
-        check(box["right"] <= actions_left, f"item 25 {mode}@1024: AdminContext toast (right={box['right']:.0f}) is clear of the pinned ⋯ column (left={actions_left:.0f})")
-        screenshot(tpage, shots, "25-admin-toast", 1024, mode)
+    if check(shown, f"item 25 {mode}@1024: Create Patient shows the single success card"):
+        screenshot(tpage, shots, "25-create-success", 1024, mode)
     tctx.close()
 
 

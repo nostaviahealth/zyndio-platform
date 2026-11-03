@@ -11,47 +11,55 @@ const BiologicalAgeDetail = () => {
   const [activeCategory, setActiveCategory] = useState<string>('All');
   
   const report = METHYLATION_REPORT;
-  
-  // Provide fallback metadata matching the requirements if it doesn't exist in constants
-  const metadata: any = report.panelMetadata || {
-    chronoAge: 34,
-    bioAge: 31.2,
-    paceOfAging: 0.85,
-    clockScores: [
-      { name: 'Horvath', age: 33.1 },
-      { name: 'Hannum', age: 31.8 },
-      { name: 'PhenoAge', age: 30.5 },
-      { name: 'GrimAge', age: 32.4 },
-    ],
-    systemAges: [
-      { name: 'Immune Age', age: 33 },
-      { name: 'Metabolic Age', age: 30 },
-      { name: 'Inflammation Age', age: 32 },
-    ]
-  };
 
-  const { chronoAge, bioAge, paceOfAging, clockScores, systemAges } = metadata;
-  const ageDiff = bioAge - chronoAge;
-  const diffAbs = Math.abs(ageDiff).toFixed(1);
-  const diffLabel = ageDiff <= 0 ? `-${diffAbs} years younger` : `+${diffAbs} years older`;
-  const diffColor = ageDiff <= 0 ? 'text-emerald-500' : 'text-red-500';
-  
+  // TC-030 (19): a real/QA panel may be missing some of these fields (the
+  // epigenetic data isn't in yet), so every value read must be null-safe -
+  // reading `.toFixed()` off an undefined metric used to crash the page.
+  // `chronoAge`/`bioAge`/`paceOfAging` map onto the PanelMetadata schema
+  // (chronologicalAge / biologicalAge / paceOfAging). Clock scores carry a
+  // `value` in the schema; keep `age` as a fallback for older fixtures.
+  const metadata: any = report.panelMetadata || {};
+  const chronoAge: number | undefined = metadata.chronologicalAge ?? metadata.chronoAge;
+  const bioAge: number | undefined = metadata.biologicalAge ?? metadata.bioAge;
+  const paceOfAging: number | undefined = metadata.paceOfAging;
+  const clockScores: any[] = Array.isArray(metadata.clockScores) ? metadata.clockScores : [];
+  const systemAges: any[] = Array.isArray(metadata.systemAges) ? metadata.systemAges : [];
+
+  // The page is meaningless without at least a biological age to anchor it.
+  const hasCoreMetrics = typeof bioAge === 'number';
+
+  const ageDiff =
+    typeof bioAge === 'number' && typeof chronoAge === 'number' ? bioAge - chronoAge : null;
+  const diffAbs = ageDiff !== null ? Math.abs(ageDiff).toFixed(1) : null;
+  const diffLabel =
+    ageDiff === null
+      ? null
+      : ageDiff <= 0
+        ? `-${diffAbs} years younger`
+        : `+${diffAbs} years older`;
+  const diffColor = ageDiff !== null && ageDiff <= 0 ? 'text-emerald-500' : 'text-red-500';
+
   // Calculate pace progress (0.5 to 1.5 range)
-  const pacePercentage = ((paceOfAging - 0.5) / (1.5 - 0.5)) * 100;
+  const pacePercentage =
+    typeof paceOfAging === 'number' ? ((paceOfAging - 0.5) / (1.5 - 0.5)) * 100 : 0;
   let paceColor = 'bg-cyan-500';
-  if (paceOfAging >= 1.0 && paceOfAging <= 1.2) paceColor = 'bg-amber-500';
-  if (paceOfAging > 1.2) paceColor = 'bg-red-500';
-  
+  if (typeof paceOfAging === 'number' && paceOfAging >= 1.0 && paceOfAging <= 1.2) paceColor = 'bg-amber-500';
+  if (typeof paceOfAging === 'number' && paceOfAging > 1.2) paceColor = 'bg-red-500';
+
   // SVG Gauge calculations
   const radius = 90;
   const circumference = 2 * Math.PI * radius;
   const arcLength = 0.75 * circumference;
-  
+  const gaugeFill =
+    hasCoreMetrics && typeof chronoAge === 'number'
+      ? Math.min((bioAge as number) / Math.max(chronoAge, 1), 1.5)
+      : 0;
+
   // For other markers, filter from report.markers
   const categories = ['All', ...Array.from(new Set((report.markers || []).map((m: any) => m.category)))];
-  
-  const filteredMarkers = activeCategory === 'All' 
-    ? report.markers 
+
+  const filteredMarkers = activeCategory === 'All'
+    ? report.markers
     : report.markers?.filter((m: any) => m.category === activeCategory);
 
   return (
@@ -79,14 +87,32 @@ const BiologicalAgeDetail = () => {
       </div>
 
       <div className="p-4 flex flex-col gap-6 max-w-2xl mx-auto">
-        
+
+        {/* TC-030 (19): empty/partial-data state when epigenetic metrics
+            haven't been reported yet, instead of crashing on undefined reads. */}
+        {!hasCoreMetrics && (
+          <div className="bg-white rounded-3xl p-8 shadow-sm border border-stone-100 flex flex-col items-center text-center">
+            <div className="p-3 rounded-full bg-stone-100 text-stone-400 mb-4">
+              <Clock size={28} />
+            </div>
+            <h2 className="font-serif font-bold text-xl text-brand-dark mb-2">
+              Biological age pending
+            </h2>
+            <p className="text-sm text-stone-500 max-w-md">
+              Your epigenetic results aren't available yet. Once your methylation
+              panel is processed, your biological age and aging pace will appear here.
+            </p>
+          </div>
+        )}
+
         {/* Hero Bio Age Gauge */}
+        {hasCoreMetrics && (
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-stone-100 flex flex-col items-center">
           <div className="relative w-64 h-64 flex items-center justify-center mb-2">
             {/* SVG Gauge */}
             <svg className="w-full h-full transform -rotate-90" viewBox="0 0 200 200">
               {/* Background Arc */}
-              <circle 
+              <circle
                 cx="100" cy="100" r="90"
                 fill="none"
                 stroke="#f5f5f4"
@@ -96,38 +122,44 @@ const BiologicalAgeDetail = () => {
                 className="transform rotate-[135deg] origin-center"
               />
               {/* Foreground Arc */}
-              <circle 
+              <circle
                 cx="100" cy="100" r="90"
                 fill="none"
                 stroke="#06B6D4"
                 strokeWidth="12"
                 strokeLinecap="round"
                 strokeDasharray={`${arcLength} ${circumference}`}
-                strokeDashoffset={circumference - (arcLength * Math.min(bioAge / Math.max(chronoAge, 1), 1.5))}
+                strokeDashoffset={circumference - (arcLength * gaugeFill)}
                 className="transform rotate-[135deg] origin-center transition-all duration-1000 ease-out"
               />
             </svg>
-            
+
             {/* Center Text */}
             <div className="absolute flex flex-col items-center justify-center text-center">
               <span className="text-6xl font-serif font-bold text-brand-dark tracking-tighter">
-                {bioAge.toFixed(1)}
+                {(bioAge as number).toFixed(1)}
               </span>
               <span className="text-sm text-stone-500 font-medium uppercase tracking-wider mt-1">
                 years
               </span>
             </div>
           </div>
-          
+
           <div className="text-center mt-2">
-            <p className="text-stone-500 mb-1 text-sm">vs Chronological Age {chronoAge}</p>
-            <p className={`font-semibold text-lg ${diffColor}`}>
-              {diffLabel}
-            </p>
+            {typeof chronoAge === 'number' && (
+              <p className="text-stone-500 mb-1 text-sm">vs Chronological Age {chronoAge}</p>
+            )}
+            {diffLabel && (
+              <p className={`font-semibold text-lg ${diffColor}`}>
+                {diffLabel}
+              </p>
+            )}
           </div>
         </div>
+        )}
 
         {/* DunedinPACE Card */}
+        {typeof paceOfAging === 'number' && (
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-stone-100">
           <div className="flex justify-between items-start mb-6">
             <div>
@@ -141,7 +173,7 @@ const BiologicalAgeDetail = () => {
               Top 22% for age cohort
             </div>
           </div>
-          
+
           <div className="flex flex-col items-center mb-6">
             <span className="text-5xl font-bold text-brand-dark mb-2">
               {paceOfAging.toFixed(2)}
@@ -150,13 +182,13 @@ const BiologicalAgeDetail = () => {
               Aging at {Math.round(paceOfAging * 100)}% of normal speed
             </span>
           </div>
-          
+
           <div className="relative h-4 bg-stone-100 rounded-full w-full overflow-hidden">
             {/* Dashed line at 1.0 (which is 50% on 0.5-1.5 scale) */}
             <div className="absolute top-0 bottom-0 left-1/2 w-0.5 border-l-2 border-dashed border-stone-400 z-10" />
-            
+
             {/* Progress bar */}
-            <div 
+            <div
               className={`h-full ${paceColor} rounded-full`}
               style={{ width: `${Math.max(0, Math.min(100, pacePercentage))}%` }}
             />
@@ -167,67 +199,88 @@ const BiologicalAgeDetail = () => {
             <span>1.5</span>
           </div>
         </div>
+        )}
 
         {/* Epigenetic Clock Comparison */}
+        {clockScores.length > 0 && (
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-stone-100">
           <h3 className="font-serif font-bold text-brand-dark text-xl mb-6">
             Epigenetic Clocks
           </h3>
-          
+
           <div className="space-y-5">
-            {clockScores.map((clock: any, idx: number) => (
+            {clockScores.map((clock: any, idx: number) => {
+              // Schema uses `value`; keep `age` as a fallback for older fixtures.
+              const clockAge = clock.value ?? clock.age;
+              const fillPct =
+                typeof clockAge === 'number' && typeof chronoAge === 'number'
+                  ? (clockAge / Math.max(chronoAge, 1)) * 60
+                  : 0;
+              return (
               <div key={idx} className="relative">
                 <div className="flex justify-between text-sm mb-2">
                   <span className="font-medium text-stone-700">{clock.name}</span>
-                  <span className="font-bold text-brand-dark">{clock.age} yrs</span>
+                  <span className="font-bold text-brand-dark">
+                    {typeof clockAge === 'number' ? `${clockAge} yrs` : '—'}
+                  </span>
                 </div>
                 <div className="h-2.5 bg-stone-100 rounded-full w-full relative">
                   {/* Background Reference line for chrono age */}
-                  <div 
+                  <div
                     className="absolute top-[-4px] bottom-[-4px] w-0.5 border-l border-dashed border-stone-400 z-10"
                     style={{ left: '60%' }} // arbitrary visual scale where chronoAge is at 60%
                   />
-                  
+
                   {/* Fill */}
-                  <div 
+                  <div
                     className="absolute top-0 bottom-0 left-0 bg-cyan-500 rounded-full"
-                    style={{ width: `${(clock.age / chronoAge) * 60}%` }}
+                    style={{ width: `${fillPct}%` }}
                   />
                 </div>
               </div>
-            ))}
-            <div className="flex justify-center mt-4">
-              <div className="flex items-center gap-2 text-xs text-stone-500">
-                <div className="w-4 border-t border-dashed border-stone-400" />
-                <span>Chronological Age ({chronoAge})</span>
+              );
+            })}
+            {typeof chronoAge === 'number' && (
+              <div className="flex justify-center mt-4">
+                <div className="flex items-center gap-2 text-xs text-stone-500">
+                  <div className="w-4 border-t border-dashed border-stone-400" />
+                  <span>Chronological Age ({chronoAge})</span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
+        )}
 
         {/* System Ages Grid */}
+        {systemAges.length > 0 && (
         <div className="grid grid-cols-3 gap-3 md:gap-4">
           {systemAges.map((sys: any, idx: number) => {
-            const isOptimal = sys.age < chronoAge;
+            const sysAge = sys.value ?? sys.age;
+            const isOptimal =
+              typeof sysAge === 'number' && typeof chronoAge === 'number' && sysAge < chronoAge;
             const statusBg = isOptimal ? 'bg-emerald-100' : 'bg-red-100';
             const statusText = isOptimal ? 'text-emerald-700' : 'text-red-700';
-            
+
             let Icon = Activity;
-            if (sys.name.includes('Immune')) Icon = Shield;
-            else if (sys.name.includes('Metabolic')) Icon = Zap;
-            else if (sys.name.includes('Inflammation')) Icon = Flame;
-            
+            if ((sys.name || '').includes('Immune')) Icon = Shield;
+            else if ((sys.name || '').includes('Metabolic')) Icon = Zap;
+            else if ((sys.name || '').includes('Inflammation')) Icon = Flame;
+
             return (
               <div key={idx} className="bg-white rounded-2xl p-4 shadow-sm border border-stone-100 flex flex-col items-center text-center">
                 <div className={`p-2 rounded-full mb-3 ${statusBg} ${statusText}`}>
                   <Icon size={20} />
                 </div>
-                <span className="text-xl font-bold text-brand-dark mb-1">{sys.age}</span>
+                <span className="text-xl font-bold text-brand-dark mb-1">
+                  {typeof sysAge === 'number' ? sysAge : '—'}
+                </span>
                 <span className="text-xs font-medium text-stone-500 leading-tight">{sys.name}</span>
               </div>
             );
           })}
         </div>
+        )}
 
         {/* Additional Markers */}
         {filteredMarkers && filteredMarkers.length > 0 && (

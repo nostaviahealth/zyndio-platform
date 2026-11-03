@@ -54,6 +54,9 @@ dependencies:
   
   # Utilities
   crypto: ^3.0.6
+  # TC-030 item 9 (PR #29 r5): NFKC for the leaderboard name rule, matching the
+  # server's normalize(name, NFKC). Pinned exactly; MIT, no dependencies.
+  unorm_dart: 0.3.3
   intl: ^0.20.2
   flutter_svg: ^2.0.10
   image_picker: ^1.1.2

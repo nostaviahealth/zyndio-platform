@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zyndio_patient/config/theme.dart';
 import 'package:zyndio_patient/demo/data/fixtures.dart';
@@ -32,15 +33,18 @@ void main() {
       'T-BIO-01 default: latest 5.5, "−0.7 points since baseline", caveat card and history always shown',
       (tester) async {
         await tester.pumpWidget(
-            _wrap(LabTrendsView(state: LabTrendsState.defaultState())));
+          _wrap(LabTrendsView(state: LabTrendsState.defaultState())),
+        );
 
         expect(find.text('HbA1c'), findsOneWidget);
         // 5.5 appears in the hero value, the chart's y-axis label and the
         // latest history row — all three are expected, not a duplication bug.
         expect(find.text('5.5'), findsWidgets);
         expect(find.text('Within default range'), findsOneWidget);
-        expect(find.text('Oct 14, 2026 · −0.7 points since baseline (Apr 2)'),
-            findsOneWidget);
+        expect(
+          find.text('Oct 14, 2026 · −0.7 points since baseline (Apr 2)'),
+          findsOneWidget,
+        );
         expect(
           find.text(
             'These are general default ranges. Your Zyndio care team will confirm the ranges used for your care.',
@@ -55,112 +59,134 @@ void main() {
     );
 
     testWidgets(
-        'loading: shows skeletons and the segmented control, not the real values',
-        (tester) async {
-      await tester
-          .pumpWidget(_wrap(LabTrendsView(state: LabTrendsState.loading())));
+      'loading: shows skeletons and the segmented control, not the real values',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrap(LabTrendsView(state: LabTrendsState.loading())),
+        );
 
-      expect(find.text('HbA1c'), findsOneWidget);
-      expect(find.text('5.5'), findsNothing);
-      expect(find.text('6M'), findsOneWidget);
-      expect(find.text('Within default range'), findsNothing);
-    });
-
-    testWidgets(
-        'T-BIO-02 single: shows Baseline badge, "your first result" and an empty chart card',
-        (tester) async {
-      await tester
-          .pumpWidget(_wrap(LabTrendsView(state: LabTrendsState.single())));
-
-      expect(find.text('6.2'), findsOneWidget);
-      expect(find.text('Baseline'), findsOneWidget);
-      expect(find.text('Apr 2, 2026 · your first result'), findsOneWidget);
-      expect(find.text('Add another report to see a trend'), findsOneWidget);
-      expect(
-        find.text(
-            'Your care team usually orders follow-up labs. When the next result arrives, it will show here.'),
-        findsOneWidget,
-      );
-      expect(find.widgetWithText(FilledButton, 'Add a lab report'),
-          findsOneWidget);
-      // No trend for a single point: no segmented control, no chart, no history.
-      expect(find.text('6M'), findsNothing);
-    });
+        expect(find.text('HbA1c'), findsOneWidget);
+        expect(find.text('5.5'), findsNothing);
+        expect(find.text('6M'), findsOneWidget);
+        expect(find.text('Within default range'), findsNothing);
+      },
+    );
 
     testWidgets(
-        'error: shows cached data with the last-updated date and Try again, no caveat/history',
-        (tester) async {
-      await tester
-          .pumpWidget(_wrap(LabTrendsView(state: LabTrendsState.error())));
+      'T-BIO-02 single: shows Baseline badge, "your first result" and an empty chart card',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrap(LabTrendsView(state: LabTrendsState.single())),
+        );
 
-      expect(
-        find.text(
-            "Couldn't refresh. Showing results saved on this phone, last updated Oct 14, 2026."),
-        findsOneWidget,
-      );
-      expect(find.text('5.5'), findsWidgets);
-      expect(find.widgetWithText(OutlinedButton, 'Try again'), findsOneWidget);
-      expect(
-        find.text(
-          'These are general default ranges. Your Zyndio care team will confirm the ranges used for your care.',
-        ),
-        findsNothing,
-      );
-    });
+        expect(find.text('6.2'), findsOneWidget);
+        expect(find.text('Baseline'), findsOneWidget);
+        expect(find.text('Apr 2, 2026 · your first result'), findsOneWidget);
+        expect(find.text('Add another report to see a trend'), findsOneWidget);
+        expect(
+          find.text(
+            'Your care team usually orders follow-up labs. When the next result arrives, it will show here.',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.widgetWithText(FilledButton, 'Add a lab report'),
+          findsOneWidget,
+        );
+        // No trend for a single point: no segmented control, no chart, no history.
+        expect(find.text('6M'), findsNothing);
+      },
+    );
 
     testWidgets(
-        'T-BIO-02 above: uses warn (not critical) badge/banner and never recolours the line',
-        (tester) async {
-      await tester
-          .pumpWidget(_wrap(LabTrendsView(state: LabTrendsState.above())));
+      'error: shows cached data with the last-updated date and Try again, no caveat/history',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrap(LabTrendsView(state: LabTrendsState.error())),
+        );
 
-      expect(find.text('Above default range'), findsOneWidget);
-      expect(
-        find.text(
-          'This result is above the default range. Your care team will see it too. If you have questions, message them.',
-        ),
-        findsOneWidget,
-      );
-      expect(find.widgetWithText(FilledButton, 'Message care team'),
-          findsOneWidget);
+        expect(
+          find.text(
+            "Couldn't refresh. Showing results saved on this phone, last updated Oct 14, 2026.",
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('5.5'), findsWidgets);
+        expect(
+          find.widgetWithText(OutlinedButton, 'Try again'),
+          findsOneWidget,
+        );
+        expect(
+          find.text(
+            'These are general default ranges. Your Zyndio care team will confirm the ranges used for your care.',
+          ),
+          findsNothing,
+        );
+      },
+    );
 
-      final context = tester.element(find.byType(LabTrendsView));
-      final colors = Theme.of(context).extension<ZyndioColors>()!;
-      final badge = tester.widget<Container>(
-        find
-            .ancestor(
+    testWidgets(
+      'T-BIO-02 above: uses warn (not critical) badge/banner and never recolours the line',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrap(LabTrendsView(state: LabTrendsState.above())),
+        );
+
+        expect(find.text('Above default range'), findsOneWidget);
+        expect(
+          find.text(
+            'This result is above the default range. Your care team will see it too. If you have questions, message them.',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.widgetWithText(FilledButton, 'Message care team'),
+          findsOneWidget,
+        );
+
+        final context = tester.element(find.byType(LabTrendsView));
+        final colors = Theme.of(context).extension<ZyndioColors>()!;
+        final badge = tester.widget<Container>(
+          find
+              .ancestor(
                 of: find.text('Above default range'),
-                matching: find.byType(Container))
-            .first,
-      );
-      final decoration = badge.decoration! as BoxDecoration;
-      expect(decoration.color, isNot(colors.statusCriticalSubtle));
-      expect(decoration.color, colors.statusWarningSubtle);
-    });
+                matching: find.byType(Container),
+              )
+              .first,
+        );
+        final decoration = badge.decoration! as BoxDecoration;
+        expect(decoration.color, isNot(colors.statusCriticalSubtle));
+        expect(decoration.color, colors.statusWarningSubtle);
+      },
+    );
 
     testWidgets(
-        'above and default states both use the same compact Message care team pill',
-        (tester) async {
-      await tester
-          .pumpWidget(_wrap(LabTrendsView(state: LabTrendsState.above())));
-      expect(find.byType(MessageCareTeamButton), findsOneWidget);
-      final aboveWidth = tester
-          .getSize(find.widgetWithText(FilledButton, 'Message care team'))
-          .width;
-      final screenWidth = tester.getSize(find.byType(LabTrendsView)).width;
-      expect(aboveWidth, lessThan(screenWidth));
+      'above and default states both use the same compact Message care team pill',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrap(LabTrendsView(state: LabTrendsState.above())),
+        );
+        expect(find.byType(MessageCareTeamButton), findsOneWidget);
+        final aboveWidth = tester
+            .getSize(find.widgetWithText(FilledButton, 'Message care team'))
+            .width;
+        final screenWidth = tester.getSize(find.byType(LabTrendsView)).width;
+        expect(aboveWidth, lessThan(screenWidth));
 
-      await tester.pumpWidget(
-          _wrap(LabTrendsView(state: LabTrendsState.defaultState())));
-      expect(find.byType(MessageCareTeamButton), findsOneWidget);
-      final defaultWidth = tester
-          .getSize(find.widgetWithText(FilledButton, 'Message care team'))
-          .width;
-      expect(defaultWidth, lessThan(screenWidth));
-    });
+        await tester.pumpWidget(
+          _wrap(LabTrendsView(state: LabTrendsState.defaultState())),
+        );
+        expect(find.byType(MessageCareTeamButton), findsOneWidget);
+        final defaultWidth = tester
+            .getSize(find.widgetWithText(FilledButton, 'Message care team'))
+            .width;
+        expect(defaultWidth, lessThan(screenWidth));
+      },
+    );
 
-    testWidgets('no diagnosis/dosing or good/bad wording in any state',
-        (tester) async {
+    testWidgets('no diagnosis/dosing or good/bad wording in any state', (
+      tester,
+    ) async {
       final states = [
         LabTrendsState.loading(),
         LabTrendsState.defaultState(),
@@ -190,9 +216,65 @@ void main() {
       ];
       for (final state in states) {
         await tester.pumpWidget(
-            _wrap(LabTrendsView(state: state), brightness: Brightness.dark));
+          _wrap(LabTrendsView(state: state), brightness: Brightness.dark),
+        );
         expect(find.byType(LabTrendsView), findsOneWidget);
       }
+    });
+
+    // TC-030 item 5 (Ava): the HbA1c detail must keep its content out from
+    // under the transparent status bar (SafeArea) AND pin the bar's icon
+    // brightness to the canvas it sits over — the demo entrypoint sets no
+    // global overlay style, so without this the dark-mode bar is dark-on-dark.
+    testWidgets(
+      'keeps its body in a SafeArea so content never scrolls under the status bar',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrap(LabTrendsView(state: LabTrendsState.defaultState())),
+        );
+        // The SafeArea directly wraps the Scaffold body (top inset on).
+        final safeArea = tester.widget<SafeArea>(
+          find
+              .descendant(
+                of: find.byType(Scaffold),
+                matching: find.byType(SafeArea),
+              )
+              .first,
+        );
+        expect(safeArea.top, isTrue);
+      },
+    );
+
+    testWidgets(
+      'sets a transparent status bar with light-mode (dark) icon brightness',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrap(LabTrendsView(state: LabTrendsState.defaultState())),
+        );
+        final region = tester.widget<AnnotatedRegion<SystemUiOverlayStyle>>(
+          find.byType(AnnotatedRegion<SystemUiOverlayStyle>),
+        );
+        expect(region.value.statusBarColor, Colors.transparent);
+        expect(region.value.statusBarIconBrightness, Brightness.dark);
+        expect(region.value.statusBarBrightness, Brightness.light);
+      },
+    );
+
+    testWidgets('flips the status bar icon brightness to light in dark mode', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          LabTrendsView(state: LabTrendsState.defaultState()),
+          brightness: Brightness.dark,
+        ),
+      );
+      final region = tester.widget<AnnotatedRegion<SystemUiOverlayStyle>>(
+        find.byType(AnnotatedRegion<SystemUiOverlayStyle>),
+      );
+      expect(region.value.statusBarColor, Colors.transparent);
+      expect(region.value.statusBarIconBrightness, Brightness.light);
+      expect(region.value.statusBarBrightness, Brightness.dark);
     });
   });
 }

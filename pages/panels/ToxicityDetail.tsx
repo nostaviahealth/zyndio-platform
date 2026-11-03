@@ -17,7 +17,11 @@ export default function ToxicityDetail() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const report = TOXICITY_REPORT;
-  const score = report.panelMetadata?.toxinLoadScore || 0;
+  // TC-030 (19): tolerate a QA/real report with no markers or no score.
+  const markers = Array.isArray(report.markers) ? report.markers : [];
+  const score = typeof report.panelMetadata?.toxinLoadScore === 'number'
+    ? report.panelMetadata.toxinLoadScore
+    : 0;
 
   // Color logic
   let scoreColor = '#10B981'; // emerald
@@ -35,15 +39,15 @@ export default function ToxicityDetail() {
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (score / 100) * circumference;
 
-  const categories = ['All', ...Array.from(new Set(report.markers.map(m => m.category || 'Other')))];
+  const categories = ['All', ...Array.from(new Set(markers.map(m => m.category || 'Other')))];
 
   const filteredMarkers = useMemo(() => {
-    return report.markers.filter(m => {
-      const matchesSearch = m.name.toLowerCase().includes(searchQuery.toLowerCase());
+    return markers.filter(m => {
+      const matchesSearch = (m.name || '').toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = activeCategory === 'All' || m.category === activeCategory;
       return matchesSearch && matchesCategory;
     });
-  }, [report.markers, searchQuery, activeCategory]);
+  }, [markers, searchQuery, activeCategory]);
 
   return (
     <div className="flex flex-col gap-4 md:gap-6 pb-20">
@@ -118,8 +122,21 @@ export default function ToxicityDetail() {
       {/* Detection Matrix */}
       <div className="bg-white rounded-2xl md:rounded-3xl shadow-sm border border-stone-100 p-6">
         <h3 className="font-serif font-bold text-brand-dark mb-4">Detection Matrix</h3>
+        {/* TC-030 (19): empty/partial-data state when no toxins were reported. */}
+        {markers.length === 0 ? (
+          <div className="flex flex-col items-center text-center py-6">
+            <div className="p-3 rounded-full bg-stone-100 text-stone-400 mb-4">
+              <Activity className="w-7 h-7" />
+            </div>
+            <h4 className="font-serif font-bold text-brand-dark mb-2">No toxins reported yet</h4>
+            <p className="text-sm text-stone-500 max-w-md">
+              Your toxicity results aren't available yet. Once your panel is
+              processed, detected and cleared toxins will appear here.
+            </p>
+          </div>
+        ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-          {report.markers.map((marker, idx) => {
+          {markers.map((marker, idx) => {
             const isAbnormal = marker.status === 'Abnormal';
             return (
               <div 
@@ -150,6 +167,7 @@ export default function ToxicityDetail() {
             );
           })}
         </div>
+        )}
       </div>
 
       {/* Details Section */}

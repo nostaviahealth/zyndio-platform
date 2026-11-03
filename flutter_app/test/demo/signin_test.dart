@@ -7,6 +7,8 @@ import 'package:zyndio_patient/demo/router/demo_state.dart';
 import 'package:zyndio_patient/demo/screens/signin/signin_state.dart';
 import 'package:zyndio_patient/demo/screens/signin/signin_view.dart';
 
+void _noop() {}
+
 Widget _wrap(Widget child, {Brightness brightness = Brightness.light}) {
   return MaterialApp(
     theme: brightness == Brightness.light ? BrandTheme.lightTheme : BrandTheme.darkTheme,
@@ -65,10 +67,15 @@ void main() {
       expect(find.textContaining('New to Zyndio?'), findsNothing);
     });
 
-    testWidgets('locked: shows the 15-minute lockout copy', (tester) async {
-      await tester.pumpWidget(_wrap(SignInView(state: SignInState.locked())));
+    testWidgets('locked: shows the countdown lockout copy with a next step', (tester) async {
+      // TC-030 item 14: the banner now reports the real remaining minutes and
+      // offers an alternative, replacing the fixed "Try again in 15 minutes."
+      await tester.pumpWidget(_wrap(SignInView(state: SignInState.locked(minutesRemaining: 12))));
 
-      expect(find.text('Too many attempts. Try again in 15 minutes.'), findsOneWidget);
+      expect(
+        find.text('Too many attempts. Try again in 12 min, or contact your care team.'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('offline: shows the offline banner and still allows sending', (tester) async {
@@ -112,13 +119,91 @@ void main() {
             email: 'jordan.rivera@example.com',
             code: '000000',
             isLocked: true,
+            lockedMinutesRemaining: 15,
           ),
         )),
       );
 
       expect(find.text('Enter your code'), findsOneWidget);
       expect(find.byKey(const Key('signin-code-locked')), findsOneWidget);
-      expect(find.text('Too many attempts. Try again in 15 minutes.'), findsOneWidget);
+      // TC-030 item 14: countdown copy with a next step, not "15 minutes".
+      expect(
+        find.text('Too many attempts. Try again in 15 min, or contact your care team.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('TC-030 item 13: the inline code error is wrapped in a live region', (tester) async {
+      // Fail-first: before the fix the error was a plain Text, so a screen
+      // reader didn't announce "That code isn't right..." when it appeared.
+      await tester.pumpWidget(
+        _wrap(const SignInView(
+          state: SignInState(
+            stage: SignInStage.codeEntry,
+            email: 'jordan.rivera@example.com',
+            code: '000000',
+            errorText: "That code isn't right. Check it and try again.",
+          ),
+        )),
+      );
+
+      final liveRegion = tester.widget<Semantics>(
+        find.ancestor(
+          of: find.byKey(const Key('signin-code-error')),
+          matching: find.byType(Semantics),
+        ).first,
+      );
+      expect(liveRegion.properties.liveRegion, isTrue);
+    });
+
+    testWidgets('TC-030 item 14: Continue and "Send a new code" are disabled while locked', (tester) async {
+      // Fail-first: before the fix both buttons stayed enabled while locked,
+      // so a tap still fired (and looked live) with nothing it could do.
+      await tester.pumpWidget(
+        _wrap(const SignInView(
+          state: SignInState(
+            stage: SignInStage.codeEntry,
+            email: 'jordan.rivera@example.com',
+            code: '000000',
+            isLocked: true,
+            lockedMinutesRemaining: 15,
+          ),
+          onContinue: _noop,
+          onSendNewCode: _noop,
+        )),
+      );
+
+      expect(
+        tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Continue')).onPressed,
+        isNull,
+      );
+      expect(
+        tester.widget<OutlinedButton>(find.widgetWithText(OutlinedButton, 'Send a new code')).onPressed,
+        isNull,
+      );
+    });
+
+    testWidgets('TC-030 item 14: Continue and "Send a new code" stay enabled when not locked', (tester) async {
+      await tester.pumpWidget(
+        _wrap(const SignInView(
+          state: SignInState(
+            stage: SignInStage.codeEntry,
+            email: 'jordan.rivera@example.com',
+            code: '000000',
+          ),
+          onContinue: _noop,
+          onSendNewCode: _noop,
+        )),
+      );
+
+      expect(
+        tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Continue')).onPressed,
+        isNotNull,
+      );
+      expect(
+        tester.widget<OutlinedButton>(find.widgetWithText(OutlinedButton, 'Send a new code')).onPressed,
+        isNotNull,
+      );
     });
 
     testWidgets('every state builds in dark mode too', (tester) async {
@@ -216,11 +301,81 @@ void main() {
     // 5th wrong code locks; the code screen must say so, and keep saying so.
     for (var i = 0; i < 2; i++) {
       await tester.enterText(find.byType(TextField), '000000');
-      await tester.tap(find.text('Continue'));
+      await tester.tap(find.text('Continue'), warnIfMissed: false);
       await tester.pumpAndSettle();
       expect(find.text('Enter your code'), findsOneWidget);
       expect(find.byKey(const Key('signin-code-locked')), findsOneWidget, reason: 'try ${5 + i}');
-      expect(find.text('Too many attempts. Try again in 15 minutes.'), findsOneWidget);
+      // TC-030 item 14: real countdown (15 min at lock) plus a next step.
+      expect(
+        find.text('Too many attempts. Try again in 15 min, or contact your care team.'),
+        findsOneWidget,
+      );
     }
+  });
+
+  // TC-030 item 16 (Clara L-r2-2): tap Continue twice on an unchanged full
+  // wrong code. The second tap must be handled correctly - it spends a real
+  // attempt - and, once the 5 attempts lock the account, Continue must be
+  // disabled rather than keep firing.
+  testWidgets('TC-030 item 16: tapping Continue twice on an unchanged code spends two attempts and then locks', (tester) async {
+    tester.view.physicalSize = const Size(800, 2000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: DemoApp(initialParams: DemoRouteParams(screen: 'signin')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('signin-email-field')), 'jordan.rivera@example.com');
+    await tester.pump();
+    await tester.tap(find.text('Send code'));
+    await tester.pump();
+    expect(find.text('Enter your code'), findsOneWidget);
+
+    // Type the wrong code once, then tap Continue repeatedly WITHOUT editing
+    // it. Each tap is a fresh attempt, so five taps lock the account.
+    await tester.enterText(find.byType(TextField), '000000');
+    for (var i = 0; i < 4; i++) {
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining("isn't right"), findsOneWidget, reason: 'tap ${i + 1}');
+      expect(find.byKey(const Key('signin-code-locked')), findsNothing);
+    }
+    // 5th tap (still the same unchanged code) locks.
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('signin-code-locked')), findsOneWidget);
+
+    // Fail-first for item 14: once locked, Continue is disabled, so a further
+    // tap can't fire. On the old code the button stayed live.
+    expect(
+      tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Continue')).onPressed,
+      isNull,
+    );
+  });
+
+  // TC-030 item 17 (Clara L-r2-3): while locked, submitting an incomplete
+  // code must render only the lock banner, not also "Enter the 6-digit code."
+  // Driven off a locked state built from a short code to prove the view shows
+  // the banner alone - the controller guard is covered in the controller test.
+  testWidgets('TC-030 item 17: a locked code step with a short code shows only the lock banner', (tester) async {
+    await tester.pumpWidget(
+      _wrap(const SignInView(
+        state: SignInState(
+          stage: SignInStage.codeEntry,
+          email: 'jordan.rivera@example.com',
+          code: '12',
+          isLocked: true,
+          lockedMinutesRemaining: 15,
+        ),
+      )),
+    );
+
+    expect(find.byKey(const Key('signin-code-locked')), findsOneWidget);
+    expect(find.text('Enter the 6-digit code.'), findsNothing);
   });
 }
