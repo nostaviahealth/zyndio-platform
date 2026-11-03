@@ -1,0 +1,52 @@
+ set_config 
+------------
+ true
+(1 row)
+
+      ?column?       |                org_id                | count 
+---------------------+--------------------------------------+-------
+ patients_per_clinic | 0000c040-0000-0000-0000-00000000000a | 10000
+ patients_per_clinic | 0000c040-0000-0000-0000-00000000000b | 10000
+(2 rows)
+
+ ?column? | uuid_compare 
+----------+--------------
+ policy   | f
+(1 row)
+
+                                         set_config                                         
+--------------------------------------------------------------------------------------------
+ {"sub" : "0000c040-0000-0000-0000-0000000a0002", "role" : "authenticated", "aal" : "aal2"}
+(1 row)
+
+       what       |  n  | allowed | p50_ms  | p95_ms  | p99_ms  | max_ms  | budget 
+------------------+-----+---------+---------+---------+---------+---------+--------
+ own_clinic_signs | 500 |     500 | 176.873 | 194.579 | 220.678 | 250.857 | FAIL
+(1 row)
+
+         ?column?          | count 
+---------------------------+-------
+ other_clinic_file_visible |     0
+(1 row)
+
+         ?column?         | count 
+--------------------------+-------
+ non_uuid_objects_visible |     0
+(1 row)
+
+                                                                                                                                                                                                                                                QUERY PLAN                                                                                                                                                                                                                                                 
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Index Scan using name_prefix_search on objects (actual time=167.873..167.875 rows=1 loops=1)
+   Index Cond: (name = '0000c040-0000-4000-9000-000000000002/c168a6d2-4681-4330-a031-8f31afdb2ede.pdf'::text)
+   Filter: ((bucket_id = 'lab-reports'::text) AND ((has_aal2() AND ("current_role"() = ANY ('{physician,care_coordinator}'::app_role[])) AND (SubPlan 1) AND (hashed SubPlan 4)) OR ((split_part(name, '/'::text, 1) = ((COALESCE(NULLIF(current_setting('request.jwt.claim.sub'::text, true), ''::text), ((NULLIF(current_setting('request.jwt.claims'::text, true), ''::text))::jsonb ->> 'sub'::text)))::uuid)::text) AND current_email_confirmed() AND current_patient_linked())))
+   SubPlan 1
+     ->  Index Scan using lab_reports_pdf_path_idx on lab_reports r (actual time=0.149..0.149 rows=1 loops=1)
+           Index Cond: (pdf_path = objects.name)
+           Filter: ((((org_id = current_org_id()) AND has_aal2() AND ("current_role"() = ANY ('{physician,care_coordinator}'::app_role[]))) OR ((patient_id = (COALESCE(NULLIF(current_setting('request.jwt.claim.sub'::text, true), ''::text), ((NULLIF(current_setting('request.jwt.claims'::text, true), ''::text))::jsonb ->> 'sub'::text)))::uuid) AND current_email_confirmed() AND current_patient_linked())) AND (org_id = current_org_id()))
+   SubPlan 4
+     ->  Index Scan using patients_org_id_idx on patients p (actual time=0.123..165.015 rows=10000 loops=1)
+           Index Cond: (org_id = current_org_id())
+           Filter: (((org_id = current_org_id()) AND has_aal2() AND ("current_role"() = ANY ('{physician,care_coordinator}'::app_role[]))) OR ((org_id = current_org_id()) AND has_aal2() AND ("current_role"() = 'read_only'::app_role)) OR ((id = (COALESCE(NULLIF(current_setting('request.jwt.claim.sub'::text, true), ''::text), ((NULLIF(current_setting('request.jwt.claims'::text, true), ''::text))::jsonb ->> 'sub'::text)))::uuid) AND current_email_confirmed() AND current_patient_linked()))
+ Planning Time: 0.902 ms
+ Execution Time: 167.914 ms
+(13 rows)
