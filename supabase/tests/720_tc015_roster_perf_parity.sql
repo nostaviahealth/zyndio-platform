@@ -241,6 +241,11 @@ create function public._tc720_flags(p uuid) returns text[]
 language sql stable security invoker set search_path = pg_catalog, public as $$
   select flags from public.physician_roster_base() where patient_id = p;
 $$;
+-- TC-040 (#34 M1): functions postgres creates no longer get PUBLIC EXECUTE by
+-- default, so test-only helpers called after a role switch are granted explicitly.
+grant execute on function public._tc720_oracle_base(), public._tc720_oracle_roster(text, text, text, integer, integer),
+  public._tc720_oracle_chips(), public._tc720_new_sql(text, text, text, integer, integer),
+  public._tc720_ora_sql(text, text, text, integer, integer), public._tc720_flags(uuid) to authenticated;
 
 -- ===========================================================================
 -- 1. Structural assertions (FAIL-FIRST: these fail on the current code).

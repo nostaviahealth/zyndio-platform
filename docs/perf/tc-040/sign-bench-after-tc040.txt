@@ -1,0 +1,52 @@
+ set_config 
+------------
+ true
+(1 row)
+
+      ?column?       |                org_id                | count 
+---------------------+--------------------------------------+-------
+ patients_per_clinic | 0000c040-0000-0000-0000-00000000000a | 10000
+ patients_per_clinic | 0000c040-0000-0000-0000-00000000000b | 10000
+(2 rows)
+
+ ?column? | uuid_compare 
+----------+--------------
+ policy   | t
+(1 row)
+
+                                         set_config                                         
+--------------------------------------------------------------------------------------------
+ {"sub" : "0000c040-0000-0000-0000-0000000a0002", "role" : "authenticated", "aal" : "aal2"}
+(1 row)
+
+       what       |  n  | allowed | p50_ms | p95_ms | p99_ms | max_ms |          budget          
+------------------+-----+---------+--------+--------+--------+--------+--------------------------
+ own_clinic_signs | 500 |     500 |  1.133 |  1.682 |  2.007 |  2.193 | PASS (every sign < 5 ms)
+(1 row)
+
+         ?column?          | count 
+---------------------------+-------
+ other_clinic_file_visible |     0
+(1 row)
+
+         ?column?         | count 
+--------------------------+-------
+ non_uuid_objects_visible |     0
+(1 row)
+
+                                                                                                                                                                                                                                                                 QUERY PLAN                                                                                                                                                                                                                                                                  
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Index Scan using name_prefix_search on objects (actual time=0.361..0.362 rows=1 loops=1)
+   Index Cond: (name = '0000c040-0000-4000-9000-000000000002/74276801-1bc1-4c88-8d80-326b0be1d8e4.pdf'::text)
+   Filter: ((bucket_id = 'lab-reports'::text) AND ((has_aal2() AND ("current_role"() = ANY ('{physician,care_coordinator}'::app_role[])) AND (SubPlan 1) AND (SubPlan 3)) OR ((split_part(name, '/'::text, 1) = ((COALESCE(NULLIF(current_setting('request.jwt.claim.sub'::text, true), ''::text), ((NULLIF(current_setting('request.jwt.claims'::text, true), ''::text))::jsonb ->> 'sub'::text)))::uuid)::text) AND current_email_confirmed() AND current_patient_linked())))
+   SubPlan 1
+     ->  Index Scan using lab_reports_pdf_path_idx on lab_reports r (actual time=0.140..0.140 rows=1 loops=1)
+           Index Cond: (pdf_path = objects.name)
+           Filter: ((((org_id = current_org_id()) AND has_aal2() AND ("current_role"() = ANY ('{physician,care_coordinator}'::app_role[]))) OR ((patient_id = (COALESCE(NULLIF(current_setting('request.jwt.claim.sub'::text, true), ''::text), ((NULLIF(current_setting('request.jwt.claims'::text, true), ''::text))::jsonb ->> 'sub'::text)))::uuid) AND current_email_confirmed() AND current_patient_linked())) AND (org_id = current_org_id()))
+   SubPlan 3
+     ->  Index Scan using patients_pkey on patients p (actual time=0.133..0.133 rows=1 loops=1)
+           Index Cond: (id = CASE WHEN (split_part(objects.name, '/'::text, 1) ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) THEN (split_part(objects.name, '/'::text, 1))::uuid ELSE NULL::uuid END)
+           Filter: ((((org_id = current_org_id()) AND has_aal2() AND ("current_role"() = ANY ('{physician,care_coordinator}'::app_role[]))) OR ((org_id = current_org_id()) AND has_aal2() AND ("current_role"() = 'read_only'::app_role)) OR ((id = (COALESCE(NULLIF(current_setting('request.jwt.claim.sub'::text, true), ''::text), ((NULLIF(current_setting('request.jwt.claims'::text, true), ''::text))::jsonb ->> 'sub'::text)))::uuid) AND current_email_confirmed() AND current_patient_linked())) AND (org_id = current_org_id()))
+ Planning Time: 0.892 ms
+ Execution Time: 0.386 ms
+(13 rows)

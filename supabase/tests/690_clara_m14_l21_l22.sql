@@ -484,7 +484,25 @@ select lives_ok(
 );
 reset role;
 
+-- TC-040: _bind_patient_record is internal (EXECUTE revoked from anon /
+-- authenticated; only definer RPCs and service_role call it). The signed-in
+-- patient can't call it at all now; the org-mismatch guard inside it is
+-- still checked directly, as service_role.
 select tests.authenticate_as('00000000-0000-0000-0000-0000000d2201');
+select throws_ok(
+  $$select public._bind_patient_record(
+      '00000000-0000-0000-0000-0000000d2201',
+      '00000000-0000-0000-0000-00000000000b',
+      'th_test_l22_orgb_direct',
+      'clinic_code'
+    )$$,
+  '42501',
+  null,
+  'TC-040: a signed-in user cannot call _bind_patient_record directly'
+);
+reset role;
+select set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+set local role service_role;
 select throws_ok(
   $$select public._bind_patient_record(
       '00000000-0000-0000-0000-0000000d2201',
@@ -496,6 +514,8 @@ select throws_ok(
   'patient record belongs to another clinic',
   'L22: direct _bind_patient_record refuses cross-clinic org_id mismatch'
 );
+reset role;
+select tests.authenticate_as('00000000-0000-0000-0000-0000000d2201');
 
 select is(
   (public.redeem_clinic_link_code('L22ORGB1')->>'error'),

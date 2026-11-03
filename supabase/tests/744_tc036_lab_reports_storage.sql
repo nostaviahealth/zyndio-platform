@@ -154,6 +154,9 @@ reset role;
 -- ---------------------------------------------------------------------------
 create or replace function pg_temp.visible() returns text[] language sql as $$
   select coalesce(array_agg(name order by name), '{}') from storage.objects where bucket_id = 'lab-reports' $$;
+-- TC-040 (#34 M1): functions postgres creates no longer get PUBLIC EXECUTE by
+-- default, so test-only helpers called after a role switch are granted explicitly.
+grant execute on function pg_temp.visible() to authenticated;
 
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal2');
 select is(pg_temp.visible(),
