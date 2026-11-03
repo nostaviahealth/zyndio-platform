@@ -33,14 +33,17 @@ select is(
   '00000000-0000-0000-0000-00000000000a',
   'TC-030: the new patients row is bound to the coordinator''s own org'
 );
+reset role;
+select set_config('request.jwt.claims', '', true);
+-- Count the link AFTER reset role: patient_record_links' only RLS policy is
+-- app_user_id = auth.uid(), so as the still-authenticated coordinator the row
+-- is invisible (count 0) even though it exists. As postgres it is visible.
 select is(
   (select count(*)::int from public.patient_record_links
      where app_user_id = '00000000-0000-0000-0000-0000000a9001' and status = 'active'),
   1,
   'TC-030: create_patient_record still writes the active clinic-provisioned link'
 );
-reset role;
-select set_config('request.jwt.claims', '', true);
 select is(
   (select count(*)::int from public.audit_log
      where event_type = 'patient_created'
