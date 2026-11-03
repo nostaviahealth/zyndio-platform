@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show SemanticsAction, Tristate;
 
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -295,6 +296,28 @@ void main() {
       );
       handle.dispose();
     });
+
+    // M2 (Ava, PR #30 review): the chart reads its colours from the theme.
+    for (final b in Brightness.values) {
+      testWidgets('M2: chart line and point colours come from the $b tokens',
+          (tester) async {
+        await _pump(tester, b: b, reports: _reports());
+        final t = b == Brightness.dark ? ZyndioTc025Colors.dark : ZyndioTc025Colors.light;
+        final chart = tester.widget<LineChart>(find.byType(LineChart));
+        final bar = chart.data.lineBarsData.single;
+        expect(bar.gradient!.colors, [t.chartLineStart, t.chartLineEnd]);
+        final painter = bar.dotData.getDotPainter(bar.spots.first, 0, bar, 0)
+            as FlDotCirclePainter;
+        expect(painter.strokeColor, t.chartPointStroke);
+        if (b == Brightness.dark) {
+          expect(painter.strokeColor, const Color(0xFF6F86FF));
+          expect(bar.gradient!.colors.last, const Color(0xFF8A66FF));
+        } else {
+          expect(painter.strokeColor, const Color(0xFF3D5BF5));
+          expect(bar.gradient!.colors.last, const Color(0xFF7444F0));
+        }
+      });
+    }
 
     testWidgets('chart renders in dark mode', (tester) async {
       await _pump(tester, b: Brightness.dark, reports: _reports());

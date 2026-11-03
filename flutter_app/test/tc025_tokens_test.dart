@@ -101,6 +101,32 @@ void main() {
           greaterThan(4.5));
     });
 
+    // M2 (Ava, PR #30 review): dark chart marks were < 3:1 on the lab band.
+    test('M2: chart tokens — light unchanged, dark lifted', () {
+      const l = ZyndioTc025Colors.light;
+      expect(l.chartLineStart, const Color(0xFF0B6FD6));
+      expect(l.chartLineEnd, const Color(0xFF7444F0));
+      expect(l.chartPointStroke, const Color(0xFF3D5BF5));
+      const d = ZyndioTc025Colors.dark;
+      expect(d.chartLineStart, const Color(0xFF0B6FD6));
+      expect(d.chartLineEnd, const Color(0xFF8A66FF));
+      expect(d.chartPointStroke, const Color(0xFF6F86FF));
+    });
+
+    test('M2: dark chart marks ≥ 3:1 on the lab band and the surface (1.4.11)', () {
+      const d = ZyndioTc025Colors.dark;
+      const surface = Color(0xFF10141F);
+      for (final mark in [d.chartLineStart, d.chartLineEnd, d.chartPointStroke]) {
+        expect(_contrast(mark, d.badgeActiveBg), greaterThanOrEqualTo(3.0),
+            reason: '$mark on band');
+        expect(_contrast(mark, surface), greaterThanOrEqualTo(3.0),
+            reason: '$mark on surface');
+      }
+      // Ava's measured values.
+      expect(_contrast(d.chartPointStroke, d.badgeActiveBg), closeTo(4.77, 0.02));
+      expect(_contrast(d.chartLineEnd, d.badgeActiveBg), closeTo(3.96, 0.02));
+    });
+
     test('sanity: contrast helper gives 21:1 for black on white', () {
       expect(_contrast(const Color(0xFF000000), const Color(0xFFFFFFFF)),
           closeTo(21.0, 0.1));

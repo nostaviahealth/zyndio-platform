@@ -728,8 +728,8 @@ class _BiomarkerTrendChart extends StatelessWidget {
                 isCurved: false,
                 barWidth: 3,
                 isStrokeCapRound: true,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF0B6FD6), Color(0xFF7444F0)],
+                gradient: LinearGradient(
+                  colors: [z.chartLineStart, z.chartLineEnd],
                 ),
                 dotData: FlDotData(
                   show: true,
@@ -737,7 +737,7 @@ class _BiomarkerTrendChart extends StatelessWidget {
                     radius: 5,
                     color: c.bgSurface,
                     strokeWidth: 2.5,
-                    strokeColor: const Color(0xFF3D5BF5),
+                    strokeColor: z.chartPointStroke,
                   ),
                 ),
                 belowBarData: BarAreaData(
