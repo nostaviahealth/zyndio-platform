@@ -482,10 +482,13 @@ void main() {
       expect(find.text('Earlier results used a different unit.'), findsOneWidget);
       expect(find.bySemanticsLabel(RegExp('Earlier results used a different unit')),
           findsOneWidget);
-      // The text alternative still lists every reading with its own unit.
+      // Ava r3 M5: the text alternative lists only the plotted (latest-unit)
+      // readings, not the dropped mg/dL ones.
       expect(
-          find.bySemanticsLabel(RegExp(r'90 mg/dL on 2026-01-01.*5\.4 mmol/L on 2026-09-01')),
+          find.bySemanticsLabel(
+              RegExp(r'Glucose trend: 5\.0 mmol/L on 2026-06-01, 5\.4 mmol/L on 2026-09-01\.')),
           findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('mg/dL')), findsNothing);
       handle.dispose();
     });
 
@@ -530,6 +533,103 @@ void main() {
       final chart = tester.widget<LineChart>(find.byType(LineChart));
       expect(chart.data.lineBarsData.single.spots.map((s) => s.y).toList(), [90.0, 99.0]);
       expect(find.text('Earlier results used a different unit.'), findsOneWidget);
+    });
+
+    // Ava r3 M5 (closes Clara TC-034 item 55): with mixed units, dropped
+    // earlier-unit readings appear nowhere: not in the screen-reader trend,
+    // not in the baseline caption.
+    testWidgets('M5: mixed units: screen-reader trend lists only plotted readings',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await metabolic(tester, glucose([
+        ('2026-01-01', '90', 'mg/dL'),
+        ('2026-03-01', '95', 'mg/dL'),
+        ('2026-06-01', '5.0', 'mmol/L'),
+        ('2026-09-01', '5.4', 'mmol/L'),
+      ]));
+      final readout = find.bySemanticsLabel(RegExp('^Glucose, 5\\.4 mmol/L'));
+      expect(readout, findsOneWidget);
+      final label = tester.getSemantics(readout).label;
+      expect(label, contains('Glucose trend: 5.0 mmol/L on 2026-06-01, 5.4 mmol/L on 2026-09-01.'));
+      expect(label.contains('mg/dL'), isFalse, reason: label);
+      expect(label.contains('2026-01-01'), isFalse, reason: label);
+      expect(label.contains('2026-03-01'), isFalse, reason: label);
+      handle.dispose();
+    });
+
+    testWidgets('M5: mixed units: baseline caption is the first plotted reading',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await metabolic(tester, glucose([
+        ('2026-01-01', '90', 'mg/dL'),
+        ('2026-06-01', '5.0', 'mmol/L'),
+        ('2026-09-01', '5.4', 'mmol/L'),
+      ]));
+      expect(find.text('Baseline: 5.0 mmol/L · 2026-06-01'), findsOneWidget);
+      expect(find.textContaining('mg/dL'), findsNothing);
+      expect(find.bySemanticsLabel(RegExp('Baseline: 5\\.0 mmol/L · 2026-06-01')),
+          findsOneWidget);
+      expect(find.text('Earlier results used a different unit.'), findsOneWidget);
+      handle.dispose();
+    });
+
+    testWidgets('M5: mixed units, one plotted reading: first-result layout + unit caption',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await metabolic(tester, glucose([
+        ('2026-01-01', '90', 'mg/dL'),
+        ('2026-03-01', '95', 'mg/dL'),
+        ('2026-09-01', '5.4', 'mmol/L'),
+      ]));
+      expect(
+          find.text('First result · 2026-09-01. Your trend appears after your next test.'),
+          findsOneWidget);
+      expect(find.textContaining('Baseline: '), findsNothing);
+      expect(find.text('Earlier results used a different unit.'), findsOneWidget);
+      final chart = tester.widget<LineChart>(find.byType(LineChart));
+      expect(chart.data.lineBarsData.single.spots.map((s) => s.y).toList(), [5.4]);
+      expect(find.textContaining(RegExp('[↑↓]|Stable')), findsNothing);
+      expect(find.textContaining('mg/dL'), findsNothing);
+      expect(find.bySemanticsLabel(RegExp('mg/dL')), findsNothing);
+      handle.dispose();
+    });
+
+    testWidgets('M5: a middle reading in another unit is left out of the readout too',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await metabolic(tester, glucose([
+        ('2026-01-01', '90', 'mg/dL'),
+        ('2026-03-01', '5.0', 'mmol/L'),
+        ('2026-09-01', '99', 'mg/dL'),
+      ]));
+      expect(find.text('↑ +10%'), findsOneWidget);
+      expect(find.text('Baseline: 90 mg/dL · 2026-01-01'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('mmol/L')), findsNothing);
+      expect(
+          find.bySemanticsLabel(
+              RegExp(r'Glucose trend: 90 mg/dL on 2026-01-01, 99 mg/dL on 2026-09-01\.')),
+          findsOneWidget);
+      handle.dispose();
+    });
+
+    testWidgets('M5 guard: same units keep every reading, the real baseline, no caption',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await metabolic(tester, glucose([
+        ('2026-01-01', '90', 'mg/dL'),
+        ('2026-03-01', '95', 'mg/dL'),
+        ('2026-09-01', '99', 'mg/dL'),
+      ]));
+      expect(find.text('Baseline: 90 mg/dL · 2026-01-01'), findsOneWidget);
+      expect(find.textContaining('First result'), findsNothing);
+      expect(find.text('Earlier results used a different unit.'), findsNothing);
+      expect(
+          find.bySemanticsLabel(RegExp(
+              r'Glucose trend: 90 mg/dL on 2026-01-01, 95 mg/dL on 2026-03-01, 99 mg/dL on 2026-09-01\.')),
+          findsOneWidget);
+      final chart = tester.widget<LineChart>(find.byType(LineChart));
+      expect(chart.data.lineBarsData.single.spots.map((s) => s.y).toList(), [90.0, 95.0, 99.0]);
+      handle.dispose();
     });
 
     testWidgets('a non-finite value does not throw in the chart or the delta',

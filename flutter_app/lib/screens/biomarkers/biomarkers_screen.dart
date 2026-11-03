@@ -432,11 +432,16 @@ class _BiomarkerHero extends StatelessWidget {
     final band = referenceBandText(m);
     final delta = trendDeltaText(trend);
     final deltaSpoken = trendDeltaSpoken(trend);
-    final altText = trendTextAlternative(m.name, trend);
-    final baseline = baselineCaptionText(trend);
-    final firstResult = firstResultCaptionText(trend);
     final latestDate = trend.isEmpty ? '' : trend.last.date;
     final plotted = chartReadings(trend);
+    // Ava r3 M5: with mixed units, readings in an earlier unit appear nowhere
+    // (screen-reader trend, baseline, first-result) — only the plotted,
+    // latest-unit readings. The delta above still uses the overall first and
+    // last readings, so it is absent whenever those units differ.
+    final shown = plotted.length < trend.length ? plotted : trend;
+    final altText = trendTextAlternative(m.name, shown);
+    final baseline = baselineCaptionText(shown);
+    final firstResult = firstResultCaptionText(shown);
     final hasChart = plotted.any((r) => parseMarkerValue(r.marker.value) != null);
     final unitCaption = hasChart ? mixedUnitCaptionText(trend) : null;
     // Baseline caption: unchanged from before PR #30 r2.
