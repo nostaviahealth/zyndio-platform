@@ -13,11 +13,16 @@ import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/reset_password_screen.dart';
 import '../screens/auth/delete_account_screen.dart';
 import '../screens/auth/link_record_screen.dart';
-import '../screens/home/home_screen.dart'; // Preserved but unreferenced
 
 import '../screens/health_data/health_data_screen.dart';
 
 import '../screens/health_data/lab_report_upload_screen.dart';
+
+import '../screens/today/today_screen.dart';
+import '../screens/progress/progress_screen.dart';
+import '../screens/biomarkers/biomarkers_screen.dart';
+import '../screens/care/care_screen.dart';
+import '../providers/feature_flags_provider.dart';
 
 import '../screens/protocol/protocol_screen.dart';
 import '../screens/protocol/protocols_list_screen.dart';
@@ -39,7 +44,6 @@ import '../screens/settings/leagues_screen.dart'; // <--- Added Import
 import '../screens/lens/lens_screen.dart';
 import '../screens/notifications/notification_screen.dart';
 import '../screens/common/coming_soon_screen.dart'; // <--- Added Import
-import '../screens/wearables/wearable_dashboard_screen.dart'; // <--- Added Import
 import '../screens/settings/timeline_history_screen.dart';
 import '../screens/settings/nutrition_goals_screen.dart';
 import '../screens/settings/ai_memories_screen.dart';
@@ -54,6 +58,25 @@ import '../screens/appointments/doctor_detail_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
+/// Pure TC-025 redirect rules. Returns the path to redirect to, or null to stay.
+///
+/// * With [patientExtrasEnabled] off (the default), Shop / Meditate / Cycle
+///   deep links land on Today (specs §11, A4) — no error screen, nothing deleted.
+/// * The old tab paths keep working as redirects to their new homes (A3).
+String? tc025Redirect(String loc, {required bool patientExtrasEnabled}) {
+  if (!patientExtrasEnabled &&
+      (loc == '/shop' ||
+          loc.startsWith('/shop/') ||
+          loc == '/meditate' ||
+          loc == '/cycle')) {
+    return '/';
+  }
+  if (loc == '/protocol') return '/my-plan';
+  if (loc == '/health_data') return '/biomarkers';
+  if (loc == '/wearables') return '/';
+  return null;
+}
+
 /// App Router Configuration
 /// Matches the React app routing structure
 final routerProvider = Provider<GoRouter>((ref) {
@@ -62,6 +85,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   final isLoggedIn = ref.watch(authStateProvider.select((v) => v.value != null));
   final isDemoMode = ref.watch(isDemoModeProvider);
   final aiConsent = ref.watch(aiConsentProvider);
+  final flags = ref.watch(featureFlagsProvider);
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
@@ -72,6 +96,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         AnalyticsService().observer!,
     ],
     redirect: (context, state) {
+      // TC-025 legacy-path + patient-extras redirects (A3/A4).
+      final tc = tc025Redirect(state.matchedLocation,
+          patientExtrasEnabled: flags.patientExtrasEnabled);
+      if (tc != null) return tc;
+
       // In demo mode, always allow access (skip auth check)
       if (isDemoMode) {
         return null;
@@ -157,7 +186,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const LinkRecordScreen(),
       ),
 
-      // Main app routes with bottom navigation shell
+      // Main app routes with the 5-tab bottom navigation shell (TC-025).
+      // Branch order must match widgets/main_shell.dart _kTabs:
+      // 0 Today · 1 Progress · 2 Biomarkers · 3 My Plan · 4 Care.
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) => MainShell(navigationShell: navigationShell),
         branches: [
@@ -167,7 +198,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: '/',
                 name: 'home',
                 pageBuilder: (context, state) => NoTransitionPage(
-                  child: const HomeScreen(),
+                  child: const TodayScreen(),
                 ),
               ),
             ],
@@ -175,8 +206,30 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/protocol',
-                name: 'protocol',
+                path: '/progress',
+                name: 'progress',
+                pageBuilder: (context, state) => NoTransitionPage(
+                  child: const ProgressScreen(),
+                ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/biomarkers',
+                name: 'biomarkers',
+                pageBuilder: (context, state) => NoTransitionPage(
+                  child: const BiomarkersScreen(),
+                ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/my-plan',
+                name: 'my_plan',
                 pageBuilder: (context, state) => NoTransitionPage(
                   child: const ProtocolScreen(),
                 ),
@@ -186,65 +239,54 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/health_data',
-                name: 'health_data',
+                path: '/care',
+                name: 'care',
                 pageBuilder: (context, state) => NoTransitionPage(
-                  child: const HealthDataScreen(),
-                ),
-                routes: [
-
-                  GoRoute(
-                    path: 'upload',
-                    name: 'upload_report',
-                    parentNavigatorKey: _rootNavigatorKey,
-                    builder: (context, state) => const LabReportUploadScreen(),
-                  ),
-                  GoRoute(
-                    path: 'gut-microbiome',
-                    name: 'gut_microbiome_panel',
-                    parentNavigatorKey: _rootNavigatorKey,
-                    builder: (context, state) => const HealthDataScreen(reportType: 'Gut Microbiome'),
-                  ),
-                  GoRoute(
-                    path: 'genetic',
-                    name: 'genetic_panel',
-                    parentNavigatorKey: _rootNavigatorKey,
-                    builder: (context, state) => const HealthDataScreen(reportType: 'Genetic'),
-                  ),
-                  GoRoute(
-                    path: 'biological-age',
-                    name: 'biological_age_panel',
-                    parentNavigatorKey: _rootNavigatorKey,
-                    builder: (context, state) => const HealthDataScreen(reportType: 'Biological Age'),
-                  ),
-                  GoRoute(
-                    path: 'heavy-metals',
-                    name: 'heavy_metals_panel',
-                    parentNavigatorKey: _rootNavigatorKey,
-                    builder: (context, state) => const HealthDataScreen(reportType: 'Heavy Metals'),
-                  ),
-                  GoRoute(
-                    path: 'toxicity',
-                    name: 'toxicity_panel',
-                    parentNavigatorKey: _rootNavigatorKey,
-                    builder: (context, state) => const HealthDataScreen(reportType: 'Toxicity'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/wearables',
-                name: 'wearables',
-                pageBuilder: (context, state) => NoTransitionPage(
-                  child: const WearableDashboardScreen(),
+                  child: const CareScreen(),
                 ),
               ),
             ],
           ),
         ],
+      ),
+
+      // Lab upload + legacy Labs panels kept reachable as standalone routes
+      // (their old /health_data tab is now /biomarkers; see the redirect below).
+      GoRoute(
+        path: '/health_data/upload',
+        name: 'upload_report',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const LabReportUploadScreen(),
+      ),
+      GoRoute(
+        path: '/health_data/gut-microbiome',
+        name: 'gut_microbiome_panel',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const HealthDataScreen(reportType: 'Gut Microbiome'),
+      ),
+      GoRoute(
+        path: '/health_data/genetic',
+        name: 'genetic_panel',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const HealthDataScreen(reportType: 'Genetic'),
+      ),
+      GoRoute(
+        path: '/health_data/biological-age',
+        name: 'biological_age_panel',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const HealthDataScreen(reportType: 'Biological Age'),
+      ),
+      GoRoute(
+        path: '/health_data/heavy-metals',
+        name: 'heavy_metals_panel',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const HealthDataScreen(reportType: 'Heavy Metals'),
+      ),
+      GoRoute(
+        path: '/health_data/toxicity',
+        name: 'toxicity_panel',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const HealthDataScreen(reportType: 'Toxicity'),
       ),
       GoRoute(
         path: '/settings',

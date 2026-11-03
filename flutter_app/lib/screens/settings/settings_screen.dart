@@ -11,6 +11,7 @@ import '../../config/theme.dart';
 import '../../widgets/app_card.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/patient_provider.dart';
+import '../../providers/feature_flags_provider.dart';
 // <--- Added Import
 import '../../providers/module_order_provider.dart';
 import '../../widgets/onboarding_overlay.dart'; // <--- Added
@@ -348,6 +349,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onTap: () => context.push('/settings/memories'),
           ),
           const SizedBox(height: 24),
+
+          // TC-025 A4: "More from Zyndio" — Shop / Meditate / Cycle Tracking,
+          // behind the patient-extras flag (off by default for the 7 Nov build).
+          const MoreFromZyndioSection(),
 
           // Integrations Section
           const _SectionHeader(title: 'Integrations'),
@@ -938,6 +943,53 @@ class _ProfileCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// TC-025 A4: "More from Zyndio" settings section — Shop, Meditate and Cycle
+/// Tracking, shown only when the patient-extras flag is on (off by default for
+/// the 7 Nov build). With the flag off this renders nothing, so there is no
+/// entry point for these anywhere; their deep links redirect to Today (see
+/// config/routes.dart). Cycle Tracking shows only for a patient whose profile
+/// records a female sex.
+class MoreFromZyndioSection extends ConsumerWidget {
+  const MoreFromZyndioSection({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(featureFlagsProvider).patientExtrasEnabled) {
+      return const SizedBox.shrink();
+    }
+    final isFemale =
+        ref.watch(patientProfileProvider).value?.questionnaireData?['gender'] ==
+            'Female';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _SectionHeader(title: 'More from Zyndio'),
+        const SizedBox(height: 12),
+        _SettingsCard(
+          icon: LucideIcons.shoppingBag,
+          title: 'Shop',
+          subtitle: 'Supplements and products from Zyndio',
+          onTap: () => context.push('/shop'),
+        ),
+        _SettingsCard(
+          icon: LucideIcons.flower,
+          title: 'Meditate',
+          subtitle: 'Guided meditations and breathing',
+          onTap: () => context.push('/meditate'),
+        ),
+        if (isFemale)
+          _SettingsCard(
+            icon: LucideIcons.heartPulse,
+            title: 'Cycle Tracking',
+            subtitle: 'Track your menstrual cycle',
+            onTap: () => context.push('/cycle'),
+          ),
+        const SizedBox(height: 24),
+      ],
     );
   }
 }

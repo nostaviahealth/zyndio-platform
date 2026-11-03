@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../config/theme.dart';
 
-enum DemoTab { today, labs, log, companion, profile }
+enum DemoTab { today, labs, log, zyndioAi, profile }
 
 const Map<DemoTab, (String, IconData)> _tabs = {
   DemoTab.today: ('Today', Icons.home_outlined),
   DemoTab.labs: ('Labs', Icons.science_outlined),
   DemoTab.log: ('Log', Icons.description_outlined),
-  DemoTab.companion: ('Companion', Icons.chat_bubble_outline),
+  DemoTab.zyndioAi: ('Zyndio AI', Icons.chat_bubble_outline),
   DemoTab.profile: ('Profile', Icons.person_outline),
 };
 

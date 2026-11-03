@@ -39,6 +39,40 @@ class NotificationService {
   /// Set this from the app's main widget to handle task completion / snoozing
   static void Function(String actionId, String? payload)? onActionReceived;
 
+  /// TC-025 C5: called with the payload when the notification BODY is tapped.
+  /// The app routes it via `resolveNotificationTapRoute` (stale extras and
+  /// unknown payloads land on Today). A tap that arrives before the app has
+  /// registered this callback (cold start from a notification) is kept and
+  /// delivered on registration.
+  static void Function(String? payload)? get onNotificationTap => _onNotificationTap;
+  static set onNotificationTap(void Function(String? payload)? cb) {
+    _onNotificationTap = cb;
+    if (cb != null && _hasPendingTap) {
+      final p = _pendingTapPayload;
+      _hasPendingTap = false;
+      _pendingTapPayload = null;
+      _deliverTap(p);
+    }
+  }
+
+  static void Function(String? payload)? _onNotificationTap;
+  static bool _hasPendingTap = false;
+  static String? _pendingTapPayload;
+
+  static void _deliverTap(String? payload) {
+    final cb = _onNotificationTap;
+    if (cb == null) {
+      _hasPendingTap = true;
+      _pendingTapPayload = payload;
+      return;
+    }
+    try {
+      cb(payload);
+    } catch (e) {
+      debugPrint('Notification tap routing failed: $e');
+    }
+  }
+
   Future<void> initialize() async {
     if (_isInitialized) return;
 
@@ -111,9 +145,23 @@ class NotificationService {
 
     await _localNotifications.initialize(
       initializationSettings,
-      onDidReceiveNotificationResponse: _handleNotificationResponse,
+      onDidReceiveNotificationResponse: handleNotificationResponse,
       onDidReceiveBackgroundNotificationResponse: _onNotificationActionBackground,
     );
+
+    // TC-025 C5: a cold start from a notification body tap is routed the same
+    // way as a tap while running (held until the app registers the router).
+    try {
+      final launch = await _localNotifications.getNotificationAppLaunchDetails();
+      final response = launch?.notificationResponse;
+      if (launch?.didNotificationLaunchApp == true &&
+          response != null &&
+          (response.actionId == null || response.actionId!.isEmpty)) {
+        _deliverTap(response.payload);
+      }
+    } catch (e) {
+      debugPrint('Notification launch details unavailable: $e');
+    }
 
     // Programmatically create required Android Notification Channels
     if (Platform.isAndroid) {
@@ -206,7 +254,8 @@ class NotificationService {
   }
 
   /// Handle taps and action button responses
-  void _handleNotificationResponse(NotificationResponse details) {
+  @visibleForTesting
+  void handleNotificationResponse(NotificationResponse details) {
     final actionId = details.actionId;
     final payload = details.payload;
 
@@ -218,7 +267,7 @@ class NotificationService {
     } else {
       // User tapped the notification body itself
       debugPrint('Notification tapped: $payload');
-      // Navigation could be handled here via a global navigator key
+      _deliverTap(payload);
     }
   }
 
@@ -397,6 +446,14 @@ class NotificationService {
       );
     }
   }
+
+  /// Pending scheduled local notifications (id + payload), for targeted
+  /// cancellation (TC-025 C5).
+  Future<List<PendingNotificationRequest>> pendingNotificationRequests() =>
+      _localNotifications.pendingNotificationRequests();
+
+  /// Cancel one scheduled/shown local notification by id (TC-025 C5).
+  Future<void> cancel(int id) => _localNotifications.cancel(id);
 
   /// Cancel all pending scheduled notifications
   Future<void> cancelAllScheduled() async {

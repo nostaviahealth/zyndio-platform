@@ -15,9 +15,12 @@ void main() {
       ),
     );
 
-    for (final label in ['Today', 'Labs', 'Log', 'Companion', 'Profile']) {
+    // TC-025 A5: the companion is renamed "Zyndio AI" everywhere; the old
+    // "Companion" label must no longer appear.
+    for (final label in ['Today', 'Labs', 'Log', 'Zyndio AI', 'Profile']) {
       expect(find.text(label), findsOneWidget);
     }
+    expect(find.text('Companion'), findsNothing);
     final labsFlags = tester.getSemantics(find.bySemanticsLabel('Labs')).getSemanticsData().flagsCollection;
     final todayFlags = tester.getSemantics(find.bySemanticsLabel('Today')).getSemanticsData().flagsCollection;
     expect(labsFlags.isSelected, Tristate.isTrue);

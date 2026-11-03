@@ -6,8 +6,10 @@ import 'config/routes.dart';
 import 'widgets/in_app_alert_banner.dart';
 import 'providers/alert_provider.dart';
 import 'providers/wearable_sync_provider.dart';
-import 'providers/dark_mode_provider.dart';
+import 'providers/feature_flags_provider.dart';
+import 'services/extras_notification_guard.dart';
 import 'services/notification_scheduler.dart';
+import 'services/notification_service.dart';
 import 'services/watch_service.dart';
 
 /// Main Zyndio App Widget
@@ -17,7 +19,15 @@ class BrandHealthApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
-    final isDark = ref.watch(darkModeProvider);
+
+    // TC-025 C5 (Q23): cancel Shop/Meditate/Cycle reminders while the extras
+    // flag is off (startup + on->off), and route notification body taps -
+    // stale extras or unknown payloads land on Today.
+    ref.watch(extrasReminderGuardProvider);
+    NotificationService.onNotificationTap = (payload) => router.go(
+        resolveNotificationTapRoute(payload,
+            patientExtrasEnabled:
+                ref.read(featureFlagsProvider).patientExtrasEnabled));
 
     // Register the alert notifier for global access in the scheduler
     // This allows background/logic code to trigger in-app banners
@@ -35,10 +45,14 @@ class BrandHealthApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: BrandTheme.lightTheme,
       darkTheme: BrandTheme.darkTheme,
-      themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
+      // TC-025 C4 (Q16): follow the phone's light/dark setting. The manual
+      // override (Settings switch) arrives in PR B1.
+      themeMode: ThemeMode.system,
       routerConfig: router,
       builder: (context, child) {
-        // Update system UI overlay based on theme
+        // Update system UI overlay based on the phone's light/dark setting
+        final isDark =
+            MediaQuery.platformBrightnessOf(context) == Brightness.dark;
         final brightness = isDark ? Brightness.light : Brightness.dark;
         SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
