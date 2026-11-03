@@ -181,6 +181,7 @@ class _TabItem extends StatelessWidget {
       label: '${spec.label}, tab ${index + 1} of ${_kTabs.length}',
       selected: selected,
       button: true,
+      onTap: onTap, // H1: screen-reader activation == finger tap
       child: ExcludeSemantics(
         child: InkWell(
           onTap: onTap,

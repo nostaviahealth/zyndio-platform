@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show SemanticsAction;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -156,6 +157,29 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('FOOD LOG SCREEN'), findsOneWidget);
     });
+
+    // H1 (Ava, PR #30 review): screen-reader activation == finger tap.
+    for (final c in const [
+      (label: 'View My Insights →', dest: 'CHAT SCREEN'),
+      (
+        label: 'Food log, Log a meal by describing it, scanning it or speaking.',
+        dest: 'FOOD LOG SCREEN'
+      ),
+      (label: 'Profile and settings', dest: 'SETTINGS'),
+    ]) {
+      testWidgets('H1: semantics tap on "${c.label}" opens ${c.dest}', (tester) async {
+        final handle = tester.ensureSemantics();
+        await _pump(tester,
+            wearable: () => _FakeWearable(WearableSyncState(
+                snapshot: _snap(), lastSynced: DateTime(2026, 11, 3, 9, 5))));
+        final node = find.semantics.byLabel(c.label).evaluate().single;
+        expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+        tester.semantics.tap(find.semantics.byLabel(c.label));
+        await tester.pumpAndSettle();
+        expect(find.text(c.dest), findsOneWidget);
+        handle.dispose();
+      });
+    }
 
     testWidgets('no-wearable: connect card + food log, no tiles', (tester) async {
       await _pump(tester,

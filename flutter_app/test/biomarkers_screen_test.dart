@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:ui' show SemanticsAction, Tristate;
 
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +11,7 @@ import 'package:zyndio_patient/config/theme.dart';
 import 'package:zyndio_patient/models/lab_report.dart';
 import 'package:zyndio_patient/providers/lab_reports_provider.dart';
 import 'package:zyndio_patient/screens/biomarkers/biomarkers_screen.dart';
+import 'package:zyndio_patient/screens/health_data/health_data_screen.dart';
 
 LabMarker _m(String name, String value,
         {String unit = '', double? low, double? high, String status = 'In-range'}) =>
@@ -153,8 +156,113 @@ void main() {
     test('trendDeltaText: null for single point, neutral text for a trend', () {
       final newest = sortReportsNewestFirst(_reports());
       expect(trendDeltaText(segmentView(newest, BiomarkerSegment.nad).leadTrend),
-          contains('26 → 41'));
+          '↑ +58%');
       expect(trendDeltaText(segmentView(newest, BiomarkerSegment.metabolic).leadTrend), isNull);
+    });
+
+    // M3 (Ava, PR #30 review; spec Z6/§6): one signed % against the BASELINE
+    // (first reading), `{↑|↓} {+|−}{n}%`, Stable only at exact equality.
+    group('M3 trendDeltaText rules', () {
+      List<MarkerReading> t(List<String> values, {String unit = 'µM'}) => [
+            for (var i = 0; i < values.length; i++)
+              MarkerReading(
+                  date: '2026-0${i + 1}-01',
+                  marker: _m('Intracellular NAD+', values[i], unit: unit)),
+          ];
+
+      test('up: 26 → 41 is ↑ +58% (57.69 rounds to 58)', () {
+        expect(trendDeltaText(t(['26', '41'])), '↑ +58%');
+        expect(trendDeltaSpoken(t(['26', '41'])), 'up 58 percent since baseline');
+      });
+
+      test('down uses a real minus sign (U+2212), no double spaces', () {
+        final d = trendDeltaText(t(['41', '26']))!;
+        expect(d, '↓ −37%'); // 15 / 41 = 36.59 → 37
+        expect(d.contains('-'), isFalse); // not a hyphen-minus
+        expect(d.contains('  '), isFalse);
+        expect(trendDeltaSpoken(t(['41', '26'])), 'down 37 percent since baseline');
+      });
+
+      test('equal: Stable (exactly equal only)', () {
+        expect(trendDeltaText(t(['26', '26'])), 'Stable');
+        expect(trendDeltaText(t(['0', '0'])), 'Stable');
+        expect(trendDeltaSpoken(t(['26', '26'])), 'stable since baseline');
+      });
+
+      test('compares last with the BASELINE, not the previous result', () {
+        // previous → last would be 33 → 41 (+24%); baseline → last is +58%.
+        expect(trendDeltaText(t(['26', '33', '41'])), '↑ +58%');
+      });
+
+      test('rounding: nearest integer, .5 rounds away from zero', () {
+        expect(trendDeltaText(t(['200', '201'])), '↑ +1%'); // 0.5 → 1
+        expect(trendDeltaText(t(['200', '199'])), '↓ −1%'); // −0.5 → −1
+        expect(trendDeltaText(t(['100', '101.4'])), '↑ +1%'); // 1.4 → 1
+        expect(trendDeltaText(t(['100', '101.6'])), '↑ +2%'); // 1.6 → 2
+        expect(trendDeltaText(t(['3', '4'])), '↑ +33%'); // 33.33 → 33
+        expect(trendDeltaText(t(['3', '5'])), '↑ +67%'); // 66.67 → 67
+      });
+
+      test('rounding: a real change under 0.5% shows <1%, never +0% or Stable', () {
+        // Ava (PR #30 r2): no +/− sign on "<1%" (it read as "+<1%").
+        expect(trendDeltaText(t(['1000', '1002'])), '↑ <1%');
+        expect(trendDeltaText(t(['1000', '998'])), '↓ <1%');
+        expect(trendDeltaSpoken(t(['1000', '1002'])), 'up less than 1 percent since baseline');
+        expect(trendDeltaSpoken(t(['1000', '998'])), 'down less than 1 percent since baseline');
+      });
+
+      test('zero baseline: % is undefined, so show the signed change in the unit', () {
+        expect(trendDeltaText(t(['0', '15'])), '↑ +15 µM');
+        expect(trendDeltaText(t(['0', '1.5'], unit: 'mg/L')), '↑ +1.5 mg/L');
+        expect(trendDeltaText(t(['0', '-2'], unit: '')), '↓ −2');
+        expect(trendDeltaSpoken(t(['0', '15'])), 'up 15 µM since baseline');
+      });
+
+      // Clara r2 Medium (PR #30): readings matched by marker name may carry
+      // different units. A % across units is false, so no delta at all.
+      List<MarkerReading> u(List<(String, String)> vu) => [
+            for (var i = 0; i < vu.length; i++)
+              MarkerReading(
+                  date: '2026-0${i + 1}-01',
+                  marker: _m('Glucose', vu[i].$1, unit: vu[i].$2)),
+          ];
+
+      test('mixed units: first and last units differ → no delta, not even Stable', () {
+        expect(trendDeltaText(u([('90', 'mg/dL'), ('5.0', 'mmol/L')])), isNull);
+        expect(trendDeltaSpoken(u([('90', 'mg/dL'), ('5.0', 'mmol/L')])), isNull);
+        expect(trendDeltaText(u([('30', 'ng/mL'), ('75', 'nmol/L')])), isNull);
+        expect(trendDeltaText(u([('5', 'mg/dL'), ('5', 'mmol/L')])), isNull); // not Stable
+        expect(trendDeltaText(u([('0', 'mg/dL'), ('15', 'mmol/L')])), isNull); // zero baseline
+        expect(trendDeltaText(u([('90', ''), ('95', 'mg/dL')])), isNull); // unknown vs known
+        // First and last agree, a middle reading differs: the delta compares
+        // like with like, so it stays.
+        expect(trendDeltaText(u([('90', 'mg/dL'), ('5.0', 'mmol/L'), ('99', 'mg/dL')])),
+            '↑ +10%');
+        // Trivial differences (spaces, case) are the same unit; no conversion.
+        expect(trendDeltaText(u([('90', ' mg/dL '), ('99', 'mg/dl')])), '↑ +10%');
+      });
+
+      test('censored values (<, >, ≤, ≥) never produce a delta', () {
+        expect(trendDeltaText(u([('<5', 'mg/dL'), ('8', 'mg/dL')])), isNull);
+        expect(trendDeltaText(u([('8', 'mg/dL'), ('>10', 'mg/dL')])), isNull);
+        expect(trendDeltaText(u([('≤5', 'mg/dL'), ('8', 'mg/dL')])), isNull);
+        expect(trendDeltaText(u([('8', 'mg/dL'), ('≥ 10', 'mg/dL')])), isNull);
+        expect(trendDeltaSpoken(u([('<5', 'mg/dL'), ('8', 'mg/dL')])), isNull);
+      });
+
+      test('a value too large to be finite is not a number (no throw)', () {
+        final huge = '9' * 400;
+        expect(parseMarkerValue(huge), isNull);
+        expect(trendDeltaText(u([('90', 'mg/dL'), (huge, 'mg/dL')])), isNull);
+        expect(trendDeltaText(u([(huge, 'mg/dL'), ('90', 'mg/dL')])), isNull);
+        expect(trendDeltaSpoken(u([('90', 'mg/dL'), (huge, 'mg/dL')])), isNull);
+      });
+
+      test('null for a single reading or a non-numeric value', () {
+        expect(trendDeltaText(t(['26'])), isNull);
+        expect(trendDeltaText(t(['n/a', '41'])), isNull);
+        expect(trendDeltaSpoken(t(['26'])), isNull);
+      });
     });
 
     // ── C1 pure helpers ─────────────────────────────────────────────────────
@@ -182,10 +290,23 @@ void main() {
       expect(hasLabBand(_m('X', '1', low: 1)), isFalse); // one bound only
     });
 
+    // Ava's wording answer 1 (PR #30 review): the explainer date is
+    // human-formatted, not ISO. Only this line changes (other dates: L1 card).
+    test('markerInfoCopy: latest line shows "Sep 15, 2026", not ISO', () {
+      final c = markerInfoCopy(_m('Intracellular NAD+', '41', unit: 'µM'), '2026-09-15');
+      expect(c.latestLine, 'Latest: 41 µM on Sep 15, 2026');
+      expect(c.latestLine.contains('2026-09-15'), isFalse);
+      // A timestamp keeps its calendar date (no time-zone shift).
+      expect(markerInfoCopy(_m('X', '1'), '2026-09-15T23:30:00Z').latestLine,
+          'Latest: 1 on Sep 15, 2026');
+      // Unparseable dates are shown as given, never invented.
+      expect(markerInfoCopy(_m('X', '1'), 'Sept 2026').latestLine, 'Latest: 1 on Sept 2026');
+    });
+
     test('markerInfoCopy: data-only, non-clinical lines', () {
       final c = markerInfoCopy(_m('Intracellular NAD+', '41', unit: 'µM'), '2026-06-01');
       expect(c.title, 'About Intracellular NAD+');
-      expect(c.latestLine, 'Latest: 41 µM on 2026-06-01');
+      expect(c.latestLine, 'Latest: 41 µM on Jun 1, 2026');
       expect(c.rangeLine, 'No lab range provided');
       expect(c.sourceLine, 'Lab reference ranges come from the laboratory that ran your test.');
       expect(c.careLine, 'Questions about your results go to your care team.');
@@ -223,7 +344,7 @@ void main() {
               'First result · 2026-01-01. Your trend appears after your next test.'),
           findsOneWidget);
       expect(find.byKey(const Key('biomarker-trend-chart')), findsOneWidget);
-      expect(find.textContaining('→'), findsNothing);
+      expect(find.textContaining(RegExp('[↑↓]')), findsNothing); // no delta
     });
 
     testWidgets('(i) info button is ≥44×44 and opens/closes the explainer sheet',
@@ -239,7 +360,7 @@ void main() {
       await tester.tap(find.byKey(const Key('marker-info-button')));
       await tester.pumpAndSettle();
       // Non-clinical, data-only copy.
-      expect(find.text('Latest: 41 µM on 2026-06-01'), findsOneWidget);
+      expect(find.text('Latest: 41 µM on Jun 1, 2026'), findsOneWidget);
       // "No lab range provided" appears twice: the hero caption and the sheet.
       expect(find.text('No lab range provided'), findsNWidgets(2));
       expect(
@@ -255,6 +376,43 @@ void main() {
       handle.dispose();
     });
 
+    // M1 (Ava, PR #30 review): the (i) node must be its own 44×44 node, not a
+    // node covering the whole hero card, and the readout is read first.
+    testWidgets('M1: (i) semantics node is 44×44 and follows the readout',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, reports: _reports());
+      final info =
+          find.semantics.byLabel('About Intracellular NAD+').evaluate().single;
+      final r = info.rect;
+      expect(r.width, closeTo(44, 0.5), reason: 'width ${r.width}');
+      expect(r.height, closeTo(44, 0.5), reason: 'height ${r.height}');
+      // The readout is a sibling, not a child of the (i) node.
+      var childCount = 0;
+      info.visitChildren((_) {
+        childCount++;
+        return true;
+      });
+      expect(childCount, 0);
+      final order = tester.semantics
+          .simulatedAccessibilityTraversal()
+          .map((n) => n.label)
+          .toList();
+      final readoutAt = order.indexWhere((l) => l.startsWith('Intracellular NAD+, 41'));
+      final infoAt = order.indexOf('About Intracellular NAD+');
+      expect(readoutAt, isNonNegative);
+      expect(infoAt, greaterThan(readoutAt));
+      handle.dispose();
+    });
+
+    testWidgets('M3: hero readout says the delta in words', (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, reports: _reports());
+      expect(find.bySemanticsLabel(RegExp('up 58 percent since baseline')), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('↑')), findsNothing);
+      handle.dispose();
+    });
+
     testWidgets('chart has one text alternative listing every point', (tester) async {
       final handle = tester.ensureSemantics();
       await _pump(tester, reports: _reports());
@@ -263,6 +421,281 @@ void main() {
         findsOneWidget,
       );
       handle.dispose();
+    });
+
+    // M2 (Ava, PR #30 review): the chart reads its colours from the theme.
+    for (final b in Brightness.values) {
+      testWidgets('M2: chart line and point colours come from the $b tokens',
+          (tester) async {
+        await _pump(tester, b: b, reports: _reports());
+        final t = b == Brightness.dark ? ZyndioTc025Colors.dark : ZyndioTc025Colors.light;
+        final chart = tester.widget<LineChart>(find.byType(LineChart));
+        final bar = chart.data.lineBarsData.single;
+        expect(bar.gradient!.colors, [t.chartLineStart, t.chartLineEnd]);
+        final painter = bar.dotData.getDotPainter(bar.spots.first, 0, bar, 0)
+            as FlDotCirclePainter;
+        expect(painter.strokeColor, t.chartPointStroke);
+        if (b == Brightness.dark) {
+          expect(painter.strokeColor, const Color(0xFF6F86FF));
+          expect(bar.gradient!.colors.last, const Color(0xFF8A66FF));
+        } else {
+          expect(painter.strokeColor, const Color(0xFF3D5BF5));
+          expect(bar.gradient!.colors.last, const Color(0xFF7444F0));
+        }
+      });
+    }
+
+    // Clara r2 Medium + Ava (PR #30): mixed units. No delta when the first and
+    // last units differ; the chart plots only readings in the latest unit and
+    // says earlier ones were left out. Fictional values.
+    List<LabReport> glucose(List<(String, String, String)> dvu) => [
+          for (final r in dvu.reversed)
+            LabReport(
+              id: r.$1,
+              date: r.$1,
+              title: 'Panel',
+              summary: '',
+              markers: [_m('Glucose', r.$2, unit: r.$3, low: 65, high: 99)],
+            ),
+        ];
+
+    Future<void> metabolic(WidgetTester tester, List<LabReport> reports) async {
+      await _pump(tester, reports: reports);
+      await tester.tap(find.text('Metabolic'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('mixed units: no delta, chart shows only latest-unit readings + caption',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await metabolic(tester, glucose([
+        ('2026-01-01', '90', 'mg/dL'),
+        ('2026-03-01', '95', 'mg/dL'),
+        ('2026-06-01', '5.0', 'mmol/L'),
+        ('2026-09-01', '5.4', 'mmol/L'),
+      ]));
+      expect(find.text('Glucose'), findsOneWidget); // hero
+      expect(find.textContaining(RegExp('[↑↓]|Stable')), findsNothing);
+      expect(find.bySemanticsLabel(RegExp('percent|since baseline')), findsNothing);
+      final chart = tester.widget<LineChart>(find.byType(LineChart));
+      expect(chart.data.lineBarsData.single.spots.map((s) => s.y).toList(), [5.0, 5.4]);
+      expect(find.text('Earlier results used a different unit.'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('Earlier results used a different unit')),
+          findsOneWidget);
+      // Ava r3 M5: the text alternative lists only the plotted (latest-unit)
+      // readings, not the dropped mg/dL ones.
+      expect(
+          find.bySemanticsLabel(
+              RegExp(r'Glucose trend: 5\.0 mmol/L on 2026-06-01, 5\.4 mmol/L on 2026-09-01\.')),
+          findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('mg/dL')), findsNothing);
+      handle.dispose();
+    });
+
+    // Ava (PR #30 r2): the spec's Caption style, 13/18 text.secondary, from
+    // the existing 13/18 type token (ZyndioType.footnote), not hardcoded.
+    for (final b in Brightness.values) {
+      testWidgets('mixed-unit caption uses the 13/18 caption token, text.secondary ($b)',
+          (tester) async {
+        await _pump(tester, b: b, reports: glucose([
+          ('2026-01-01', '90', 'mg/dL'),
+          ('2026-06-01', '5.0', 'mmol/L'),
+          ('2026-09-01', '5.4', 'mmol/L'),
+        ]));
+        await tester.tap(find.text('Metabolic'));
+        await tester.pumpAndSettle();
+        final theme = b == Brightness.light ? BrandTheme.lightTheme : BrandTheme.darkTheme;
+        final c = theme.extension<ZyndioColors>()!;
+        final cap = tester.widget<Text>(find.text('Earlier results used a different unit.'));
+        expect(cap.style, ZyndioType.footnote.copyWith(color: c.textSecondary));
+        expect(cap.style!.fontSize, 13);
+        expect(cap.style!.height! * 13, closeTo(18, 0.001));
+        expect(cap.style!.fontWeight, FontWeight.w400);
+      });
+    }
+
+    testWidgets('same units: delta shown, no unit caption', (tester) async {
+      await metabolic(tester, glucose([
+        ('2026-01-01', '90', 'mg/dL'),
+        ('2026-09-01', '99', 'mg/dL'),
+      ]));
+      expect(find.text('↑ +10%'), findsOneWidget);
+      expect(find.text('Earlier results used a different unit.'), findsNothing);
+    });
+
+    testWidgets('a middle reading in another unit is left off the chart', (tester) async {
+      await metabolic(tester, glucose([
+        ('2026-01-01', '90', 'mg/dL'),
+        ('2026-03-01', '5.0', 'mmol/L'),
+        ('2026-09-01', '99', 'mg/dL'),
+      ]));
+      expect(find.text('↑ +10%'), findsOneWidget); // first and last agree
+      final chart = tester.widget<LineChart>(find.byType(LineChart));
+      expect(chart.data.lineBarsData.single.spots.map((s) => s.y).toList(), [90.0, 99.0]);
+      expect(find.text('Earlier results used a different unit.'), findsOneWidget);
+    });
+
+    // Ava r3 M5 (closes Clara TC-034 item 55): with mixed units, dropped
+    // earlier-unit readings appear nowhere: not in the screen-reader trend,
+    // not in the baseline caption.
+    testWidgets('M5: mixed units: screen-reader trend lists only plotted readings',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await metabolic(tester, glucose([
+        ('2026-01-01', '90', 'mg/dL'),
+        ('2026-03-01', '95', 'mg/dL'),
+        ('2026-06-01', '5.0', 'mmol/L'),
+        ('2026-09-01', '5.4', 'mmol/L'),
+      ]));
+      final readout = find.bySemanticsLabel(RegExp('^Glucose, 5\\.4 mmol/L'));
+      expect(readout, findsOneWidget);
+      final label = tester.getSemantics(readout).label;
+      expect(label, contains('Glucose trend: 5.0 mmol/L on 2026-06-01, 5.4 mmol/L on 2026-09-01.'));
+      expect(label.contains('mg/dL'), isFalse, reason: label);
+      expect(label.contains('2026-01-01'), isFalse, reason: label);
+      expect(label.contains('2026-03-01'), isFalse, reason: label);
+      handle.dispose();
+    });
+
+    testWidgets('M5: mixed units: baseline caption is the first plotted reading',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await metabolic(tester, glucose([
+        ('2026-01-01', '90', 'mg/dL'),
+        ('2026-06-01', '5.0', 'mmol/L'),
+        ('2026-09-01', '5.4', 'mmol/L'),
+      ]));
+      expect(find.text('Baseline: 5.0 mmol/L · 2026-06-01'), findsOneWidget);
+      expect(find.textContaining('mg/dL'), findsNothing);
+      expect(find.bySemanticsLabel(RegExp('Baseline: 5\\.0 mmol/L · 2026-06-01')),
+          findsOneWidget);
+      expect(find.text('Earlier results used a different unit.'), findsOneWidget);
+      handle.dispose();
+    });
+
+    testWidgets('M5: mixed units, one plotted reading: first-result layout + unit caption',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await metabolic(tester, glucose([
+        ('2026-01-01', '90', 'mg/dL'),
+        ('2026-03-01', '95', 'mg/dL'),
+        ('2026-09-01', '5.4', 'mmol/L'),
+      ]));
+      expect(
+          find.text('First result · 2026-09-01. Your trend appears after your next test.'),
+          findsOneWidget);
+      expect(find.textContaining('Baseline: '), findsNothing);
+      expect(find.text('Earlier results used a different unit.'), findsOneWidget);
+      final chart = tester.widget<LineChart>(find.byType(LineChart));
+      expect(chart.data.lineBarsData.single.spots.map((s) => s.y).toList(), [5.4]);
+      expect(find.textContaining(RegExp('[↑↓]|Stable')), findsNothing);
+      expect(find.textContaining('mg/dL'), findsNothing);
+      expect(find.bySemanticsLabel(RegExp('mg/dL')), findsNothing);
+      handle.dispose();
+    });
+
+    testWidgets('M5: a middle reading in another unit is left out of the readout too',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await metabolic(tester, glucose([
+        ('2026-01-01', '90', 'mg/dL'),
+        ('2026-03-01', '5.0', 'mmol/L'),
+        ('2026-09-01', '99', 'mg/dL'),
+      ]));
+      expect(find.text('↑ +10%'), findsOneWidget);
+      expect(find.text('Baseline: 90 mg/dL · 2026-01-01'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('mmol/L')), findsNothing);
+      expect(
+          find.bySemanticsLabel(
+              RegExp(r'Glucose trend: 90 mg/dL on 2026-01-01, 99 mg/dL on 2026-09-01\.')),
+          findsOneWidget);
+      handle.dispose();
+    });
+
+    testWidgets('M5 guard: same units keep every reading, the real baseline, no caption',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await metabolic(tester, glucose([
+        ('2026-01-01', '90', 'mg/dL'),
+        ('2026-03-01', '95', 'mg/dL'),
+        ('2026-09-01', '99', 'mg/dL'),
+      ]));
+      expect(find.text('Baseline: 90 mg/dL · 2026-01-01'), findsOneWidget);
+      expect(find.textContaining('First result'), findsNothing);
+      expect(find.text('Earlier results used a different unit.'), findsNothing);
+      expect(
+          find.bySemanticsLabel(RegExp(
+              r'Glucose trend: 90 mg/dL on 2026-01-01, 95 mg/dL on 2026-03-01, 99 mg/dL on 2026-09-01\.')),
+          findsOneWidget);
+      final chart = tester.widget<LineChart>(find.byType(LineChart));
+      expect(chart.data.lineBarsData.single.spots.map((s) => s.y).toList(), [90.0, 95.0, 99.0]);
+      handle.dispose();
+    });
+
+    // Ava r4 M6 (closes Clara TC-034 item 65): whenever readings are hidden
+    // because their unit differs, the caption shows and is read out, even
+    // with nothing plotted. Same-unit non-numeric readings never trigger it.
+    testWidgets('M6: earlier units then a non-numeric latest-unit reading: caption shown and read',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await metabolic(tester, glucose([
+        ('2026-01-01', '90', 'mg/dL'),
+        ('2026-03-01', '95', 'mg/dL'),
+        ('2026-09-15', 'Pending', 'mmol/L'),
+      ]));
+      expect(find.text('Earlier results used a different unit.'), findsOneWidget);
+      final cap = tester.widget<Text>(find.text('Earlier results used a different unit.'));
+      final c = BrandTheme.lightTheme.extension<ZyndioColors>()!;
+      expect(cap.style, ZyndioType.footnote.copyWith(color: c.textSecondary));
+      final readout = find.bySemanticsLabel(RegExp('^Glucose, Pending'));
+      expect(readout, findsOneWidget);
+      expect(tester.getSemantics(readout).label,
+          contains('Earlier results used a different unit.'));
+      expect(find.textContaining(RegExp('[↑↓]|Stable')), findsNothing); // delta unchanged
+      handle.dispose();
+    });
+
+    testWidgets('M6: one plotted reading: first-result layout, caption shown and read',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await metabolic(tester, glucose([
+        ('2026-01-01', '90', 'mg/dL'),
+        ('2026-03-01', '95', 'mg/dL'),
+        ('2026-09-01', '5.4', 'mmol/L'),
+      ]));
+      expect(
+          find.text('First result · 2026-09-01. Your trend appears after your next test.'),
+          findsOneWidget);
+      expect(find.text('Earlier results used a different unit.'), findsOneWidget);
+      final readout = find.bySemanticsLabel(RegExp('^Glucose, 5\\.4 mmol/L'));
+      expect(readout, findsOneWidget);
+      final label = tester.getSemantics(readout).label;
+      expect(label, contains('Earlier results used a different unit.'));
+      expect(label, contains('First result · 2026-09-01.'));
+      handle.dispose();
+    });
+
+    testWidgets('M6 guard: same unit with a non-numeric latest reading shows no caption',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await metabolic(tester, glucose([
+        ('2026-01-01', '90', 'mg/dL'),
+        ('2026-09-15', 'Pending', 'mg/dL'),
+      ]));
+      expect(find.text('Earlier results used a different unit.'), findsNothing);
+      expect(find.bySemanticsLabel(RegExp('Earlier results used a different unit')),
+          findsNothing);
+      handle.dispose();
+    });
+
+    testWidgets('a non-finite value does not throw in the chart or the delta',
+        (tester) async {
+      await metabolic(tester, glucose([
+        ('2026-01-01', '90', 'mg/dL'),
+        ('2026-09-01', '9' * 400, 'mg/dL'),
+      ]));
+      expect(tester.takeException(), isNull);
+      expect(find.textContaining(RegExp('[↑↓]|Stable')), findsNothing);
     });
 
     testWidgets('chart renders in dark mode', (tester) async {
@@ -279,7 +712,8 @@ void main() {
       expect(find.text('NAD+'), findsOneWidget);
       expect(find.text('Metabolic'), findsOneWidget);
       expect(find.text('Intracellular NAD+'), findsOneWidget); // hero
-      expect(find.textContaining('26 → 41'), findsOneWidget); // neutral trend delta
+      expect(find.text('↑ +58%'), findsOneWidget); // M3: neutral % delta vs baseline
+      expect(find.textContaining('26 → 41'), findsNothing);
       expect(find.text('View Full Biomarker Report'), findsOneWidget);
       // No composite score / FICTIONAL badge.
       expect(find.textContaining('Score'), findsNothing);
@@ -296,6 +730,52 @@ void main() {
       expect(find.text('LDL Cholesterol'), findsOneWidget);
       expect(find.text('Above lab range'), findsOneWidget); // LDL 140 > 129
       expect(find.text('Within lab range'), findsWidgets);
+    });
+
+    // H1 (Ava, PR #30 review): screen-reader activation == finger tap.
+    testWidgets('H1: semantics tap on each segment pill selects that segment',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, reports: _reports());
+      const heroFor = {
+        'Metabolic': 'HbA1c',
+        'Hormones': 'Testosterone',
+        'Inflammation': 'Upload a lab report', // empty segment
+        'NAD+': 'Intracellular NAD+',
+      };
+      for (final e in heroFor.entries) {
+        final node = find.semantics.byLabel(e.key).evaluate().single;
+        expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue,
+            reason: '${e.key} exposes SemanticsAction.tap');
+        tester.semantics.tap(find.semantics.byLabel(e.key));
+        await tester.pumpAndSettle();
+        expect(
+            find.semantics
+                .byLabel(e.key)
+                .evaluate()
+                .single
+                .getSemanticsData()
+                .flagsCollection
+                .isSelected,
+            Tristate.isTrue,
+            reason: '${e.key} selected');
+        expect(find.text(e.value), findsWidgets, reason: '${e.key} content');
+      }
+      handle.dispose();
+    });
+
+    testWidgets('H1: semantics tap on View Full Biomarker Report opens the report',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, reports: _reports());
+      final node =
+          find.semantics.byLabel('View Full Biomarker Report').evaluate().single;
+      expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+      tester.semantics.tap(find.semantics.byLabel('View Full Biomarker Report'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(HealthDataScreen), findsOneWidget);
+      handle.dispose();
     });
 
     testWidgets('empty segment shows copy + Upload CTA', (tester) async {
@@ -326,7 +806,7 @@ void main() {
       ];
       await _pump(tester, reports: single);
       expect(find.text('Intracellular NAD+'), findsOneWidget);
-      expect(find.textContaining('→'), findsNothing); // no delta for a single point
+      expect(find.textContaining(RegExp('[↑↓]')), findsNothing); // no delta for a single point
     });
 
     testWidgets('error: card + Try again', (tester) async {
