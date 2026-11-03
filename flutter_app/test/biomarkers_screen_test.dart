@@ -204,9 +204,11 @@ void main() {
       });
 
       test('rounding: a real change under 0.5% shows <1%, never +0% or Stable', () {
-        expect(trendDeltaText(t(['1000', '1002'])), '↑ +<1%');
-        expect(trendDeltaText(t(['1000', '998'])), '↓ −<1%');
+        // Ava (PR #30 r2): no +/− sign on "<1%" (it read as "+<1%").
+        expect(trendDeltaText(t(['1000', '1002'])), '↑ <1%');
+        expect(trendDeltaText(t(['1000', '998'])), '↓ <1%');
         expect(trendDeltaSpoken(t(['1000', '1002'])), 'up less than 1 percent since baseline');
+        expect(trendDeltaSpoken(t(['1000', '998'])), 'down less than 1 percent since baseline');
       });
 
       test('zero baseline: % is undefined, so show the signed change in the unit', () {

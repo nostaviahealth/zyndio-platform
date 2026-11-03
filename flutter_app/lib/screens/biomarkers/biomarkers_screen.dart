@@ -84,7 +84,8 @@ SegmentView segmentView(List<LabReport> newestFirst, BiomarkerSegment seg) {
 /// - exactly equal → stable;
 /// - otherwise n = |last − first| / |first| × 100, rounded to the nearest
 ///   integer with .5 away from zero (Dart `round()`); a real change that
-///   rounds to 0 shows "<1" (never "+0%" or Stable);
+///   rounds to 0 shows "<1" (never "+0%" or Stable), with the arrow but no
+///   +/− sign ("↑ <1%", Ava PR #30 r2);
 /// - zero baseline: % is undefined, so the signed change in the marker's
 ///   unit is shown instead (e.g. "↑ +15 µM").
 ({bool stable, bool up, String magnitude, bool percent})? _baselineDelta(
@@ -108,12 +109,15 @@ SegmentView segmentView(List<LabReport> newestFirst, BiomarkerSegment seg) {
   return (stable: false, up: up, magnitude: n == 0 ? '<1' : '$n', percent: true);
 }
 
-/// Visible hero delta: `{↑|↓} {+|−}{n}%` (U+2212 minus), or "Stable".
+/// Visible hero delta: `{↑|↓} {+|−}{n}%` (U+2212 minus), `{↑|↓} <1%`, or
+/// "Stable".
 String? trendDeltaText(List<MarkerReading> trend) {
   final d = _baselineDelta(trend);
   if (d == null) return null;
   if (d.stable) return 'Stable';
-  return '${d.up ? '↑ +' : '↓ −'}${d.magnitude}${d.percent ? '%' : ''}';
+  final arrow = d.up ? '↑ ' : '↓ ';
+  if (d.magnitude == '<1') return '$arrow<1%';
+  return '$arrow${d.up ? '+' : '−'}${d.magnitude}${d.percent ? '%' : ''}';
 }
 
 /// Screen-reader form of [trendDeltaText], e.g. "up 58 percent since baseline".
