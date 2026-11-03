@@ -19,6 +19,12 @@
 -- folder never matches (2). Same policy name, so the TC-036 guard list and
 -- pgTAP 744's policy-set check are unchanged. New migration rather than an
 -- edit: 20261103210000 is already pushed on PR #33.
+--
+-- Correction to 20261103210000's comment (Clara Low 7): CI does run storage-api.
+-- `supabase start -x studio,storage,inbucket` ignores "storage" (not a valid
+-- exclude name; the valid one is storage-api), so CI starts storage-api
+-- v1.84.19. The bucket-column guard there is still right for databases
+-- without storage-api's columns; only the "(CI runs -x storage)" aside is wrong.
 drop policy if exists lab_reports_objects_staff_select on storage.objects;
 create policy lab_reports_objects_staff_select on storage.objects
   for select to authenticated
