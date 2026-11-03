@@ -2,8 +2,10 @@ import 'dart:math' as math;
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart' show OrdinalSortKey;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart' show DateFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../config/biomarker_segments.dart';
@@ -19,8 +21,39 @@ import '../health_data/health_data_screen.dart';
 double? parseMarkerValue(String? raw) {
   if (raw == null) return null;
   final m = RegExp(r'-?\d+(\.\d+)?').firstMatch(raw.replaceAll(',', ''));
-  return m == null ? null : double.tryParse(m.group(0)!);
+  final v = m == null ? null : double.tryParse(m.group(0)!);
+  // A digit string too long for a double parses to Infinity; that is not a
+  // reading (Clara r2 Low 2), and it would throw in round() and the chart.
+  return v != null && v.isFinite ? v : null;
 }
+
+/// Value used for the trend delta: like [parseMarkerValue], but a censored
+/// value ("<5", ">10", "≤5", "≥10") is not a number here, because its true
+/// value is unknown (Clara r2 Low 1).
+double? _deltaValue(String? raw) {
+  if (raw == null || RegExp(r'[<>≤≥]').hasMatch(raw)) return null;
+  return parseMarkerValue(raw);
+}
+
+/// Whether two lab units are the same unit. Trimmed and case-insensitive, the
+/// same rule the Health Data screen uses to detect a unit mismatch. No
+/// conversion: "mg/dL" and "mmol/L" are different, and so are "" and "mg/dL"
+/// (an unknown unit can't be shown to match). Clara r2 Medium, PR #30.
+bool sameLabUnit(String a, String b) => a.trim().toLowerCase() == b.trim().toLowerCase();
+
+/// Readings the chart may plot: only those in the latest reading's unit, so
+/// mixed units are never drawn on one axis (Ava, PR #30 r2).
+List<MarkerReading> chartReadings(List<MarkerReading> trend) {
+  if (trend.isEmpty) return const [];
+  final unit = trend.last.marker.unit;
+  return trend.where((r) => sameLabUnit(r.marker.unit, unit)).toList();
+}
+
+/// Caption under the chart when readings were left out for a unit mismatch.
+String? mixedUnitCaptionText(List<MarkerReading> trend) =>
+    chartReadings(trend).length < trend.length
+        ? 'Earlier results used a different unit.'
+        : null;
 
 /// A single marker reading on a given date (one point in a trend).
 class MarkerReading {
@@ -76,20 +109,59 @@ SegmentView segmentView(List<LabReport> newestFirst, BiomarkerSegment seg) {
   return SegmentView(markers: inSeg, leadTrend: trend);
 }
 
-/// Neutral delta text between the first and last trend points (never coloured).
-/// Null when there are fewer than two points (the "single result" case).
-String? trendDeltaText(List<MarkerReading> trend) {
+/// Change of the latest reading against the BASELINE (first reading), per
+/// spec Z6/§6 (PR #30 review M3). Null with fewer than two numeric points.
+/// Rules (also in the PR body and unit tests):
+/// - exactly equal → stable;
+/// - otherwise n = |last − first| / |first| × 100, rounded to the nearest
+///   integer with .5 away from zero (Dart `round()`); a real change that
+///   rounds to 0 shows "<1" (never "+0%" or Stable), with the arrow but no
+///   +/− sign ("↑ <1%", Ava PR #30 r2);
+/// - zero baseline: % is undefined, so the signed change in the marker's
+///   unit is shown instead (e.g. "↑ +15 µM");
+/// - no delta at all (not even Stable) when the first and last readings'
+///   units differ, or either value is censored (<, >, ≤, ≥) or not a finite
+///   number (Clara r2, PR #30).
+({bool stable, bool up, String magnitude, bool percent})? _baselineDelta(
+    List<MarkerReading> trend) {
   if (trend.length < 2) return null;
-  final first = parseMarkerValue(trend.first.marker.value);
-  final last = parseMarkerValue(trend.last.marker.value);
+  if (!sameLabUnit(trend.first.marker.unit, trend.last.marker.unit)) return null;
+  final first = _deltaValue(trend.first.marker.value);
+  final last = _deltaValue(trend.last.marker.value);
   if (first == null || last == null) return null;
-  final unit = trend.last.marker.unit;
-  final u = unit.isEmpty ? '' : ' $unit';
-  if (first == last) return 'Stable';
-  final diff = last - first;
-  final arrow = diff > 0 ? '↑' : '↓';
-  final mag = _trim(diff.abs());
-  return '${trend.first.marker.value} → ${trend.last.marker.value}$u  ($arrow $mag)';
+  if (first == last) return (stable: true, up: false, magnitude: '', percent: false);
+  final up = last > first;
+  if (first == 0) {
+    final unit = trend.last.marker.unit;
+    return (
+      stable: false,
+      up: up,
+      magnitude: '${_trim(last.abs())}${unit.isEmpty ? '' : ' $unit'}',
+      percent: false,
+    );
+  }
+  final n = ((last - first).abs() / first.abs() * 100).round();
+  return (stable: false, up: up, magnitude: n == 0 ? '<1' : '$n', percent: true);
+}
+
+/// Visible hero delta: `{↑|↓} {+|−}{n}%` (U+2212 minus), `{↑|↓} <1%`, or
+/// "Stable".
+String? trendDeltaText(List<MarkerReading> trend) {
+  final d = _baselineDelta(trend);
+  if (d == null) return null;
+  if (d.stable) return 'Stable';
+  final arrow = d.up ? '↑ ' : '↓ ';
+  if (d.magnitude == '<1') return '$arrow<1%';
+  return '$arrow${d.up ? '+' : '−'}${d.magnitude}${d.percent ? '%' : ''}';
+}
+
+/// Screen-reader form of [trendDeltaText], e.g. "up 58 percent since baseline".
+String? trendDeltaSpoken(List<MarkerReading> trend) {
+  final d = _baselineDelta(trend);
+  if (d == null) return null;
+  if (d.stable) return 'stable since baseline';
+  final mag = d.magnitude == '<1' ? 'less than 1' : d.magnitude;
+  return '${d.up ? 'up' : 'down'} $mag${d.percent ? ' percent' : ''} since baseline';
 }
 
 /// "Baseline: {v} · {date}" from the first reading, shown only with ≥2 readings.
@@ -138,11 +210,23 @@ MarkerInfoCopy markerInfoCopy(LabMarker m, String latestDate) {
   final unit = m.unit.isEmpty ? '' : ' ${m.unit}';
   return MarkerInfoCopy(
     title: 'About ${m.name}',
-    latestLine: 'Latest: ${m.value}$unit on $latestDate',
+    latestLine: 'Latest: ${m.value}$unit on ${_explainerDate(latestDate)}',
     rangeLine: referenceBandText(m) ?? 'No lab range provided',
     sourceLine: 'Lab reference ranges come from the laboratory that ran your test.',
     careLine: 'Questions about your results go to your care team.',
   );
+}
+
+/// "2026-09-15" → "Sep 15, 2026" for the explainer (PR #30 review). Uses the
+/// calendar date as written (no time-zone shift); anything else is shown as
+/// given, so no date is ever invented.
+String _explainerDate(String raw) {
+  final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(raw);
+  if (m == null) return raw;
+  final y = int.parse(m.group(1)!), mo = int.parse(m.group(2)!), d = int.parse(m.group(3)!);
+  final date = DateTime(y, mo, d);
+  if (date.month != mo || date.day != d) return raw; // e.g. 2026-02-30
+  return DateFormat('MMM d, y', 'en_US').format(date);
 }
 
 /// A readable reference-band line, or null when no range is recorded.
@@ -303,6 +387,7 @@ class _SegmentPill extends StatelessWidget {
       button: true,
       selected: selected,
       label: label,
+      onTap: onTap, // H1: screen-reader activation == finger tap
       child: ExcludeSemantics(
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -346,26 +431,48 @@ class _BiomarkerHero extends StatelessWidget {
     final caption = markerCaption(m);
     final band = referenceBandText(m);
     final delta = trendDeltaText(trend);
-    final altText = trendTextAlternative(m.name, trend);
-    final baseline = baselineCaptionText(trend);
-    final firstResult = firstResultCaptionText(trend);
+    final deltaSpoken = trendDeltaSpoken(trend);
     final latestDate = trend.isEmpty ? '' : trend.last.date;
-    final hasChart = trend.any((r) => parseMarkerValue(r.marker.value) != null);
+    final plotted = chartReadings(trend);
+    // Ava r3 M5: with mixed units, readings in an earlier unit appear nowhere
+    // (screen-reader trend, baseline, first-result) — only the plotted,
+    // latest-unit readings. The delta above still uses the overall first and
+    // last readings, so it is absent whenever those units differ.
+    final shown = plotted.length < trend.length ? plotted : trend;
+    final altText = trendTextAlternative(m.name, shown);
+    final baseline = baselineCaptionText(shown);
+    final firstResult = firstResultCaptionText(shown);
+    final hasChart = plotted.any((r) => parseMarkerValue(r.marker.value) != null);
+    // Ava r4 M6: shown whenever readings were hidden for a unit mismatch
+    // (`shown` drops other-unit readings only, never non-numeric ones), even
+    // with nothing plotted. A same-unit "Pending" reading never triggers it.
+    final unitCaption = shown.length < trend.length ? mixedUnitCaptionText(trend) : null;
+    // Baseline caption: unchanged from before PR #30 r2.
+    final captionStyle = TextStyle(
+      fontFamily: ZyndioType.family,
+      fontSize: 13,
+      color: c.textTertiary,
+    );
+    // Mixed-unit note: the spec's Caption 13/18 in text.secondary (Ava, r2).
+    final unitCaptionStyle = ZyndioType.footnote.copyWith(color: c.textSecondary);
 
     final readout = [
       m.name,
       '${m.value}${m.unit.isEmpty ? '' : ' ${m.unit}'}',
       caption,
       if (band != null) band,
-      if (delta != null) delta,
+      if (deltaSpoken != null) deltaSpoken,
       altText,
+      if (unitCaption != null) unitCaption,
       if (baseline != null) baseline,
       if (firstResult != null) firstResult,
     ].join(', ');
 
+    // M1: the 16pt card padding sits inside the Stack (not around it) so the
+    // (i) button's full 44×44 target lies within the Stack's bounds; it was
+    // clipped to 38×38 at top/right -6. Same painted position as before.
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: c.bgSurface,
         borderRadius: BorderRadius.circular(16),
@@ -375,115 +482,117 @@ class _BiomarkerHero extends StatelessWidget {
       child: Stack(
         children: [
           // Data readout: one text alternative for screen readers; the painted
-          // values and chart are decorative (ExcludeSemantics).
-          Semantics(
-            container: true,
-            label: readout,
-            child: ExcludeSemantics(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 44),
-                    child: Text(
-                      m.name,
-                      style: TextStyle(
-                        fontFamily: ZyndioType.family,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: c.textPrimary,
+          // values and chart are decorative (ExcludeSemantics). M1: read
+          // before the (i) button (sort key 0 vs 1).
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Semantics(
+              container: true,
+              sortKey: const OrdinalSortKey(0),
+              label: readout,
+              child: ExcludeSemantics(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(right: 44),
+                      child: Text(
+                        m.name,
+                        style: TextStyle(
+                          fontFamily: ZyndioType.family,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: c.textPrimary,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  RichText(
-                    text: TextSpan(
-                      text: m.value,
-                      style: TextStyle(
-                        fontFamily: ZyndioType.family,
-                        fontSize: 30,
-                        fontWeight: FontWeight.w700,
-                        color: c.textPrimary,
-                      ),
-                      children: [
-                        if (m.unit.isNotEmpty)
-                          TextSpan(
-                            text: ' ${m.unit}',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: c.textSecondary,
+                    const SizedBox(height: 6),
+                    RichText(
+                      text: TextSpan(
+                        text: m.value,
+                        style: TextStyle(
+                          fontFamily: ZyndioType.family,
+                          fontSize: 30,
+                          fontWeight: FontWeight.w700,
+                          color: c.textPrimary,
+                        ),
+                        children: [
+                          if (m.unit.isNotEmpty)
+                            TextSpan(
+                              text: ' ${m.unit}',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: c.textSecondary,
+                              ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    caption,
-                    style: TextStyle(
-                      fontFamily: ZyndioType.family,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: c.textSecondary,
-                    ),
-                  ),
-                  if (delta != null) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     Text(
-                      delta,
+                      caption,
                       style: TextStyle(
                         fontFamily: ZyndioType.family,
-                        fontSize: 18,
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: context.z25.deltaNeutral, // neutral, never red/green
+                        color: c.textSecondary,
                       ),
                     ),
-                  ],
-                  if (hasChart) ...[
-                    const SizedBox(height: 12),
-                    _BiomarkerTrendChart(trend: trend, marker: m),
-                  ],
-                  if (band != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      band,
-                      style: TextStyle(
-                        fontFamily: ZyndioType.family,
-                        fontSize: 13,
-                        color: c.textTertiary,
+                    if (delta != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        delta,
+                        style: TextStyle(
+                          fontFamily: ZyndioType.family,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: context.z25.deltaNeutral, // neutral, never red/green
+                        ),
                       ),
-                    ),
-                  ],
-                  if (baseline != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      baseline,
-                      style: TextStyle(
-                        fontFamily: ZyndioType.family,
-                        fontSize: 13,
-                        color: c.textTertiary,
+                    ],
+                    if (hasChart) ...[
+                      const SizedBox(height: 12),
+                      _BiomarkerTrendChart(trend: plotted, marker: m),
+                    ],
+                    if (unitCaption != null) ...[
+                      const SizedBox(height: 6),
+                      Text(unitCaption, style: unitCaptionStyle),
+                    ],
+                    if (band != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        band,
+                        style: TextStyle(
+                          fontFamily: ZyndioType.family,
+                          fontSize: 13,
+                          color: c.textTertiary,
+                        ),
                       ),
-                    ),
-                  ],
-                  if (firstResult != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      firstResult,
-                      style: TextStyle(
-                        fontFamily: ZyndioType.family,
-                        fontSize: 13,
-                        color: c.textTertiary,
+                    ],
+                    if (baseline != null) ...[
+                      const SizedBox(height: 6),
+                      Text(baseline, style: captionStyle),
+                    ],
+                    if (firstResult != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        firstResult,
+                        style: TextStyle(
+                          fontFamily: ZyndioType.family,
+                          fontSize: 13,
+                          color: c.textTertiary,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
           Positioned(
-            top: -6,
-            right: -6,
+            top: 10,
+            right: 10,
             child: _MarkerInfoButton(marker: m, latestDate: latestDate),
           ),
         ],
@@ -501,7 +610,11 @@ class _MarkerInfoButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = Theme.of(context).extension<ZyndioColors>()!;
+    // M1: its own 44×44 node (container) read after the hero readout, instead
+    // of merging into a node that spans the whole hero card.
     return Semantics(
+      container: true,
+      sortKey: const OrdinalSortKey(1),
       button: true,
       label: 'About ${marker.name}',
       onTap: () => _open(context),
@@ -715,8 +828,8 @@ class _BiomarkerTrendChart extends StatelessWidget {
                 isCurved: false,
                 barWidth: 3,
                 isStrokeCapRound: true,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF0B6FD6), Color(0xFF7444F0)],
+                gradient: LinearGradient(
+                  colors: [z.chartLineStart, z.chartLineEnd],
                 ),
                 dotData: FlDotData(
                   show: true,
@@ -724,7 +837,7 @@ class _BiomarkerTrendChart extends StatelessWidget {
                     radius: 5,
                     color: c.bgSurface,
                     strokeWidth: 2.5,
-                    strokeColor: const Color(0xFF3D5BF5),
+                    strokeColor: z.chartPointStroke,
                   ),
                 ),
                 belowBarData: BarAreaData(
@@ -855,6 +968,7 @@ class _ViewFullReportCta extends StatelessWidget {
     return Semantics(
       button: true,
       label: 'View Full Biomarker Report',
+      onTap: onTap, // H1: screen-reader activation == finger tap
       child: ExcludeSemantics(
         child: OutlinedButton(
           onPressed: onTap,

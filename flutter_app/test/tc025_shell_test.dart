@@ -1,4 +1,4 @@
-import 'dart:ui' show Tristate;
+import 'dart:ui' show SemanticsAction, Tristate;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zyndio_patient/config/routes.dart';
 import 'package:zyndio_patient/config/theme.dart';
+import 'package:zyndio_patient/providers/lab_reports_provider.dart';
 import 'package:zyndio_patient/providers/patient_provider.dart';
 import 'package:zyndio_patient/models/patient_profile.dart';
 import 'package:zyndio_patient/screens/biomarkers/biomarkers_screen.dart';
@@ -73,6 +74,8 @@ Future<void> _pumpShell(WidgetTester tester, {Brightness b = Brightness.light}) 
     ProviderScope(
       overrides: [
         patientProfileProvider.overrideWith(() => _TestProfileNotifier()),
+        // Fictional: no lab reports, so the Biomarkers tab never hits Supabase.
+        labReportsProvider.overrideWith((ref) async => const []),
       ],
       child: MaterialApp.router(
         theme:
@@ -172,6 +175,50 @@ void main() {
       await _pumpShell(tester);
       expect(find.bySemanticsLabel('Profile and settings'), findsOneWidget);
       await tester.tap(find.bySemanticsLabel('Profile and settings'));
+      await tester.pumpAndSettle();
+      expect(find.text('SETTINGS SCREEN'), findsOneWidget);
+      handle.dispose();
+    });
+
+    // H1 (Ava, PR #30 review): a screen-reader activation (SemanticsAction.tap)
+    // must do exactly what a finger tap does.
+    testWidgets('H1: semantics tap on every tab switches to that tab',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pumpShell(tester);
+
+      bool selected(String label) =>
+          tester
+              .getSemantics(find.bySemanticsLabel(label))
+              .getSemanticsData()
+              .flagsCollection
+              .isSelected ==
+          Tristate.isTrue;
+
+      final cases = <String, Finder>{
+        'Progress, tab 2 of 5': find.text('No DEXASCAN results yet'),
+        'Biomarkers, tab 3 of 5': find.byType(BiomarkersScreen),
+        'My Plan, tab 4 of 5': find.text('MY PLAN STUB'),
+        'Care, tab 5 of 5': find.text('My Care'),
+        'Today, tab 1 of 5': find.byType(TodayScreen),
+      };
+      for (final e in cases.entries) {
+        final node = find.semantics.byLabel(e.key).evaluate().single;
+        expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue,
+            reason: '${e.key} exposes SemanticsAction.tap');
+        tester.semantics.tap(find.semantics.byLabel(e.key));
+        await tester.pumpAndSettle();
+        expect(selected(e.key), isTrue, reason: '${e.key} is now selected');
+        expect(e.value.hitTestable(), findsOneWidget, reason: '${e.key} screen shown');
+      }
+      handle.dispose();
+    });
+
+    testWidgets('H1: semantics tap on the avatar opens Profile & settings',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pumpShell(tester);
+      tester.semantics.tap(find.semantics.byLabel('Profile and settings'));
       await tester.pumpAndSettle();
       expect(find.text('SETTINGS SCREEN'), findsOneWidget);
       handle.dispose();
