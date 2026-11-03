@@ -360,7 +360,11 @@ ThemeData _zyndioThemeData(Brightness brightness) {
     materialTapTargetSize: MaterialTapTargetSize.padded,
     visualDensity: VisualDensity.standard,
     splashFactory: NoSplash.splashFactory,
-    extensions: <ThemeExtension<dynamic>>[c, legacy],
+    extensions: <ThemeExtension<dynamic>>[
+      c,
+      legacy,
+      brightness == Brightness.light ? ZyndioTc025Colors.light : ZyndioTc025Colors.dark,
+    ],
     dividerTheme: DividerThemeData(color: c.borderSubtle, thickness: ZyndioBorder.hairline, space: ZyndioBorder.hairline),
     filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(
       backgroundColor: c.brandPrimary, foregroundColor: c.brandOnPrimary,
@@ -619,6 +623,217 @@ extension BrandThemeX on BuildContext {
 // ─────────────────────────────────────────────────────────────
 // THEME DATA
 // ─────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────
+// TC-025 TOKENS — Brett's 5-tab patient UI (Ava Rev 2, 1 Nov 2026)
+// Additive block. Source: handoff/tc-025/tokens-tc025.additions.json.
+// Kept as a NEW ThemeExtension (not folded into ZyndioColors) so this stays a
+// self-contained block and the later #29 theme.dart merge is trivial.
+// ─────────────────────────────────────────────────────────────
+
+/// Brand gradients (identical in light and dark per the tokens file).
+abstract final class ZyndioGradients {
+  /// Primary CTA / Schedule / avatar, 90°. White text ≥ 4.93:1 on every stop.
+  static const LinearGradient brand = LinearGradient(
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    colors: [Color(0xFF7444F0), Color(0xFF3D5BF5), Color(0xFF0B6FD6)],
+    stops: [0.0, 0.55, 1.0],
+  );
+
+  /// Active segment/filter pill. White 14/600 ≥ 5.49:1.
+  static const LinearGradient segmentActive = LinearGradient(
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    colors: [Color(0xFF7444F0), Color(0xFF6A45F0)],
+  );
+}
+
+/// TC-025 semantic colours, light (`$value`) and dark (`app.dark`).
+/// Read via `context.z25` or `Theme.of(context).extension<ZyndioTc025Colors>()!`.
+@immutable
+class ZyndioTc025Colors extends ThemeExtension<ZyndioTc025Colors> {
+  const ZyndioTc025Colors({
+    required this.segmentBg,
+    required this.segmentText,
+    required this.tileBg,
+    required this.deltaNeutral,
+    required this.deltaFavourable,
+    required this.deltaUnfavourable,
+    required this.badgeActiveBg,
+    required this.badgeActiveText,
+    required this.badgeNeutralBg,
+    required this.badgeNeutralText,
+    required this.tabActive,
+    required this.tabInactive,
+    required this.critText,
+    required this.critBg,
+    required this.warnText,
+    required this.warnBg,
+    required this.screenBg,
+  });
+
+  /// Inactive segment pill fill
+  final Color segmentBg;
+
+  /// Inactive segment pill text
+  final Color segmentText;
+
+  /// Today wearable tiles / Progress scan panels
+  final Color tileBg;
+
+  /// USED for all deltas, changes and compare values (never red/green).
+  final Color deltaNeutral;
+
+  /// DEFINED-UNUSED until Zyndio's clinical lead confirms direction per metric.
+  final Color deltaFavourable;
+
+  /// DEFINED-UNUSED (see [deltaFavourable]).
+  final Color deltaUnfavourable;
+
+  /// Active (e.g. plan) status badge fill
+  final Color badgeActiveBg;
+
+  /// Active status badge text
+  final Color badgeActiveText;
+
+  /// Neutral (Paused/Stopped/Coming soon) badge fill
+  final Color badgeNeutralBg;
+
+  /// Neutral badge text
+  final Color badgeNeutralText;
+
+  /// Active tab colour
+  final Color tabActive;
+
+  /// Inactive tab colour
+  final Color tabInactive;
+
+  /// Error banner text/icon
+  final Color critText;
+
+  /// Error banner fill
+  final Color critBg;
+
+  /// Warning (offline / missed reminder) banner text/icon
+  final Color warnText;
+
+  /// Warning banner fill
+  final Color warnBg;
+
+  /// Screen background for the 5 patient tabs
+  final Color screenBg;
+
+  static const light = ZyndioTc025Colors(
+    segmentBg: Color(0xFFEEF0F5),
+    segmentText: Color(0xFF283152),
+    tileBg: Color(0xFFEAF4FF),
+    deltaNeutral: Color(0xFF283152),
+    deltaFavourable: Color(0xFF0E7F48),
+    deltaUnfavourable: Color(0xFFB42318),
+    badgeActiveBg: Color(0xFFE3F7EC),
+    badgeActiveText: Color(0xFF0B6E3D),
+    badgeNeutralBg: Color(0xFFEEF0F5),
+    badgeNeutralText: Color(0xFF3A4463),
+    tabActive: Color(0xFF2C4DFE),
+    tabInactive: Color(0xFF4A5470),
+    critText: Color(0xFFB42318),
+    critBg: Color(0xFFFEF0EE),
+    warnText: Color(0xFF8A4B00),
+    warnBg: Color(0xFFFFF4E2),
+    screenBg: Color(0xFFF7F8FC),
+  );
+
+  static const dark = ZyndioTc025Colors(
+    segmentBg: Color(0xFF1A2133),
+    segmentText: Color(0xFFD5DBEA),
+    tileBg: Color(0xFF141B2E),
+    deltaNeutral: Color(0xFFD5DBEA),
+    deltaFavourable: Color(0xFF4BD98F),
+    deltaUnfavourable: Color(0xFFFF9B8F),
+    badgeActiveBg: Color(0xFF0F2A1E),
+    badgeActiveText: Color(0xFF6EE7A8),
+    badgeNeutralBg: Color(0xFF1A2133),
+    badgeNeutralText: Color(0xFFD5DBEA),
+    tabActive: Color(0xFF9DB2FF),
+    tabInactive: Color(0xFFA6B0C3),
+    critText: Color(0xFFFF9B8F),
+    critBg: Color(0xFF2A1414),
+    warnText: Color(0xFFFFC56B),
+    warnBg: Color(0xFF2A2010),
+    screenBg: Color(0xFF070A14),
+  );
+
+  @override
+  ZyndioTc025Colors copyWith({
+    Color? segmentBg,
+    Color? segmentText,
+    Color? tileBg,
+    Color? deltaNeutral,
+    Color? deltaFavourable,
+    Color? deltaUnfavourable,
+    Color? badgeActiveBg,
+    Color? badgeActiveText,
+    Color? badgeNeutralBg,
+    Color? badgeNeutralText,
+    Color? tabActive,
+    Color? tabInactive,
+    Color? critText,
+    Color? critBg,
+    Color? warnText,
+    Color? warnBg,
+    Color? screenBg,
+  }) =>
+      ZyndioTc025Colors(
+        segmentBg: segmentBg ?? this.segmentBg,
+        segmentText: segmentText ?? this.segmentText,
+        tileBg: tileBg ?? this.tileBg,
+        deltaNeutral: deltaNeutral ?? this.deltaNeutral,
+        deltaFavourable: deltaFavourable ?? this.deltaFavourable,
+        deltaUnfavourable: deltaUnfavourable ?? this.deltaUnfavourable,
+        badgeActiveBg: badgeActiveBg ?? this.badgeActiveBg,
+        badgeActiveText: badgeActiveText ?? this.badgeActiveText,
+        badgeNeutralBg: badgeNeutralBg ?? this.badgeNeutralBg,
+        badgeNeutralText: badgeNeutralText ?? this.badgeNeutralText,
+        tabActive: tabActive ?? this.tabActive,
+        tabInactive: tabInactive ?? this.tabInactive,
+        critText: critText ?? this.critText,
+        critBg: critBg ?? this.critBg,
+        warnText: warnText ?? this.warnText,
+        warnBg: warnBg ?? this.warnBg,
+        screenBg: screenBg ?? this.screenBg,
+      );
+
+  @override
+  ZyndioTc025Colors lerp(ThemeExtension<ZyndioTc025Colors>? other, double t) {
+    if (other is! ZyndioTc025Colors) return this;
+    return ZyndioTc025Colors(
+      segmentBg: Color.lerp(segmentBg, other.segmentBg, t)!,
+      segmentText: Color.lerp(segmentText, other.segmentText, t)!,
+      tileBg: Color.lerp(tileBg, other.tileBg, t)!,
+      deltaNeutral: Color.lerp(deltaNeutral, other.deltaNeutral, t)!,
+      deltaFavourable: Color.lerp(deltaFavourable, other.deltaFavourable, t)!,
+      deltaUnfavourable: Color.lerp(deltaUnfavourable, other.deltaUnfavourable, t)!,
+      badgeActiveBg: Color.lerp(badgeActiveBg, other.badgeActiveBg, t)!,
+      badgeActiveText: Color.lerp(badgeActiveText, other.badgeActiveText, t)!,
+      badgeNeutralBg: Color.lerp(badgeNeutralBg, other.badgeNeutralBg, t)!,
+      badgeNeutralText: Color.lerp(badgeNeutralText, other.badgeNeutralText, t)!,
+      tabActive: Color.lerp(tabActive, other.tabActive, t)!,
+      tabInactive: Color.lerp(tabInactive, other.tabInactive, t)!,
+      critText: Color.lerp(critText, other.critText, t)!,
+      critBg: Color.lerp(critBg, other.critBg, t)!,
+      warnText: Color.lerp(warnText, other.warnText, t)!,
+      warnBg: Color.lerp(warnBg, other.warnBg, t)!,
+      screenBg: Color.lerp(screenBg, other.screenBg, t)!,
+    );
+  }
+}
+
+/// `context.z25` → the TC-025 colour tokens for the active brightness.
+extension ZyndioTc025X on BuildContext {
+  ZyndioTc025Colors get z25 =>
+      Theme.of(this).extension<ZyndioTc025Colors>() ?? ZyndioTc025Colors.light;
+}
 
 /// Zyndio Theme Configuration
 class BrandTheme {
