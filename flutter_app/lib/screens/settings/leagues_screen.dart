@@ -137,21 +137,26 @@ class LeagueStandings extends ConsumerWidget {
               ...others.map((player) {
                 final isMe = GamificationService.isLeaderboardSelf(player);
                 final name = GamificationService.formatLeaderboardName(player['name'] as String?);
+                final rank = limitedStandings.indexOf(player) + 1;
+                final xp = player['league_xp'];
                 return Semantics(
-                  // TC-030 item 0a (Ava M1): the own-row highlight is colour-only
-                  // today, which fails WCAG 1.4.1. Announce "(you)" to a screen
-                  // reader and add a visible "You" pill below as the non-colour cue.
-                  label: isMe ? '$name (you)' : name,
+                  // TC-030 item 0a (Ava): read the whole row once. excludeSemantics
+                  // drops the per-child nodes (rank, name, "You" pill, XP) that
+                  // otherwise made a screen reader announce the row twice; the
+                  // single label carries rank, name, the "you" cue and XP.
+                  excludeSemantics: true,
+                  label: isMe ? '#$rank, $name, you, $xp XP' : '#$rank, $name, $xp XP',
                   child: Container(
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     decoration: BoxDecoration(
                       color: isMe ? context.nc.textPrimary.withValues(alpha: 0.05) : Colors.transparent,
                       borderRadius: BorderRadius.circular(16),
-                      // Own-row border raised to ~3:1 against the page (WCAG 1.4.1
-                      // non-text contrast) from the old faint 10% tint.
+                      // Own-row border: a solid design-token blue (#2563EB) that
+                      // clears WCAG 1.4.1 non-text contrast against both the page
+                      // and the row tint, in light and dark (TC-030 item 0a, Ava).
                       border: Border.all(
-                        color: isMe ? context.nc.primary.withValues(alpha: 0.7) : Colors.transparent,
+                        color: isMe ? context.nc.leaderboardOwnBorder : Colors.transparent,
                         width: isMe ? 1.5 : 1,
                       ),
                     ),
@@ -228,11 +233,14 @@ class LeagueStandings extends ConsumerWidget {
     final color = rank == 1 ? const Color(0xFFF59E0B) : (rank == 2 ? const Color(0xFF94A3B8) : const Color(0xFFCD7F32));
     final isMe = GamificationService.isLeaderboardSelf(player);
     final name = GamificationService.formatLeaderboardName(player['name'] as String?, fallback: 'Unknown');
+    final xp = player['league_xp'];
 
     return Semantics(
-      // TC-030 item 0a: announce "(you)" so the own podium avatar is
-      // identifiable without relying on colour (WCAG 1.4.1).
-      label: isMe ? '$name (you)' : name,
+      // TC-030 item 0a (Ava): one label per podium row - rank, name, the "you"
+      // cue and XP - with excludeSemantics so the child Texts/pill aren't read a
+      // second time (WCAG: no colour-only cue, and no duplicated announcement).
+      excludeSemantics: true,
+      label: isMe ? '#$rank, $name, you, $xp XP' : '#$rank, $name, $xp XP',
       child: Column(
       children: [
         Stack(
@@ -340,7 +348,9 @@ class _YouPill extends StatelessWidget {
       child: Text(
         'You',
         style: TextStyle(
-          color: context.nc.primary,
+          // >=4.5:1 on the brand tint in both modes (TC-030 item 0a, Ava); the
+          // old context.nc.primary was 2.71:1 in light / 4.21:1 in dark.
+          color: context.nc.leaderboardYouPillText,
           fontWeight: FontWeight.w900,
           fontSize: 10,
           letterSpacing: 0.5,

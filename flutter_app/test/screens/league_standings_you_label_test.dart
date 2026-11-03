@@ -1,10 +1,10 @@
-// TC-030 item 0a (Ava, PR #25 review): the leaderboard must mark the caller's
-// own row with a non-colour cue - a visible "You" pill and a screen-reader
-// "(you)" suffix - on both the podium and the list, so the own-row cue does not
-// rely on colour alone (WCAG 1.4.1).
+// TC-030 item 0a (Ava): the leaderboard must mark the caller's own row with a
+// non-colour cue - a visible "You" pill and a screen-reader "you" in the row's
+// single semantics label - on both the podium and the list, without relying on
+// colour alone (WCAG 1.4.1).
 //
 // Fail-first: the pre-item-0a screen highlighted the own row by colour only, with
-// no "You" pill and no "(you)" Semantics label, so every assertion below goes red
+// no "You" pill and no "you" Semantics label, so every assertion below goes red
 // on the old code.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,23 +35,24 @@ Future<void> _pump(WidgetTester tester, List<Map<String, dynamic>> rows) async {
 }
 
 void main() {
-  testWidgets('list row: own row shows a "You" pill and a (you) screen-reader label', (tester) async {
+  testWidgets('list row: own row shows a "You" pill and a "you" screen-reader label', (tester) async {
     final handle = tester.ensureSemantics();
     await _pump(tester, _rows(meIndex: 3)); // Jordan R. is me, in the list
 
     // Exactly one visible "You" pill, on the own row only.
     expect(find.text('You'), findsOneWidget);
-    // Screen reader announces the own row with a (you) suffix.
-    expect(find.bySemanticsLabel(RegExp(r'\(you\)')), findsOneWidget);
+    // Screen reader announces the own row once, with the "you" cue in a single
+    // combined label (rank, name, you, XP).
+    expect(find.bySemanticsLabel(RegExp(r', you,')), findsOneWidget);
     handle.dispose();
   });
 
-  testWidgets('podium: own podium row shows a "You" pill and a (you) screen-reader label', (tester) async {
+  testWidgets('podium: own podium row shows a "You" pill and a "you" screen-reader label', (tester) async {
     final handle = tester.ensureSemantics();
     await _pump(tester, _rows(meIndex: 0)); // Avery K. is me, on the podium
 
     expect(find.text('You'), findsOneWidget);
-    expect(find.bySemanticsLabel(RegExp(r'\(you\)')), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp(r', you,')), findsOneWidget);
     handle.dispose();
   });
 
@@ -60,7 +61,7 @@ void main() {
     await _pump(tester, _rows(meIndex: -1)); // nobody is me
 
     expect(find.text('You'), findsNothing);
-    expect(find.bySemanticsLabel(RegExp(r'\(you\)')), findsNothing);
+    expect(find.bySemanticsLabel(RegExp(r', you,')), findsNothing);
     handle.dispose();
   });
 }

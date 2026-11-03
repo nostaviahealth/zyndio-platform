@@ -448,6 +448,13 @@ class BrandThemeColors extends ThemeExtension<BrandThemeColors> {
   final Color glassBg;          // Glassmorphism / frosted backgrounds
   final Color glassBorder;
   final Color shadowColor;
+  // TC-030 item 0a (Ava): leaderboard own-row border, a solid blue that clears
+  // WCAG 1.4.1 non-text contrast (>=3:1) against the page and the row tint in
+  // both modes - #2563EB is 4.94:1 on the light page / 3.90:1 on the dark page.
+  final Color leaderboardOwnBorder;
+  // TC-030 item 0a (Ava): "You" pill text on the brand tint, >=4.5:1 in both
+  // modes (#1D4ED8 = 4.94:1 light, #93C5FD = 8.59:1 dark).
+  final Color leaderboardYouPillText;
   final bool isDark;
 
   const BrandThemeColors({
@@ -472,6 +479,8 @@ class BrandThemeColors extends ThemeExtension<BrandThemeColors> {
     required this.glassBg,
     required this.glassBorder,
     required this.shadowColor,
+    required this.leaderboardOwnBorder,
+    required this.leaderboardYouPillText,
     required this.isDark,
   });
 
@@ -498,6 +507,8 @@ class BrandThemeColors extends ThemeExtension<BrandThemeColors> {
     glassBg: Color(0xCCFFFFFF),          // white 80%
     glassBorder: Color(0x59FFFFFF),      // white 35%
     shadowColor: Color(0x14000000),      // black 8%
+    leaderboardOwnBorder: Color(0xFF2563EB),  // blue600
+    leaderboardYouPillText: Color(0xFF1D4ED8), // blue700
     isDark: false,
   );
 
@@ -524,6 +535,8 @@ class BrandThemeColors extends ThemeExtension<BrandThemeColors> {
     glassBg: Color(0x4D0F172A),          // 30% slate-900 glass
     glassBorder: Color(0x40FFFFFF),      // 25% white border
     shadowColor: Color(0x66000000),      // black 40%
+    leaderboardOwnBorder: Color(0xFF2563EB),  // blue600 (3.90:1 on the dark page)
+    leaderboardYouPillText: Color(0xFF93C5FD), // blue300
     isDark: true,
   );
 
@@ -550,6 +563,8 @@ class BrandThemeColors extends ThemeExtension<BrandThemeColors> {
     Color? glassBg,
     Color? glassBorder,
     Color? shadowColor,
+    Color? leaderboardOwnBorder,
+    Color? leaderboardYouPillText,
     bool? isDark,
   }) {
     return BrandThemeColors(
@@ -574,6 +589,8 @@ class BrandThemeColors extends ThemeExtension<BrandThemeColors> {
       glassBg: glassBg ?? this.glassBg,
       glassBorder: glassBorder ?? this.glassBorder,
       shadowColor: shadowColor ?? this.shadowColor,
+      leaderboardOwnBorder: leaderboardOwnBorder ?? this.leaderboardOwnBorder,
+      leaderboardYouPillText: leaderboardYouPillText ?? this.leaderboardYouPillText,
       isDark: isDark ?? this.isDark,
     );
   }
@@ -603,6 +620,8 @@ class BrandThemeColors extends ThemeExtension<BrandThemeColors> {
       glassBg: Color.lerp(glassBg, other.glassBg, t)!,
       glassBorder: Color.lerp(glassBorder, other.glassBorder, t)!,
       shadowColor: Color.lerp(shadowColor, other.shadowColor, t)!,
+      leaderboardOwnBorder: Color.lerp(leaderboardOwnBorder, other.leaderboardOwnBorder, t)!,
+      leaderboardYouPillText: Color.lerp(leaderboardYouPillText, other.leaderboardYouPillText, t)!,
       isDark: t < 0.5 ? isDark : other.isDark,
     );
   }
