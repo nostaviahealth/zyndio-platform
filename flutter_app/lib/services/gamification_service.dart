@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:unorm_dart/unorm_dart.dart' as unorm;
 import '../config/supabase_config.dart';
 
 /// Reward type definitions with their XP and Coin values.
@@ -201,66 +202,109 @@ class GamificationService {
   /// malformed value can't blow out the row/podium layout (TC-030 item 9).
   static const int leaderboardNameMaxLength = 18;
 
-  /// Leaderboard name rule (TC-030 item 9, Henry's ruling on Clara PR #29 r3).
-  /// The server's patient_leaderboard_top10() applies the IDENTICAL rule
-  /// (migration 20261103110000), so a name reads the same on both sides:
-  ///   1. No name, or any value containing '@' (an email or a handle), is never
-  ///      used to build a name: nothing usable is returned (-> fallback,
-  ///      'Anonymous'). Not even an initial.
-  ///   2. "Last, First" (comma form) is read as "First Last".
-  ///   3. Tokens are split on any run of characters that is NOT a letter
-  ///      (\p{L}), mark (\p{M}), number (\p{N}) or apostrophe (' or ’), so
-  ///      whitespace, punctuation, '+', emoji and invisible format characters
-  ///      (soft hyphen, LRM/RLM, RLO, ZWSP/ZWNJ/ZWJ, U+180E, U+2062, BOM...)
-  ///      are all separators.
-  ///   4. Each token drops everything before its first letter (so a leading
-  ///      combining mark, digit or apostrophe never leads); a token with no
-  ///      letter at all is dropped.
-  /// Returns `[]` when nothing usable is left.
+  /// Leaderboard name rule (TC-030 item 9; Henry's REJECT rule, Clara PR #29
+  /// r4). The server's patient_leaderboard_top10() applies the IDENTICAL rule
+  /// (migration 20261103123000_tc030_leaderboard_name_nfkc), so a name reads
+  /// the same on both sides:
+  ///   a. NFKC-normalise first (package:unorm_dart; the server uses
+  ///      normalize(name, NFKC)).
+  ///   b. No name, or any '@' after NFKC (an email or a handle), gives nothing.
+  ///   c. Any Default_Ignorable_Code_Point ([_defaultIgnorableRanges]) gives
+  ///      nothing.
+  ///   d./e. Only letters (\p{L}), combining marks (\p{M}), ASCII space, ASCII
+  ///      '-' and the apostrophes ' and ’ are allowed; any digit, '.', ',', '_',
+  ///      '+', emoji, symbol, NBSP or other whitespace gives nothing. (c) and
+  ///      (e) are checked on the raw value AND its NFKC form, so a
+  ///      compatibility character (NBSP, em space, ⓐ, ™, ²) is rejected rather
+  ///      than rewritten by NFKC into an allowed one.
+  ///   f. An apostrophe must sit between two letters/marks; a leading,
+  ///      trailing or doubled one gives nothing.
+  ///   g. Spaces and hyphens split the name (trim, collapse runs, drop empty
+  ///      pieces); each piece starts at its first letter (a leading combining
+  ///      mark is dropped) and a piece with no letter is dropped.
+  /// Returns `[]` (-> 'Anonymous') when the name is rejected or nothing is left.
   static List<String> _leaderboardNameParts(String? raw) {
-    if (raw == null || raw.contains('@')) return const [];
+    if (raw == null) return const [];
+    final n = unorm.nfkc(raw);
+    if (n.contains('@')) return const [];
+    if (_hasDefaultIgnorable(raw) || _hasDefaultIgnorable(n)) return const [];
+    if (_disallowedChar.hasMatch(raw) || _disallowedChar.hasMatch(n)) return const [];
+    if (_strayApostrophe.hasMatch(n)) return const [];
 
-    var working = raw;
-    final commaIndex = working.indexOf(',');
-    if (commaIndex >= 0) {
-      working = '${working.substring(commaIndex + 1)} ${working.substring(0, commaIndex)}';
-    }
-
-    return working
-        .split(_nameSeparator)
+    return n
+        .split(_pieceSeparator)
         .map((t) => t.replaceFirst(_leadingNonLetter, ''))
         .where((t) => t.isNotEmpty)
         .toList();
   }
 
-  /// Any run that is not a letter, mark, number or apostrophe separates tokens.
-  static final RegExp _nameSeparator = RegExp(r"[^\p{L}\p{M}\p{N}'’]+", unicode: true);
+  /// Unicode 17.0.0 DerivedCoreProperties Default_Ignorable_Code_Point, merged
+  /// into ranges (identical in 15.1 and 16.0) - the same 17 ranges as the
+  /// server's di_r (generator: work/.claude-runs/tc030h3r5/di_ranges.py).
+  static const List<(int, int)> _defaultIgnorableRanges = [
+    (0x00AD, 0x00AD),
+    (0x034F, 0x034F),
+    (0x061C, 0x061C),
+    (0x115F, 0x1160),
+    (0x17B4, 0x17B5),
+    (0x180B, 0x180F),
+    (0x200B, 0x200F),
+    (0x202A, 0x202E),
+    (0x2060, 0x206F),
+    (0x3164, 0x3164),
+    (0xFE00, 0xFE0F),
+    (0xFEFF, 0xFEFF),
+    (0xFFA0, 0xFFA0),
+    (0xFFF0, 0xFFF8),
+    (0x1BCA0, 0x1BCA3),
+    (0x1D173, 0x1D17A),
+    (0xE0000, 0xE0FFF),
+  ];
 
-  /// Everything before a token's first letter.
+  static bool _hasDefaultIgnorable(String s) {
+    for (final cp in s.runes) {
+      for (final (lo, hi) in _defaultIgnorableRanges) {
+        if (cp >= lo && cp <= hi) return true;
+      }
+    }
+    return false;
+  }
+
+  /// Anything that is not a letter, mark, ASCII space, apostrophe or hyphen.
+  static final RegExp _disallowedChar = RegExp(r"[^\p{L}\p{M} '’\-]", unicode: true);
+
+  /// An apostrophe not preceded, or not followed, by a letter/mark.
+  static final RegExp _strayApostrophe =
+      RegExp(r"(?:^|[^\p{L}\p{M}])['’]|['’](?:[^\p{L}\p{M}]|$)", unicode: true);
+
+  /// Runs of ASCII space / hyphen split the name into pieces.
+  static final RegExp _pieceSeparator = RegExp(r'[ \-]+');
+
+  /// Everything before a piece's first letter.
   static final RegExp _leadingNonLetter = RegExp(r'^[^\p{L}]+', unicode: true);
 
-  /// A token's first letter plus any combining marks on it (the first letter
-  /// grapheme of the token, matched by code point so an astral letter is never
-  /// split into a lone UTF-16 surrogate / U+FFFD).
+  /// A piece's first letter plus any combining marks on it (its first letter
+  /// grapheme, matched by code point so an astral letter is never split into a
+  /// lone UTF-16 surrogate / U+FFFD).
   static final RegExp _firstLetterCluster = RegExp(r'^\p{L}\p{M}*', unicode: true);
 
-  /// First letter grapheme of a (letter-led) token, upper-cased.
+  /// First letter grapheme of a (letter-led) piece, upper-cased.
   static String _initial(String token) =>
       (_firstLetterCluster.stringMatch(token) ?? '').toUpperCase();
 
-  /// Token with its first letter grapheme upper-cased, the rest untouched (so
+  /// Piece with its first letter grapheme upper-cased, the rest untouched (so
   /// "McArdle" / already-capitalised names are preserved).
   static String _capitalize(String token) {
     final head = _firstLetterCluster.stringMatch(token) ?? '';
     return head.toUpperCase() + token.substring(head.length);
   }
 
-  /// Formats a raw name to the leaderboard's "First L." shape (TC-030 item 9),
-  /// with the same rule as the server (see [_leaderboardNameParts]): first name
-  /// capitalised plus the last token's initial and a dot; a single token is the
-  /// first name alone; an email/handle or a name with no letters gives
-  /// [fallback]. Capped at [leaderboardNameMaxLength] code points, as the
-  /// server's left(..., 18) is.
+  /// Formats a RAW stored name to the leaderboard's "First L." shape (TC-030
+  /// item 9, rule h), exactly as the server does (see [_leaderboardNameParts]):
+  /// first piece with its first letter capitalised, plus ' ' and the last
+  /// piece's first letter and '.'; one piece is the first name alone; a
+  /// rejected name gives [fallback]. Capped at [leaderboardNameMaxLength] code
+  /// points, as the server's left(..., 18) is.
   static String formatLeaderboardName(String? raw, {String fallback = 'Anonymous'}) {
     final parts = _leaderboardNameParts(raw);
     if (parts.isEmpty) return fallback;
@@ -274,15 +318,50 @@ class GamificationService {
         : formatted;
   }
 
-  /// Initials for a leaderboard avatar when no photo is shown (TC-030 item 9):
-  /// first + last initial (e.g. "Jordan Rivera" -> "JR"), one initial for a
-  /// one-token name, or [fallback] for an email/handle or a name with no letters.
+  /// Initials for a leaderboard avatar from a RAW stored name: first + last
+  /// initial ("Jordan Rivera" -> "JR"), one initial for a one-piece name, or
+  /// [fallback] for a rejected name.
   static String leaderboardInitials(String? raw, {String fallback = '?'}) {
     final parts = _leaderboardNameParts(raw);
     if (parts.isEmpty) return fallback;
     if (parts.length == 1) return _initial(parts.first);
     return _initial(parts.first) + _initial(parts.last);
   }
+
+  /// The trailing ". " of an already-formatted "First L." (the only '.' the
+  /// rule ever produces).
+  static final RegExp _formattedInitialDot = RegExp(r'^(.* [\p{L}\p{M}]+)\.$', unicode: true);
+
+  /// The server returns names already formatted ("Jordan R."); '.' is not an
+  /// allowed character in a raw name, so the app drops that one trailing
+  /// initial dot before re-applying the same rule defensively.
+  static String? _unformat(String? serverName) {
+    if (serverName == null) return null;
+    final m = _formattedInitialDot.firstMatch(serverName);
+    return m == null ? serverName : m.group(1);
+  }
+
+  /// Display name for a patient_leaderboard_top10() row's `name` (already
+  /// formatted by the server). Re-applies the shared rule defensively, and is
+  /// idempotent on every value the server (or [formatLeaderboardName]) returns.
+  static String leaderboardDisplayName(String? serverName, {String fallback = 'Anonymous'}) =>
+      formatLeaderboardName(_unformat(serverName), fallback: fallback);
+
+  /// Initials for a patient_leaderboard_top10() row's `name` ("Jordan R." ->
+  /// "JR"), or [fallback] for an anonymous row (including the literal
+  /// 'Anonymous' the server returns for a rejected name).
+  static String leaderboardDisplayInitials(String? serverName, {String fallback = '?'}) =>
+      isLeaderboardAnonymous(serverName)
+          ? fallback
+          : leaderboardInitials(_unformat(serverName), fallback: fallback);
+
+  /// True when a leaderboard row renders as 'Anonymous' (TC-030 item 20: the
+  /// avatar shows the Lucide `user` glyph instead of initials).
+  static bool isLeaderboardAnonymous(String? serverName) =>
+      leaderboardDisplayName(serverName) == anonymousLeaderboardName;
+
+  /// The name shown for a rejected / missing name.
+  static const String anonymousLeaderboardName = 'Anonymous';
 
   /// Maps one patient_leaderboard_top10() row to the shape the leagues UI
   /// reads: name, avatar_url, league_xp, is_me. No user/patient id.

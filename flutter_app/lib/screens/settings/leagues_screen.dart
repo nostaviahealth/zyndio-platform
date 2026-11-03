@@ -136,7 +136,10 @@ class LeagueStandings extends ConsumerWidget {
             if (others.isNotEmpty)
               ...others.map((player) {
                 final isMe = GamificationService.isLeaderboardSelf(player);
-                final name = GamificationService.formatLeaderboardName(player['name'] as String?);
+                final name = GamificationService.leaderboardDisplayName(player['name'] as String?);
+                // TC-030 item 20: an anonymous OWN row is labelled by the "You"
+                // pill alone, so it never reads "Anonymous, you".
+                final youOnly = isMe && GamificationService.isLeaderboardAnonymous(player['name'] as String?);
                 final rank = limitedStandings.indexOf(player) + 1;
                 final xp = player['league_xp'];
                 return Semantics(
@@ -145,7 +148,7 @@ class LeagueStandings extends ConsumerWidget {
                   // otherwise made a screen reader announce the row twice; the
                   // single label carries rank, name, the "you" cue and XP.
                   excludeSemantics: true,
-                  label: isMe ? '#$rank, $name, you, $xp XP' : '#$rank, $name, $xp XP',
+                  label: leaderboardRowLabel(rank: rank, name: name, xp: xp, isMe: isMe, youOnly: youOnly),
                   child: Container(
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -176,7 +179,7 @@ class LeagueStandings extends ConsumerWidget {
                         Expanded(
                           child: Row(
                             children: [
-                              Flexible(
+                              if (!youOnly) Flexible(
                                 child: Text(
                                   name.toUpperCase(),
                                   maxLines: 1,
@@ -190,7 +193,7 @@ class LeagueStandings extends ConsumerWidget {
                                 ),
                               ),
                               if (isMe) ...[
-                                const SizedBox(width: 8),
+                                if (!youOnly) const SizedBox(width: 8),
                                 const _YouPill(),
                               ],
                             ],
@@ -232,7 +235,8 @@ class LeagueStandings extends ConsumerWidget {
   Widget _buildPodiumUser(BuildContext context, Map<String, dynamic> player, int rank, double size) {
     final color = rank == 1 ? const Color(0xFFF59E0B) : (rank == 2 ? const Color(0xFF94A3B8) : const Color(0xFFCD7F32));
     final isMe = GamificationService.isLeaderboardSelf(player);
-    final name = GamificationService.formatLeaderboardName(player['name'] as String?, fallback: 'Unknown');
+    final name = GamificationService.leaderboardDisplayName(player['name'] as String?);
+    final youOnly = isMe && GamificationService.isLeaderboardAnonymous(player['name'] as String?);
     final xp = player['league_xp'];
 
     return Semantics(
@@ -240,7 +244,7 @@ class LeagueStandings extends ConsumerWidget {
       // cue and XP - with excludeSemantics so the child Texts/pill aren't read a
       // second time (WCAG: no colour-only cue, and no duplicated announcement).
       excludeSemantics: true,
-      label: isMe ? '#$rank, $name, you, $xp XP' : '#$rank, $name, $xp XP',
+      label: leaderboardRowLabel(rank: rank, name: name, xp: xp, isMe: isMe, youOnly: youOnly),
       child: Column(
       children: [
         Stack(
@@ -291,7 +295,9 @@ class LeagueStandings extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 16),
-        Text(
+        // TC-030 item 20: an anonymous own podium row shows the "You" pill
+        // (below) as its only label, never "ANONYMOUS".
+        if (!youOnly) Text(
           name.toUpperCase(),
           textAlign: TextAlign.center,
           maxLines: 1,
@@ -305,7 +311,7 @@ class LeagueStandings extends ConsumerWidget {
         ),
         // Non-colour "You" cue under the own podium avatar (TC-030 item 0a).
         if (isMe) ...[
-          const SizedBox(height: 6),
+          if (!youOnly) const SizedBox(height: 6),
           const _YouPill(),
         ],
         const SizedBox(height: 4),
@@ -323,6 +329,25 @@ class LeagueStandings extends ConsumerWidget {
     ),
     );
   }
+}
+
+/// Screen-reader label for one leaderboard row (TC-030 items 0a and 20):
+///   * another patient: "#n, Jordan R., 400 XP" or "#n, Anonymous, 400 XP";
+///   * the caller's own named row: "#n, Jordan R., you, 400 XP" (unchanged);
+///   * the caller's own ANONYMOUS row: "#n, You, 400 XP". The "You" pill is the
+///     row's main (and only visible) label there, so the row never reads
+///     "Anonymous, you" - the patient knows who they are, and "Anonymous" would
+///     only describe how OTHER patients see them.
+@visibleForTesting
+String leaderboardRowLabel({
+  required int rank,
+  required String name,
+  required Object? xp,
+  required bool isMe,
+  required bool youOnly,
+}) {
+  if (youOnly) return '#$rank, You, $xp XP';
+  return isMe ? '#$rank, $name, you, $xp XP' : '#$rank, $name, $xp XP';
 }
 
 /// Own-row XP colour (TC-030 item 11): a success green that meets AA on both
@@ -922,13 +947,34 @@ Widget _buildAvatarPlaceholder(BuildContext context, Map<String, dynamic> player
     );
   }
 
+  // TC-030 item 20 (Ava): an anonymous row shows the Lucide `user` glyph (not
+  // '?' or 'A'), on the same tint and in the same textSecondary colour as the
+  // initials. 20px at the 28px list avatar (radius 14), scaled the same way
+  // on the podium. Lucide icons: ISC licence (lucide.dev); the
+  // lucide_icons_flutter package that ships them: MIT. Decorative: the row's
+  // Semantics label already says "Anonymous" / "You".
+  // One tint for both placeholders (glyph and initials).
+  final placeholderTint = context.nc.textPrimary.withValues(alpha: 0.06);
+  if (GamificationService.isLeaderboardAnonymous(player['name'] as String?)) {
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: placeholderTint,
+      child: Icon(
+        LucideIcons.user,
+        key: const ValueKey('leaderboard-anonymous-glyph'),
+        size: radius * 10 / 7,
+        color: context.nc.textSecondary,
+      ),
+    );
+  }
+
   // No photo: render the name's initials, not a generic person icon (TC-030
   // item 9, Ava). Initials use textSecondary on a subtle tint, which clears AA
   // (>=4.5:1) in both modes - light #475569 ~7.2:1, dark #CBD5E1 ~13:1.
-  final initials = GamificationService.leaderboardInitials(player['name'] as String?);
+  final initials = GamificationService.leaderboardDisplayInitials(player['name'] as String?);
   return CircleAvatar(
     radius: radius,
-    backgroundColor: context.nc.textPrimary.withOpacity(0.06),
+    backgroundColor: placeholderTint,
     child: Text(
       initials,
       style: TextStyle(

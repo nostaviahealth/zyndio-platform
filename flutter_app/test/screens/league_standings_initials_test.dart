@@ -8,6 +8,11 @@
 // "Q" / "CL" initials and "QUINN" / "CASEY L." text (it was "Q\u{1F984}" /
 // "\u{1F984}L" / "QUINN \u{1F984}." at 3fc5f75).
 //
+// PR #29 r5 / Henry's reject rule: an emoji (or any symbol) anywhere in a
+// name makes it 'Anonymous', so the two emoji rows now render the Lucide
+// `user` glyph (TC-030 item 20) and the text "ANONYMOUS" - never an emoji
+// initial, never U+FFFD - instead of "Q" / "CL" and "QUINN" / "CASEY L.".
+//
 // Fail-first: blanking the initials in _buildAvatarPlaceholder fails the
 // initials group; taking `name[0]` instead of `characters.first` renders
 // "Q\uFFFD"-style text and fails the emoji group.
@@ -58,12 +63,14 @@ void main() {
     expect(find.descendant(of: find.byType(CircleAvatar), matching: find.byIcon(Icons.person)), findsNothing);
   });
 
-  testWidgets('an emoji in a name is never an initial, and nothing renders U+FFFD', (tester) async {
+  testWidgets('an emoji in a name gives an anonymous row (glyph, never an emoji initial), and nothing renders U+FFFD', (tester) async {
     await _pump(tester, rows);
     final texts = _avatarTexts(tester);
-    expect(texts, contains('Q'));
-    expect(texts, contains('CL'));
+    expect(texts, isNot(contains('Q')));
+    expect(texts, isNot(contains('CL')));
     expect(texts.where((t) => t.contains('\u{1F984}')), isEmpty);
+    // Both emoji rows are anonymous: the Lucide user glyph, no initials.
+    expect(find.byKey(const ValueKey('leaderboard-anonymous-glyph')), findsNWidgets(2));
     // No rendered Text anywhere on the board carries a replacement char or a
     // lone surrogate.
     for (final t in tester.widgetList<Text>(find.byType(Text))) {
@@ -71,7 +78,8 @@ void main() {
       expect(s, isNot(contains('\uFFFD')));
       expect(String.fromCharCodes(s.runes), s, reason: 'lone surrogate in "$s"');
     }
-    expect(find.text('QUINN'), findsWidgets);
-    expect(find.text('CASEY L.'), findsWidgets);
+    expect(find.text('ANONYMOUS'), findsNWidgets(2));
+    expect(find.text('QUINN'), findsNothing);
+    expect(find.text('CASEY L.'), findsNothing);
   });
 }
