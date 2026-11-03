@@ -531,7 +531,7 @@ class _HealthDataScreenState extends ConsumerState<HealthDataScreen> {
                           ),
                         ),
                       ),
-                      error: (e, s) => Center(child: Text('Error: $e')),
+                      error: (_, __) => const Center(child: Text(labReportsLoadFailedMessage)),
                     ),
               ),
               if (showSampleToggle)
@@ -1416,6 +1416,12 @@ class _HealthDataScreenState extends ConsumerState<HealthDataScreen> {
                                   if (mounted) Navigator.pop(context);
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(content: Text('Report deleted successfully.')),
+                                  );
+                                } else if (context.mounted) {
+                                  // TC-039: a failed delete shows an error
+                                  // state (it used to do nothing).
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text(labReportDeleteFailedMessage), backgroundColor: Colors.red),
                                   );
                                 }
                               }

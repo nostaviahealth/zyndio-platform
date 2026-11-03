@@ -862,8 +862,6 @@ If a test does not clearly belong to any section header, group it under "General
           "max_completion_tokens": 16384,
           "response_format": {"type": "json_object"},
       });
-      
-      debugPrint('AzureOpenAIService: Total Extract Payload Size: ${body.length} bytes');
 
       final response = await http.post(
         url,
@@ -872,7 +870,6 @@ If a test does not clearly belong to any section header, group it under "General
       ).timeout(
         const Duration(seconds: 180),
         onTimeout: () {
-          debugPrint('AzureOpenAIService: extractBiomarkers timed out after 180 seconds');
           throw Exception('Analysis timed out. The report might be too large or the service is slow. Please try again.');
         },
       );
@@ -882,25 +879,16 @@ If a test does not clearly belong to any section header, group it under "General
         final content = data['choices'][0]['message']['content'];
         return jsonDecode(cleanJson(content));
       } else {
-        debugPrint('AzureOpenAIService: AI Proxy Error: ${response.statusCode} - ${response.body}');
-        
-        String errorMsg = 'Extraction failed (Error ${response.statusCode})';
+        // TC-039: the proxy's response body is neither printed nor copied
+        // into the exception (it can carry backend error text); the status
+        // code is enough for the caller's fixed error state.
         if (response.statusCode == 504) {
-          errorMsg = 'Analysis timed out (Error 504). This usually happens with very large reports or slow connections. We have optimized the process — please try again.';
+          throw Exception('Analysis timed out (Error 504). This usually happens with very large reports or slow connections. We have optimized the process — please try again.');
         }
-        
-        try {
-          final errorJson = jsonDecode(response.body);
-          if (errorJson['error'] != null) {
-            errorMsg += ': ${errorJson['error']}';
-          }
-        } catch (_) {}
-        
-        throw Exception(errorMsg);
+        throw Exception('Extraction failed (Error ${response.statusCode})');
       }
-    } catch (e, stackTrace) {
-      debugPrint('AzureOpenAIService: extractBiomarkers Exception: $e');
-      debugPrint('Stack Trace: $stackTrace');
+    } catch (_) {
+      // TC-039: not printed; the caller shows its own error state.
       rethrow;
     }
   }

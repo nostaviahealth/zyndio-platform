@@ -4,6 +4,11 @@ import '../models/lab_report.dart';
 import '../data/health_data_repository.dart';
 import 'patient_provider.dart';
 
+/// TC-039: fixed texts for lab-report error states. The underlying error
+/// (backend / storage text) is never shown or printed.
+const labReportsLoadFailedMessage = "We couldn't load your lab reports. Please try again.";
+const labReportDeleteFailedMessage = "Couldn't delete this report. Please try again.";
+
 final labReportsProvider = FutureProvider<List<LabReport>>((ref) async {
   final profileAsync = ref.watch(patientProfileProvider);
   

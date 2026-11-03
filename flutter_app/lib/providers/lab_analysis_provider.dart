@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/health_data_repository.dart';
@@ -100,6 +99,9 @@ class LabAnalysisState {
   }
 }
 
+/// TC-039: shown when an analysis fails, whatever the cause.
+const labAnalysisFailedMessage = "We couldn't analyze this report. Please try again.";
+
 class LabAnalysisNotifier extends Notifier<LabAnalysisState> {
   @override
   LabAnalysisState build() {
@@ -139,7 +141,6 @@ class LabAnalysisNotifier extends Notifier<LabAnalysisState> {
       // If there's a stale "completed" key, just wipe it — 
       // completed results should not persist across app restarts.
       if (savedStatus == 'completed') {
-        debugPrint('LabAnalysis: Found stale completed result — clearing it');
         await _clearPendingJob();
         return;
       }
@@ -152,7 +153,6 @@ class LabAnalysisNotifier extends Notifier<LabAnalysisState> {
 
         if (filePath != null && fileName != null && profileId != null) {
           if (await File(filePath).exists()) {
-            debugPrint('LabAnalysis: Resuming interrupted analysis for $fileName');
             state = LabAnalysisState(
               status: LabAnalysisStatus.preparingPdf,
               statusMessage: 'Resuming analysis...',
@@ -161,7 +161,6 @@ class LabAnalysisNotifier extends Notifier<LabAnalysisState> {
             );
             await _runAnalysis(filePath: filePath, fileName: fileName, profileId: profileId);
           } else {
-            debugPrint('LabAnalysis: Source file gone — clearing stale job');
             await _clearPendingJob();
           }
         } else {
@@ -169,8 +168,7 @@ class LabAnalysisNotifier extends Notifier<LabAnalysisState> {
           await _clearPendingJob();
         }
       }
-    } catch (e) {
-      debugPrint('LabAnalysis: Error checking pending job: $e');
+    } catch (_) {
       // On any error, ensure we start clean
       try { await _clearPendingJob(); } catch (_) {}
     }
@@ -225,11 +223,12 @@ class LabAnalysisNotifier extends Notifier<LabAnalysisState> {
         );
         await _clearPendingJob();
       }
-    } catch (e) {
-      debugPrint('LabAnalysis: Error running analysis: $e');
+    } catch (_) {
+      // TC-039: a fixed message - the exception's text (AI-proxy / backend
+      // detail) is neither shown nor printed.
       state = state.copyWith(
         status: LabAnalysisStatus.error,
-        errorMessage: e.toString(),
+        errorMessage: labAnalysisFailedMessage,
       );
       await _clearPendingJob();
     }
@@ -246,7 +245,6 @@ class LabAnalysisNotifier extends Notifier<LabAnalysisState> {
   Future<void> dismiss() async {
     await _clearPendingJob();
     state = const LabAnalysisState();
-    debugPrint('LabAnalysis: Manual dismissal successful');
   }
 
   /// Manually reset the state to idle (useful for error recovery)
@@ -268,9 +266,7 @@ class LabAnalysisNotifier extends Notifier<LabAnalysisState> {
       await prefs.setString(_kPendingFileName, fileName);
       await prefs.setString(_kPendingProfileId, profileId);
       await prefs.setString(_kStatus, 'running');
-    } catch (e) {
-      debugPrint('LabAnalysis: Failed to persist job: $e');
-    }
+    } catch (_) {}
   }
 
 
@@ -283,10 +279,7 @@ class LabAnalysisNotifier extends Notifier<LabAnalysisState> {
       await prefs.remove(_kPendingProfileId);
       await prefs.remove(_kCompletedResult);
       await prefs.remove(_kStatus);
-      debugPrint('LabAnalysis: Cleared pending job and status keys');
-    } catch (e) {
-      debugPrint('LabAnalysis: Failed to clear job: $e');
-    }
+    } catch (_) {}
   }
 }
 

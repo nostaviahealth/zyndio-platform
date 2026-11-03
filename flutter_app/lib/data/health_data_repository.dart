@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:math';
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 import '../models/lab_report.dart';
@@ -74,9 +73,9 @@ class HealthDataRepository {
         onChunkProgress: (chunk, total, label) => onProgress?.call(label),
         onFinalizing: () => onProgress?.call('Finalizing report...'),
       );
-    } catch (e, stackTrace) {
-      print('HealthDataRepository: Analysis Error: $e');
-      print('Stack Trace: $stackTrace');
+    } catch (_) {
+      // TC-039: nothing is printed (no backend / AI error text in device
+      // logs); callers show their own fixed error state.
       return null;
     }
   }
@@ -167,10 +166,7 @@ class HealthDataRepository {
       // 4. Merge results from all chunks (in order)
       for (int i = 0; i < allResults.length; i++) {
         final rawResults = allResults[i];
-        if (rawResults == null || rawResults.isEmpty) {
-          debugPrint('HealthDataRepository: Chunk ${i + 1} returned no data — skipping');
-          continue;
-        }
+        if (rawResults == null || rawResults.isEmpty) continue;
 
         // Capture metadata from first chunk that has it
         if (reportTitle == null && rawResults['title'] != null && rawResults['title'].toString().isNotEmpty) {
@@ -278,9 +274,10 @@ class HealthDataRepository {
         'markers': dedupedMarkers,
         'summary': 'Lab Report Analyzed. ${dedupedMarkers.length} test results extracted across $totalPages pages.',
       };
-    } catch (e, stackTrace) {
-      debugPrint('HealthDataRepository: WithProgress Error: $e\n$stackTrace');
-      rethrow; // Re-throw so the provider can catch and display the actual error
+    } catch (_) {
+      // TC-039: not printed. Re-thrown so the caller shows its error state
+      // (a fixed message - never this exception's text).
+      rethrow;
     }
   }
 
@@ -296,11 +293,9 @@ class HealthDataRepository {
   }) async {
     for (int attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        final result = await azureService.extractBiomarkers(chunkImages);
-        debugPrint('HealthDataRepository: Chunk ${chunkIndex + 1}/$totalChunks succeeded on attempt $attempt');
-        return result;
-      } catch (e) {
-        debugPrint('HealthDataRepository: Chunk ${chunkIndex + 1}/$totalChunks attempt $attempt failed: $e');
+        return await azureService.extractBiomarkers(chunkImages);
+      } catch (_) {
+        // TC-039: not printed (the error can carry AI-proxy response text).
         if (attempt < maxAttempts) {
           // Wait before retry — exponential backoff
           await Future.delayed(Duration(seconds: 2 * attempt));
@@ -308,7 +303,6 @@ class HealthDataRepository {
       }
     }
     // Both attempts failed — return null so other chunks can still contribute
-    debugPrint('HealthDataRepository: Chunk ${chunkIndex + 1}/$totalChunks FAILED after $maxAttempts attempts');
     return null;
   }
 
