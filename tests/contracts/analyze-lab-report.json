@@ -1,0 +1,26 @@
+{
+  "_comment": "TC-039: the requests the analyze-lab-report Edge Function makes (service role) for one lab report. Pinned on both sides: supabase/functions/_shared/analyzeLabReport_test.ts proves the handler sends exactly these requests (real supabase-js on a fake fetch), and tests/integration/analyze-lab-report.test.ts proves the real migrated schema + storage accept them. Only the report id comes from the webhook payload; everything else is re-read from the row's real columns. {report_id} is the lab_reports id, {patient_id} its patient_id, {pdf_path} its stored object path. The update merges the analysis into the existing `data` payload and adds exactly the keys in analysis_update.data_keys_added.",
+  "row_lookup": {
+    "method": "GET",
+    "path": "/rest/v1/lab_reports",
+    "query": {
+      "select": "id,patient_id,data,pdf_path",
+      "id": "eq.{report_id}"
+    }
+  },
+  "file_download": {
+    "method": "GET",
+    "path": "/storage/v1/object/lab-reports/{pdf_path}"
+  },
+  "analysis_update": {
+    "method": "PATCH",
+    "path": "/rest/v1/lab_reports",
+    "query": {
+      "id": "eq.{report_id}",
+      "patient_id": "eq.{patient_id}",
+      "select": "id"
+    },
+    "body_keys": ["data"],
+    "data_keys_added": ["markers", "summary", "analyzed_at"]
+  }
+}

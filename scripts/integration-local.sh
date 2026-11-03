@@ -95,7 +95,7 @@ node -e '
   const ANON = process.env.SUPABASE_ANON_KEY;
   const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
   // invite-user first: it is the first function admin-actions.test.ts calls.
-  const fns = ["invite-user", "reset-mfa", "deactivate-user", "reactivate-user", "change-password", "process-outbox"];
+  const fns = ["invite-user", "reset-mfa", "deactivate-user", "reactivate-user", "change-password", "process-outbox", "analyze-lab-report"];
   const NEEDED = 3;
   const deadline = Date.now() + 60_000;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

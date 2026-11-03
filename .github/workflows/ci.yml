@@ -203,8 +203,10 @@ jobs:
         with:
           version: 2.122.0
 
-      - name: Start local Supabase (studio/storage/inbucket unused this card)
-        run: supabase start -x studio,storage,inbucket
+      # TC-039: storage is needed by the lab-report file-open and
+      # analyze-lab-report integration tests (signed links, file download).
+      - name: Start local Supabase (studio/inbucket unused; storage needed for TC-039 lab-report file tests)
+        run: supabase start -x studio,inbucket
 
       - name: Reset DB + pgTAP
         run: |
