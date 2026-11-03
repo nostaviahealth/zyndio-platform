@@ -207,18 +207,22 @@ class GamificationService {
   ///   - trims, and splits on ALL whitespace incl. NBSP/tab/newline, collapsing
   ///     runs to single gaps;
   ///   - reads "Last, First" (comma form) as first=First, last=Last;
+  ///   - reads zero-width characters (U+200B/200C/200D/2060/FEFF) as gaps, so
+  ///     "Quinn<ZWSP>Testcase" is two words (Clara PR #29 r2, H3);
   ///   - for an email-like value, keeps only the local part (domain dropped);
+  ///     a value with no local part ("@handle") yields nothing (fallback);
   ///   - when the only token is itself "first.last" / "first_last" (e.g. an email
   ///     local part the server passed through), splits it so neither the raw
   ///     local part nor the full surname is ever shown.
   /// Returns `[]` when nothing usable is left.
   static List<String> _leaderboardNameParts(String? raw) {
-    final value = (raw ?? '').trim();
+    final value = (raw ?? '').replaceAll(_zeroWidth, ' ').trim();
     if (value.isEmpty) return const [];
 
-    // Email-like: use the local part only, never the domain.
+    // Email-like: use the local part only, never the domain. "@handle" has no
+    // local part, so nothing usable is left and the caller's fallback is shown.
     final atIndex = value.indexOf('@');
-    var working = atIndex > 0 ? value.substring(0, atIndex) : value;
+    var working = atIndex >= 0 ? value.substring(0, atIndex) : value;
 
     // "Last, First" -> "First Last" before the usual split.
     final commaIndex = working.indexOf(',');
@@ -241,10 +245,20 @@ class GamificationService {
     return parts;
   }
 
+  /// Zero-width characters read as word gaps: ZWSP, ZWNJ, ZWJ, word joiner and
+  /// BOM/ZWNBSP. Matches the server's patient_leaderboard_top10() formatting.
+  static final RegExp _zeroWidth = RegExp('[\u200B\u200C\u200D\u2060\uFEFF]');
+
+  /// First user-perceived character (grapheme) of [word], upper-cased. Uses
+  /// `characters` so an emoji / astral first letter is never split into a lone
+  /// UTF-16 surrogate (which renders as U+FFFD) - Clara PR #29 r2 L-c.
+  static String _firstGrapheme(String word) =>
+      word.isEmpty ? '' : word.characters.first.toUpperCase();
+
   /// First letter of a word, upper-cased, leaving the rest of the word untouched
   /// (so "McArdle" / already-capitalised names are preserved).
   static String _capitalize(String word) =>
-      word.isEmpty ? word : word[0].toUpperCase() + word.substring(1);
+      word.isEmpty ? word : _firstGrapheme(word) + word.characters.skip(1).toString();
 
   /// Formats a raw display name to the leaderboard's "First L." shape,
   /// defensively (TC-030 item 9). The RPC already returns names in this form,
@@ -260,10 +274,12 @@ class GamificationService {
     final first = _capitalize(parts.first);
     final formatted = parts.length == 1
         ? first
-        : '$first ${parts.last[0].toUpperCase()}.';
+        : '$first ${_firstGrapheme(parts.last)}.';
 
-    return formatted.length > leaderboardNameMaxLength
-        ? formatted.substring(0, leaderboardNameMaxLength)
+    // Cap by grapheme, not UTF-16 unit, so the cut never splits an emoji.
+    final chars = formatted.characters;
+    return chars.length > leaderboardNameMaxLength
+        ? chars.take(leaderboardNameMaxLength).toString()
         : formatted;
   }
 
@@ -273,8 +289,8 @@ class GamificationService {
   static String leaderboardInitials(String? raw, {String fallback = '?'}) {
     final parts = _leaderboardNameParts(raw);
     if (parts.isEmpty) return fallback;
-    if (parts.length == 1) return parts.first[0].toUpperCase();
-    return (parts.first[0] + parts.last[0]).toUpperCase();
+    if (parts.length == 1) return _firstGrapheme(parts.first);
+    return _firstGrapheme(parts.first) + _firstGrapheme(parts.last);
   }
 
   /// Maps one patient_leaderboard_top10() row to the shape the leagues UI

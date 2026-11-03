@@ -56,6 +56,45 @@ void main() {
       expect(fmt('morgan_lee'), 'Morgan L.');
     });
 
+    test('zero-width-joined names split like whitespace (Clara PR #29 r2 H3)', () {
+      expect(fmt('Quinn\u200BTestcase'), 'Quinn T.');
+      expect(fmt('Quinn\u200CTestcase'), 'Quinn T.');
+      expect(fmt('Quinn\u200DTestcase'), 'Quinn T.');
+      expect(fmt('Quinn\u2060Testcase'), 'Quinn T.');
+      expect(fmt('Quinn\uFEFFTestcase'), 'Quinn T.');
+      expect(fmt('\u200B\u200B'), 'Anonymous');
+    });
+
+    test('dot/underscore/hyphen-joined names and email local parts -> "Quinn T."', () {
+      expect(fmt('Quinn.Testcase'), 'Quinn T.');
+      expect(fmt('quinn.testcase@example.test'), 'Quinn T.');
+      expect(fmt('quinn_testcase@example.test'), 'Quinn T.');
+      expect(fmt('quinn-testcase@example.test'), 'Quinn T.');
+    });
+
+    test('a value with no local part ("@handle") falls back, never shows the handle', () {
+      expect(fmt('@testcase'), 'Anonymous');
+      expect(fmt('@testcase'), isNot(contains('testcase')));
+    });
+
+    test('an emoji first letter is never split into a lone surrogate (no U+FFFD)', () {
+      // The server returns "Quinn \u{1F984}." for "Quinn \u{1F984}Testcase".
+      expect(fmt('Quinn \u{1F984}.'), 'Quinn \u{1F984}.');
+      expect(fmt('Quinn \u{1F984}Testcase'), 'Quinn \u{1F984}.');
+      expect(fmt('\u{1F984}Quinn Testcase'), '\u{1F984}Quinn T.');
+      for (final out in [fmt('Quinn \u{1F984}Testcase'), fmt('\u{1F984}Quinn Testcase')]) {
+        expect(out, isNot(contains('\uFFFD')));
+        // Every UTF-16 unit is paired: re-encoding round-trips unchanged.
+        expect(String.fromCharCodes(out.runes), out);
+      }
+    });
+
+    test('the length cap never splits an emoji', () {
+      final out = fmt('Quinnabellarosali\u{1F984}\u{1F984} Testcase');
+      expect(out, isNot(contains('\uFFFD')));
+      expect(String.fromCharCodes(out.runes), out);
+    });
+
     test('caps the rendered length', () {
       final out = fmt('Maximiliana Wolfeschlegelstein');
       expect(out.length, lessThanOrEqualTo(GamificationService.leaderboardNameMaxLength));
@@ -89,6 +128,22 @@ void main() {
     test('mixed whitespace (NBSP/tab/newline) still splits', () {
       expect(ini('Jordan Rivera'), 'JR');
       expect(ini('Riley\tSmith\nJones'), 'RJ');
+    });
+
+    test('emoji first letters stay whole graphemes (no U+FFFD)', () {
+      expect(ini('Quinn \u{1F984}.'), 'Q\u{1F984}');
+      expect(ini('\u{1F984} Testcase'), '\u{1F984}T');
+      expect(ini('\u{1F984}'), '\u{1F984}');
+      expect(ini('Quinn \u{1F984}.'), isNot(contains('\uFFFD')));
+    });
+
+    test('zero-width-joined and dot-joined names -> two initials', () {
+      expect(ini('Quinn\u200BTestcase'), 'QT');
+      expect(ini('Quinn.Testcase'), 'QT');
+    });
+
+    test('"@handle" falls back', () {
+      expect(ini('@testcase'), '?');
     });
 
     test('one-word name -> single initial', () {

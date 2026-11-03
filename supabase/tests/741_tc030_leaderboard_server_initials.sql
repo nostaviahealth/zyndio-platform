@@ -14,6 +14,13 @@
 -- the full email "quinn.testcase@example.test", and the NBSP full name
 -- "Quinn Testcase".
 --
+-- H3 follow-up (Clara PR #29 r2): the email-like row must now come back as
+-- "Quinn T." (the server splits a lone [._-]-joined token as the app does), and
+-- the extra shapes below (underscore/hyphen email, dot-joined, zero-width
+-- joined, single, emoji, empty/blank, "@handle") are pinned. Against the
+-- 28dc43a definition the email/dot/underscore/hyphen/zero-width cases, the
+-- lower-case single name and "@testcase" fail.
+--
 -- FAIL-FIRST (run without migration 20261102164000): the prior definition
 -- (20261102130000_tc026_leaderboard_is_me.sql) returns a.avatar_url for ALL
 -- rows (so every "other row has a null avatar" and "no other row keeps an
@@ -103,11 +110,17 @@ select ok(
   'H3: the "Last, First" row leaks no surname'
 );
 
--- Email-like name -> local part only; no @ and no domain fragment.
+-- Email-like name -> "First L." from the local part; no @, no domain and no
+-- surname (Clara PR #29 r2: the local part "quinn.testcase" leaked the surname).
 select is(
   (select name from public.patient_leaderboard_top10() where league_xp = 80),
-  'quinn.testcase',
-  'H3: an email-like name keeps only its local part'
+  'Quinn T.',
+  'H3: an email-like name is reduced to first name + last initial'
+);
+select ok(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80)
+    not ilike '%testcase%',
+  'H3: an email-like name leaks no surname from its local part'
 );
 select ok(
   (select name from public.patient_leaderboard_top10() where league_xp = 80)
@@ -130,6 +143,234 @@ select ok(
   (select name from public.patient_leaderboard_top10() where league_xp = 70)
     not ilike '%Testcase%',
   'H3: the NBSP-joined row leaks no full surname'
+);
+
+
+-- --- H3 follow-up (Clara PR #29 r2): more name shapes ----------------------
+-- Each case rewrites the a6102 row's name as the test owner, then reads it back
+-- as the clinic-A caller. Expected values match the Flutter client's
+-- GamificationService.formatLeaderboardName for the same input. Characters are
+-- whole code points, so an emoji is never split (no U+FFFD).
+reset role;
+update public.patient_accounts set name = 'quinn_testcase@example.test'
+ where patient_id = '00000000-0000-0000-0000-0000000a6102';
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal2');
+select is(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80),
+  'Quinn T.',
+  'H3: an underscore email local part -> ' || 'Quinn T.'
+);
+select ok(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80)
+    not ilike '%testcase%',
+  'H3: an underscore email local part leaks no surname'
+);
+select ok(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80)
+    not like '%@%',
+  'H3: an underscore email local part leaks no @'
+);
+reset role;
+update public.patient_accounts set name = 'quinn-testcase@example.test'
+ where patient_id = '00000000-0000-0000-0000-0000000a6102';
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal2');
+select is(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80),
+  'Quinn T.',
+  'H3: a hyphen email local part -> ' || 'Quinn T.'
+);
+select ok(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80)
+    not ilike '%testcase%',
+  'H3: a hyphen email local part leaks no surname'
+);
+select ok(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80)
+    not like '%@%',
+  'H3: a hyphen email local part leaks no @'
+);
+reset role;
+update public.patient_accounts set name = 'Quinn.Testcase'
+ where patient_id = '00000000-0000-0000-0000-0000000a6102';
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal2');
+select is(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80),
+  'Quinn T.',
+  'H3: a dot-joined name -> ' || 'Quinn T.'
+);
+select ok(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80)
+    not ilike '%testcase%',
+  'H3: a dot-joined name leaks no surname'
+);
+reset role;
+update public.patient_accounts set name = 'Quinn_Testcase'
+ where patient_id = '00000000-0000-0000-0000-0000000a6102';
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal2');
+select is(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80),
+  'Quinn T.',
+  'H3: an underscore-joined name -> ' || 'Quinn T.'
+);
+select ok(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80)
+    not ilike '%testcase%',
+  'H3: an underscore-joined name leaks no surname'
+);
+reset role;
+update public.patient_accounts set name = 'Quinn' || chr(8203) || 'Testcase'
+ where patient_id = '00000000-0000-0000-0000-0000000a6102';
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal2');
+select is(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80),
+  'Quinn T.',
+  'H3: a zero-width-space (U+200B) joined name -> ' || 'Quinn T.'
+);
+select ok(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80)
+    not ilike '%testcase%',
+  'H3: a zero-width-space (U+200B) joined name leaks no surname'
+);
+reset role;
+update public.patient_accounts set name = 'Quinn' || chr(8204) || 'Testcase'
+ where patient_id = '00000000-0000-0000-0000-0000000a6102';
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal2');
+select is(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80),
+  'Quinn T.',
+  'H3: a ZWNJ (U+200C) joined name -> ' || 'Quinn T.'
+);
+select ok(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80)
+    not ilike '%testcase%',
+  'H3: a ZWNJ (U+200C) joined name leaks no surname'
+);
+reset role;
+update public.patient_accounts set name = 'Quinn' || chr(8205) || 'Testcase'
+ where patient_id = '00000000-0000-0000-0000-0000000a6102';
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal2');
+select is(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80),
+  'Quinn T.',
+  'H3: a ZWJ (U+200D) joined name -> ' || 'Quinn T.'
+);
+select ok(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80)
+    not ilike '%testcase%',
+  'H3: a ZWJ (U+200D) joined name leaks no surname'
+);
+reset role;
+update public.patient_accounts set name = 'Quinn' || chr(8288) || 'Testcase'
+ where patient_id = '00000000-0000-0000-0000-0000000a6102';
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal2');
+select is(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80),
+  'Quinn T.',
+  'H3: a word-joiner (U+2060) joined name -> ' || 'Quinn T.'
+);
+select ok(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80)
+    not ilike '%testcase%',
+  'H3: a word-joiner (U+2060) joined name leaks no surname'
+);
+reset role;
+update public.patient_accounts set name = 'Quinn' || chr(65279) || 'Testcase'
+ where patient_id = '00000000-0000-0000-0000-0000000a6102';
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal2');
+select is(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80),
+  'Quinn T.',
+  'H3: a BOM/ZWNBSP (U+FEFF) joined name -> ' || 'Quinn T.'
+);
+select ok(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80)
+    not ilike '%testcase%',
+  'H3: a BOM/ZWNBSP (U+FEFF) joined name leaks no surname'
+);
+reset role;
+update public.patient_accounts set name = 'Quinn'
+ where patient_id = '00000000-0000-0000-0000-0000000a6102';
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal2');
+select is(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80),
+  'Quinn',
+  'H3: a single name is kept as-is -> ' || 'Quinn'
+);
+reset role;
+update public.patient_accounts set name = 'quinn'
+ where patient_id = '00000000-0000-0000-0000-0000000a6102';
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal2');
+select is(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80),
+  'Quinn',
+  'H3: a single lower-case name gets its first letter upper-cased (as the app does) -> ' || 'Quinn'
+);
+reset role;
+update public.patient_accounts set name = 'Quinn ' || chr(129412) || 'Testcase'
+ where patient_id = '00000000-0000-0000-0000-0000000a6102';
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal2');
+select is(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80),
+  'Quinn ' || chr(129412) || '.',
+  'H3: an emoji-led surname keeps the whole emoji as the initial -> ' || 'Quinn ' || chr(129412) || '.'
+);
+select ok(
+  position(chr(65533) in (select name from public.patient_leaderboard_top10() where league_xp = 80)) = 0,
+  'H3: an emoji-led surname keeps the whole emoji as the initial has no replacement character'
+);
+reset role;
+update public.patient_accounts set name = chr(129412) || 'Quinn Testcase'
+ where patient_id = '00000000-0000-0000-0000-0000000a6102';
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal2');
+select is(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80),
+  chr(129412) || 'Quinn T.',
+  'H3: an emoji-leading name keeps the whole emoji -> ' || chr(129412) || 'Quinn T.'
+);
+select ok(
+  position(chr(65533) in (select name from public.patient_leaderboard_top10() where league_xp = 80)) = 0,
+  'H3: an emoji-leading name keeps the whole emoji has no replacement character'
+);
+reset role;
+update public.patient_accounts set name = ''
+ where patient_id = '00000000-0000-0000-0000-0000000a6102';
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal2');
+select is(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80),
+  'Anonymous',
+  'H3: an empty name falls back to Anonymous -> ' || 'Anonymous'
+);
+reset role;
+update public.patient_accounts set name = '   '
+ where patient_id = '00000000-0000-0000-0000-0000000a6102';
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal2');
+select is(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80),
+  'Anonymous',
+  'H3: a blank name falls back to Anonymous -> ' || 'Anonymous'
+);
+reset role;
+update public.patient_accounts set name = chr(8203) || chr(8203)
+ where patient_id = '00000000-0000-0000-0000-0000000a6102';
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal2');
+select is(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80),
+  'Anonymous',
+  'H3: a zero-width-only name falls back to Anonymous -> ' || 'Anonymous'
+);
+reset role;
+update public.patient_accounts set name = '@testcase'
+ where patient_id = '00000000-0000-0000-0000-0000000a6102';
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal2');
+select is(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80),
+  'Anonymous',
+  'H3: a value with no local part never shows the handle -> ' || 'Anonymous'
+);
+select ok(
+  (select name from public.patient_leaderboard_top10() where league_xp = 80)
+    not like '%@%',
+  'H3: a value with no local part leaks no @'
 );
 
 -- Clinic scope unchanged: the clinic-B patient never appears here.

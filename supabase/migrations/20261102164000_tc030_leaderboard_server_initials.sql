@@ -23,6 +23,12 @@
 --         as first name + upper-cased last initial ("First L."); a single word
 --         is used as-is; the result is capped at 18 characters;
 --       - a blank/garbage name falls back to 'Anonymous'.
+--   * H3 follow-up (Clara PR #29 r2): zero-width characters (U+200B/200C/200D/
+--     2060/FEFF) are read as separators; a lone token joined by [._-] (an email
+--     local part such as "quinn.testcase", or "Quinn.Testcase") is split like
+--     the app does, so it returns "Quinn T." and never the surname; the first
+--     word's first character is upper-cased as the app does; and a value with
+--     no local part ("@handle") falls back to 'Anonymous'.
 -- The caller's own row keeps its avatar_url. 735 (leaderboard scope) still holds.
 --
 -- A plain CREATE OR REPLACE suffices here: the signature and OUT columns are
@@ -66,18 +72,25 @@ as $$
     r.is_me
   from ranked r
   -- Whitespace class incl. NBSP (chr(160)); [[:space:]] alone omits NBSP.
-  cross join lateral (select ('[[:space:]' || chr(160) || ']') as ws) w
-  -- trim(raw)
+  -- Zero-width class: ZWSP, ZWNJ, ZWJ, word joiner, BOM/ZWNBSP. These are read
+  -- as separators (like the app), so "Quinn<U+200B>Testcase" is two words.
+  cross join lateral (
+    select ('[[:space:]' || chr(160) || ']') as ws,
+           ('[' || chr(8203) || chr(8204) || chr(8205) || chr(8288) || chr(65279) || ']') as zw
+  ) w
+  -- zero-width -> space, then trim(raw)
   cross join lateral (
     select regexp_replace(
-             coalesce(r.raw_name, ''),
+             regexp_replace(coalesce(r.raw_name, ''), w.zw, ' ', 'g'),
              '^' || w.ws || '+|' || w.ws || '+$', '', 'g'
            ) as value
   ) tv
-  -- email-like: keep the local part only (domain stripped)
+  -- email-like: keep the local part only (domain stripped). A value with no
+  -- local part ("@handle") keeps nothing, so it falls back to 'Anonymous'
+  -- instead of showing the handle (Clara PR #29 r2 L-d).
   cross join lateral (
     select case
-             when position('@' in tv.value) > 1
+             when position('@' in tv.value) > 0
                then substr(tv.value, 1, position('@' in tv.value) - 1)
              else tv.value
            end as we
@@ -100,15 +113,41 @@ as $$
              select p
              from unnest(regexp_split_to_array(tw.working, w.ws || '+')) as p
              where p <> ''
-           ) as parts
+           ) as ws_parts
+  ) tws
+  -- A lone "first.last" / "first_last" / "first-last" token (e.g. an email
+  -- local part, or "Quinn.Testcase") is split on runs of [._-], exactly like
+  -- GamificationService._leaderboardNameParts, so neither the local part nor
+  -- the surname is ever returned. Used only when it yields 2+ pieces.
+  cross join lateral (
+    select case
+             when array_length(tws.ws_parts, 1) = 1
+                  and tws.ws_parts[1] ~ '[._-]'
+                  and coalesce(array_length(array(
+                        select q
+                        from unnest(regexp_split_to_array(tws.ws_parts[1], '[._-]+')) as q
+                        where q <> ''
+                      ), 1), 0) >= 2
+               then array(
+                      select q
+                      from unnest(regexp_split_to_array(tws.ws_parts[1], '[._-]+')) as q
+                      where q <> ''
+                    )
+             else tws.ws_parts
+           end as parts
   ) tp
+  -- "First L.": first word with its first character upper-cased (rest kept,
+  -- as the app's _capitalize does), plus the last word's upper-cased first
+  -- character and a dot; a single word is used as-is (first char upper-cased).
+  -- Characters are whole code points, so an emoji is never split.
   cross join lateral (
     select case
              when tv.value = '' then 'Anonymous'
              when array_length(tp.parts, 1) is null then 'Anonymous'
-             when array_length(tp.parts, 1) = 1 then left(tp.parts[1], 18)
+             when array_length(tp.parts, 1) = 1
+               then left(upper(left(tp.parts[1], 1)) || substr(tp.parts[1], 2), 18)
              else left(
-                    tp.parts[1] || ' '
+                    upper(left(tp.parts[1], 1)) || substr(tp.parts[1], 2) || ' '
                     || upper(left(tp.parts[array_length(tp.parts, 1)], 1)) || '.',
                     18)
            end as name
