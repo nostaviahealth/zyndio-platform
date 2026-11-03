@@ -17,7 +17,7 @@ class HealthDataRepository {
   /// (possibly not this patient's) are left out, matching the server's
   /// latest-results rule. The exact request is pinned by
   /// tests/contracts/patient-lab-reports-query.json.
-  static const labReportsSelect = 'id,report_type,data,created_at';
+  static const labReportsSelect = 'id,report_type,data,created_at,pdf_path';
 
   /// Errors are NOT caught here: a failed query must reach the caller so
   /// Biomarkers shows its error state (an empty list means "no results yet").
@@ -39,8 +39,9 @@ class HealthDataRepository {
 
   /// Maps one real lab_reports row onto the app's LabReport: the report body
   /// (title, markers, summary, ...) lives in the `data` jsonb payload; the id,
-  /// report type and (when the payload has no date of its own) the date come
-  /// from the row's columns.
+  /// report type, file path (TC-036: the `pdf_path` column only - anything
+  /// URL-like left in the payload is ignored) and (when the payload has no
+  /// date of its own) the date come from the row's columns.
   static LabReport labReportFromRow(Map<String, dynamic> row) {
       final data = row['data'];
       final payload = data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
@@ -49,6 +50,7 @@ class HealthDataRepository {
           'id': row['id'],
           'date': payload['date'] is String ? payload['date'] : row['created_at'],
           'reportType': payload['reportType'] ?? row['report_type'],
+          'pdf_path': row['pdf_path'],
       });
   }
 
@@ -403,18 +405,28 @@ class HealthDataRepository {
             fileOptions: const FileOptions(upsert: false),
           );
 
-      await client.from('lab_reports').insert({
-        'org_id': orgId,
-        'patient_id': profileId,
-        'report_type': 'patient_upload',
-        'data': {
-          'title': extractedData?['title'] ?? fileName,
-          'date': extractedData?['date'] ?? _localDate(),
-          'summary': extractedData?['summary'] ?? 'Uploaded from mobile app.',
-          'markers': extractedData?['markers'] ?? const [],
-        },
-        'pdf_path': objectPath,
-      });
+      try {
+        await client.from('lab_reports').insert({
+          'org_id': orgId,
+          'patient_id': profileId,
+          'report_type': 'patient_upload',
+          'data': {
+            'title': extractedData?['title'] ?? fileName,
+            'date': extractedData?['date'] ?? _localDate(),
+            'summary': extractedData?['summary'] ?? 'Uploaded from mobile app.',
+            'markers': extractedData?['markers'] ?? const [],
+          },
+          'pdf_path': objectPath,
+        });
+      } catch (_) {
+        // Not filed: remove the upload so no orphan is left in the bucket.
+        // (The storage policy lets a patient delete only their own objects
+        // that no lab_reports row points at.)
+        try {
+          await client.storage.from(labReportsBucket).remove([objectPath]);
+        } catch (_) {}
+        return false;
+      }
 
       // Best-effort: move the patient's journey stage on.
       try {
@@ -436,23 +448,44 @@ class HealthDataRepository {
     return '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
-  /// Deletes a lab report from Supabase (DB + Storage)
-  static Future<bool> deleteLabReport(String reportId, String profileId, String? fileName) async {
+  /// TC-036: how long a link to a report file stays valid. The link is made
+  /// when the patient taps to open the report and is used straight away; a
+  /// signed link can't be revoked and works for whoever holds it, so it
+  /// should outlive that single open by as little as possible. 5 minutes
+  /// covers a slow connection / PDF viewer hand-off (TC-036 cap: 10).
+  static const labReportLinkLifetime = Duration(minutes: 5);
+
+  static final _objectPathPattern = RegExp(r'^[0-9a-f-]{36}/[A-Za-z0-9_][A-Za-z0-9._-]*$');
+
+  /// A short-lived signed link to a lab report's file, made only when the
+  /// report is opened. [pdfPath] is the report's `pdf_path`. Storage checks
+  /// the caller's access (storage.objects RLS) before signing. Returns null
+  /// when the path isn't a bare object path or storage refuses. The link is
+  /// never stored or logged.
+  static Future<String?> signedLabReportUrl(String pdfPath) async {
+    if (!_objectPathPattern.hasMatch(pdfPath) || pdfPath.contains('..')) return null;
+    try {
+      final client = SupabaseConfig.client;
+      if (client == null) return null;
+      return await client.storage
+          .from(labReportsBucket)
+          .createSignedUrl(pdfPath, labReportLinkLifetime.inSeconds);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Deletes a lab report row. Note: lab_reports are immutable from the
+  /// patient side (no patient DELETE policy), so for a patient session this
+  /// returns false; the report's file stays (it is still referenced).
+  /// Nothing is printed.
+  static Future<bool> deleteLabReport(String reportId, String profileId, String? pdfPath) async {
       try {
-          final supabase = Supabase.instance.client;
-
-          // 1. Delete from DB and confirm
-          final response = await supabase.from('lab_reports').delete().eq('id', reportId).select();
-          
-          if (response.isEmpty) {
-             print('Delete Warning: No rows deleted. Report might not exist or permission denied.');
-             return response.isNotEmpty;
-          }
-
-          // 2. Delete from Storage (Optional)
-          return true;
-      } catch (e) {
-          print('Delete Error: $e');
+          final client = SupabaseConfig.client;
+          if (client == null) return false;
+          final response = await client.from('lab_reports').delete().eq('id', reportId).select('id');
+          return response.isNotEmpty;
+      } catch (_) {
           return false;
       }
   }

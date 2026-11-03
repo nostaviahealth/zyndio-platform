@@ -179,7 +179,10 @@ class LabReport {
   final String date;
   final String title;
   final String summary;
-  final String? pdfUrl;
+  /// TC-036: object path of the report file in the private lab-reports
+  /// bucket (lab_reports.pdf_path), never a URL. Open it with
+  /// HealthDataRepository.signedLabReportUrl.
+  final String? pdfPath;
   final String? reportType;
   final String? aiInterpretation;
   final PanelMetadata? panelMetadata;
@@ -192,7 +195,7 @@ class LabReport {
     required this.date,
     required this.title,
     required this.summary,
-    this.pdfUrl,
+    this.pdfPath,
     this.reportType,
     this.aiInterpretation,
     this.panelMetadata,
@@ -207,7 +210,7 @@ class LabReport {
       date: _formatDate(json['date'] as String?),
       title: json['title'] as String? ?? 'Lab Report',
       summary: json['summary'] as String? ?? '',
-      pdfUrl: json['pdf_url'] as String?,
+      pdfPath: json['pdf_path'] as String?,
       reportType: json['reportType'] as String?,
       aiInterpretation: json['aiInterpretation'] as String?,
       panelMetadata: json['panelMetadata'] != null ? PanelMetadata.fromJson(json['panelMetadata'] as Map<String, dynamic>) : null,
@@ -242,7 +245,7 @@ class LabReport {
       'date': date,
       'title': title,
       'summary': summary,
-      'pdf_url': pdfUrl,
+      'pdf_path': pdfPath,
       'reportType': reportType,
       'aiInterpretation': aiInterpretation,
       'panelMetadata': panelMetadata?.toJson(),
