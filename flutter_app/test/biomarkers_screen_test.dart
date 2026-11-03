@@ -156,8 +156,71 @@ void main() {
     test('trendDeltaText: null for single point, neutral text for a trend', () {
       final newest = sortReportsNewestFirst(_reports());
       expect(trendDeltaText(segmentView(newest, BiomarkerSegment.nad).leadTrend),
-          contains('26 → 41'));
+          '↑ +58%');
       expect(trendDeltaText(segmentView(newest, BiomarkerSegment.metabolic).leadTrend), isNull);
+    });
+
+    // M3 (Ava, PR #30 review; spec Z6/§6): one signed % against the BASELINE
+    // (first reading), `{↑|↓} {+|−}{n}%`, Stable only at exact equality.
+    group('M3 trendDeltaText rules', () {
+      List<MarkerReading> t(List<String> values, {String unit = 'µM'}) => [
+            for (var i = 0; i < values.length; i++)
+              MarkerReading(
+                  date: '2026-0${i + 1}-01',
+                  marker: _m('Intracellular NAD+', values[i], unit: unit)),
+          ];
+
+      test('up: 26 → 41 is ↑ +58% (57.69 rounds to 58)', () {
+        expect(trendDeltaText(t(['26', '41'])), '↑ +58%');
+        expect(trendDeltaSpoken(t(['26', '41'])), 'up 58 percent since baseline');
+      });
+
+      test('down uses a real minus sign (U+2212), no double spaces', () {
+        final d = trendDeltaText(t(['41', '26']))!;
+        expect(d, '↓ −37%'); // 15 / 41 = 36.59 → 37
+        expect(d.contains('-'), isFalse); // not a hyphen-minus
+        expect(d.contains('  '), isFalse);
+        expect(trendDeltaSpoken(t(['41', '26'])), 'down 37 percent since baseline');
+      });
+
+      test('equal: Stable (exactly equal only)', () {
+        expect(trendDeltaText(t(['26', '26'])), 'Stable');
+        expect(trendDeltaText(t(['0', '0'])), 'Stable');
+        expect(trendDeltaSpoken(t(['26', '26'])), 'stable since baseline');
+      });
+
+      test('compares last with the BASELINE, not the previous result', () {
+        // previous → last would be 33 → 41 (+24%); baseline → last is +58%.
+        expect(trendDeltaText(t(['26', '33', '41'])), '↑ +58%');
+      });
+
+      test('rounding: nearest integer, .5 rounds away from zero', () {
+        expect(trendDeltaText(t(['200', '201'])), '↑ +1%'); // 0.5 → 1
+        expect(trendDeltaText(t(['200', '199'])), '↓ −1%'); // −0.5 → −1
+        expect(trendDeltaText(t(['100', '101.4'])), '↑ +1%'); // 1.4 → 1
+        expect(trendDeltaText(t(['100', '101.6'])), '↑ +2%'); // 1.6 → 2
+        expect(trendDeltaText(t(['3', '4'])), '↑ +33%'); // 33.33 → 33
+        expect(trendDeltaText(t(['3', '5'])), '↑ +67%'); // 66.67 → 67
+      });
+
+      test('rounding: a real change under 0.5% shows <1%, never +0% or Stable', () {
+        expect(trendDeltaText(t(['1000', '1002'])), '↑ +<1%');
+        expect(trendDeltaText(t(['1000', '998'])), '↓ −<1%');
+        expect(trendDeltaSpoken(t(['1000', '1002'])), 'up less than 1 percent since baseline');
+      });
+
+      test('zero baseline: % is undefined, so show the signed change in the unit', () {
+        expect(trendDeltaText(t(['0', '15'])), '↑ +15 µM');
+        expect(trendDeltaText(t(['0', '1.5'], unit: 'mg/L')), '↑ +1.5 mg/L');
+        expect(trendDeltaText(t(['0', '-2'], unit: '')), '↓ −2');
+        expect(trendDeltaSpoken(t(['0', '15'])), 'up 15 µM since baseline');
+      });
+
+      test('null for a single reading or a non-numeric value', () {
+        expect(trendDeltaText(t(['26'])), isNull);
+        expect(trendDeltaText(t(['n/a', '41'])), isNull);
+        expect(trendDeltaSpoken(t(['26'])), isNull);
+      });
     });
 
     // ── C1 pure helpers ─────────────────────────────────────────────────────
@@ -226,7 +289,7 @@ void main() {
               'First result · 2026-01-01. Your trend appears after your next test.'),
           findsOneWidget);
       expect(find.byKey(const Key('biomarker-trend-chart')), findsOneWidget);
-      expect(find.textContaining('→'), findsNothing);
+      expect(find.textContaining(RegExp('[↑↓]')), findsNothing); // no delta
     });
 
     testWidgets('(i) info button is ≥44×44 and opens/closes the explainer sheet',
@@ -287,6 +350,14 @@ void main() {
       handle.dispose();
     });
 
+    testWidgets('M3: hero readout says the delta in words', (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, reports: _reports());
+      expect(find.bySemanticsLabel(RegExp('up 58 percent since baseline')), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('↑')), findsNothing);
+      handle.dispose();
+    });
+
     testWidgets('chart has one text alternative listing every point', (tester) async {
       final handle = tester.ensureSemantics();
       await _pump(tester, reports: _reports());
@@ -333,7 +404,8 @@ void main() {
       expect(find.text('NAD+'), findsOneWidget);
       expect(find.text('Metabolic'), findsOneWidget);
       expect(find.text('Intracellular NAD+'), findsOneWidget); // hero
-      expect(find.textContaining('26 → 41'), findsOneWidget); // neutral trend delta
+      expect(find.text('↑ +58%'), findsOneWidget); // M3: neutral % delta vs baseline
+      expect(find.textContaining('26 → 41'), findsNothing);
       expect(find.text('View Full Biomarker Report'), findsOneWidget);
       // No composite score / FICTIONAL badge.
       expect(find.textContaining('Score'), findsNothing);
@@ -426,7 +498,7 @@ void main() {
       ];
       await _pump(tester, reports: single);
       expect(find.text('Intracellular NAD+'), findsOneWidget);
-      expect(find.textContaining('→'), findsNothing); // no delta for a single point
+      expect(find.textContaining(RegExp('[↑↓]')), findsNothing); // no delta for a single point
     });
 
     testWidgets('error: card + Try again', (tester) async {

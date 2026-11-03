@@ -77,20 +77,51 @@ SegmentView segmentView(List<LabReport> newestFirst, BiomarkerSegment seg) {
   return SegmentView(markers: inSeg, leadTrend: trend);
 }
 
-/// Neutral delta text between the first and last trend points (never coloured).
-/// Null when there are fewer than two points (the "single result" case).
-String? trendDeltaText(List<MarkerReading> trend) {
+/// Change of the latest reading against the BASELINE (first reading), per
+/// spec Z6/§6 (PR #30 review M3). Null with fewer than two numeric points.
+/// Rules (also in the PR body and unit tests):
+/// - exactly equal → stable;
+/// - otherwise n = |last − first| / |first| × 100, rounded to the nearest
+///   integer with .5 away from zero (Dart `round()`); a real change that
+///   rounds to 0 shows "<1" (never "+0%" or Stable);
+/// - zero baseline: % is undefined, so the signed change in the marker's
+///   unit is shown instead (e.g. "↑ +15 µM").
+({bool stable, bool up, String magnitude, bool percent})? _baselineDelta(
+    List<MarkerReading> trend) {
   if (trend.length < 2) return null;
   final first = parseMarkerValue(trend.first.marker.value);
   final last = parseMarkerValue(trend.last.marker.value);
   if (first == null || last == null) return null;
-  final unit = trend.last.marker.unit;
-  final u = unit.isEmpty ? '' : ' $unit';
-  if (first == last) return 'Stable';
-  final diff = last - first;
-  final arrow = diff > 0 ? '↑' : '↓';
-  final mag = _trim(diff.abs());
-  return '${trend.first.marker.value} → ${trend.last.marker.value}$u  ($arrow $mag)';
+  if (first == last) return (stable: true, up: false, magnitude: '', percent: false);
+  final up = last > first;
+  if (first == 0) {
+    final unit = trend.last.marker.unit;
+    return (
+      stable: false,
+      up: up,
+      magnitude: '${_trim(last.abs())}${unit.isEmpty ? '' : ' $unit'}',
+      percent: false,
+    );
+  }
+  final n = ((last - first).abs() / first.abs() * 100).round();
+  return (stable: false, up: up, magnitude: n == 0 ? '<1' : '$n', percent: true);
+}
+
+/// Visible hero delta: `{↑|↓} {+|−}{n}%` (U+2212 minus), or "Stable".
+String? trendDeltaText(List<MarkerReading> trend) {
+  final d = _baselineDelta(trend);
+  if (d == null) return null;
+  if (d.stable) return 'Stable';
+  return '${d.up ? '↑ +' : '↓ −'}${d.magnitude}${d.percent ? '%' : ''}';
+}
+
+/// Screen-reader form of [trendDeltaText], e.g. "up 58 percent since baseline".
+String? trendDeltaSpoken(List<MarkerReading> trend) {
+  final d = _baselineDelta(trend);
+  if (d == null) return null;
+  if (d.stable) return 'stable since baseline';
+  final mag = d.magnitude == '<1' ? 'less than 1' : d.magnitude;
+  return '${d.up ? 'up' : 'down'} $mag${d.percent ? ' percent' : ''} since baseline';
 }
 
 /// "Baseline: {v} · {date}" from the first reading, shown only with ≥2 readings.
@@ -348,6 +379,7 @@ class _BiomarkerHero extends StatelessWidget {
     final caption = markerCaption(m);
     final band = referenceBandText(m);
     final delta = trendDeltaText(trend);
+    final deltaSpoken = trendDeltaSpoken(trend);
     final altText = trendTextAlternative(m.name, trend);
     final baseline = baselineCaptionText(trend);
     final firstResult = firstResultCaptionText(trend);
@@ -359,7 +391,7 @@ class _BiomarkerHero extends StatelessWidget {
       '${m.value}${m.unit.isEmpty ? '' : ' ${m.unit}'}',
       caption,
       if (band != null) band,
-      if (delta != null) delta,
+      if (deltaSpoken != null) deltaSpoken,
       altText,
       if (baseline != null) baseline,
       if (firstResult != null) firstResult,
