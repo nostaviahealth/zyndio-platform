@@ -690,6 +690,9 @@ class ZyndioTc025Colors extends ThemeExtension<ZyndioTc025Colors> {
     required this.warnText,
     required this.warnBg,
     required this.screenBg,
+    required this.chartLineStart,
+    required this.chartLineEnd,
+    required this.chartPointStroke,
   });
 
   /// Inactive segment pill fill
@@ -743,6 +746,16 @@ class ZyndioTc025Colors extends ThemeExtension<ZyndioTc025Colors> {
   /// Screen background for the 5 patient tabs
   final Color screenBg;
 
+  /// Biomarker trend line gradient, first stop
+  final Color chartLineStart;
+
+  /// Biomarker trend line gradient, last stop. Dark is lifted so the line
+  /// keeps ≥ 3:1 on the lab band (PR #30 review M2).
+  final Color chartLineEnd;
+
+  /// Biomarker trend point stroke. Dark is lifted for ≥ 3:1 on the lab band.
+  final Color chartPointStroke;
+
   static const light = ZyndioTc025Colors(
     segmentBg: Color(0xFFEEF0F5),
     segmentText: Color(0xFF283152),
@@ -761,6 +774,9 @@ class ZyndioTc025Colors extends ThemeExtension<ZyndioTc025Colors> {
     warnText: Color(0xFF8A4B00),
     warnBg: Color(0xFFFFF4E2),
     screenBg: Color(0xFFF7F8FC),
+    chartLineStart: Color(0xFF0B6FD6),
+    chartLineEnd: Color(0xFF7444F0),
+    chartPointStroke: Color(0xFF3D5BF5),
   );
 
   static const dark = ZyndioTc025Colors(
@@ -781,6 +797,9 @@ class ZyndioTc025Colors extends ThemeExtension<ZyndioTc025Colors> {
     warnText: Color(0xFFFFC56B),
     warnBg: Color(0xFF2A2010),
     screenBg: Color(0xFF070A14),
+    chartLineStart: Color(0xFF0B6FD6), // 3.11:1 on band
+    chartLineEnd: Color(0xFF8A66FF), // 3.96:1 on band, 4.75:1 on surface
+    chartPointStroke: Color(0xFF6F86FF), // 4.77:1 on band, 5.72:1 on surface
   );
 
   @override
@@ -802,6 +821,9 @@ class ZyndioTc025Colors extends ThemeExtension<ZyndioTc025Colors> {
     Color? warnText,
     Color? warnBg,
     Color? screenBg,
+    Color? chartLineStart,
+    Color? chartLineEnd,
+    Color? chartPointStroke,
   }) =>
       ZyndioTc025Colors(
         segmentBg: segmentBg ?? this.segmentBg,
@@ -821,6 +843,9 @@ class ZyndioTc025Colors extends ThemeExtension<ZyndioTc025Colors> {
         warnText: warnText ?? this.warnText,
         warnBg: warnBg ?? this.warnBg,
         screenBg: screenBg ?? this.screenBg,
+        chartLineStart: chartLineStart ?? this.chartLineStart,
+        chartLineEnd: chartLineEnd ?? this.chartLineEnd,
+        chartPointStroke: chartPointStroke ?? this.chartPointStroke,
       );
 
   @override
@@ -844,6 +869,9 @@ class ZyndioTc025Colors extends ThemeExtension<ZyndioTc025Colors> {
       warnText: Color.lerp(warnText, other.warnText, t)!,
       warnBg: Color.lerp(warnBg, other.warnBg, t)!,
       screenBg: Color.lerp(screenBg, other.screenBg, t)!,
+      chartLineStart: Color.lerp(chartLineStart, other.chartLineStart, t)!,
+      chartLineEnd: Color.lerp(chartLineEnd, other.chartLineEnd, t)!,
+      chartPointStroke: Color.lerp(chartPointStroke, other.chartPointStroke, t)!,
     );
   }
 }

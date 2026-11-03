@@ -98,6 +98,7 @@ class ZyndioBrandRow extends ConsumerWidget {
             button: true,
             container: true,
             label: 'Profile and settings',
+            onTap: () => context.pushNamed('settings'), // H1
             child: ExcludeSemantics(
               child: GestureDetector(
               behavior: HitTestBehavior.opaque,
@@ -286,6 +287,7 @@ class ZyndioListRow extends StatelessWidget {
       button: true,
       label: [title, if (subtitle != null) subtitle, if (trailingBadge != null) trailingBadge]
           .join(', '),
+      onTap: onTap, // H1: screen-reader activation == finger tap
       child: ExcludeSemantics(
         child: Material(
           color: c.bgSurface,

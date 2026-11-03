@@ -462,6 +462,7 @@ class _GradientCta extends StatelessWidget {
     return Semantics(
       button: true,
       label: label,
+      onTap: onTap, // H1: screen-reader activation == finger tap
       child: ExcludeSemantics(
         child: GestureDetector(
           onTap: onTap,
