@@ -1408,7 +1408,7 @@ class _HealthDataScreenState extends ConsumerState<HealthDataScreen> {
                                 final success = await HealthDataRepository.deleteLabReport(
                                   report.id, 
                                   profile.id, 
-                                  report.pdfUrl 
+                                  report.pdfPath 
                                 );
                                 
                                 if (success) {

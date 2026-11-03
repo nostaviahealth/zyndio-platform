@@ -100,7 +100,7 @@ describe.skipIf(!integrationEnvReady)('patient lab-reports query (TC-037 contrac
     const rows = JSON.parse(body) as { id: string; report_type: string; data: { title?: string }; created_at: string }[];
     expect(rows.map((r) => r.id)).toEqual([newerId, olderId]);
     expect(rows.map((r) => r.id)).not.toContain(heldId);
-    expect(Object.keys(rows[0]).sort()).toEqual(['created_at', 'data', 'id', 'report_type']);
+    expect(Object.keys(rows[0]).sort()).toEqual(['created_at', 'data', 'id', 'pdf_path', 'report_type']);
     expect(rows[0].data.title).toBe('Fictional follow-up');
     expect(rows[0].report_type).toBe('metabolic_panel');
   });

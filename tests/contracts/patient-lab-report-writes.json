@@ -1,0 +1,46 @@
+{
+  "_comment": "TC-036: the PostgREST requests the patient app makes to file a lab report (upload) and a manually entered biomarker. Pinned on both sides: flutter_app/test/data/health_data_repository_lab_report_writes_test.dart proves the Dart repository sends exactly these requests, and tests/integration/patient-lab-report-writes.test.ts proves they are accepted by the real migrated schema + RLS through PostgREST. {patient_id} is the signed-in patient's auth user id, {org_id} their clinic (read first with org_lookup, because lab_reports_self_insert requires the patient's own org_id), {object} the uuid file name the app uploaded into the private lab-reports bucket, {today} the local date (YYYY-MM-DD). Patients can INSERT lab_reports but never UPDATE or DELETE them (RLS, by design), so each manual entry files a new one-marker report.",
+  "org_lookup": {
+    "method": "GET",
+    "path": "/rest/v1/patients",
+    "query": {
+      "select": "org_id",
+      "id": "eq.{patient_id}"
+    }
+  },
+  "upload_insert": {
+    "method": "POST",
+    "path": "/rest/v1/lab_reports",
+    "body": {
+      "org_id": "{org_id}",
+      "patient_id": "{patient_id}",
+      "report_type": "patient_upload",
+      "data": {
+        "title": "Fictional Lipid Panel",
+        "date": "2026-10-30",
+        "summary": "Fictional summary.",
+        "markers": [
+          { "name": "LDL", "value": "96", "unit": "mg/dL", "range": "<100", "status": "In-range" }
+        ]
+      },
+      "pdf_path": "{patient_id}/{object}.pdf"
+    }
+  },
+  "manual_entry_insert": {
+    "method": "POST",
+    "path": "/rest/v1/lab_reports",
+    "body": {
+      "org_id": "{org_id}",
+      "patient_id": "{patient_id}",
+      "report_type": "manual_entry",
+      "data": {
+        "title": "Manual Entry",
+        "date": "{today}",
+        "summary": "Entered by the patient.",
+        "markers": [
+          { "name": "Vitamin D", "value": "32 ng/mL", "range": "--", "status": "Normal", "insight": "Manually entered." }
+        ]
+      }
+    }
+  }
+}
