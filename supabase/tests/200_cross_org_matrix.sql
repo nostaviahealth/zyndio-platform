@@ -166,6 +166,10 @@ begin
 end;
 $fn$;
 
+-- TC-040 (#34 M1): functions postgres creates no longer get PUBLIC EXECUTE by
+-- default, so test-only helpers called after a role switch are granted explicitly.
+grant execute on all functions in schema tests to anon, authenticated, service_role;
+
 -- ---------------------------------------------------------------------------
 -- Direction 1: every org A actor x every RLS-policy table, against org B's
 -- row. Sentinel uuids (...e000N) are reserved for throwaway insert attempts

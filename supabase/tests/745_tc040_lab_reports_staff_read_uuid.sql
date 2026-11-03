@@ -37,6 +37,9 @@ create or replace function pg_temp.visible() returns text[] language sql as $$
 -- what storage-api runs (as the caller) before it mints a signed URL
 create or replace function pg_temp.sign(p_name text) returns int language sql as $$
   select count(*)::int from storage.objects where bucket_id = 'lab-reports' and name = p_name $$;
+-- TC-040 (#34 M1): functions postgres creates no longer get PUBLIC EXECUTE by
+-- default, so test-only helpers called after a role switch are granted explicitly.
+grant execute on function pg_temp.visible(), pg_temp.sign(text) to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Structure: uuid compare, guarded by the canonical-uuid regex
@@ -180,6 +183,7 @@ begin
   loop v_plan := v_plan || v_line || E'\n'; end loop;
   return v_plan;
 end $$;
+grant execute on function pg_temp.sign_plan(text) to authenticated;
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal2');
 select diag(pg_temp.sign_plan('00000000-0000-0000-0000-0000000a1001/40a00000-0000-4000-8000-000000000001.pdf'));
 select ok(pg_temp.sign_plan('00000000-0000-0000-0000-0000000a1001/40a00000-0000-4000-8000-000000000001.pdf') ~ 'Index Scan using patients_pkey on patients',
