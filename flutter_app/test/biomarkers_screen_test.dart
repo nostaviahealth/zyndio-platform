@@ -257,6 +257,35 @@ void main() {
       handle.dispose();
     });
 
+    // M1 (Ava, PR #30 review): the (i) node must be its own 44×44 node, not a
+    // node covering the whole hero card, and the readout is read first.
+    testWidgets('M1: (i) semantics node is 44×44 and follows the readout',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, reports: _reports());
+      final info =
+          find.semantics.byLabel('About Intracellular NAD+').evaluate().single;
+      final r = info.rect;
+      expect(r.width, closeTo(44, 0.5), reason: 'width ${r.width}');
+      expect(r.height, closeTo(44, 0.5), reason: 'height ${r.height}');
+      // The readout is a sibling, not a child of the (i) node.
+      var childCount = 0;
+      info.visitChildren((_) {
+        childCount++;
+        return true;
+      });
+      expect(childCount, 0);
+      final order = tester.semantics
+          .simulatedAccessibilityTraversal()
+          .map((n) => n.label)
+          .toList();
+      final readoutAt = order.indexWhere((l) => l.startsWith('Intracellular NAD+, 41'));
+      final infoAt = order.indexOf('About Intracellular NAD+');
+      expect(readoutAt, isNonNegative);
+      expect(infoAt, greaterThan(readoutAt));
+      handle.dispose();
+    });
+
     testWidgets('chart has one text alternative listing every point', (tester) async {
       final handle = tester.ensureSemantics();
       await _pump(tester, reports: _reports());

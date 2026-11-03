@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart' show OrdinalSortKey;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -364,9 +365,11 @@ class _BiomarkerHero extends StatelessWidget {
       if (firstResult != null) firstResult,
     ].join(', ');
 
+    // M1: the 16pt card padding sits inside the Stack (not around it) so the
+    // (i) button's full 44×44 target lies within the Stack's bounds; it was
+    // clipped to 38×38 at top/right -6. Same painted position as before.
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: c.bgSurface,
         borderRadius: BorderRadius.circular(16),
@@ -376,115 +379,120 @@ class _BiomarkerHero extends StatelessWidget {
       child: Stack(
         children: [
           // Data readout: one text alternative for screen readers; the painted
-          // values and chart are decorative (ExcludeSemantics).
-          Semantics(
-            container: true,
-            label: readout,
-            child: ExcludeSemantics(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 44),
-                    child: Text(
-                      m.name,
-                      style: TextStyle(
-                        fontFamily: ZyndioType.family,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: c.textPrimary,
+          // values and chart are decorative (ExcludeSemantics). M1: read
+          // before the (i) button (sort key 0 vs 1).
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Semantics(
+              container: true,
+              sortKey: const OrdinalSortKey(0),
+              label: readout,
+              child: ExcludeSemantics(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(right: 44),
+                      child: Text(
+                        m.name,
+                        style: TextStyle(
+                          fontFamily: ZyndioType.family,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: c.textPrimary,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  RichText(
-                    text: TextSpan(
-                      text: m.value,
-                      style: TextStyle(
-                        fontFamily: ZyndioType.family,
-                        fontSize: 30,
-                        fontWeight: FontWeight.w700,
-                        color: c.textPrimary,
-                      ),
-                      children: [
-                        if (m.unit.isNotEmpty)
-                          TextSpan(
-                            text: ' ${m.unit}',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: c.textSecondary,
+                    const SizedBox(height: 6),
+                    RichText(
+                      text: TextSpan(
+                        text: m.value,
+                        style: TextStyle(
+                          fontFamily: ZyndioType.family,
+                          fontSize: 30,
+                          fontWeight: FontWeight.w700,
+                          color: c.textPrimary,
+                        ),
+                        children: [
+                          if (m.unit.isNotEmpty)
+                            TextSpan(
+                              text: ' ${m.unit}',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: c.textSecondary,
+                              ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    caption,
-                    style: TextStyle(
-                      fontFamily: ZyndioType.family,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: c.textSecondary,
-                    ),
-                  ),
-                  if (delta != null) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     Text(
-                      delta,
+                      caption,
                       style: TextStyle(
                         fontFamily: ZyndioType.family,
-                        fontSize: 18,
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: context.z25.deltaNeutral, // neutral, never red/green
+                        color: c.textSecondary,
                       ),
                     ),
-                  ],
-                  if (hasChart) ...[
-                    const SizedBox(height: 12),
-                    _BiomarkerTrendChart(trend: trend, marker: m),
-                  ],
-                  if (band != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      band,
-                      style: TextStyle(
-                        fontFamily: ZyndioType.family,
-                        fontSize: 13,
-                        color: c.textTertiary,
+                    if (delta != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        delta,
+                        style: TextStyle(
+                          fontFamily: ZyndioType.family,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: context.z25.deltaNeutral, // neutral, never red/green
+                        ),
                       ),
-                    ),
-                  ],
-                  if (baseline != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      baseline,
-                      style: TextStyle(
-                        fontFamily: ZyndioType.family,
-                        fontSize: 13,
-                        color: c.textTertiary,
+                    ],
+                    if (hasChart) ...[
+                      const SizedBox(height: 12),
+                      _BiomarkerTrendChart(trend: trend, marker: m),
+                    ],
+                    if (band != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        band,
+                        style: TextStyle(
+                          fontFamily: ZyndioType.family,
+                          fontSize: 13,
+                          color: c.textTertiary,
+                        ),
                       ),
-                    ),
-                  ],
-                  if (firstResult != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      firstResult,
-                      style: TextStyle(
-                        fontFamily: ZyndioType.family,
-                        fontSize: 13,
-                        color: c.textTertiary,
+                    ],
+                    if (baseline != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        baseline,
+                        style: TextStyle(
+                          fontFamily: ZyndioType.family,
+                          fontSize: 13,
+                          color: c.textTertiary,
+                        ),
                       ),
-                    ),
+                    ],
+                    if (firstResult != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        firstResult,
+                        style: TextStyle(
+                          fontFamily: ZyndioType.family,
+                          fontSize: 13,
+                          color: c.textTertiary,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
           Positioned(
-            top: -6,
-            right: -6,
+            top: 10,
+            right: 10,
             child: _MarkerInfoButton(marker: m, latestDate: latestDate),
           ),
         ],
@@ -502,7 +510,11 @@ class _MarkerInfoButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = Theme.of(context).extension<ZyndioColors>()!;
+    // M1: its own 44×44 node (container) read after the hero readout, instead
+    // of merging into a node that spans the whole hero card.
     return Semantics(
+      container: true,
+      sortKey: const OrdinalSortKey(1),
       button: true,
       label: 'About ${marker.name}',
       onTap: () => _open(context),
