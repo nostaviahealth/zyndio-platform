@@ -135,13 +135,21 @@ select is((select display_name from public.patients where id = '00000000-0000-00
 -- Review group C, C1: a direct client INSERT on patients is denied for
 -- everyone now, including physician/care_coordinator - patient creation
 -- only goes through create_patient_record() (see 500_review_probes.sql, P9).
+-- TC-030 item 8: that RPC is care_coordinator-only, so physician_a is refused
+-- and the coordinator provisions a6002, which the rest of this block (update,
+-- delete, patient_profiles/lab_reports/consents) exercises as physician_a.
 select throws_ok(
   $$ insert into public.patients (id, org_id, display_name, mrn)
      values ('00000000-0000-0000-0000-0000000a6002', '00000000-0000-0000-0000-00000000000a', 'Fictional Patient A2', 'MRN-A2') $$,
   '42501', null, 'physician_a x patients x insert: denied, no direct INSERT policy - create_patient_record() only');
+select throws_ok(
+  $$ select public.create_patient_record('00000000-0000-0000-0000-0000000a6002', 'Fictional Patient A2', 'MRN-A2') $$,
+  '42501', null, 'physician_a x patients x create_patient_record(): denied - care_coordinator only (TC-030)');
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0003', 'aal2'); -- care_coordinator_a
 select public.create_patient_record('00000000-0000-0000-0000-0000000a6002', 'Fictional Patient A2', 'MRN-A2');
 select is((select display_name from public.patients where id = '00000000-0000-0000-0000-0000000a6002'), 'Fictional Patient A2',
-  'physician_a x patients x create_patient_record(): creates the row in the caller''s own org');
+  'care_coordinator_a x patients x create_patient_record(): creates the row in the caller''s own org');
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal2'); -- physician_a
 update public.patients set display_name = 'Updated A2' where id = '00000000-0000-0000-0000-0000000a6002';
 select is((select display_name from public.patients where id = '00000000-0000-0000-0000-0000000a6002'), 'Updated A2',
   'physician_a x patients x update: allowed (own org)');

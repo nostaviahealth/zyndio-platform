@@ -58,6 +58,10 @@ class SignInController extends Notifier<SignInState> {
   /// entry can't spend one of the 5 attempts (Clara, PR #26 review H2).
   CodeVerifyResult? submitCode() {
     if (!_sixDigits.hasMatch(state.code)) {
+      // TC-030 item 17 (Clara L-r2-3): while locked, a short/empty entry must
+      // show only the lock banner - not also "Enter the 6-digit code." The UI
+      // disables Continue while locked too, so this is belt-and-braces.
+      if (state.isLocked) return null;
       state = state.copyWith(errorText: 'Enter the 6-digit code.');
       return null;
     }
@@ -65,9 +69,15 @@ class SignInController extends Notifier<SignInState> {
     final (result, session) = _repo.verifyCode(email, state.code);
     switch (result) {
       // The code step shows the lockout banner itself (signin_view.dart), so
-      // the lock is the one message - no stale "isn't right" next to it.
+      // the lock is the one message - no stale "isn't right" next to it. The
+      // banner counts down from the policy's real remaining time (rounded up
+      // to whole minutes) instead of a fixed "15 minutes" string.
       case CodeVerifyResult.locked:
-        state = state.copyWith(isLocked: true, clearError: true);
+        state = state.copyWith(
+          isLocked: true,
+          lockedMinutesRemaining: _minutesRemaining(email),
+          clearError: true,
+        );
       case CodeVerifyResult.success:
         state = state.copyWith(session: session);
         ref.read(currentSessionProvider.notifier).set(session);
@@ -85,6 +95,15 @@ class SignInController extends Notifier<SignInState> {
         );
     }
     return result;
+  }
+
+  /// Whole minutes left on [email]'s lockout, rounded up so a part-minute
+  /// (e.g. 14 min 30 s) never reads "0 min" and a just-locked account reads
+  /// the full "15 min".
+  int _minutesRemaining(String email) {
+    final remaining = _repo.lockRemaining(email);
+    if (remaining <= Duration.zero) return 0;
+    return (remaining.inSeconds / 60).ceil();
   }
 
   void backToEmail() {

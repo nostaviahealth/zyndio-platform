@@ -37,6 +37,7 @@ class SignInState {
     this.isSending = false,
     this.isOffline = false,
     this.isLocked = false,
+    this.lockedMinutesRemaining = 15,
     this.emailFieldFocused = false,
     this.errorText,
     this.session,
@@ -60,8 +61,12 @@ class SignInState {
             "We couldn't find an enrolment for this email. Check the address, or ask your Zyndio care team for an invite.",
       );
 
-  factory SignInState.locked({String? email}) =>
-      SignInState(email: email ?? demoPatient.email, isLocked: true);
+  factory SignInState.locked({String? email, int minutesRemaining = 15}) =>
+      SignInState(
+        email: email ?? demoPatient.email,
+        isLocked: true,
+        lockedMinutesRemaining: minutesRemaining,
+      );
 
   factory SignInState.offline({String? email}) =>
       SignInState(email: email ?? demoPatient.email, isOffline: true);
@@ -72,6 +77,11 @@ class SignInState {
   final bool isSending;
   final bool isOffline;
   final bool isLocked;
+
+  /// Whole minutes left on the lockout, surfaced in the banner copy ("Try
+  /// again in {n} min"). Rounded up so a part-minute never reads "0 min".
+  final int lockedMinutesRemaining;
+
   final bool emailFieldFocused;
   final String? errorText;
 
@@ -95,6 +105,7 @@ class SignInState {
     bool? isSending,
     bool? isOffline,
     bool? isLocked,
+    int? lockedMinutesRemaining,
     bool? emailFieldFocused,
     String? errorText,
     bool clearError = false,
@@ -107,6 +118,7 @@ class SignInState {
       isSending: isSending ?? this.isSending,
       isOffline: isOffline ?? this.isOffline,
       isLocked: isLocked ?? this.isLocked,
+      lockedMinutesRemaining: lockedMinutesRemaining ?? this.lockedMinutesRemaining,
       emailFieldFocused: emailFieldFocused ?? this.emailFieldFocused,
       errorText: clearError ? null : (errorText ?? this.errorText),
       session: session ?? this.session,

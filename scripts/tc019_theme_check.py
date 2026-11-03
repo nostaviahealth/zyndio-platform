@@ -942,18 +942,16 @@ def check_tc021_round2(browser, scrollbar_browser, base_url: str, creds: dict, m
     ipage.get_by_role("button", name="Stay signed in").click()
     ictx.close()
 
-    # Item 25 (Clara, #21; CI fix round 1, 1 Nov 2026): item 13's toast fix
-    # must be checked on the real toast, raised by a REAL successful submit -
-    # a check that also passed on a failure toast could never actually catch
-    # Create Patient breaking. The regex this used to wait on (either the old
-    # failure copy or the success copy) matched neither: TC-018's rewrite
-    # (b741c04) dropped the AdminContext toast entirely on success, showing
-    # only a full-page "Patient Created Successfully!" card, so the check
-    # always timed out regardless of pass/fail. Fixed by restoring the
-    # showToast('Patient created successfully', ...) call in
-    # CreatePatient.tsx (see docs/tasks/TC-018.md, Henry's calls 1 Nov 2026).
-    # Email is unique per mode (dark/light) so the two passes don't collide
-    # on the same patient account.
+    # Item 25 (Clara, #21; CI fix round 1, 1 Nov 2026): item 13's success
+    # feedback must be checked on a REAL successful submit - a check that also
+    # passed on a failure state could never actually catch Create Patient
+    # breaking.
+    # TC-030 (Henry, 2 Nov 2026): the only role allowed to create a patient is
+    # now care_coordinator (item 8 - a physician gets 403 and the form would
+    # never even render), and the duplicate AdminContext success toast was
+    # dropped in favour of the single full-page "Patient created" card (item 7).
+    # So sign in as the coordinator and assert that card. Email is unique per
+    # mode (dark/light) so the two passes don't collide on the same account.
     tctx = browser.new_context(viewport={"width": 1024, "height": 768}, color_scheme=mode)
     tpage = tctx.new_page()
     # TC-029 (Clara H1, PR #26): /admin/patients/create is care_coordinator
@@ -965,32 +963,24 @@ def check_tc021_round2(browser, scrollbar_browser, base_url: str, creds: dict, m
     goto_hash(tpage, base_url, "/admin/patients/create")
     # TC-018 (Create Patient add-on) pointed this form at the real patients
     # table and dropped every field without a real column - name/email
-    # placeholders changed ("Jane Doe" / "jane@example.com") and age (was
-    # "35") has no column to hold it, so it's gone rather than renamed.
+    # placeholders ("Jane Doe" / "jane@example.com") are unchanged by TC-030.
     tpage.get_by_placeholder("Jane Doe").fill("Fictional Rowan Testcase")
     tpage.get_by_placeholder("jane@example.com").fill(f"tc021-item25-{mode}@example.test")
     with tpage.expect_response(lambda r: "/functions/v1/create-patient" in r.url) as resp_info:
-        tpage.get_by_role("button", name="Create Patient").click()
+        tpage.get_by_role("button", name="Create patient").click()
     response = resp_info.value
     check(
         response.status == 200,
         f"item 25 {mode}@1024: Create Patient's submit reaches the server and succeeds (got {response.status})",
     )
-    toast_text = tpage.get_by_text("Patient created successfully", exact=True)
+    card_heading = tpage.get_by_text("Patient created", exact=True)
     shown = True
     try:
-        toast_text.wait_for(state="visible", timeout=10_000)
+        card_heading.wait_for(state="visible", timeout=10_000)
     except Exception:
         shown = False
-    if check(shown, f"item 25 {mode}@1024: Create Patient raises the AdminContext success toast"):
-        box = toast_text.evaluate(
-            "el => { const t = el.closest('.fixed') || el; const r = t.getBoundingClientRect();"
-            " return { left: r.left, right: r.right, bottom: r.bottom, vw: window.innerWidth, vh: window.innerHeight }; }"
-        )
-        centre_off = abs((box["left"] + box["right"]) / 2 - box["vw"] / 2)
-        check(centre_off <= 2, f"item 25 {mode}@1024: AdminContext toast is bottom-centre (centre off by {centre_off:.1f}px, box={box})")
-        check(box["right"] <= actions_left, f"item 25 {mode}@1024: AdminContext toast (right={box['right']:.0f}) is clear of the pinned ⋯ column (left={actions_left:.0f})")
-        screenshot(tpage, shots, "25-admin-toast", 1024, mode)
+    if check(shown, f"item 25 {mode}@1024: Create Patient shows the single success card"):
+        screenshot(tpage, shots, "25-create-success", 1024, mode)
     tctx.close()
 
 

@@ -27,6 +27,12 @@ const defaultDeps: WebhookDeps = {
 // authenticated/anon, not service_role) instead of the removed `profiles`
 // table - app_user_id is the patient's auth uid, which is patient_accounts'
 // primary key directly, no profile-id lookup needed.
+//
+// TC-030 item 2 (Clara PR #25 M2): the write is an UPSERT on patient_id, not a
+// bare UPDATE, so a purchase for a patient who has no patient_accounts row yet
+// creates the row instead of silently writing 0 rows and returning 200. A real
+// DB error returns 500 so RevenueCat retries; replaying the same event is
+// idempotent (same end state, no error).
 export async function handleRevenueCatWebhook(req: Request, deps: WebhookDeps = defaultDeps): Promise<Response> {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -73,20 +79,35 @@ export async function handleRevenueCatWebhook(req: Request, deps: WebhookDeps = 
       }
     }
 
-    const { error: updateError } = await supabaseClient
+    // TC-030 item 2 (Clara PR #25 M2): the old `.update().eq()` wrote 0 rows and
+    // still returned 200 "Success" when the patient had no patient_accounts row
+    // yet (the row only appears after a later client write), so RevenueCat never
+    // retried and the purchase was lost. Upsert on patient_id (the primary key)
+    // instead: it creates the row if missing and overwrites it if present, so a
+    // premium INITIAL_PURCHASE lands immediately and the operation is idempotent
+    // - replaying the same event converges on the same is_premium/plan with no
+    // error. Columns not named default on INSERT (xp/coins/league 0, name null,
+    // etc.) and are untouched on UPDATE. service_role bypasses the authenticated
+    // column revokes on is_premium/subscription_plan.
+    const { error: upsertError } = await supabaseClient
       .from('patient_accounts')
-      .update({
-        subscription_plan: subscriptionPlan,
-        is_premium: isPremium,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('patient_id', app_user_id)
+      .upsert(
+        {
+          patient_id: app_user_id,
+          subscription_plan: subscriptionPlan,
+          is_premium: isPremium,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'patient_id' },
+      )
 
-    if (updateError) {
-      console.error('handle-revenuecat-webhook: database update failed', updateError)
+    if (upsertError) {
+      // A real write failure (not a known no-op edge case): return a 5xx so
+      // RevenueCat retries instead of dropping the purchase silently.
+      console.error('handle-revenuecat-webhook: database upsert failed', upsertError)
       return new Response(JSON.stringify({ error: 'internal_error' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200, // Return 200 to RevenueCat to avoid persistent retries on known edge cases
+        status: 500,
       })
     }
 

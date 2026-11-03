@@ -69,7 +69,7 @@ class LeaguesScreen extends ConsumerWidget {
                   const SizedBox(height: 48),
 
                   // 4. League Standings
-                  const _SectionHeader(title: 'Global Standings'),
+                  const _SectionHeader(title: 'Clinic Standings'),
                   const SizedBox(height: 32),
                   const LeagueStandings(),
                   const SizedBox(height: 60),
@@ -101,10 +101,13 @@ class LeagueStandings extends ConsumerWidget {
     return standingsAsync.when(
       data: (standings) {
         if (standings.isEmpty) {
+          // TC-030 item 11 (Ava L1): sentence-case, readable empty copy in
+          // textSecondary, replacing the all-caps "RECRUITING COMPETITORS...".
           return Center(
             child: Text(
-              'RECRUITING COMPETITORS...',
-              style: TextStyle(color: context.nc.textTertiary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2),
+              'No standings yet',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: context.nc.textSecondary, fontSize: 14, fontWeight: FontWeight.w600),
             ),
           );
         }
@@ -133,65 +136,116 @@ class LeagueStandings extends ConsumerWidget {
             if (others.isNotEmpty)
               ...others.map((player) {
                 final isMe = GamificationService.isLeaderboardSelf(player);
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: isMe ? context.nc.textPrimary.withValues(alpha: 0.05) : Colors.transparent,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: isMe ? context.nc.textPrimary.withValues(alpha: 0.1) : Colors.transparent,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(
-                        '#${limitedStandings.indexOf(player) + 1}',
-                        style: TextStyle(
-                          color: isMe ? context.nc.textPrimary : context.nc.textTertiary,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 12,
-                        ),
+                final name = GamificationService.leaderboardDisplayName(player['name'] as String?);
+                // TC-030 item 20: an anonymous OWN row is labelled by the "You"
+                // pill alone, so it never reads "Anonymous, you".
+                final youOnly = isMe && GamificationService.isLeaderboardAnonymous(player['name'] as String?);
+                final rank = limitedStandings.indexOf(player) + 1;
+                final xp = player['league_xp'];
+                return Semantics(
+                  // TC-030 item 0a (Ava): read the whole row once. excludeSemantics
+                  // drops the per-child nodes (rank, name, "You" pill, XP) that
+                  // otherwise made a screen reader announce the row twice; the
+                  // single label carries rank, name, the "you" cue and XP.
+                  excludeSemantics: true,
+                  label: leaderboardRowLabel(rank: rank, name: name, xp: xp, isMe: isMe, youOnly: youOnly),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: isMe ? context.nc.textPrimary.withValues(alpha: 0.05) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(16),
+                      // Own-row border: a solid design-token blue (#2563EB) that
+                      // clears WCAG 1.4.1 non-text contrast against both the page
+                      // and the row tint, in light and dark (TC-030 item 0a, Ava).
+                      border: Border.all(
+                        color: isMe ? context.nc.leaderboardOwnBorder : Colors.transparent,
+                        width: isMe ? 1.5 : 1,
                       ),
-                      const SizedBox(width: 16),
-                      _buildAvatarPlaceholder(context, player, 14),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Text(
-                          (player['name'] ?? 'ANONYMOUS').toUpperCase(),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(
+                          '#${limitedStandings.indexOf(player) + 1}',
                           style: TextStyle(
                             color: isMe ? context.nc.textPrimary : context.nc.textSecondary,
                             fontWeight: FontWeight.w900,
-                            fontSize: 13,
-                            letterSpacing: 0.5,
+                            fontSize: 12,
                           ),
                         ),
-                      ),
-                      Text(
-                        '${player['league_xp']} XP',
-                        style: TextStyle(
-                          color: isMe ? const Color(0xFF10B981) : Colors.white38,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 12,
+                        const SizedBox(width: 16),
+                        _buildAvatarPlaceholder(context, player, 14),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              if (!youOnly) Flexible(
+                                child: Text(
+                                  name.toUpperCase(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: isMe ? context.nc.textPrimary : context.nc.textSecondary,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 13,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              if (isMe) ...[
+                                if (!youOnly) const SizedBox(width: 8),
+                                const _YouPill(),
+                              ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                        Text(
+                          '${player['league_xp']} XP',
+                          // TC-030 item 11: theme secondary token for others
+                          // (was invisible Colors.white38); own XP a success
+                          // green that's AA on both surfaces.
+                          style: TextStyle(
+                            color: isMe ? _ownXpColor(context) : context.nc.textSecondary,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 );
               }),
           ],
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator(color: Colors.white10)),
-      error: (e, s) => Center(child: Text('STANDINGS ERROR: $e', style: const TextStyle(color: Colors.red))),
+      // TC-030 item 11 (Ava L1): a spinner tinted for the current theme (the
+      // old Colors.white10 was invisible in light mode), and friendly error
+      // copy instead of printing the raw exception.
+      loading: () => Center(child: CircularProgressIndicator(color: context.nc.primary)),
+      error: (e, s) => Center(
+        child: Text(
+          "Standings couldn't load. Pull to refresh or try again later.",
+          textAlign: TextAlign.center,
+          style: TextStyle(color: context.nc.textSecondary, fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+      ),
     );
   }
 
   Widget _buildPodiumUser(BuildContext context, Map<String, dynamic> player, int rank, double size) {
     final color = rank == 1 ? const Color(0xFFF59E0B) : (rank == 2 ? const Color(0xFF94A3B8) : const Color(0xFFCD7F32));
     final isMe = GamificationService.isLeaderboardSelf(player);
+    final name = GamificationService.leaderboardDisplayName(player['name'] as String?);
+    final youOnly = isMe && GamificationService.isLeaderboardAnonymous(player['name'] as String?);
+    final xp = player['league_xp'];
 
-    return Column(
+    return Semantics(
+      // TC-030 item 0a (Ava): one label per podium row - rank, name, the "you"
+      // cue and XP - with excludeSemantics so the child Texts/pill aren't read a
+      // second time (WCAG: no colour-only cue, and no duplicated announcement).
+      excludeSemantics: true,
+      label: leaderboardRowLabel(rank: rank, name: name, xp: xp, isMe: isMe, youOnly: youOnly),
+      child: Column(
       children: [
         Stack(
           alignment: Alignment.center,
@@ -207,12 +261,16 @@ class LeagueStandings extends ConsumerWidget {
                 ],
               ),
             ),
-            // Avatar Ring
+            // Avatar Ring - a 2px brand-primary ring marks the caller's own
+            // avatar (TC-030 item 0a); everyone else keeps the medal-tinted ring.
             Container(
               padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: color.withValues(alpha: 0.3), width: 2),
+                border: Border.all(
+                  color: isMe ? context.nc.primary : color.withValues(alpha: 0.3),
+                  width: 2,
+                ),
               ),
               child: _buildAvatarPlaceholder(context, player, size / 2),
             ),
@@ -237,8 +295,10 @@ class LeagueStandings extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 16),
-        Text(
-          (player['name'] ?? 'UNKNOWN').toUpperCase(),
+        // TC-030 item 20: an anonymous own podium row shows the "You" pill
+        // (below) as its only label, never "ANONYMOUS".
+        if (!youOnly) Text(
+          name.toUpperCase(),
           textAlign: TextAlign.center,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -249,15 +309,78 @@ class LeagueStandings extends ConsumerWidget {
             letterSpacing: 0.5,
           ),
         ),
+        // Non-colour "You" cue under the own podium avatar (TC-030 item 0a).
+        if (isMe) ...[
+          if (!youOnly) const SizedBox(height: 6),
+          const _YouPill(),
+        ],
+        const SizedBox(height: 4),
         Text(
           '${player['league_xp']} XP',
+          // TC-030 item 11: XP in textSecondary for AA; the medal colour stays
+          // on the rank badge only, where it has enough area to carry it.
           style: TextStyle(
-            color: color.withValues(alpha: 0.8),
+            color: context.nc.textSecondary,
             fontWeight: FontWeight.w900,
             fontSize: rank == 1 ? 11 : 10,
           ),
         ),
       ],
+    ),
+    );
+  }
+}
+
+/// Screen-reader label for one leaderboard row (TC-030 items 0a and 20):
+///   * another patient: "#n, Jordan R., 400 XP" or "#n, Anonymous, 400 XP";
+///   * the caller's own named row: "#n, Jordan R., you, 400 XP" (unchanged);
+///   * the caller's own ANONYMOUS row: "#n, You, 400 XP". The "You" pill is the
+///     row's main (and only visible) label there, so the row never reads
+///     "Anonymous, you" - the patient knows who they are, and "Anonymous" would
+///     only describe how OTHER patients see them.
+@visibleForTesting
+String leaderboardRowLabel({
+  required int rank,
+  required String name,
+  required Object? xp,
+  required bool isMe,
+  required bool youOnly,
+}) {
+  if (youOnly) return '#$rank, You, $xp XP';
+  return isMe ? '#$rank, $name, you, $xp XP' : '#$rank, $name, $xp XP';
+}
+
+/// Own-row XP colour (TC-030 item 11): a success green that meets AA on both
+/// surfaces - #047857 on the light page, a lighter #34D399 on the dark page.
+Color _ownXpColor(BuildContext context) =>
+    context.nc.isDark ? const Color(0xFF34D399) : const Color(0xFF047857);
+
+/// Small "You" pill used as the leaderboard's non-colour own-row cue
+/// (TC-030 item 0a). Brand-tinted chip with the literal word, so the
+/// highlight doesn't depend on colour alone (WCAG 1.4.1).
+class _YouPill extends StatelessWidget {
+  const _YouPill();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: context.nc.primary.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: context.nc.primary.withValues(alpha: 0.7)),
+      ),
+      child: Text(
+        'You',
+        style: TextStyle(
+          // >=4.5:1 on the brand tint in both modes (TC-030 item 0a, Ava); the
+          // old context.nc.primary was 2.71:1 in light / 4.21:1 in dark.
+          color: context.nc.leaderboardYouPillText,
+          fontWeight: FontWeight.w900,
+          fontSize: 10,
+          letterSpacing: 0.5,
+        ),
+      ),
     );
   }
 }
@@ -813,19 +936,54 @@ class _SectionHeader extends StatelessWidget {
 }
 
 Widget _buildAvatarPlaceholder(BuildContext context, Map<String, dynamic> player, double radius) {
-  final avatarUrl = player['avatar_url'];
-  
+  final provider = _getAvatarProvider(player['avatar_url'] as String?);
+  if (provider != null) {
+    // Only the caller's own row keeps a photo (TC-030 item 9); every other row
+    // has a null avatar_url and falls through to initials below.
+    return CircleAvatar(
+      radius: radius,
+      backgroundImage: provider,
+      backgroundColor: context.nc.textPrimary.withOpacity(0.05),
+    );
+  }
+
+  // TC-030 item 20 (Ava): an anonymous row shows the Lucide `user` glyph (not
+  // '?' or 'A'), on the same tint and in the same textSecondary colour as the
+  // initials. 20px at the 28px list avatar (radius 14), scaled the same way
+  // on the podium. Lucide icons: ISC licence (lucide.dev); the
+  // lucide_icons_flutter package that ships them: MIT. Decorative: the row's
+  // Semantics label already says "Anonymous" / "You".
+  // One tint for both placeholders (glyph and initials).
+  final placeholderTint = context.nc.textPrimary.withValues(alpha: 0.06);
+  if (GamificationService.isLeaderboardAnonymous(player['name'] as String?)) {
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: placeholderTint,
+      child: Icon(
+        LucideIcons.user,
+        key: const ValueKey('leaderboard-anonymous-glyph'),
+        size: radius * 10 / 7,
+        color: context.nc.textSecondary,
+      ),
+    );
+  }
+
+  // No photo: render the name's initials, not a generic person icon (TC-030
+  // item 9, Ava). Initials use textSecondary on a subtle tint, which clears AA
+  // (>=4.5:1) in both modes - light #475569 ~7.2:1, dark #CBD5E1 ~13:1.
+  final initials = GamificationService.leaderboardDisplayInitials(player['name'] as String?);
   return CircleAvatar(
     radius: radius,
-    backgroundImage: _getAvatarProvider(avatarUrl),
-    backgroundColor: context.nc.textPrimary.withOpacity(0.05),
-    child: avatarUrl == null 
-      ? Icon(
-          LucideIcons.userCircle, 
-          size: radius * 1.6, 
-          color: context.nc.textPrimary.withOpacity(0.2),
-        )
-      : null,
+    backgroundColor: placeholderTint,
+    child: Text(
+      initials,
+      style: TextStyle(
+        color: context.nc.textSecondary,
+        fontWeight: FontWeight.w900,
+        fontSize: radius * 0.8,
+        letterSpacing: 0,
+      ),
+    ),
   );
 }
 

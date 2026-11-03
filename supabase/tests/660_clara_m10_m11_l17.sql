@@ -52,8 +52,10 @@ select ok(
   'M10: AFTER INSERT trigger marks patient-role self-signup'
 );
 
--- create_patient_record (SECURITY DEFINER) still refuses self-signup after L17 revoke.
-select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal2');
+-- create_patient_record (SECURITY DEFINER) still refuses self-signup after L17
+-- revoke. TC-030: run as a care_coordinator (the only allowed role now) so the
+-- self-signup guard is what fires, not the role gate.
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0003', 'aal2'); -- care_coordinator_a
 select throws_ok(
   $$ select public.create_patient_record('00000000-0000-0000-0000-0000000d10aa', 'Nope', 'MRN-M10') $$,
   '42501', null,

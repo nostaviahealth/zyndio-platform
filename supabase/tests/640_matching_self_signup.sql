@@ -59,10 +59,10 @@ insert into auth.users (
   '{}'::jsonb, now(), now()
 );
 
-select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal2');
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0003', 'aal2'); -- care_coordinator_a (TC-030: create is coordinator-only)
 select lives_ok(
   $$ select public.create_patient_record('00000000-0000-0000-0000-0000000a30dd', 'Clinic Provisioned', 'MRN-CP') $$,
-  'PSU-TO-16 control: physician can still create_patient_record for a non-self-signup account'
+  'PSU-TO-16 control: a care_coordinator can still create_patient_record for a non-self-signup account'
 );
 
 select * from finish();

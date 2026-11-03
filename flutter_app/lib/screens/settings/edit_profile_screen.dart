@@ -103,8 +103,17 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 controller: _nameController,
                 hint: 'Enter your name',
                 icon: LucideIcons.user,
+                // TC-030 item 3: cap the display name at 80 characters in the UI
+                // (DB patient_accounts_name_len CHECK is the backstop).
+                maxLength: PatientProfileNotifier.maxDisplayNameLength,
                 validator: (val) {
                   if (val == null || val.trim().isEmpty) return 'Name is required';
+                  if (val.trim().runes.length >
+                      PatientProfileNotifier.maxDisplayNameLength) {
+                    return 'Name must be '
+                        '${PatientProfileNotifier.maxDisplayNameLength} '
+                        'characters or fewer';
+                  }
                   return null;
                 },
               ),
@@ -179,12 +188,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     required String hint,
     required IconData icon,
     bool isNumber = false,
+    int? maxLength,
     String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: isNumber ? TextInputType.number : TextInputType.text,
       validator: validator,
+      maxLength: maxLength,
       decoration: InputDecoration(
         hintText: hint,
         prefixIcon: Icon(icon, size: 20, color: BrandColors.slate400),

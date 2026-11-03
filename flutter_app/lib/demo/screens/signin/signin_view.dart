@@ -79,9 +79,9 @@ class SignInView extends StatelessWidget {
       ],
       if (state.isLocked) ...[
         const SizedBox(height: ZyndioSpace.s24),
-        const ZyndioBanner(
+        ZyndioBanner(
           variant: BannerVariant.error,
-          message: 'Too many attempts. Try again in 15 minutes.',
+          message: _lockoutMessage(state.lockedMinutesRemaining),
         ),
       ],
       const SizedBox(height: ZyndioSpace.s40),
@@ -153,10 +153,10 @@ class SignInView extends StatelessWidget {
       // only on the email step.
       if (state.isLocked) ...[
         const SizedBox(height: ZyndioSpace.s16),
-        const ZyndioBanner(
-          key: Key('signin-code-locked'),
+        ZyndioBanner(
+          key: const Key('signin-code-locked'),
           variant: BannerVariant.error,
-          message: 'Too many attempts. Try again in 15 minutes.',
+          message: _lockoutMessage(state.lockedMinutesRemaining),
         ),
       ],
       const SizedBox(height: ZyndioSpace.s16),
@@ -175,10 +175,16 @@ class SignInView extends StatelessWidget {
       ),
       if (state.hasError) ...[
         const SizedBox(height: ZyndioSpace.s8),
-        Text(
-          key: const Key('signin-code-error'),
-          state.errorText!,
-          style: ZyndioType.footnote.copyWith(color: colors.statusCritical),
+        // TC-030 item 13 (Ava a76acc5 L1): announce the inline error. Without
+        // a live region the message isn't read out when it appears, since the
+        // CodeInput's own semantics label doesn't include the error text.
+        Semantics(
+          liveRegion: true,
+          child: Text(
+            key: const Key('signin-code-error'),
+            state.errorText!,
+            style: ZyndioType.footnote.copyWith(color: colors.statusCritical),
+          ),
         ),
       ],
       const SizedBox(height: ZyndioSpace.s12),
@@ -187,12 +193,27 @@ class SignInView extends StatelessWidget {
         style: ZyndioType.footnote.copyWith(color: colors.textSecondary),
       ),
       const SizedBox(height: ZyndioSpace.s24),
-      FilledButton(onPressed: () => onContinue?.call(), child: const Text('Continue')),
+      // TC-030 item 14 (Ava a76acc5 L2): while locked there's nothing to do
+      // here until the lock ends, so Continue and "Send a new code" are
+      // disabled - a null onPressed greys them out and blocks taps.
+      FilledButton(
+        onPressed: state.isLocked ? null : () => onContinue?.call(),
+        child: const Text('Continue'),
+      ),
       const SizedBox(height: ZyndioSpace.s12),
-      OutlinedButton(onPressed: () => onSendNewCode?.call(), child: const Text('Send a new code')),
+      OutlinedButton(
+        onPressed: state.isLocked ? null : () => onSendNewCode?.call(),
+        child: const Text('Send a new code'),
+      ),
     ];
   }
 }
+
+/// Lockout banner copy (TC-030 item 14): states the real remaining minutes
+/// from `lockout.remaining(now)` and points to a next step, rather than a
+/// fixed "15 minutes" with no alternative.
+String _lockoutMessage(int minutesRemaining) =>
+    'Too many attempts. Try again in $minutesRemaining min, or contact your care team.';
 
 /// C09 text field, kept stateful so typing doesn't lose focus/cursor on the
 /// rebuild each keystroke triggers upstream (a fresh [TextEditingController]

@@ -163,14 +163,14 @@ insert into auth.users (
   '{}'::jsonb, now(), now()
 );
 
-select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002'); -- physician
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0003'); -- care_coordinator (TC-030: create is coordinator-only)
 select lives_ok(
   $$select public.create_patient_record(
       '00000000-0000-0000-0000-0000000c6801',
       'M12 Clinic Patient',
       'MRN-M12'
     )$$,
-  'M12 setup: physician creates clinic-provisioned patient (with active link)'
+  'M12 setup: a care_coordinator creates a clinic-provisioned patient (with active link)'
 );
 
 insert into public.lab_reports (id, org_id, patient_id, report_type, data)
