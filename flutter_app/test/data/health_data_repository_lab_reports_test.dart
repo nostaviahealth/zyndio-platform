@@ -29,7 +29,6 @@ import 'package:zyndio_patient/config/supabase_config.dart';
 import 'package:zyndio_patient/config/theme.dart';
 import 'package:zyndio_patient/data/health_data_repository.dart';
 import 'package:zyndio_patient/models/patient_profile.dart';
-import 'package:zyndio_patient/providers/lab_reports_provider.dart';
 import 'package:zyndio_patient/providers/patient_provider.dart';
 import 'package:zyndio_patient/screens/biomarkers/biomarkers_screen.dart';
 
