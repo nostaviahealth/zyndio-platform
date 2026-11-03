@@ -79,14 +79,17 @@ create index if not exists lab_reports_pdf_path_idx
   on public.lab_reports (pdf_path) where pdf_path is not null;
 
 -- ---------------------------------------------------------------------------
--- 3. Storage policies on storage.objects for this bucket.
+-- 3. Storage policies on storage.objects for this bucket. They use
+--    split_part() rather than storage.foldername(): storage-api's own schema
+--    migration drops and recreates foldername(), and a policy depending on it
+--    makes that migration fail on a fresh stack.
 -- ---------------------------------------------------------------------------
 drop policy if exists lab_reports_objects_self_select on storage.objects;
 create policy lab_reports_objects_self_select on storage.objects
   for select to authenticated
   using (
     bucket_id = 'lab-reports'
-    and (storage.foldername(name))[1] = auth.uid()::text
+    and split_part(objects.name, '/', 1) = auth.uid()::text
     and public.current_email_confirmed()
     and public.current_patient_linked()
   );
@@ -107,7 +110,7 @@ create policy lab_reports_objects_self_delete_unfiled on storage.objects
   for delete to authenticated
   using (
     bucket_id = 'lab-reports'
-    and (storage.foldername(name))[1] = auth.uid()::text
+    and split_part(objects.name, '/', 1) = auth.uid()::text
     and public.current_email_confirmed()
     and public.current_patient_linked()
     -- Only the patient's own rows can point into their folder (check
