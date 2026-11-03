@@ -303,6 +303,7 @@ class _SegmentPill extends StatelessWidget {
       button: true,
       selected: selected,
       label: label,
+      onTap: onTap, // H1: screen-reader activation == finger tap
       child: ExcludeSemantics(
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -855,6 +856,7 @@ class _ViewFullReportCta extends StatelessWidget {
     return Semantics(
       button: true,
       label: 'View Full Biomarker Report',
+      onTap: onTap, // H1: screen-reader activation == finger tap
       child: ExcludeSemantics(
         child: OutlinedButton(
           onPressed: onTap,

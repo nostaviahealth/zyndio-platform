@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show SemanticsAction, Tristate;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import 'package:zyndio_patient/config/theme.dart';
 import 'package:zyndio_patient/models/lab_report.dart';
 import 'package:zyndio_patient/providers/lab_reports_provider.dart';
 import 'package:zyndio_patient/screens/biomarkers/biomarkers_screen.dart';
+import 'package:zyndio_patient/screens/health_data/health_data_screen.dart';
 
 LabMarker _m(String name, String value,
         {String unit = '', double? low, double? high, String status = 'In-range'}) =>
@@ -296,6 +298,52 @@ void main() {
       expect(find.text('LDL Cholesterol'), findsOneWidget);
       expect(find.text('Above lab range'), findsOneWidget); // LDL 140 > 129
       expect(find.text('Within lab range'), findsWidgets);
+    });
+
+    // H1 (Ava, PR #30 review): screen-reader activation == finger tap.
+    testWidgets('H1: semantics tap on each segment pill selects that segment',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, reports: _reports());
+      const heroFor = {
+        'Metabolic': 'HbA1c',
+        'Hormones': 'Testosterone',
+        'Inflammation': 'Upload a lab report', // empty segment
+        'NAD+': 'Intracellular NAD+',
+      };
+      for (final e in heroFor.entries) {
+        final node = find.semantics.byLabel(e.key).evaluate().single;
+        expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue,
+            reason: '${e.key} exposes SemanticsAction.tap');
+        tester.semantics.tap(find.semantics.byLabel(e.key));
+        await tester.pumpAndSettle();
+        expect(
+            find.semantics
+                .byLabel(e.key)
+                .evaluate()
+                .single
+                .getSemanticsData()
+                .flagsCollection
+                .isSelected,
+            Tristate.isTrue,
+            reason: '${e.key} selected');
+        expect(find.text(e.value), findsWidgets, reason: '${e.key} content');
+      }
+      handle.dispose();
+    });
+
+    testWidgets('H1: semantics tap on View Full Biomarker Report opens the report',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, reports: _reports());
+      final node =
+          find.semantics.byLabel('View Full Biomarker Report').evaluate().single;
+      expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+      tester.semantics.tap(find.semantics.byLabel('View Full Biomarker Report'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(HealthDataScreen), findsOneWidget);
+      handle.dispose();
     });
 
     testWidgets('empty segment shows copy + Upload CTA', (tester) async {
