@@ -1,0 +1,11 @@
+{
+  "_comment": "TC-037: the one PostgREST request the patient app makes to list a patient's own lab reports (Biomarkers, Today, chat context). Pinned on both sides: flutter_app/test/data/health_data_repository_lab_reports_test.dart proves the Dart repository sends exactly this request, and tests/integration/patient-lab-reports-query.test.ts proves this exact request works against the real migrated schema + RLS through PostgREST. {patient_id} is the signed-in patient's auth user id.",
+  "method": "GET",
+  "path": "/rest/v1/lab_reports",
+  "query": {
+    "select": "id,report_type,data,created_at",
+    "patient_id": "eq.{patient_id}",
+    "identity_hold": "eq.false",
+    "order": "created_at.desc.nullslast"
+  }
+}

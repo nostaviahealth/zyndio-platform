@@ -1,37 +1,54 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../config/supabase_config.dart';
 import '../models/lab_report.dart';
 import '../services/azure_openai_service.dart';
 import '../services/pdf_to_image_service.dart';
 
 class HealthDataRepository {
   
-  // Fetch from Supabase with Fallback to Full Mock Data
-  static Future<List<LabReport>> fetchReports(String? profileId) async {
-      try {
-          if (profileId != null) {
-              final response = await Supabase.instance.client
-                  .from('lab_reports')
-                  .select('*')
-                  .eq('profile_id', profileId)
-                  .order('date', ascending: false);
-              
-              final data = response as List<dynamic>;
-              if (data.isNotEmpty) {
-                  return data.map((d) => LabReport.fromJson(d)).toList();
-              }
-          }
-      } catch (e) {
-          print('HealthRepo Error: $e');
-      }
-      
-      // Only return Mock Data if NO profile is associated (Guest Mode)
-      if (profileId == null) {
-         return [];
-      }
+  /// TC-037: the patient's own lab reports, newest first, from the real
+  /// lab_reports columns (supabase/migrations/*_tc005_schema.sql and
+  /// *_tc015_schema.sql). The patient's identity key is their auth user id,
+  /// which is what RLS checks (lab_reports_self_select: patient_id =
+  /// auth.uid(), email confirmed, active record link). Identity-held reports
+  /// (possibly not this patient's) are left out, matching the server's
+  /// latest-results rule. The exact request is pinned by
+  /// tests/contracts/patient-lab-reports-query.json.
+  static const labReportsSelect = 'id,report_type,data,created_at';
 
-      return [];
+  /// Errors are NOT caught here: a failed query must reach the caller so
+  /// Biomarkers shows its error state (an empty list means "no results yet").
+  /// Nothing is printed, so no backend error text ends up in device logs.
+  static Future<List<LabReport>> fetchReports(String? patientId) async {
+      if (patientId == null) return [];
+      final client = SupabaseConfig.client;
+      if (client == null) {
+          throw StateError('Supabase is not initialized');
+      }
+      final rows = await client
+          .from('lab_reports')
+          .select(labReportsSelect)
+          .eq('patient_id', patientId)
+          .eq('identity_hold', false)
+          .order('created_at', ascending: false);
+      return rows.map(labReportFromRow).toList();
+  }
+
+  /// Maps one real lab_reports row onto the app's LabReport: the report body
+  /// (title, markers, summary, ...) lives in the `data` jsonb payload; the id,
+  /// report type and (when the payload has no date of its own) the date come
+  /// from the row's columns.
+  static LabReport labReportFromRow(Map<String, dynamic> row) {
+      final data = row['data'];
+      final payload = data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
+      return LabReport.fromJson({
+          ...payload,
+          'id': row['id'],
+          'date': payload['date'] is String ? payload['date'] : row['created_at'],
+          'reportType': payload['reportType'] ?? row['report_type'],
+      });
   }
 
   /// Analyze a lab report with CHUNKED processing for large PDFs.
