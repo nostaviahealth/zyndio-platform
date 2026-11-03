@@ -6,7 +6,10 @@ import 'config/routes.dart';
 import 'widgets/in_app_alert_banner.dart';
 import 'providers/alert_provider.dart';
 import 'providers/wearable_sync_provider.dart';
+import 'providers/feature_flags_provider.dart';
+import 'services/extras_notification_guard.dart';
 import 'services/notification_scheduler.dart';
+import 'services/notification_service.dart';
 import 'services/watch_service.dart';
 
 /// Main Zyndio App Widget
@@ -16,6 +19,15 @@ class BrandHealthApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+
+    // TC-025 C5 (Q23): cancel Shop/Meditate/Cycle reminders while the extras
+    // flag is off (startup + on->off), and route notification body taps -
+    // stale extras or unknown payloads land on Today.
+    ref.watch(extrasReminderGuardProvider);
+    NotificationService.onNotificationTap = (payload) => router.go(
+        resolveNotificationTapRoute(payload,
+            patientExtrasEnabled:
+                ref.read(featureFlagsProvider).patientExtrasEnabled));
 
     // Register the alert notifier for global access in the scheduler
     // This allows background/logic code to trigger in-app banners
