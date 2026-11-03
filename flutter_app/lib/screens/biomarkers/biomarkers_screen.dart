@@ -647,7 +647,11 @@ class _BiomarkerTrendChart extends StatelessWidget {
     final pad = (maxY - minY) * 0.15;
     minY -= pad;
     maxY += pad;
-    final maxX = trend.length <= 1 ? 1.0 : (trend.length - 1).toDouble();
+    // Small X padding so the edge date labels aren't clipped by the plot bounds;
+    // a single reading is centred.
+    final lastX = (trend.length - 1).toDouble();
+    final minX = trend.length <= 1 ? -1.0 : -0.35;
+    final maxX = trend.length <= 1 ? 1.0 : lastX + 0.35;
 
     return ExcludeSemantics(
       child: SizedBox(
@@ -656,7 +660,7 @@ class _BiomarkerTrendChart extends StatelessWidget {
         width: double.infinity,
         child: LineChart(
           LineChartData(
-            minX: 0,
+            minX: minX,
             maxX: maxX,
             minY: minY,
             maxY: maxY,
@@ -683,6 +687,11 @@ class _BiomarkerTrendChart extends StatelessWidget {
                   reservedSize: 24,
                   interval: 1,
                   getTitlesWidget: (value, meta) {
+                    // Only the exact reading positions get a date; the padded
+                    // edge ticks (non-integer) render nothing (no ghost labels).
+                    if ((value - value.roundToDouble()).abs() > 0.001) {
+                      return const SizedBox.shrink();
+                    }
                     final i = value.round();
                     if (i < 0 || i >= trend.length) return const SizedBox.shrink();
                     return Padding(
