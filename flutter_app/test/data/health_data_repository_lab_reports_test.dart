@@ -215,10 +215,11 @@ void main() {
         overrides: [patientProfileProvider.overrideWith(_FixedProfile.new)],
         child: MaterialApp.router(theme: BrandTheme.lightTheme, routerConfig: router),
       ));
-      // Let the real (mocked-transport) HTTP round trip complete.
-      for (var i = 0; i < 5; i++) {
-        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
-        await tester.pump();
+      // Let the real (mocked-transport) HTTP round trips complete, advancing
+      // fake time too so any provider retry backoff runs out.
+      for (var i = 0; i < 40; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+        await tester.pump(const Duration(seconds: 1));
       }
     }
 

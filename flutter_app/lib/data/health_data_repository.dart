@@ -18,25 +18,22 @@ class HealthDataRepository {
   /// tests/contracts/patient-lab-reports-query.json.
   static const labReportsSelect = 'id,report_type,data,created_at';
 
+  /// Errors are NOT caught here: a failed query must reach the caller so
+  /// Biomarkers shows its error state (an empty list means "no results yet").
+  /// Nothing is printed, so no backend error text ends up in device logs.
   static Future<List<LabReport>> fetchReports(String? patientId) async {
-      try {
-          if (patientId != null) {
-              final client = SupabaseConfig.client;
-              if (client == null) {
-                  throw StateError('Supabase is not initialized');
-              }
-              final rows = await client
-                  .from('lab_reports')
-                  .select(labReportsSelect)
-                  .eq('patient_id', patientId)
-                  .eq('identity_hold', false)
-                  .order('created_at', ascending: false);
-              return rows.map(labReportFromRow).toList();
-          }
-      } catch (e) {
-          print('HealthRepo Error: $e');
+      if (patientId == null) return [];
+      final client = SupabaseConfig.client;
+      if (client == null) {
+          throw StateError('Supabase is not initialized');
       }
-      return [];
+      final rows = await client
+          .from('lab_reports')
+          .select(labReportsSelect)
+          .eq('patient_id', patientId)
+          .eq('identity_hold', false)
+          .order('created_at', ascending: false);
+      return rows.map(labReportFromRow).toList();
   }
 
   /// Maps one real lab_reports row onto the app's LabReport: the report body
