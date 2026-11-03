@@ -183,25 +183,78 @@ def goto_hash(page: Page, base_url: str, route: str) -> None:
     page.goto(f"{base_url}#{route}", wait_until="domcontentloaded")
 
 
-def sign_in(page: Page, base_url: str, email: str, password: str, totp_secret: str) -> None:
+# Where AdminIndex (components/admin-shell/AdminIndex.tsx, HOME_BY_ROLE)
+# sends each role once sign-in finishes. Keep in step with that map.
+HOME_BY_ROLE = {
+    "org_admin": "/admin/users",
+    "physician": "/admin/patients",
+    "care_coordinator": "/admin/patients",
+    "read_only": "/admin/patients",
+}
+
+TOTP_STEP_S = 30
+# A code typed with less than this left in its 30 s step can expire on the
+# way to the server, so wait for the next step instead of sending it.
+TOTP_MIN_REMAINING_S = 5
+
+
+def fresh_totp(secret: str, after_counter: int | None = None) -> tuple[str, int]:
+    """TC-035: a code from a step with at least TOTP_MIN_REMAINING_S left,
+    and (on a retry) from a step strictly later than `after_counter`, so a
+    retry never resends the code that was just rejected."""
+    while True:
+        now = time.time()
+        counter = int(now // TOTP_STEP_S)
+        remaining = TOTP_STEP_S - (now % TOTP_STEP_S)
+        if (after_counter is None or counter > after_counter) and remaining >= TOTP_MIN_REMAINING_S:
+            return totp_code(secret, now), counter
+        time.sleep(remaining + 0.05)  # sleep to the start of the next step
+
+
+def sign_in(page: Page, base_url: str, email: str, password: str, totp_secret: str, role: str) -> None:
+    """Signs in through the real login + 2FA screens and returns only once the
+    app has finished its post-sign-in redirect and is on the role's home.
+
+    TC-035 root cause: this used to return as soon as the URL was #/admin. That
+    is the shell's index route, which renders <Navigate replace> to the role's
+    home (AdminIndex). The redirect fires in an effect a few ms later, so a
+    caller's goto_hash() issued in that gap was overwritten by it: the item-25
+    goto to /admin/patients/create landed on /admin/patients (the roster) and
+    the "Jane Doe" field never appeared. Waiting for the role's home closes
+    the gap, since nothing navigates after it."""
+    home = HOME_BY_ROLE[role]
     goto_hash(page, base_url, "/admin/login")
     page.get_by_label("Work email").fill(email)
     page.get_by_label("Password", exact=True).fill(password)
-    page.get_by_role("button", name="Continue").click()
-    page.wait_for_url("**/#/admin/2fa/challenge", timeout=15_000)
+    # The challenge page drops a code typed before its MFA challenge exists
+    # (handleVerify returns early without a challengeId), so wait for the
+    # challenge request it sends on mount before typing anything.
+    with page.expect_response(
+        lambda r: "/auth/v1/factors/" in r.url and r.url.endswith("/challenge") and r.request.method == "POST",
+        timeout=15_000,
+    ) as challenge_info:
+        page.get_by_role("button", name="Continue").click()
+        page.wait_for_url("**/#/admin/2fa/challenge", timeout=15_000)
+    if not challenge_info.value.ok:
+        raise RuntimeError(f"MFA challenge request failed ({challenge_info.value.status})")
     code_input = page.locator("#code-input")
     code_input.wait_for(state="attached", timeout=10_000)
+    used_counter: int | None = None
     for attempt in range(2):
-        code_input.fill(totp_code(totp_secret))
-        try:
-            page.wait_for_url("**/#/admin", timeout=8_000)
-            return
-        except Exception:
-            if attempt == 0:
-                code_input.fill("")
-                continue
-            raise
-    page.wait_for_url("**/#/admin", timeout=5_000)
+        code, used_counter = fresh_totp(totp_secret, after_counter=used_counter)
+        with page.expect_response(
+            lambda r: "/auth/v1/factors/" in r.url and r.url.endswith("/verify") and r.request.method == "POST",
+            timeout=15_000,
+        ) as verify_info:
+            code_input.fill(code)  # 6 digits auto-submit
+        if verify_info.value.ok:
+            break
+        if attempt == 1:
+            raise RuntimeError(f"TOTP verify rejected twice ({verify_info.value.status})")
+        # Rejected (e.g. the step rolled over in flight): the page clears the
+        # field; retry once with a code from the NEXT step.
+        page.get_by_role("alert").wait_for(timeout=10_000)
+    page.wait_for_url(f"**/#{home}", timeout=15_000)
 
 
 def inject_axe(page: Page) -> None:
@@ -376,7 +429,7 @@ def check_authenticated(browser, base_url: str, creds: dict, mode: str, screensh
     surface = "rgb(16, 20, 31)" if mode == "dark" else "rgb(255, 255, 255)"
     ctx = browser.new_context(viewport={"width": 1440, "height": 900}, color_scheme=mode)
     page = ctx.new_page()
-    sign_in(page, base_url, creds["orgAdmin"]["email"], creds["orgAdmin"]["password"], creds["orgAdmin"]["totpSecret"])
+    sign_in(page, base_url, creds["orgAdmin"]["email"], creds["orgAdmin"]["password"], creds["orgAdmin"]["totpSecret"], "org_admin")
     goto_hash(page, base_url, "/admin/users")
     page.wait_for_selector("table", timeout=15_000)
     inject_axe(page)
@@ -530,7 +583,7 @@ def check_authenticated(browser, base_url: str, creds: dict, mode: str, screensh
 def check_access_denied(browser, base_url: str, creds: dict, mode: str, screenshots: str | None) -> None:
     ctx = browser.new_context(viewport={"width": 1440, "height": 900}, color_scheme=mode)
     page = ctx.new_page()
-    sign_in(page, base_url, creds["physician"]["email"], creds["physician"]["password"], creds["physician"]["totpSecret"])
+    sign_in(page, base_url, creds["physician"]["email"], creds["physician"]["password"], creds["physician"]["totpSecret"], "physician")
     inject_axe(page)
     for width in (1440, 1024):
         page.set_viewport_size({"width": width, "height": 900 if width == 1440 else 768})
@@ -586,7 +639,7 @@ def check_last_row_menu(browser, base_url: str, creds: dict, env: dict[str, str]
     """
     ctx = browser.new_context(viewport={"width": 1440, "height": 900}, color_scheme=mode)
     page = ctx.new_page()
-    sign_in(page, base_url, creds["orgAdmin"]["email"], creds["orgAdmin"]["password"], creds["orgAdmin"]["totpSecret"])
+    sign_in(page, base_url, creds["orgAdmin"]["email"], creds["orgAdmin"]["password"], creds["orgAdmin"]["totpSecret"], "org_admin")
     for width in (1024, 1440):
         height = 768 if width == 1024 else 900
         page.set_viewport_size({"width": width, "height": height})
@@ -787,7 +840,7 @@ def check_tc021_round2(browser, scrollbar_browser, base_url: str, creds: dict, m
     shots = f"tc021r2-{screenshots}" if screenshots else None
     ctx = browser.new_context(viewport={"width": 1024, "height": 768}, color_scheme=mode)
     page = ctx.new_page()
-    sign_in(page, base_url, oa["email"], oa["password"], oa["totpSecret"])
+    sign_in(page, base_url, oa["email"], oa["password"], oa["totpSecret"], "org_admin")
     goto_hash(page, base_url, "/admin/users")
     page.wait_for_selector("table tbody tr", timeout=15_000)
     wait_for_colours_settled(page)
@@ -905,7 +958,7 @@ def check_tc021_round2(browser, scrollbar_browser, base_url: str, creds: dict, m
     # draws scrollbars (Playwright hides them by default in headless).
     sctx = scrollbar_browser.new_context(viewport={"width": 1024, "height": 768}, color_scheme=mode)
     spage = sctx.new_page()
-    sign_in(spage, base_url, oa["email"], oa["password"], oa["totpSecret"])
+    sign_in(spage, base_url, oa["email"], oa["password"], oa["totpSecret"], "org_admin")
     goto_hash(spage, base_url, "/admin/users")
     spage.wait_for_selector("table tbody tr", timeout=15_000)
     wait_for_colours_settled(spage)
@@ -923,7 +976,7 @@ def check_tc021_round2(browser, scrollbar_browser, base_url: str, creds: dict, m
     ictx = browser.new_context(viewport={"width": 1024, "height": 768}, color_scheme=mode)
     ipage = ictx.new_page()
     ipage.clock.install()
-    sign_in(ipage, base_url, oa["email"], oa["password"], oa["totpSecret"])
+    sign_in(ipage, base_url, oa["email"], oa["password"], oa["totpSecret"], "org_admin")
     goto_hash(ipage, base_url, "/admin/users")
     ipage.wait_for_selector("table tbody tr", timeout=15_000)
     ipage.clock.fast_forward("13:01")
@@ -959,7 +1012,7 @@ def check_tc021_round2(browser, scrollbar_browser, base_url: str, creds: dict, m
     # coordinator's care_coordinator role on every run, and the role-change
     # confirm above is cancelled, so the role is unchanged here.
     co = creds["coordinator"]
-    sign_in(tpage, base_url, co["email"], co["password"], co["totpSecret"])
+    sign_in(tpage, base_url, co["email"], co["password"], co["totpSecret"], "care_coordinator")
     goto_hash(tpage, base_url, "/admin/patients/create")
     # TC-018 (Create Patient add-on) pointed this form at the real patients
     # table and dropped every field without a real column - name/email
