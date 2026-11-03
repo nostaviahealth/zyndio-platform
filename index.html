@@ -13,9 +13,9 @@
   <script>
     // TC-019 M1/M6 (Ava must-fix): set `dark` + `color-scheme` from the OS
     // setting before first paint (no flash of light theme) and keep it live.
-    // Runs before Tailwind loads so the CDN build's initial class scan sees
-    // it. lib/theme.ts (applySystemTheme/watchSystemTheme) mirrors this for
-    // the React app and is what's unit-tested.
+    // Runs before the app bundle loads. lib/theme.ts
+    // (applySystemTheme/watchSystemTheme) mirrors this for the React app and
+    // is what's unit-tested.
     (function () {
       var mql = window.matchMedia('(prefers-color-scheme: dark)');
       function apply(isDark) {
@@ -28,43 +28,6 @@
       });
     })();
   </script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      // TC-019: `dark:` applies under <html class="dark">, except inside a
-      // `.light` surface (AuthCard: sign-in/2FA have no dark design yet).
-      darkMode: ['variant', '&:is(.dark *):not(.light *)'],
-      theme: {
-        extend: Object.assign(
-          {
-            boxShadow: {
-              'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
-              'glow': '0 0 15px rgba(139, 92, 246, 0.3)',
-            }
-          },
-          /*ZYNDIO_BRAND_THEME*/{}
-        )
-      }
-    }
-  </script>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap"
-    rel="stylesheet">
-  <script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@18.2.0",
-    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-    "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime",
-    "react-router-dom": "https://esm.sh/react-router-dom@6.22.3?deps=react@18.2.0,react-dom@18.2.0",
-    "lucide-react": "https://esm.sh/lucide-react@0.358.0?deps=react@18.2.0",
-    "recharts": "https://esm.sh/recharts@2.12.2?deps=react@18.2.0,react-dom@18.2.0",
-    "@remix-run/router": "https://esm.sh/@remix-run/router@1.15.3",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
-  }
-}
-</script>
   <script type="module" src="./index.tsx"></script>
   <style>
     body {

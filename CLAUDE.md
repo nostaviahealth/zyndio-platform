@@ -47,6 +47,8 @@ Security:
 gitleaks git --config .gitleaks.toml --redact
 bash scripts/leak-scan.sh          # fails (not skips) if a required build output is missing
 bash scripts/test-leak-scan.sh     # self-test proving the above
+python3 scripts/check-no-external-web-assets.py [dist space/dist]  # no CDN script/style/import map (TC-032)
+bash scripts/test-check-no-external-web-assets.sh                 # self-test proving the above
 ```
 
 ## Rules
