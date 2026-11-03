@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart' show OrdinalSortKey;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart' show DateFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../config/biomarker_segments.dart';
@@ -170,11 +171,23 @@ MarkerInfoCopy markerInfoCopy(LabMarker m, String latestDate) {
   final unit = m.unit.isEmpty ? '' : ' ${m.unit}';
   return MarkerInfoCopy(
     title: 'About ${m.name}',
-    latestLine: 'Latest: ${m.value}$unit on $latestDate',
+    latestLine: 'Latest: ${m.value}$unit on ${_explainerDate(latestDate)}',
     rangeLine: referenceBandText(m) ?? 'No lab range provided',
     sourceLine: 'Lab reference ranges come from the laboratory that ran your test.',
     careLine: 'Questions about your results go to your care team.',
   );
+}
+
+/// "2026-09-15" → "Sep 15, 2026" for the explainer (PR #30 review). Uses the
+/// calendar date as written (no time-zone shift); anything else is shown as
+/// given, so no date is ever invented.
+String _explainerDate(String raw) {
+  final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(raw);
+  if (m == null) return raw;
+  final y = int.parse(m.group(1)!), mo = int.parse(m.group(2)!), d = int.parse(m.group(3)!);
+  final date = DateTime(y, mo, d);
+  if (date.month != mo || date.day != d) return raw; // e.g. 2026-02-30
+  return DateFormat('MMM d, y', 'en_US').format(date);
 }
 
 /// A readable reference-band line, or null when no range is recorded.

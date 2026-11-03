@@ -248,10 +248,23 @@ void main() {
       expect(hasLabBand(_m('X', '1', low: 1)), isFalse); // one bound only
     });
 
+    // Ava's wording answer 1 (PR #30 review): the explainer date is
+    // human-formatted, not ISO. Only this line changes (other dates: L1 card).
+    test('markerInfoCopy: latest line shows "Sep 15, 2026", not ISO', () {
+      final c = markerInfoCopy(_m('Intracellular NAD+', '41', unit: 'µM'), '2026-09-15');
+      expect(c.latestLine, 'Latest: 41 µM on Sep 15, 2026');
+      expect(c.latestLine.contains('2026-09-15'), isFalse);
+      // A timestamp keeps its calendar date (no time-zone shift).
+      expect(markerInfoCopy(_m('X', '1'), '2026-09-15T23:30:00Z').latestLine,
+          'Latest: 1 on Sep 15, 2026');
+      // Unparseable dates are shown as given, never invented.
+      expect(markerInfoCopy(_m('X', '1'), 'Sept 2026').latestLine, 'Latest: 1 on Sept 2026');
+    });
+
     test('markerInfoCopy: data-only, non-clinical lines', () {
       final c = markerInfoCopy(_m('Intracellular NAD+', '41', unit: 'µM'), '2026-06-01');
       expect(c.title, 'About Intracellular NAD+');
-      expect(c.latestLine, 'Latest: 41 µM on 2026-06-01');
+      expect(c.latestLine, 'Latest: 41 µM on Jun 1, 2026');
       expect(c.rangeLine, 'No lab range provided');
       expect(c.sourceLine, 'Lab reference ranges come from the laboratory that ran your test.');
       expect(c.careLine, 'Questions about your results go to your care team.');
@@ -305,7 +318,7 @@ void main() {
       await tester.tap(find.byKey(const Key('marker-info-button')));
       await tester.pumpAndSettle();
       // Non-clinical, data-only copy.
-      expect(find.text('Latest: 41 µM on 2026-06-01'), findsOneWidget);
+      expect(find.text('Latest: 41 µM on Jun 1, 2026'), findsOneWidget);
       // "No lab range provided" appears twice: the hero caption and the sheet.
       expect(find.text('No lab range provided'), findsNWidgets(2));
       expect(
