@@ -3,6 +3,11 @@
 // its initials, and an emoji first letter must render as one whole grapheme,
 // never a lone UTF-16 surrogate (U+FFFD).
 //
+// Clara PR #29 r3 / Henry's ruling: initials and names come from LETTERS only
+// (an emoji is a separator), so a defensive emoji in a row's name now gives
+// "Q" / "CL" initials and "QUINN" / "CASEY L." text (it was "Q\u{1F984}" /
+// "\u{1F984}L" / "QUINN \u{1F984}." at 3fc5f75).
+//
 // Fail-first: blanking the initials in _buildAvatarPlaceholder fails the
 // initials group; taking `name[0]` instead of `characters.first` renders
 // "Q\uFFFD"-style text and fails the emoji group.
@@ -53,11 +58,12 @@ void main() {
     expect(find.descendant(of: find.byType(CircleAvatar), matching: find.byIcon(Icons.person)), findsNothing);
   });
 
-  testWidgets('an emoji-leading name renders whole graphemes, never U+FFFD', (tester) async {
+  testWidgets('an emoji in a name is never an initial, and nothing renders U+FFFD', (tester) async {
     await _pump(tester, rows);
     final texts = _avatarTexts(tester);
-    expect(texts, contains('Q\u{1F984}'));
-    expect(texts, contains('\u{1F984}L'));
+    expect(texts, contains('Q'));
+    expect(texts, contains('CL'));
+    expect(texts.where((t) => t.contains('\u{1F984}')), isEmpty);
     // No rendered Text anywhere on the board carries a replacement char or a
     // lone surrogate.
     for (final t in tester.widgetList<Text>(find.byType(Text))) {
@@ -65,6 +71,7 @@ void main() {
       expect(s, isNot(contains('\uFFFD')));
       expect(String.fromCharCodes(s.runes), s, reason: 'lone surrogate in "$s"');
     }
-    expect(find.text('QUINN \u{1F984}.'), findsWidgets);
+    expect(find.text('QUINN'), findsWidgets);
+    expect(find.text('CASEY L.'), findsWidgets);
   });
 }

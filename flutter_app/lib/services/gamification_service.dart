@@ -201,96 +201,87 @@ class GamificationService {
   /// malformed value can't blow out the row/podium layout (TC-030 item 9).
   static const int leaderboardNameMaxLength = 18;
 
-  /// Normalises a raw display name into its [first, last?] name parts, shared by
-  /// [formatLeaderboardName] and [leaderboardInitials] so both read a name the
-  /// same way (TC-030 item 9). It:
-  ///   - trims, and splits on ALL whitespace incl. NBSP/tab/newline, collapsing
-  ///     runs to single gaps;
-  ///   - reads "Last, First" (comma form) as first=First, last=Last;
-  ///   - reads zero-width characters (U+200B/200C/200D/2060/FEFF) as gaps, so
-  ///     "Quinn<ZWSP>Testcase" is two words (Clara PR #29 r2, H3);
-  ///   - for an email-like value, keeps only the local part (domain dropped);
-  ///     a value with no local part ("@handle") yields nothing (fallback);
-  ///   - when the only token is itself "first.last" / "first_last" (e.g. an email
-  ///     local part the server passed through), splits it so neither the raw
-  ///     local part nor the full surname is ever shown.
+  /// Leaderboard name rule (TC-030 item 9, Henry's ruling on Clara PR #29 r3).
+  /// The server's patient_leaderboard_top10() applies the IDENTICAL rule
+  /// (migration 20261103110000), so a name reads the same on both sides:
+  ///   1. No name, or any value containing '@' (an email or a handle), is never
+  ///      used to build a name: nothing usable is returned (-> fallback,
+  ///      'Anonymous'). Not even an initial.
+  ///   2. "Last, First" (comma form) is read as "First Last".
+  ///   3. Tokens are split on any run of characters that is NOT a letter
+  ///      (\p{L}), mark (\p{M}), number (\p{N}) or apostrophe (' or ’), so
+  ///      whitespace, punctuation, '+', emoji and invisible format characters
+  ///      (soft hyphen, LRM/RLM, RLO, ZWSP/ZWNJ/ZWJ, U+180E, U+2062, BOM...)
+  ///      are all separators.
+  ///   4. Each token drops everything before its first letter (so a leading
+  ///      combining mark, digit or apostrophe never leads); a token with no
+  ///      letter at all is dropped.
   /// Returns `[]` when nothing usable is left.
   static List<String> _leaderboardNameParts(String? raw) {
-    final value = (raw ?? '').replaceAll(_zeroWidth, ' ').trim();
-    if (value.isEmpty) return const [];
+    if (raw == null || raw.contains('@')) return const [];
 
-    // Email-like: use the local part only, never the domain. "@handle" has no
-    // local part, so nothing usable is left and the caller's fallback is shown.
-    final atIndex = value.indexOf('@');
-    var working = atIndex >= 0 ? value.substring(0, atIndex) : value;
-
-    // "Last, First" -> "First Last" before the usual split.
+    var working = raw;
     final commaIndex = working.indexOf(',');
     if (commaIndex >= 0) {
-      final last = working.substring(0, commaIndex).trim();
-      final rest = working.substring(commaIndex + 1).trim();
-      working = [rest, last].where((p) => p.isNotEmpty).join(' ');
+      working = '${working.substring(commaIndex + 1)} ${working.substring(0, commaIndex)}';
     }
 
-    // Split on any run of whitespace, including NBSP/tab/newline.
-    var parts = working.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
-
-    // A lone "first.last"/"first_last"/"first-last" token reads as a name, so an
-    // email local part never surfaces as "jordan.rivera" or leaks the surname.
-    if (parts.length == 1 && RegExp(r'[._-]').hasMatch(parts.first)) {
-      final sub = parts.first.split(RegExp(r'[._-]+')).where((p) => p.isNotEmpty).toList();
-      if (sub.length >= 2) parts = sub;
-    }
-
-    return parts;
+    return working
+        .split(_nameSeparator)
+        .map((t) => t.replaceFirst(_leadingNonLetter, ''))
+        .where((t) => t.isNotEmpty)
+        .toList();
   }
 
-  /// Zero-width characters read as word gaps: ZWSP, ZWNJ, ZWJ, word joiner and
-  /// BOM/ZWNBSP. Matches the server's patient_leaderboard_top10() formatting.
-  static final RegExp _zeroWidth = RegExp('[\u200B\u200C\u200D\u2060\uFEFF]');
+  /// Any run that is not a letter, mark, number or apostrophe separates tokens.
+  static final RegExp _nameSeparator = RegExp(r"[^\p{L}\p{M}\p{N}'’]+", unicode: true);
 
-  /// First user-perceived character (grapheme) of [word], upper-cased. Uses
-  /// `characters` so an emoji / astral first letter is never split into a lone
-  /// UTF-16 surrogate (which renders as U+FFFD) - Clara PR #29 r2 L-c.
-  static String _firstGrapheme(String word) =>
-      word.isEmpty ? '' : word.characters.first.toUpperCase();
+  /// Everything before a token's first letter.
+  static final RegExp _leadingNonLetter = RegExp(r'^[^\p{L}]+', unicode: true);
 
-  /// First letter of a word, upper-cased, leaving the rest of the word untouched
-  /// (so "McArdle" / already-capitalised names are preserved).
-  static String _capitalize(String word) =>
-      word.isEmpty ? word : _firstGrapheme(word) + word.characters.skip(1).toString();
+  /// A token's first letter plus any combining marks on it (the first letter
+  /// grapheme of the token, matched by code point so an astral letter is never
+  /// split into a lone UTF-16 surrogate / U+FFFD).
+  static final RegExp _firstLetterCluster = RegExp(r'^\p{L}\p{M}*', unicode: true);
 
-  /// Formats a raw display name to the leaderboard's "First L." shape,
-  /// defensively (TC-030 item 9). The RPC already returns names in this form,
-  /// but this hardens the UI against anything odd that reaches it: an email-like
-  /// value renders as "First L." (never the local part or surname, e.g.
-  /// "jordan.rivera@x.org" -> "Jordan R."), "Last, First" is reordered, a single
-  /// word is used as-is, and the result is capped at [leaderboardNameMaxLength].
-  /// Returns [fallback] when nothing usable is left.
+  /// First letter grapheme of a (letter-led) token, upper-cased.
+  static String _initial(String token) =>
+      (_firstLetterCluster.stringMatch(token) ?? '').toUpperCase();
+
+  /// Token with its first letter grapheme upper-cased, the rest untouched (so
+  /// "McArdle" / already-capitalised names are preserved).
+  static String _capitalize(String token) {
+    final head = _firstLetterCluster.stringMatch(token) ?? '';
+    return head.toUpperCase() + token.substring(head.length);
+  }
+
+  /// Formats a raw name to the leaderboard's "First L." shape (TC-030 item 9),
+  /// with the same rule as the server (see [_leaderboardNameParts]): first name
+  /// capitalised plus the last token's initial and a dot; a single token is the
+  /// first name alone; an email/handle or a name with no letters gives
+  /// [fallback]. Capped at [leaderboardNameMaxLength] code points, as the
+  /// server's left(..., 18) is.
   static String formatLeaderboardName(String? raw, {String fallback = 'Anonymous'}) {
     final parts = _leaderboardNameParts(raw);
     if (parts.isEmpty) return fallback;
 
     final first = _capitalize(parts.first);
-    final formatted = parts.length == 1
-        ? first
-        : '$first ${_firstGrapheme(parts.last)}.';
+    final formatted = parts.length == 1 ? first : '$first ${_initial(parts.last)}.';
 
-    // Cap by grapheme, not UTF-16 unit, so the cut never splits an emoji.
-    final chars = formatted.characters;
-    return chars.length > leaderboardNameMaxLength
-        ? chars.take(leaderboardNameMaxLength).toString()
+    final runes = formatted.runes;
+    return runes.length > leaderboardNameMaxLength
+        ? String.fromCharCodes(runes.take(leaderboardNameMaxLength))
         : formatted;
   }
 
   /// Initials for a leaderboard avatar when no photo is shown (TC-030 item 9):
-  /// first + last initial (e.g. "Jordan Rivera" / "jordan.rivera@x.org" -> "JR"),
-  /// a single letter for a one-word name, or [fallback] when nothing is usable.
+  /// first + last initial (e.g. "Jordan Rivera" -> "JR"), one initial for a
+  /// one-token name, or [fallback] for an email/handle or a name with no letters.
   static String leaderboardInitials(String? raw, {String fallback = '?'}) {
     final parts = _leaderboardNameParts(raw);
     if (parts.isEmpty) return fallback;
-    if (parts.length == 1) return _firstGrapheme(parts.first);
-    return _firstGrapheme(parts.first) + _firstGrapheme(parts.last);
+    if (parts.length == 1) return _initial(parts.first);
+    return _initial(parts.first) + _initial(parts.last);
   }
 
   /// Maps one patient_leaderboard_top10() row to the shape the leagues UI
