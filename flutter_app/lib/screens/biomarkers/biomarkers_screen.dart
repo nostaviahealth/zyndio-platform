@@ -439,12 +439,14 @@ class _BiomarkerHero extends StatelessWidget {
     final plotted = chartReadings(trend);
     final hasChart = plotted.any((r) => parseMarkerValue(r.marker.value) != null);
     final unitCaption = hasChart ? mixedUnitCaptionText(trend) : null;
-    // One style for the small captions under the chart (baseline, unit note).
+    // Baseline caption: unchanged from before PR #30 r2.
     final captionStyle = TextStyle(
       fontFamily: ZyndioType.family,
       fontSize: 13,
       color: c.textTertiary,
     );
+    // Mixed-unit note: the spec's Caption 13/18 in text.secondary (Ava, r2).
+    final unitCaptionStyle = ZyndioType.footnote.copyWith(color: c.textSecondary);
 
     final readout = [
       m.name,
@@ -546,7 +548,7 @@ class _BiomarkerHero extends StatelessWidget {
                       _BiomarkerTrendChart(trend: plotted, marker: m),
                       if (unitCaption != null) ...[
                         const SizedBox(height: 6),
-                        Text(unitCaption, style: captionStyle),
+                        Text(unitCaption, style: unitCaptionStyle),
                       ],
                     ],
                     if (band != null) ...[

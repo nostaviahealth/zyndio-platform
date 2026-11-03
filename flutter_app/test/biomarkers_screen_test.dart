@@ -489,16 +489,27 @@ void main() {
       handle.dispose();
     });
 
-    testWidgets('mixed-unit caption uses the baseline caption style', (tester) async {
-      await metabolic(tester, glucose([
-        ('2026-01-01', '90', 'mg/dL'),
-        ('2026-06-01', '5.0', 'mmol/L'),
-        ('2026-09-01', '5.4', 'mmol/L'),
-      ]));
-      final cap = tester.widget<Text>(find.text('Earlier results used a different unit.'));
-      final base = tester.widget<Text>(find.textContaining('Baseline: '));
-      expect(cap.style, base.style);
-    });
+    // Ava (PR #30 r2): the spec's Caption style, 13/18 text.secondary, from
+    // the existing 13/18 type token (ZyndioType.footnote), not hardcoded.
+    for (final b in Brightness.values) {
+      testWidgets('mixed-unit caption uses the 13/18 caption token, text.secondary ($b)',
+          (tester) async {
+        await _pump(tester, b: b, reports: glucose([
+          ('2026-01-01', '90', 'mg/dL'),
+          ('2026-06-01', '5.0', 'mmol/L'),
+          ('2026-09-01', '5.4', 'mmol/L'),
+        ]));
+        await tester.tap(find.text('Metabolic'));
+        await tester.pumpAndSettle();
+        final theme = b == Brightness.light ? BrandTheme.lightTheme : BrandTheme.darkTheme;
+        final c = theme.extension<ZyndioColors>()!;
+        final cap = tester.widget<Text>(find.text('Earlier results used a different unit.'));
+        expect(cap.style, ZyndioType.footnote.copyWith(color: c.textSecondary));
+        expect(cap.style!.fontSize, 13);
+        expect(cap.style!.height! * 13, closeTo(18, 0.001));
+        expect(cap.style!.fontWeight, FontWeight.w400);
+      });
+    }
 
     testWidgets('same units: delta shown, no unit caption', (tester) async {
       await metabolic(tester, glucose([
