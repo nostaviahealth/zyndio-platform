@@ -155,6 +155,26 @@ void main() {
     });
   });
 
+  group('no overwrite (TC-036)', () {
+    test('an upload is sent with upsert off (x-upsert: false), so it can never overwrite an object', () async {
+      final b = _Backend();
+      expect(await upload(b, []), isTrue);
+      expect(b.uploads, hasLength(1));
+      expect(b.uploads.single.headers['x-upsert'], 'false',
+          reason: 'upsert would let a retry or a guessed path replace a filed report (storage refuses it too, no UPDATE policy)');
+    });
+
+    test('an upload refused because the object already exists files nothing and never removes the existing object', () async {
+      final b = _Backend(uploadStatus: 409);
+      final printed = <String>[];
+      expect(await upload(b, printed), isFalse);
+      expect(b.uploads, hasLength(1));
+      expect(b.inserts, isEmpty);
+      expect(b.removes, isEmpty, reason: 'cleanup must only remove an object this call itself uploaded');
+      expect(printed, isEmpty);
+    });
+  });
+
   group('signed link (TC-036)', () {
     test('lifetime is 5 minutes, within the 10-minute cap', () {
       expect(HealthDataRepository.labReportLinkLifetime, const Duration(minutes: 5));
