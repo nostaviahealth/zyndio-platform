@@ -31,22 +31,41 @@ describe('buildTailwindTheme', () => {
   });
 });
 
-describe('vite transformIndexHtml plugin', () => {
-  it('injects the primary brand colour into the built index.html', async () => {
-    const { default: viteConfig } = await import('../../vite.config');
-    const config = typeof viteConfig === 'function'
-      ? await viteConfig({ mode: 'production', command: 'build' })
-      : viteConfig;
-    const plugin: any = config.plugins
-      .flat()
-      .find((p: any) => p && p.name === 'zyndio-brand-theme');
+describe('tailwind.config (TC-032: build-time Tailwind, was the CDN inline config)', () => {
+  it('feeds the primary brand colour and the rest of the token theme into Tailwind', async () => {
+    const { default: config } = await import('../../tailwind.config');
+    const extend: any = config.theme?.extend;
 
-    expect(plugin).toBeTruthy();
+    expect(extend.colors.brand.blue).toBe('#2C5CF2');
+    expect(extend).toMatchObject(buildTailwindTheme());
+    expect(extend.boxShadow).toEqual({
+      soft: '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+      glow: '0 0 15px rgba(139, 92, 246, 0.3)',
+    });
+    expect(config.darkMode).toEqual(['variant', '&:is(.dark *):not(.light *)']);
+  });
 
-    const html = await plugin.transformIndexHtml(
-      '<script>tailwind.config = { theme: { extend: Object.assign({}, /*ZYNDIO_BRAND_THEME*/{}) } }</script>'
-    );
+  it('compiles brand utilities, the dark variant and the runtime accent classes into real CSS', async () => {
+    const { default: config } = await import('../../tailwind.config');
+    const postcss = (await import('postcss')).default;
+    const tailwind = (await import('tailwindcss')).default;
+    const result = await postcss([
+      tailwind({
+        ...config,
+        content: [{ raw: '<div class="bg-brand-blue dark:bg-slate-900 shadow-soft rounded-button"></div>' }],
+      } as any),
+    ]).process('@tailwind utilities;', { from: undefined });
+    const css = result.css.replace(/\s+/g, ' ');
 
-    expect(html).toContain('#2C5CF2');
+    expect(css).toContain('.bg-brand-blue');
+    expect(css.toLowerCase()).toContain('rgb(44 92 242');
+    expect(css).toContain(':is(.dark *):not(.light *)');
+    expect(css).toContain('.shadow-soft');
+    expect(css).toContain('border-radius: 999px');
+    // Safelisted: built from `bg-${color}-100` / `text-${color}-600` at runtime.
+    for (const c of ['amber', 'blue', 'emerald', 'green', 'indigo', 'orange', 'purple', 'red', 'rose']) {
+      expect(css).toContain(`.bg-${c}-100`);
+      expect(css).toContain(`.text-${c}-600`);
+    }
   });
 });

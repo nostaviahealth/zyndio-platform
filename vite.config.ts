@@ -1,18 +1,9 @@
 import path from 'path';
-import { defineConfig, loadEnv, type Plugin } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
-import { buildTailwindTheme } from './src/theme/tokens';
 
-const THEME_MARKER = '/*ZYNDIO_BRAND_THEME*/{}';
-
-function zyndioThemePlugin(): Plugin {
-  return {
-    name: 'zyndio-brand-theme',
-    transformIndexHtml(html) {
-      return html.replace(THEME_MARKER, JSON.stringify(buildTailwindTheme()));
-    },
-  };
-}
+// TC-032: Tailwind (tailwind.config.ts + postcss.config.js, index.css) and the
+// fonts are built into the bundle; index.html loads no external script/style.
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
@@ -21,7 +12,7 @@ export default defineConfig(({ mode }) => {
         port: 3000,
         host: '0.0.0.0',
       },
-      plugins: [react(), zyndioThemePlugin()],
+      plugins: [react()],
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
@@ -43,6 +34,8 @@ export default defineConfig(({ mode }) => {
           : {}),
       },
       resolve: {
+        // TC-032: exactly one React copy in the bundle.
+        dedupe: ['react', 'react-dom'],
         alias: {
           '@': path.resolve(__dirname, '.'),
         }

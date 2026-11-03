@@ -8,26 +8,25 @@
 // (dark and light OS) is in scripts/tc019_theme_check.py.
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
+import tailwindConfig from '../../tailwind.config';
 import { render, screen } from '@testing-library/react';
 import AuthCard from '../../components/admin-auth/AuthCard';
 import Button from '../../components/admin-auth/Button';
 
-// The selector Tailwind (CDN, configured in index.html) uses for `dark:`.
+// The selector Tailwind uses for `dark:` (TC-032: build-time config in
+// tailwind.config.ts; it was the CDN inline config in index.html).
 function darkVariantSelector(): string {
-  const html = readFileSync(resolve(__dirname, '../../index.html'), 'utf8');
-  const m = html.match(/darkMode:\s*(\[[^\]]*\]|'[^']*'|"[^"]*")/);
-  if (!m) throw new Error('darkMode not found in index.html tailwind.config');
-  const raw = m[1];
-  if (raw.startsWith("'") || raw.startsWith('"')) {
-    const mode = raw.slice(1, -1);
+  const mode = tailwindConfig.darkMode as unknown;
+  if (mode === undefined) throw new Error('darkMode not found in tailwind.config.ts');
+  if (typeof mode === 'string') {
     if (mode === 'class') return ':is(.dark *)';
     throw new Error(`unsupported darkMode ${mode}`);
   }
   // ['variant', '&:is(.dark *)...'] - one selector string
-  const parts = raw.match(/'([^']*)'|"([^"]*)"/g)!.map((p) => p.slice(1, -1));
-  if (parts[0] !== 'variant' || parts.length !== 2) throw new Error(`unsupported darkMode ${raw}`);
+  const parts = mode as unknown[];
+  if (!Array.isArray(parts) || parts[0] !== 'variant' || parts.length !== 2 || typeof parts[1] !== 'string') {
+    throw new Error(`unsupported darkMode ${JSON.stringify(mode)}`);
+  }
   return parts[1].replace(/&/g, '');
 }
 
