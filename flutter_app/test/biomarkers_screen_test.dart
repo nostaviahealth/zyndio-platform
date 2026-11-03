@@ -218,6 +218,46 @@ void main() {
         expect(trendDeltaSpoken(t(['0', '15'])), 'up 15 µM since baseline');
       });
 
+      // Clara r2 Medium (PR #30): readings matched by marker name may carry
+      // different units. A % across units is false, so no delta at all.
+      List<MarkerReading> u(List<(String, String)> vu) => [
+            for (var i = 0; i < vu.length; i++)
+              MarkerReading(
+                  date: '2026-0${i + 1}-01',
+                  marker: _m('Glucose', vu[i].$1, unit: vu[i].$2)),
+          ];
+
+      test('mixed units: first and last units differ → no delta, not even Stable', () {
+        expect(trendDeltaText(u([('90', 'mg/dL'), ('5.0', 'mmol/L')])), isNull);
+        expect(trendDeltaSpoken(u([('90', 'mg/dL'), ('5.0', 'mmol/L')])), isNull);
+        expect(trendDeltaText(u([('30', 'ng/mL'), ('75', 'nmol/L')])), isNull);
+        expect(trendDeltaText(u([('5', 'mg/dL'), ('5', 'mmol/L')])), isNull); // not Stable
+        expect(trendDeltaText(u([('0', 'mg/dL'), ('15', 'mmol/L')])), isNull); // zero baseline
+        expect(trendDeltaText(u([('90', ''), ('95', 'mg/dL')])), isNull); // unknown vs known
+        // First and last agree, a middle reading differs: the delta compares
+        // like with like, so it stays.
+        expect(trendDeltaText(u([('90', 'mg/dL'), ('5.0', 'mmol/L'), ('99', 'mg/dL')])),
+            '↑ +10%');
+        // Trivial differences (spaces, case) are the same unit; no conversion.
+        expect(trendDeltaText(u([('90', ' mg/dL '), ('99', 'mg/dl')])), '↑ +10%');
+      });
+
+      test('censored values (<, >, ≤, ≥) never produce a delta', () {
+        expect(trendDeltaText(u([('<5', 'mg/dL'), ('8', 'mg/dL')])), isNull);
+        expect(trendDeltaText(u([('8', 'mg/dL'), ('>10', 'mg/dL')])), isNull);
+        expect(trendDeltaText(u([('≤5', 'mg/dL'), ('8', 'mg/dL')])), isNull);
+        expect(trendDeltaText(u([('8', 'mg/dL'), ('≥ 10', 'mg/dL')])), isNull);
+        expect(trendDeltaSpoken(u([('<5', 'mg/dL'), ('8', 'mg/dL')])), isNull);
+      });
+
+      test('a value too large to be finite is not a number (no throw)', () {
+        final huge = '9' * 400;
+        expect(parseMarkerValue(huge), isNull);
+        expect(trendDeltaText(u([('90', 'mg/dL'), (huge, 'mg/dL')])), isNull);
+        expect(trendDeltaText(u([(huge, 'mg/dL'), ('90', 'mg/dL')])), isNull);
+        expect(trendDeltaSpoken(u([('90', 'mg/dL'), (huge, 'mg/dL')])), isNull);
+      });
+
       test('null for a single reading or a non-numeric value', () {
         expect(trendDeltaText(t(['26'])), isNull);
         expect(trendDeltaText(t(['n/a', '41'])), isNull);
@@ -404,6 +444,92 @@ void main() {
         }
       });
     }
+
+    // Clara r2 Medium + Ava (PR #30): mixed units. No delta when the first and
+    // last units differ; the chart plots only readings in the latest unit and
+    // says earlier ones were left out. Fictional values.
+    List<LabReport> glucose(List<(String, String, String)> dvu) => [
+          for (final r in dvu.reversed)
+            LabReport(
+              id: r.$1,
+              date: r.$1,
+              title: 'Panel',
+              summary: '',
+              markers: [_m('Glucose', r.$2, unit: r.$3, low: 65, high: 99)],
+            ),
+        ];
+
+    Future<void> metabolic(WidgetTester tester, List<LabReport> reports) async {
+      await _pump(tester, reports: reports);
+      await tester.tap(find.text('Metabolic'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('mixed units: no delta, chart shows only latest-unit readings + caption',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await metabolic(tester, glucose([
+        ('2026-01-01', '90', 'mg/dL'),
+        ('2026-03-01', '95', 'mg/dL'),
+        ('2026-06-01', '5.0', 'mmol/L'),
+        ('2026-09-01', '5.4', 'mmol/L'),
+      ]));
+      expect(find.text('Glucose'), findsOneWidget); // hero
+      expect(find.textContaining(RegExp('[↑↓]|Stable')), findsNothing);
+      expect(find.bySemanticsLabel(RegExp('percent|since baseline')), findsNothing);
+      final chart = tester.widget<LineChart>(find.byType(LineChart));
+      expect(chart.data.lineBarsData.single.spots.map((s) => s.y).toList(), [5.0, 5.4]);
+      expect(find.text('Earlier results used a different unit.'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('Earlier results used a different unit')),
+          findsOneWidget);
+      // The text alternative still lists every reading with its own unit.
+      expect(
+          find.bySemanticsLabel(RegExp(r'90 mg/dL on 2026-01-01.*5\.4 mmol/L on 2026-09-01')),
+          findsOneWidget);
+      handle.dispose();
+    });
+
+    testWidgets('mixed-unit caption uses the baseline caption style', (tester) async {
+      await metabolic(tester, glucose([
+        ('2026-01-01', '90', 'mg/dL'),
+        ('2026-06-01', '5.0', 'mmol/L'),
+        ('2026-09-01', '5.4', 'mmol/L'),
+      ]));
+      final cap = tester.widget<Text>(find.text('Earlier results used a different unit.'));
+      final base = tester.widget<Text>(find.textContaining('Baseline: '));
+      expect(cap.style, base.style);
+    });
+
+    testWidgets('same units: delta shown, no unit caption', (tester) async {
+      await metabolic(tester, glucose([
+        ('2026-01-01', '90', 'mg/dL'),
+        ('2026-09-01', '99', 'mg/dL'),
+      ]));
+      expect(find.text('↑ +10%'), findsOneWidget);
+      expect(find.text('Earlier results used a different unit.'), findsNothing);
+    });
+
+    testWidgets('a middle reading in another unit is left off the chart', (tester) async {
+      await metabolic(tester, glucose([
+        ('2026-01-01', '90', 'mg/dL'),
+        ('2026-03-01', '5.0', 'mmol/L'),
+        ('2026-09-01', '99', 'mg/dL'),
+      ]));
+      expect(find.text('↑ +10%'), findsOneWidget); // first and last agree
+      final chart = tester.widget<LineChart>(find.byType(LineChart));
+      expect(chart.data.lineBarsData.single.spots.map((s) => s.y).toList(), [90.0, 99.0]);
+      expect(find.text('Earlier results used a different unit.'), findsOneWidget);
+    });
+
+    testWidgets('a non-finite value does not throw in the chart or the delta',
+        (tester) async {
+      await metabolic(tester, glucose([
+        ('2026-01-01', '90', 'mg/dL'),
+        ('2026-09-01', '9' * 400, 'mg/dL'),
+      ]));
+      expect(tester.takeException(), isNull);
+      expect(find.textContaining(RegExp('[↑↓]|Stable')), findsNothing);
+    });
 
     testWidgets('chart renders in dark mode', (tester) async {
       await _pump(tester, b: Brightness.dark, reports: _reports());

@@ -21,8 +21,39 @@ import '../health_data/health_data_screen.dart';
 double? parseMarkerValue(String? raw) {
   if (raw == null) return null;
   final m = RegExp(r'-?\d+(\.\d+)?').firstMatch(raw.replaceAll(',', ''));
-  return m == null ? null : double.tryParse(m.group(0)!);
+  final v = m == null ? null : double.tryParse(m.group(0)!);
+  // A digit string too long for a double parses to Infinity; that is not a
+  // reading (Clara r2 Low 2), and it would throw in round() and the chart.
+  return v != null && v.isFinite ? v : null;
 }
+
+/// Value used for the trend delta: like [parseMarkerValue], but a censored
+/// value ("<5", ">10", "≤5", "≥10") is not a number here, because its true
+/// value is unknown (Clara r2 Low 1).
+double? _deltaValue(String? raw) {
+  if (raw == null || RegExp(r'[<>≤≥]').hasMatch(raw)) return null;
+  return parseMarkerValue(raw);
+}
+
+/// Whether two lab units are the same unit. Trimmed and case-insensitive, the
+/// same rule the Health Data screen uses to detect a unit mismatch. No
+/// conversion: "mg/dL" and "mmol/L" are different, and so are "" and "mg/dL"
+/// (an unknown unit can't be shown to match). Clara r2 Medium, PR #30.
+bool sameLabUnit(String a, String b) => a.trim().toLowerCase() == b.trim().toLowerCase();
+
+/// Readings the chart may plot: only those in the latest reading's unit, so
+/// mixed units are never drawn on one axis (Ava, PR #30 r2).
+List<MarkerReading> chartReadings(List<MarkerReading> trend) {
+  if (trend.isEmpty) return const [];
+  final unit = trend.last.marker.unit;
+  return trend.where((r) => sameLabUnit(r.marker.unit, unit)).toList();
+}
+
+/// Caption under the chart when readings were left out for a unit mismatch.
+String? mixedUnitCaptionText(List<MarkerReading> trend) =>
+    chartReadings(trend).length < trend.length
+        ? 'Earlier results used a different unit.'
+        : null;
 
 /// A single marker reading on a given date (one point in a trend).
 class MarkerReading {
@@ -87,12 +118,16 @@ SegmentView segmentView(List<LabReport> newestFirst, BiomarkerSegment seg) {
 ///   rounds to 0 shows "<1" (never "+0%" or Stable), with the arrow but no
 ///   +/− sign ("↑ <1%", Ava PR #30 r2);
 /// - zero baseline: % is undefined, so the signed change in the marker's
-///   unit is shown instead (e.g. "↑ +15 µM").
+///   unit is shown instead (e.g. "↑ +15 µM");
+/// - no delta at all (not even Stable) when the first and last readings'
+///   units differ, or either value is censored (<, >, ≤, ≥) or not a finite
+///   number (Clara r2, PR #30).
 ({bool stable, bool up, String magnitude, bool percent})? _baselineDelta(
     List<MarkerReading> trend) {
   if (trend.length < 2) return null;
-  final first = parseMarkerValue(trend.first.marker.value);
-  final last = parseMarkerValue(trend.last.marker.value);
+  if (!sameLabUnit(trend.first.marker.unit, trend.last.marker.unit)) return null;
+  final first = _deltaValue(trend.first.marker.value);
+  final last = _deltaValue(trend.last.marker.value);
   if (first == null || last == null) return null;
   if (first == last) return (stable: true, up: false, magnitude: '', percent: false);
   final up = last > first;
@@ -401,7 +436,15 @@ class _BiomarkerHero extends StatelessWidget {
     final baseline = baselineCaptionText(trend);
     final firstResult = firstResultCaptionText(trend);
     final latestDate = trend.isEmpty ? '' : trend.last.date;
-    final hasChart = trend.any((r) => parseMarkerValue(r.marker.value) != null);
+    final plotted = chartReadings(trend);
+    final hasChart = plotted.any((r) => parseMarkerValue(r.marker.value) != null);
+    final unitCaption = hasChart ? mixedUnitCaptionText(trend) : null;
+    // One style for the small captions under the chart (baseline, unit note).
+    final captionStyle = TextStyle(
+      fontFamily: ZyndioType.family,
+      fontSize: 13,
+      color: c.textTertiary,
+    );
 
     final readout = [
       m.name,
@@ -410,6 +453,7 @@ class _BiomarkerHero extends StatelessWidget {
       if (band != null) band,
       if (deltaSpoken != null) deltaSpoken,
       altText,
+      if (unitCaption != null) unitCaption,
       if (baseline != null) baseline,
       if (firstResult != null) firstResult,
     ].join(', ');
@@ -499,7 +543,11 @@ class _BiomarkerHero extends StatelessWidget {
                     ],
                     if (hasChart) ...[
                       const SizedBox(height: 12),
-                      _BiomarkerTrendChart(trend: trend, marker: m),
+                      _BiomarkerTrendChart(trend: plotted, marker: m),
+                      if (unitCaption != null) ...[
+                        const SizedBox(height: 6),
+                        Text(unitCaption, style: captionStyle),
+                      ],
                     ],
                     if (band != null) ...[
                       const SizedBox(height: 6),
@@ -514,14 +562,7 @@ class _BiomarkerHero extends StatelessWidget {
                     ],
                     if (baseline != null) ...[
                       const SizedBox(height: 6),
-                      Text(
-                        baseline,
-                        style: TextStyle(
-                          fontFamily: ZyndioType.family,
-                          fontSize: 13,
-                          color: c.textTertiary,
-                        ),
-                      ),
+                      Text(baseline, style: captionStyle),
                     ],
                     if (firstResult != null) ...[
                       const SizedBox(height: 6),
