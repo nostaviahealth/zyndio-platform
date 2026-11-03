@@ -245,5 +245,35 @@ select throws_ok($$ insert into public.lab_results (org_id, patient_id, lab_repo
   '42501', null, 'physician B cannot write a biomarker row about A1');
 reset role;
 
+-- ---------------------------------------------------------------------------
+-- Internal record-linking helpers (audit finding): not callable by clients.
+-- ---------------------------------------------------------------------------
+select is(
+  (select array_agg(f order by f) from unnest(array[
+     'public._bind_patient_record(uuid,uuid,text,text)', 'public._enqueue_link_notices(uuid,uuid,text,text)',
+     'public._patient_link_clear_attempts(uuid)', 'public._patient_link_register_wrong(uuid,integer,integer)',
+     'public._patient_link_locked(uuid)', 'public._clinic_code_breaker_bump()', 'public._clinic_code_breaker_tripped()']) f
+    where has_function_privilege('authenticated', f, 'EXECUTE') or has_function_privilege('anon', f, 'EXECUTE')),
+  null, 'no internal record-linking helper is executable by anon or authenticated');
+select ok(has_function_privilege('service_role', 'public._bind_patient_record(uuid,uuid,text,text)', 'EXECUTE'),
+  'service_role keeps EXECUTE on _bind_patient_record');
+select is(
+  (select array_agg(p.oid::regprocedure::text order by 1) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.prosecdef and p.proname like '\_%'
+      and (has_function_privilege('authenticated', p.oid, 'EXECUTE') or has_function_privilege('anon', p.oid, 'EXECUTE'))),
+  null, 'no underscore-internal SECURITY DEFINER function in public is executable by anon or authenticated');
+select tests.authenticate_as('00000000-0000-0000-0000-000000046c01', 'aal1');
+select throws_ok($$ select public._bind_patient_record('00000000-0000-0000-0000-000000046c01', '00000000-0000-0000-0000-00000000000b', 'th_tc040_direct', 'clinic_code') $$,
+  '42501', null, 'a signed-in user cannot bind themselves into another clinic via _bind_patient_record');
+select throws_ok($$ select public._patient_link_clear_attempts('00000000-0000-0000-0000-000000046c01') $$,
+  '42501', null, 'a signed-in user cannot clear their own code-guess lockout');
+reset role;
+select tests.authenticate_as_anon();
+select throws_ok($$ select public._enqueue_link_notices('00000000-0000-0000-0000-0000000a1001', '00000000-0000-0000-0000-00000000000a', 'th_tc040', 'linked') $$,
+  '42501', null, 'anon cannot enqueue link notices');
+reset role;
+select is((select count(*)::int from public.patient_record_links where telehealth_patient_id = 'th_tc040_direct'), 0, 'no link row was created');
+select is((select count(*)::int from public.patients where id = '00000000-0000-0000-0000-000000046c01'), 0, 'the new account was not placed in any clinic');
+
 select * from finish();
 rollback;
