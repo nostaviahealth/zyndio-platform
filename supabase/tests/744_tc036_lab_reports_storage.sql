@@ -16,6 +16,12 @@ select no_plan();
 
 reset role;
 select set_config('request.jwt.claims', '', true);
+-- Newer storage schemas (storage-api >= ~1.8x, as in CI's supabase CLI) add a
+-- statement trigger storage.protect_delete that rejects DELETE unless
+-- storage.allow_delete_query = 'true'. storage-api sets that flag itself on its
+-- delete path, so we set it too; RLS is still what decides which rows go.
+-- On older storage schemas without the trigger this is a no-op.
+select set_config('storage.allow_delete_query', 'true', true);
 
 -- Actors (global fixtures): patient A1 a1001 (clinic A), patient B1 b1001
 -- (clinic B), physician A a0002, coordinator A a0003, read_only A a0004,
