@@ -86,7 +86,15 @@ insert into storage.objects (bucket_id, name) values
   ('lab-reports', '{00000000-0000-0000-0000-0000000a1001}/40a00000-0000-4000-8000-000000000014.pdf'), -- brace form
   ('lab-reports', '000000000000000000000000000a1001/40a00000-0000-4000-8000-000000000015.pdf'),     -- no hyphens
   ('lab-reports', '00000000-0000-0000-0000-0000000a10010/40a00000-0000-4000-8000-000000000016.pdf'), -- sibling folder (prefix)
-  ('lab-reports', '00000000-0000-0000-0000-0000000a1001.40a00000-0000-4000-8000-000000000017.pdf'); -- root name, same prefix
+  ('lab-reports', '00000000-0000-0000-0000-0000000a1001.40a00000-0000-4000-8000-000000000017.pdf'), -- root name, same prefix
+  ('lab-reports', 'x00000000-0000-0000-0000-0000000a1001/40a00000-0000-4000-8000-000000000018.pdf'), -- L1 (#34 review): junk before the uuid (start anchor)
+  ('lab-reports', '000000000-0000-0000-0000-0000000a1001/40a00000-0000-4000-8000-000000000019.pdf'), -- L1 (#34 review): an extra leading hex digit before the uuid (start anchor)
+  ('lab-reports', '00000000.0000-0000-0000-0000000a1001/40a00000-0000-4000-8000-000000000020.pdf'), -- L1 (#34 review): '.' in place of hyphen 1
+  ('lab-reports', '00000000-0000.0000-0000-0000000a1001/40a00000-0000-4000-8000-000000000021.pdf'), -- L1 (#34 review): '.' in place of hyphen 2
+  ('lab-reports', '00000000-0000-0000.0000-0000000a1001/40a00000-0000-4000-8000-000000000022.pdf'), -- L1 (#34 review): '.' in place of hyphen 3
+  ('lab-reports', '00000000-0000-0000-0000.0000000a1001/40a00000-0000-4000-8000-000000000023.pdf'), -- L1 (#34 review): '.' in place of hyphen 4
+  ('lab-reports', '00000000_0000-0000-0000-0000000a1001/40a00000-0000-4000-8000-000000000024.pdf'), -- L1 (#34 review): '_' in place of hyphen 1
+  ('lab-reports', '00000000_0000_0000_0000_0000000a1001/40a00000-0000-4000-8000-000000000025.pdf'); -- L1 (#34 review): '_' in place of every hyphen
 insert into public.lab_reports (org_id, patient_id, report_type, data, pdf_path)
 select '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', 'legacy', '{}', n
   from unnest(array[
@@ -96,7 +104,15 @@ select '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a
     '{00000000-0000-0000-0000-0000000a1001}/40a00000-0000-4000-8000-000000000014.pdf',
     '000000000000000000000000000a1001/40a00000-0000-4000-8000-000000000015.pdf',
     '00000000-0000-0000-0000-0000000a10010/40a00000-0000-4000-8000-000000000016.pdf',
-    '00000000-0000-0000-0000-0000000a1001.40a00000-0000-4000-8000-000000000017.pdf']) n;
+    '00000000-0000-0000-0000-0000000a1001.40a00000-0000-4000-8000-000000000017.pdf',
+    'x00000000-0000-0000-0000-0000000a1001/40a00000-0000-4000-8000-000000000018.pdf',
+    '000000000-0000-0000-0000-0000000a1001/40a00000-0000-4000-8000-000000000019.pdf',
+    '00000000.0000-0000-0000-0000000a1001/40a00000-0000-4000-8000-000000000020.pdf',
+    '00000000-0000.0000-0000-0000000a1001/40a00000-0000-4000-8000-000000000021.pdf',
+    '00000000-0000-0000.0000-0000000a1001/40a00000-0000-4000-8000-000000000022.pdf',
+    '00000000-0000-0000-0000.0000000a1001/40a00000-0000-4000-8000-000000000023.pdf',
+    '00000000_0000-0000-0000-0000000a1001/40a00000-0000-4000-8000-000000000024.pdf',
+    '00000000_0000_0000_0000_0000000a1001/40a00000-0000-4000-8000-000000000025.pdf']) n;
 
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal2');
 select lives_ok($$ select pg_temp.visible() $$,
@@ -121,6 +137,41 @@ select is(pg_temp.sign('00000000-0000-0000-0000-0000000a10010/40a00000-0000-4000
   'staff sibling-prefix: a folder that only STARTS with A1''s id is not A1''s (physician A refused)');
 select is(pg_temp.sign('00000000-0000-0000-0000-0000000a1001.40a00000-0000-4000-8000-000000000017.pdf'), 0,
   'staff sibling-prefix: a root-level name that only starts with A1''s id is refused');
+-- L1 (#34 review): the regex must be anchored at the start and use literal
+-- hyphens. Without '^' or with '.' for '-', these folders pass the guard and the
+-- ::uuid cast raises (lives_ok fails); with the correct guard they are refused.
+select lives_ok($$ select pg_temp.sign('x00000000-0000-0000-0000-0000000a1001/40a00000-0000-4000-8000-000000000018.pdf') $$,
+  'L1: signing a folder with junk before the uuid (start anchor) does not raise');
+select is(pg_temp.sign('x00000000-0000-0000-0000-0000000a1001/40a00000-0000-4000-8000-000000000018.pdf'), 0,
+  'L1: folder with junk before the uuid (start anchor): refused');
+select lives_ok($$ select pg_temp.sign('000000000-0000-0000-0000-0000000a1001/40a00000-0000-4000-8000-000000000019.pdf') $$,
+  'L1: signing a folder with an extra leading hex digit before the uuid (start anchor) does not raise');
+select is(pg_temp.sign('000000000-0000-0000-0000-0000000a1001/40a00000-0000-4000-8000-000000000019.pdf'), 0,
+  'L1: folder with an extra leading hex digit before the uuid (start anchor): refused');
+select lives_ok($$ select pg_temp.sign('00000000.0000-0000-0000-0000000a1001/40a00000-0000-4000-8000-000000000020.pdf') $$,
+  'L1: signing a folder with ''.'' in place of hyphen 1 does not raise');
+select is(pg_temp.sign('00000000.0000-0000-0000-0000000a1001/40a00000-0000-4000-8000-000000000020.pdf'), 0,
+  'L1: folder with ''.'' in place of hyphen 1: refused');
+select lives_ok($$ select pg_temp.sign('00000000-0000.0000-0000-0000000a1001/40a00000-0000-4000-8000-000000000021.pdf') $$,
+  'L1: signing a folder with ''.'' in place of hyphen 2 does not raise');
+select is(pg_temp.sign('00000000-0000.0000-0000-0000000a1001/40a00000-0000-4000-8000-000000000021.pdf'), 0,
+  'L1: folder with ''.'' in place of hyphen 2: refused');
+select lives_ok($$ select pg_temp.sign('00000000-0000-0000.0000-0000000a1001/40a00000-0000-4000-8000-000000000022.pdf') $$,
+  'L1: signing a folder with ''.'' in place of hyphen 3 does not raise');
+select is(pg_temp.sign('00000000-0000-0000.0000-0000000a1001/40a00000-0000-4000-8000-000000000022.pdf'), 0,
+  'L1: folder with ''.'' in place of hyphen 3: refused');
+select lives_ok($$ select pg_temp.sign('00000000-0000-0000-0000.0000000a1001/40a00000-0000-4000-8000-000000000023.pdf') $$,
+  'L1: signing a folder with ''.'' in place of hyphen 4 does not raise');
+select is(pg_temp.sign('00000000-0000-0000-0000.0000000a1001/40a00000-0000-4000-8000-000000000023.pdf'), 0,
+  'L1: folder with ''.'' in place of hyphen 4: refused');
+select lives_ok($$ select pg_temp.sign('00000000_0000-0000-0000-0000000a1001/40a00000-0000-4000-8000-000000000024.pdf') $$,
+  'L1: signing a folder with ''_'' in place of hyphen 1 does not raise');
+select is(pg_temp.sign('00000000_0000-0000-0000-0000000a1001/40a00000-0000-4000-8000-000000000024.pdf'), 0,
+  'L1: folder with ''_'' in place of hyphen 1: refused');
+select lives_ok($$ select pg_temp.sign('00000000_0000_0000_0000_0000000a1001/40a00000-0000-4000-8000-000000000025.pdf') $$,
+  'L1: signing a folder with ''_'' in place of every hyphen does not raise');
+select is(pg_temp.sign('00000000_0000_0000_0000_0000000a1001/40a00000-0000-4000-8000-000000000025.pdf'), 0,
+  'L1: folder with ''_'' in place of every hyphen: refused');
 reset role;
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0003', 'aal2');
 select is(pg_temp.visible(),
