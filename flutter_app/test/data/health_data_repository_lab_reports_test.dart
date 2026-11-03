@@ -195,7 +195,8 @@ void main() {
   });
 
   group('Biomarkers through the real repository (TC-037)', () {
-    Future<void> pump(WidgetTester tester, _Harness h) async {
+    Future<void> pump(WidgetTester tester, _Harness h,
+        {int rounds = 40, Duration step = const Duration(seconds: 1)}) async {
       tester.view.physicalSize = const Size(1200, 3600);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -217,9 +218,9 @@ void main() {
       ));
       // Let the real (mocked-transport) HTTP round trips complete, advancing
       // fake time too so any provider retry backoff runs out.
-      for (var i = 0; i < 40; i++) {
+      for (var i = 0; i < rounds; i++) {
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
-        await tester.pump(const Duration(seconds: 1));
+        await tester.pump(step);
       }
     }
 
@@ -229,6 +230,18 @@ void main() {
       expect(h.rest, isNotEmpty);
       expect(find.text("We couldn't load your results"), findsOneWidget);
       expect(find.text('No lab results yet'), findsNothing);
+    });
+
+    testWidgets('a failed query shows the error state promptly, without a hidden retry loop',
+        (tester) async {
+      // Riverpod 3 retries a failed provider up to 10 times (200 ms .. 6.4 s
+      // backoff, ~38 s) and shows the loading skeleton meanwhile. A query the
+      // server rejected will not succeed on retry; the card's own "Try again"
+      // button is the retry.
+      final h = _Harness(_undefinedColumn);
+      await pump(tester, h, rounds: 5, step: const Duration(milliseconds: 100));
+      expect(find.text("We couldn't load your results"), findsOneWidget);
+      expect(h.rest.length, 1, reason: 'one request, no automatic retries');
     });
 
     testWidgets('an empty result shows the empty state', (tester) async {

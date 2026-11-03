@@ -12,4 +12,7 @@ final labReportsProvider = FutureProvider<List<LabReport>>((ref) async {
   // the screen shows its error state instead of "No lab results yet" (TC-037).
   final patientId = profileAsync.value?.id;
   return HealthDataRepository.fetchReports(patientId);
-});
+},
+    // No automatic retry: Riverpod 3's default retries ~38 s behind the loading
+    // skeleton, hiding the error state. The error card's "Try again" refetches.
+    retry: (retryCount, error) => null);
