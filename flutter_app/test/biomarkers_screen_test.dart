@@ -632,6 +632,62 @@ void main() {
       handle.dispose();
     });
 
+    // Ava r4 M6 (closes Clara TC-034 item 65): whenever readings are hidden
+    // because their unit differs, the caption shows and is read out, even
+    // with nothing plotted. Same-unit non-numeric readings never trigger it.
+    testWidgets('M6: earlier units then a non-numeric latest-unit reading: caption shown and read',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await metabolic(tester, glucose([
+        ('2026-01-01', '90', 'mg/dL'),
+        ('2026-03-01', '95', 'mg/dL'),
+        ('2026-09-15', 'Pending', 'mmol/L'),
+      ]));
+      expect(find.text('Earlier results used a different unit.'), findsOneWidget);
+      final cap = tester.widget<Text>(find.text('Earlier results used a different unit.'));
+      final c = BrandTheme.lightTheme.extension<ZyndioColors>()!;
+      expect(cap.style, ZyndioType.footnote.copyWith(color: c.textSecondary));
+      final readout = find.bySemanticsLabel(RegExp('^Glucose, Pending'));
+      expect(readout, findsOneWidget);
+      expect(tester.getSemantics(readout).label,
+          contains('Earlier results used a different unit.'));
+      expect(find.textContaining(RegExp('[↑↓]|Stable')), findsNothing); // delta unchanged
+      handle.dispose();
+    });
+
+    testWidgets('M6: one plotted reading: first-result layout, caption shown and read',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await metabolic(tester, glucose([
+        ('2026-01-01', '90', 'mg/dL'),
+        ('2026-03-01', '95', 'mg/dL'),
+        ('2026-09-01', '5.4', 'mmol/L'),
+      ]));
+      expect(
+          find.text('First result · 2026-09-01. Your trend appears after your next test.'),
+          findsOneWidget);
+      expect(find.text('Earlier results used a different unit.'), findsOneWidget);
+      final readout = find.bySemanticsLabel(RegExp('^Glucose, 5\\.4 mmol/L'));
+      expect(readout, findsOneWidget);
+      final label = tester.getSemantics(readout).label;
+      expect(label, contains('Earlier results used a different unit.'));
+      expect(label, contains('First result · 2026-09-01.'));
+      handle.dispose();
+    });
+
+    testWidgets('M6 guard: same unit with a non-numeric latest reading shows no caption',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await metabolic(tester, glucose([
+        ('2026-01-01', '90', 'mg/dL'),
+        ('2026-09-15', 'Pending', 'mg/dL'),
+      ]));
+      expect(find.text('Earlier results used a different unit.'), findsNothing);
+      expect(find.bySemanticsLabel(RegExp('Earlier results used a different unit')),
+          findsNothing);
+      handle.dispose();
+    });
+
     testWidgets('a non-finite value does not throw in the chart or the delta',
         (tester) async {
       await metabolic(tester, glucose([

@@ -443,7 +443,10 @@ class _BiomarkerHero extends StatelessWidget {
     final baseline = baselineCaptionText(shown);
     final firstResult = firstResultCaptionText(shown);
     final hasChart = plotted.any((r) => parseMarkerValue(r.marker.value) != null);
-    final unitCaption = hasChart ? mixedUnitCaptionText(trend) : null;
+    // Ava r4 M6: shown whenever readings were hidden for a unit mismatch
+    // (`shown` drops other-unit readings only, never non-numeric ones), even
+    // with nothing plotted. A same-unit "Pending" reading never triggers it.
+    final unitCaption = shown.length < trend.length ? mixedUnitCaptionText(trend) : null;
     // Baseline caption: unchanged from before PR #30 r2.
     final captionStyle = TextStyle(
       fontFamily: ZyndioType.family,
@@ -551,10 +554,10 @@ class _BiomarkerHero extends StatelessWidget {
                     if (hasChart) ...[
                       const SizedBox(height: 12),
                       _BiomarkerTrendChart(trend: plotted, marker: m),
-                      if (unitCaption != null) ...[
-                        const SizedBox(height: 6),
-                        Text(unitCaption, style: unitCaptionStyle),
-                      ],
+                    ],
+                    if (unitCaption != null) ...[
+                      const SizedBox(height: 6),
+                      Text(unitCaption, style: unitCaptionStyle),
                     ],
                     if (band != null) ...[
                       const SizedBox(height: 6),
