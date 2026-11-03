@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
@@ -335,7 +336,52 @@ class HealthDataRepository {
       );
   }
 
-  /// Uploads a lab report to Supabase Storage and updates the patient's stage.
+  /// TC-036: private storage bucket for patient-uploaded report files.
+  static const labReportsBucket = 'lab-reports';
+
+  /// The patient's clinic. lab_reports_self_insert only accepts a row whose
+  /// org_id is the patient's own (from public.patients, which the patient
+  /// can read for themself). Pinned by
+  /// tests/contracts/patient-lab-report-writes.json (org_lookup).
+  static Future<String> _ownOrgId(SupabaseClient client, String patientId) async {
+    final rows = await client.from('patients').select('org_id').eq('id', patientId);
+    if (rows.isEmpty || rows.first['org_id'] is! String) {
+      throw StateError('No linked patient record');
+    }
+    return rows.first['org_id'] as String;
+  }
+
+  /// Object path for a new upload: `<patient_id>/<random uuid>.<ext>`. The
+  /// user's file name is never used (it can carry personal details, and the
+  /// storage policy only accepts uuid names, so files are never overwritten).
+  static String newLabReportObjectPath(String patientId, String fileName) {
+    final dot = fileName.lastIndexOf('.');
+    var ext = dot < 0 ? '' : fileName.substring(dot + 1).toLowerCase();
+    if (ext == 'jpeg') ext = 'jpg';
+    const allowed = {'pdf', 'jpg', 'png', 'heic', 'webp'};
+    if (!allowed.contains(ext)) {
+      throw ArgumentError.value(fileName, 'fileName', 'unsupported lab report file type');
+    }
+    return '$patientId/${_uuidV4()}.$ext';
+  }
+
+  static String _uuidV4() {
+    final rnd = Random.secure();
+    final b = List<int>.generate(16, (_) => rnd.nextInt(256));
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    final h = b.map((x) => x.toRadixString(16).padLeft(2, '0')).join();
+    return '${h.substring(0, 8)}-${h.substring(8, 12)}-${h.substring(12, 16)}-${h.substring(16, 20)}-${h.substring(20)}';
+  }
+
+  /// Uploads a lab report file into the private lab-reports bucket and files
+  /// it as a lab_reports row (real columns; the report body lives in `data`,
+  /// the file is referenced by its object PATH, never by a URL). Pinned by
+  /// tests/contracts/patient-lab-report-writes.json (upload_insert).
+  ///
+  /// [profileId] is the signed-in patient's auth user id (= patient_id).
+  /// Returns false on any failure; nothing is printed (no backend error text
+  /// in device logs).
   static Future<bool> uploadLabReport({
     required String filePath,
     required String fileName,
@@ -343,62 +389,51 @@ class HealthDataRepository {
     Map<String, dynamic>? extractedData,
   }) async {
     try {
-      final supabase = Supabase.instance.client;
-      
-      // 0. Sanitize filename (Supabase storage can be picky with spaces/special chars)
-      final safeFileName = fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
-      final storagePath = '$profileId/$safeFileName';
-      
-      // 1. Upload file to 'lab-reports' bucket
-      // We wrap this in a try-catch because if the file already exists, we might want to continue
-      try {
-        final file = File(filePath);
-        if (await file.exists()) {
-          await supabase.storage.from('lab-reports').upload(
-            storagePath,
+      final client = SupabaseConfig.client;
+      if (client == null) return false;
+      final file = File(filePath);
+      if (!await file.exists()) return false;
+
+      final orgId = await _ownOrgId(client, profileId);
+      final objectPath = newLabReportObjectPath(profileId, fileName);
+
+      await client.storage.from(labReportsBucket).upload(
+            objectPath,
             file,
-            fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
+            fileOptions: const FileOptions(upsert: false),
           );
-          print('HealthRepo: File uploaded successfully to $storagePath');
-        } else {
-          print('HealthRepo: Local file not found at $filePath, skipping storage upload.');
-        }
-      } catch (storageError) {
-        // If it's an "already exists" error, we can ignore it and proceed
-        print('HealthRepo: Storage upload note (might already exist): $storageError');
-      }
 
-      // 2. Get Public URL
-      final String publicUrl = supabase.storage.from('lab-reports').getPublicUrl(storagePath);
-
-      // 3. Create a record in 'lab_reports' table
-      await supabase.from('lab_reports').insert({
-        'profile_id': profileId,
-        'date': extractedData?['date'] ?? DateTime.now().toIso8601String().split('T')[0],
-        'title': extractedData?['title'] ?? fileName,
-        'pdf_url': publicUrl,
-        'published': extractedData != null,
-        'markers': extractedData?['markers'] ?? [],
-        'summary': extractedData?['summary'] ?? 'Uploaded from mobile app.',
-        'updated_at': DateTime.now().toIso8601String(),
+      await client.from('lab_reports').insert({
+        'org_id': orgId,
+        'patient_id': profileId,
+        'report_type': 'patient_upload',
+        'data': {
+          'title': extractedData?['title'] ?? fileName,
+          'date': extractedData?['date'] ?? _localDate(),
+          'summary': extractedData?['summary'] ?? 'Uploaded from mobile app.',
+          'markers': extractedData?['markers'] ?? const [],
+        },
+        'pdf_path': objectPath,
       });
 
-      // 4. Update patient account stage
+      // Best-effort: move the patient's journey stage on.
       try {
-        await supabase.from('patient_accounts').upsert({
+        await client.from('patient_accounts').upsert({
           'patient_id': profileId,
           'stage': 'lab_processing',
           'updated_at': DateTime.now().toIso8601String(),
         }, onConflict: 'patient_id');
-      } catch (profileError) {
-        print('HealthRepo: Profile update failed (non-critical): $profileError');
-      }
+      } catch (_) {}
 
       return true;
-    } catch (e) {
-      print('HealthRepo: Final Upload Error: $e');
+    } catch (_) {
       return false;
     }
+  }
+
+  static String _localDate() {
+    final now = DateTime.now();
+    return '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
   /// Deletes a lab report from Supabase (DB + Storage)
@@ -422,7 +457,14 @@ class HealthDataRepository {
       }
   }
 
-  /// Saves or updates a manually entered biomarker value.
+  /// Files a manually entered biomarker value as a new one-marker
+  /// `manual_entry` lab report (real columns, pinned by
+  /// tests/contracts/patient-lab-report-writes.json manual_entry_insert).
+  ///
+  /// Patients can INSERT lab_reports but never UPDATE or DELETE them (RLS:
+  /// reports are immutable from the patient side), so a correction is a new
+  /// entry; the latest value wins in the patient's views. Returns false on
+  /// any failure; nothing is printed.
   static Future<bool> saveManualBiomarker({
     required String profileId,
     required String markerName,
@@ -430,64 +472,30 @@ class HealthDataRepository {
     required String unit,
   }) async {
     try {
-      final supabase = Supabase.instance.client;
-      
-      // We look for an existing "Manual Entry" report for today
-      final today = DateTime.now().toIso8601String().split('T')[0];
-      final response = await supabase
-          .from('lab_reports')
-          .select('*')
-          .eq('profile_id', profileId)
-          .eq('title', 'Manual Entry')
-          .eq('date', today)
-          .maybeSingle();
-
-      List<dynamic> markers = [];
-      String? reportId;
-
-      if (response != null) {
-        markers = List.from(response['markers']);
-        reportId = response['id'];
-      }
-
-      // Find if this marker already exists in the manual report
-      final existingIndex = markers.indexWhere((m) => m['name'].toString().toLowerCase() == markerName.toLowerCase());
-      
-      final newMarker = {
-        'name': markerName,
-        'value': '$value $unit',
-        'range': '--',
-        'status': 'Normal',
-        'insight': 'Manually entered.',
-      };
-
-      if (existingIndex != -1) {
-        markers[existingIndex] = newMarker;
-      } else {
-        markers.add(newMarker);
-      }
-
-      if (reportId != null) {
-        // Update existing manual report
-        await supabase.from('lab_reports').update({
-          'markers': markers,
-          'updated_at': DateTime.now().toIso8601String(),
-        }).eq('id', reportId);
-      } else {
-        // Create new manual report
-        await supabase.from('lab_reports').insert({
-          'profile_id': profileId,
-          'date': today,
+      final client = SupabaseConfig.client;
+      if (client == null) return false;
+      final orgId = await _ownOrgId(client, profileId);
+      await client.from('lab_reports').insert({
+        'org_id': orgId,
+        'patient_id': profileId,
+        'report_type': 'manual_entry',
+        'data': {
           'title': 'Manual Entry',
-          'summary': 'User manually entered health data.',
-          'markers': markers,
-          'published': true,
-          'updated_at': DateTime.now().toIso8601String(),
-        });
-      }
+          'date': _localDate(),
+          'summary': 'Entered by the patient.',
+          'markers': [
+            {
+              'name': markerName,
+              'value': '$value $unit',
+              'range': '--',
+              'status': 'Normal',
+              'insight': 'Manually entered.',
+            }
+          ],
+        },
+      });
       return true;
-    } catch (e) {
-      print('Manual Entry Error: $e');
+    } catch (_) {
       return false;
     }
   }
