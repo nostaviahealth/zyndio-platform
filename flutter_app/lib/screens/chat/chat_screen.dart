@@ -289,7 +289,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStat
                           ),
                         ),
                         Text(
-                          'Intelligence',
+                          'Zyndio AI',
                           style: GoogleFonts.outfit(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
