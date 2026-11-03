@@ -911,19 +911,33 @@ class _SectionHeader extends StatelessWidget {
 }
 
 Widget _buildAvatarPlaceholder(BuildContext context, Map<String, dynamic> player, double radius) {
-  final avatarUrl = player['avatar_url'];
-  
+  final provider = _getAvatarProvider(player['avatar_url'] as String?);
+  if (provider != null) {
+    // Only the caller's own row keeps a photo (TC-030 item 9); every other row
+    // has a null avatar_url and falls through to initials below.
+    return CircleAvatar(
+      radius: radius,
+      backgroundImage: provider,
+      backgroundColor: context.nc.textPrimary.withOpacity(0.05),
+    );
+  }
+
+  // No photo: render the name's initials, not a generic person icon (TC-030
+  // item 9, Ava). Initials use textSecondary on a subtle tint, which clears AA
+  // (>=4.5:1) in both modes - light #475569 ~7.2:1, dark #CBD5E1 ~13:1.
+  final initials = GamificationService.leaderboardInitials(player['name'] as String?);
   return CircleAvatar(
     radius: radius,
-    backgroundImage: _getAvatarProvider(avatarUrl),
-    backgroundColor: context.nc.textPrimary.withOpacity(0.05),
-    child: avatarUrl == null 
-      ? Icon(
-          LucideIcons.userCircle, 
-          size: radius * 1.6, 
-          color: context.nc.textPrimary.withOpacity(0.2),
-        )
-      : null,
+    backgroundColor: context.nc.textPrimary.withOpacity(0.06),
+    child: Text(
+      initials,
+      style: TextStyle(
+        color: context.nc.textSecondary,
+        fontWeight: FontWeight.w900,
+        fontSize: radius * 0.8,
+        letterSpacing: 0,
+      ),
+    ),
   );
 }
 

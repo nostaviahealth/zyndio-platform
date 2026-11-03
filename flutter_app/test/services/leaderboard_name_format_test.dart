@@ -40,10 +40,20 @@ void main() {
       expect(fmt('Riley'), 'Riley');
     });
 
-    test('an email-like name uses the local part, domain stripped', () {
-      expect(fmt('jordan.rivera@example.com'), startsWith('jordan.rivera'));
+    test('an email-like name renders "First L.", never the local part or surname', () {
+      // TC-030 item 9 (Ava): "jordan.rivera@x.org" must not surface the full
+      // local part ("JORDAN.RIVERA") or the surname - only "Jordan R.".
+      expect(fmt('jordan.rivera@example.com'), 'Jordan R.');
       expect(fmt('jordan.rivera@example.com'), isNot(contains('@')));
+      expect(fmt('jordan.rivera@example.com'), isNot(contains('rivera')));
       expect(fmt('jordan.rivera@example.com'), isNot(contains('example')));
+    });
+
+    test('a bare "first.last" token (server-stripped email) also becomes "First L."', () {
+      // The RPC drops the domain but can still hand back "jordan.rivera"; the
+      // client must not render that verbatim either.
+      expect(fmt('jordan.rivera'), 'Jordan R.');
+      expect(fmt('morgan_lee'), 'Morgan L.');
     });
 
     test('caps the rendered length', () {
@@ -55,6 +65,40 @@ void main() {
       expect(fmt(null), 'Anonymous');
       expect(fmt('   '), 'Anonymous');
       expect(GamificationService.formatLeaderboardName(null, fallback: 'Unknown'), 'Unknown');
+    });
+  });
+
+  group('leaderboardInitials', () {
+    // TC-030 item 9 (Ava): non-caller rows show initials, not a generic icon.
+    String ini(String? raw) => GamificationService.leaderboardInitials(raw);
+
+    test('two-word name -> first + last initial', () {
+      expect(ini('Jordan Rivera'), 'JR');
+      expect(ini('Jordan R.'), 'JR');
+    });
+
+    test('"Last, First" -> first + last initial', () {
+      expect(ini('Rivera, Jordan'), 'JR');
+    });
+
+    test('an email-like name uses the name, never the domain', () {
+      expect(ini('jordan.rivera@example.com'), 'JR');
+      expect(ini('jordan.rivera'), 'JR');
+    });
+
+    test('mixed whitespace (NBSP/tab/newline) still splits', () {
+      expect(ini('Jordan Rivera'), 'JR');
+      expect(ini('Riley\tSmith\nJones'), 'RJ');
+    });
+
+    test('one-word name -> single initial', () {
+      expect(ini('Riley'), 'R');
+      expect(ini('blake'), 'B');
+    });
+
+    test('null or blank falls back', () {
+      expect(ini(null), '?');
+      expect(ini('   '), '?');
     });
   });
 

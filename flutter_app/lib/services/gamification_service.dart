@@ -201,19 +201,20 @@ class GamificationService {
   /// malformed value can't blow out the row/podium layout (TC-030 item 9).
   static const int leaderboardNameMaxLength = 18;
 
-  /// Formats a raw display name to the leaderboard's "First L." shape,
-  /// defensively (TC-030 item 9). The RPC already returns names in this form,
-  /// but this hardens the UI against anything odd that reaches it:
+  /// Normalises a raw display name into its [first, last?] name parts, shared by
+  /// [formatLeaderboardName] and [leaderboardInitials] so both read a name the
+  /// same way (TC-030 item 9). It:
   ///   - trims, and splits on ALL whitespace incl. NBSP/tab/newline, collapsing
   ///     runs to single gaps;
-  ///   - "Last, First" (comma form) is read as first=First, last=Last;
-  ///   - a single word is used as-is (no empty initial);
-  ///   - an email-like value uses its local part (domain stripped);
-  ///   - the result is capped at [leaderboardNameMaxLength].
-  /// Returns [fallback] when nothing usable is left.
-  static String formatLeaderboardName(String? raw, {String fallback = 'Anonymous'}) {
+  ///   - reads "Last, First" (comma form) as first=First, last=Last;
+  ///   - for an email-like value, keeps only the local part (domain dropped);
+  ///   - when the only token is itself "first.last" / "first_last" (e.g. an email
+  ///     local part the server passed through), splits it so neither the raw
+  ///     local part nor the full surname is ever shown.
+  /// Returns `[]` when nothing usable is left.
+  static List<String> _leaderboardNameParts(String? raw) {
     final value = (raw ?? '').trim();
-    if (value.isEmpty) return fallback;
+    if (value.isEmpty) return const [];
 
     // Email-like: use the local part only, never the domain.
     final atIndex = value.indexOf('@');
@@ -228,10 +229,35 @@ class GamificationService {
     }
 
     // Split on any run of whitespace, including NBSP/tab/newline.
-    final parts = working.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    var parts = working.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+
+    // A lone "first.last"/"first_last"/"first-last" token reads as a name, so an
+    // email local part never surfaces as "jordan.rivera" or leaks the surname.
+    if (parts.length == 1 && RegExp(r'[._-]').hasMatch(parts.first)) {
+      final sub = parts.first.split(RegExp(r'[._-]+')).where((p) => p.isNotEmpty).toList();
+      if (sub.length >= 2) parts = sub;
+    }
+
+    return parts;
+  }
+
+  /// First letter of a word, upper-cased, leaving the rest of the word untouched
+  /// (so "McArdle" / already-capitalised names are preserved).
+  static String _capitalize(String word) =>
+      word.isEmpty ? word : word[0].toUpperCase() + word.substring(1);
+
+  /// Formats a raw display name to the leaderboard's "First L." shape,
+  /// defensively (TC-030 item 9). The RPC already returns names in this form,
+  /// but this hardens the UI against anything odd that reaches it: an email-like
+  /// value renders as "First L." (never the local part or surname, e.g.
+  /// "jordan.rivera@x.org" -> "Jordan R."), "Last, First" is reordered, a single
+  /// word is used as-is, and the result is capped at [leaderboardNameMaxLength].
+  /// Returns [fallback] when nothing usable is left.
+  static String formatLeaderboardName(String? raw, {String fallback = 'Anonymous'}) {
+    final parts = _leaderboardNameParts(raw);
     if (parts.isEmpty) return fallback;
 
-    final first = parts.first;
+    final first = _capitalize(parts.first);
     final formatted = parts.length == 1
         ? first
         : '$first ${parts.last[0].toUpperCase()}.';
@@ -239,6 +265,16 @@ class GamificationService {
     return formatted.length > leaderboardNameMaxLength
         ? formatted.substring(0, leaderboardNameMaxLength)
         : formatted;
+  }
+
+  /// Initials for a leaderboard avatar when no photo is shown (TC-030 item 9):
+  /// first + last initial (e.g. "Jordan Rivera" / "jordan.rivera@x.org" -> "JR"),
+  /// a single letter for a one-word name, or [fallback] when nothing is usable.
+  static String leaderboardInitials(String? raw, {String fallback = '?'}) {
+    final parts = _leaderboardNameParts(raw);
+    if (parts.isEmpty) return fallback;
+    if (parts.length == 1) return parts.first[0].toUpperCase();
+    return (parts.first[0] + parts.last[0]).toUpperCase();
   }
 
   /// Maps one patient_leaderboard_top10() row to the shape the leagues UI
