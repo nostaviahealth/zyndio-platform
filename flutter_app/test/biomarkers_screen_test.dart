@@ -156,6 +156,119 @@ void main() {
           contains('26 → 41'));
       expect(trendDeltaText(segmentView(newest, BiomarkerSegment.metabolic).leadTrend), isNull);
     });
+
+    // ── C1 pure helpers ─────────────────────────────────────────────────────
+    test('baselineCaptionText: first reading for a trend, null for single', () {
+      final newest = sortReportsNewestFirst(_reports());
+      expect(baselineCaptionText(segmentView(newest, BiomarkerSegment.nad).leadTrend),
+          'Baseline: 26 µM · 2026-01-01');
+      // Single point → no baseline caption.
+      expect(baselineCaptionText(segmentView(newest, BiomarkerSegment.metabolic).leadTrend),
+          isNull);
+    });
+
+    test('firstResultCaptionText: single point only', () {
+      final newest = sortReportsNewestFirst(_reports());
+      expect(firstResultCaptionText(segmentView(newest, BiomarkerSegment.metabolic).leadTrend),
+          'First result · 2026-06-01. Your trend appears after your next test.');
+      // ≥2 points → no first-result caption.
+      expect(firstResultCaptionText(segmentView(newest, BiomarkerSegment.nad).leadTrend), isNull);
+    });
+
+    test('hasLabBand: true only when both bounds exist', () {
+      expect(hasLabBand(_m('HbA1c', '5.2', low: 4.0, high: 5.6)), isTrue);
+      expect(hasLabBand(_m('Intracellular NAD+', '41')), isFalse); // no bounds
+      expect(hasLabBand(_m('LDL', '140', high: 129)), isFalse); // one bound only
+      expect(hasLabBand(_m('X', '1', low: 1)), isFalse); // one bound only
+    });
+
+    test('markerInfoCopy: data-only, non-clinical lines', () {
+      final c = markerInfoCopy(_m('Intracellular NAD+', '41', unit: 'µM'), '2026-06-01');
+      expect(c.title, 'About Intracellular NAD+');
+      expect(c.latestLine, 'Latest: 41 µM on 2026-06-01');
+      expect(c.rangeLine, 'No lab range provided');
+      expect(c.sourceLine, 'Lab reference ranges come from the laboratory that ran your test.');
+      expect(c.careLine, 'Questions about your results go to your care team.');
+      // With a range:
+      final c2 = markerInfoCopy(_m('HbA1c', '5.2', unit: '%', low: 4.0, high: 5.6), '2026-06-01');
+      expect(c2.rangeLine, 'Lab range 4–5.6 %');
+    });
+  });
+
+  group('Biomarkers C1 hero', () {
+    testWidgets('trend chart renders with ≥2 readings', (tester) async {
+      await _pump(tester, reports: _reports());
+      expect(find.byKey(const Key('biomarker-trend-chart')), findsOneWidget);
+    });
+
+    testWidgets('baseline caption shows the first reading', (tester) async {
+      await _pump(tester, reports: _reports());
+      expect(find.text('Baseline: 26 µM · 2026-01-01'), findsOneWidget);
+    });
+
+    testWidgets('single result: first-result caption, one chart, no delta',
+        (tester) async {
+      final single = [
+        LabReport(
+          id: 'r1',
+          date: '2026-01-01',
+          title: 'Baseline',
+          summary: '',
+          markers: [_m('Intracellular NAD+', '26', unit: 'µM')],
+        ),
+      ];
+      await _pump(tester, reports: single);
+      expect(
+          find.text(
+              'First result · 2026-01-01. Your trend appears after your next test.'),
+          findsOneWidget);
+      expect(find.byKey(const Key('biomarker-trend-chart')), findsOneWidget);
+      expect(find.textContaining('→'), findsNothing);
+    });
+
+    testWidgets('(i) info button is ≥44×44 and opens/closes the explainer sheet',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, reports: _reports());
+      // A11y button exists with the data-only label.
+      expect(find.bySemanticsLabel('About Intracellular NAD+'), findsOneWidget);
+      final size = tester.getSize(find.byKey(const Key('marker-info-button')));
+      expect(size.width, greaterThanOrEqualTo(44));
+      expect(size.height, greaterThanOrEqualTo(44));
+
+      await tester.tap(find.byKey(const Key('marker-info-button')));
+      await tester.pumpAndSettle();
+      // Non-clinical, data-only copy.
+      expect(find.text('Latest: 41 µM on 2026-06-01'), findsOneWidget);
+      // "No lab range provided" appears twice: the hero caption and the sheet.
+      expect(find.text('No lab range provided'), findsNWidgets(2));
+      expect(
+          find.text('Lab reference ranges come from the laboratory that ran your test.'),
+          findsOneWidget);
+      expect(find.text('Questions about your results go to your care team.'),
+          findsOneWidget);
+
+      await tester.tap(find.bySemanticsLabel('Close'));
+      await tester.pumpAndSettle();
+      expect(find.text('Questions about your results go to your care team.'),
+          findsNothing);
+      handle.dispose();
+    });
+
+    testWidgets('chart has one text alternative listing every point', (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, reports: _reports());
+      expect(
+        find.bySemanticsLabel(RegExp(r'26 µM on 2026-01-01.*41 µM on 2026-06-01')),
+        findsOneWidget,
+      );
+      handle.dispose();
+    });
+
+    testWidgets('chart renders in dark mode', (tester) async {
+      await _pump(tester, b: Brightness.dark, reports: _reports());
+      expect(find.byKey(const Key('biomarker-trend-chart')), findsOneWidget);
+    });
   });
 
   group('Biomarkers screen', () {

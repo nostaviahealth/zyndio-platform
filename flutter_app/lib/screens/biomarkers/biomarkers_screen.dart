@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -87,6 +90,59 @@ String? trendDeltaText(List<MarkerReading> trend) {
   final arrow = diff > 0 ? '↑' : '↓';
   final mag = _trim(diff.abs());
   return '${trend.first.marker.value} → ${trend.last.marker.value}$u  ($arrow $mag)';
+}
+
+/// "Baseline: {v} · {date}" from the first reading, shown only with ≥2 readings.
+String? baselineCaptionText(List<MarkerReading> trend) {
+  if (trend.length < 2) return null;
+  final first = trend.first;
+  final unit = first.marker.unit.isEmpty ? '' : ' ${first.marker.unit}';
+  return 'Baseline: ${first.marker.value}$unit · ${first.date}';
+}
+
+/// Single-result caption, shown only when there is exactly one reading.
+String? firstResultCaptionText(List<MarkerReading> trend) {
+  if (trend.length != 1) return null;
+  return 'First result · ${trend.first.date}. Your trend appears after your next test.';
+}
+
+/// Whether a marker has BOTH lab bounds (drives the chart's reference band; a
+/// single bound shows no band — we never invent the missing bound).
+bool hasLabBand(LabMarker m) => m.minRange != null && m.maxRange != null;
+
+/// Short X-axis label from a yyyy-mm-dd report date ("2026-06-01" → "06-01").
+/// Falls back to the raw string so no value is ever invented.
+String shortDate(String raw) {
+  final m = RegExp(r'^\d{4}-(\d{2})-(\d{2})$').firstMatch(raw);
+  return m == null ? raw : '${m.group(1)}-${m.group(2)}';
+}
+
+/// Non-clinical, data-only copy for the (i) marker explainer sheet. No medical
+/// explanation of what the marker means and no advice — see QUESTIONS.md.
+class MarkerInfoCopy {
+  const MarkerInfoCopy({
+    required this.title,
+    required this.latestLine,
+    required this.rangeLine,
+    required this.sourceLine,
+    required this.careLine,
+  });
+  final String title;
+  final String latestLine;
+  final String rangeLine;
+  final String sourceLine;
+  final String careLine;
+}
+
+MarkerInfoCopy markerInfoCopy(LabMarker m, String latestDate) {
+  final unit = m.unit.isEmpty ? '' : ' ${m.unit}';
+  return MarkerInfoCopy(
+    title: 'About ${m.name}',
+    latestLine: 'Latest: ${m.value}$unit on $latestDate',
+    rangeLine: referenceBandText(m) ?? 'No lab range provided',
+    sourceLine: 'Lab reference ranges come from the laboratory that ran your test.',
+    careLine: 'Questions about your results go to your care team.',
+  );
 }
 
 /// A readable reference-band line, or null when no range is recorded.
@@ -286,98 +342,391 @@ class _BiomarkerHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = Theme.of(context).extension<ZyndioColors>()!;
     final m = view.hero!;
+    final trend = view.leadTrend;
     final caption = markerCaption(m);
     final band = referenceBandText(m);
-    final delta = trendDeltaText(view.leadTrend);
-    final altText = trendTextAlternative(m.name, view.leadTrend);
+    final delta = trendDeltaText(trend);
+    final altText = trendTextAlternative(m.name, trend);
+    final baseline = baselineCaptionText(trend);
+    final firstResult = firstResultCaptionText(trend);
+    final latestDate = trend.isEmpty ? '' : trend.last.date;
+    final hasChart = trend.any((r) => parseMarkerValue(r.marker.value) != null);
 
-    return Semantics(
-      container: true,
-      label: [
-        m.name,
-        '${m.value}${m.unit.isEmpty ? '' : ' ${m.unit}'}',
-        caption,
-        if (band != null) band,
-        altText,
-      ].join(', '),
-      child: ExcludeSemantics(
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: c.bgSurface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: c.borderSubtle),
-            boxShadow: ZyndioShadow.cardFor(Theme.of(context).brightness),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                m.name,
-                style: TextStyle(
-                  fontFamily: ZyndioType.family,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: c.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 6),
-              RichText(
-                text: TextSpan(
-                  text: m.value,
-                  style: TextStyle(
-                    fontFamily: ZyndioType.family,
-                    fontSize: 30,
-                    fontWeight: FontWeight.w700,
-                    color: c.textPrimary,
+    final readout = [
+      m.name,
+      '${m.value}${m.unit.isEmpty ? '' : ' ${m.unit}'}',
+      caption,
+      if (band != null) band,
+      if (delta != null) delta,
+      altText,
+      if (baseline != null) baseline,
+      if (firstResult != null) firstResult,
+    ].join(', ');
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: c.bgSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: c.borderSubtle),
+        boxShadow: ZyndioShadow.cardFor(Theme.of(context).brightness),
+      ),
+      child: Stack(
+        children: [
+          // Data readout: one text alternative for screen readers; the painted
+          // values and chart are decorative (ExcludeSemantics).
+          Semantics(
+            container: true,
+            label: readout,
+            child: ExcludeSemantics(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 44),
+                    child: Text(
+                      m.name,
+                      style: TextStyle(
+                        fontFamily: ZyndioType.family,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: c.textPrimary,
+                      ),
+                    ),
                   ),
-                  children: [
-                    if (m.unit.isNotEmpty)
-                      TextSpan(
-                        text: ' ${m.unit}',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: c.textSecondary,
+                  const SizedBox(height: 6),
+                  RichText(
+                    text: TextSpan(
+                      text: m.value,
+                      style: TextStyle(
+                        fontFamily: ZyndioType.family,
+                        fontSize: 30,
+                        fontWeight: FontWeight.w700,
+                        color: c.textPrimary,
+                      ),
+                      children: [
+                        if (m.unit.isNotEmpty)
+                          TextSpan(
+                            text: ' ${m.unit}',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: c.textSecondary,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    caption,
+                    style: TextStyle(
+                      fontFamily: ZyndioType.family,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: c.textSecondary,
+                    ),
+                  ),
+                  if (delta != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      delta,
+                      style: TextStyle(
+                        fontFamily: ZyndioType.family,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: context.z25.deltaNeutral, // neutral, never red/green
+                      ),
+                    ),
+                  ],
+                  if (hasChart) ...[
+                    const SizedBox(height: 12),
+                    _BiomarkerTrendChart(trend: trend, marker: m),
+                  ],
+                  if (band != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      band,
+                      style: TextStyle(
+                        fontFamily: ZyndioType.family,
+                        fontSize: 13,
+                        color: c.textTertiary,
+                      ),
+                    ),
+                  ],
+                  if (baseline != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      baseline,
+                      style: TextStyle(
+                        fontFamily: ZyndioType.family,
+                        fontSize: 13,
+                        color: c.textTertiary,
+                      ),
+                    ),
+                  ],
+                  if (firstResult != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      firstResult,
+                      style: TextStyle(
+                        fontFamily: ZyndioType.family,
+                        fontSize: 13,
+                        color: c.textTertiary,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            top: -6,
+            right: -6,
+            child: _MarkerInfoButton(marker: m, latestDate: latestDate),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// (i) explainer button: 18pt icon inside a 44×44 hit target.
+class _MarkerInfoButton extends StatelessWidget {
+  const _MarkerInfoButton({required this.marker, required this.latestDate});
+  final LabMarker marker;
+  final String latestDate;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    return Semantics(
+      button: true,
+      label: 'About ${marker.name}',
+      onTap: () => _open(context),
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _open(context),
+          child: SizedBox(
+            key: const Key('marker-info-button'),
+            width: 44,
+            height: 44,
+            child: Center(
+              child: Icon(LucideIcons.info, size: 18, color: c.textTertiary),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _open(BuildContext context) =>
+      showMarkerInfoSheet(context, marker: marker, latestDate: latestDate);
+}
+
+/// Modal bottom sheet (radius 20) with the data-only marker explainer copy.
+Future<void> showMarkerInfoSheet(
+  BuildContext context, {
+  required LabMarker marker,
+  required String latestDate,
+}) {
+  final copy = markerInfoCopy(marker, latestDate);
+  final c = Theme.of(context).extension<ZyndioColors>()!;
+  return showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: c.bgSurface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (ctx) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Text(
+                      copy.title,
+                      style: TextStyle(
+                        fontFamily: ZyndioType.family,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: c.textPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+                Semantics(
+                  button: true,
+                  label: 'Close',
+                  onTap: () => Navigator.of(ctx).pop(),
+                  child: ExcludeSemantics(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => Navigator.of(ctx).pop(),
+                      child: SizedBox(
+                        width: 44,
+                        height: 44,
+                        child: Center(
+                          child: Text(
+                            'Close',
+                            style: TextStyle(
+                              fontFamily: ZyndioType.family,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: context.z25.tabActive,
+                            ),
+                          ),
                         ),
                       ),
-                  ],
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
+              ],
+            ),
+            const SizedBox(height: 10),
+            for (final line in [copy.latestLine, copy.rangeLine, copy.sourceLine, copy.careLine]) ...[
               Text(
-                caption,
+                line,
                 style: TextStyle(
                   fontFamily: ZyndioType.family,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                  height: 1.45,
                   color: c.textSecondary,
                 ),
               ),
-              if (band != null) ...[
-                const SizedBox(height: 2),
-                Text(
-                  band,
-                  style: TextStyle(
-                    fontFamily: ZyndioType.family,
-                    fontSize: 13,
-                    color: c.textTertiary,
+              const SizedBox(height: 8),
+            ],
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// Z6 line chart: the lead marker's readings across reports. Decorative — the
+/// hero carries the text alternative, so the chart is excluded from semantics.
+class _BiomarkerTrendChart extends StatelessWidget {
+  const _BiomarkerTrendChart({required this.trend, required this.marker});
+  final List<MarkerReading> trend;
+  final LabMarker marker;
+
+  @override
+  Widget build(BuildContext context) {
+    final z = context.z25;
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+
+    final spots = <FlSpot>[];
+    final ys = <double>[];
+    for (var i = 0; i < trend.length; i++) {
+      final v = parseMarkerValue(trend[i].marker.value);
+      if (v != null) {
+        spots.add(FlSpot(i.toDouble(), v));
+        ys.add(v);
+      }
+    }
+    final band = hasLabBand(marker);
+    var minY = ys.isEmpty ? 0.0 : ys.reduce(math.min);
+    var maxY = ys.isEmpty ? 1.0 : ys.reduce(math.max);
+    if (band) {
+      minY = math.min(minY, marker.minRange!);
+      maxY = math.max(maxY, marker.maxRange!);
+    }
+    if (minY == maxY) {
+      minY -= 1;
+      maxY += 1;
+    }
+    final pad = (maxY - minY) * 0.15;
+    minY -= pad;
+    maxY += pad;
+    final maxX = trend.length <= 1 ? 1.0 : (trend.length - 1).toDouble();
+
+    return ExcludeSemantics(
+      child: SizedBox(
+        key: const Key('biomarker-trend-chart'),
+        height: 156,
+        width: double.infinity,
+        child: LineChart(
+          LineChartData(
+            minX: 0,
+            maxX: maxX,
+            minY: minY,
+            maxY: maxY,
+            gridData: const FlGridData(show: false),
+            borderData: FlBorderData(show: false),
+            lineTouchData: const LineTouchData(enabled: false),
+            rangeAnnotations: band
+                ? RangeAnnotations(horizontalRangeAnnotations: [
+                    HorizontalRangeAnnotation(
+                      y1: marker.minRange!,
+                      y2: marker.maxRange!,
+                      color: z.badgeActiveBg,
+                    ),
+                  ])
+                : const RangeAnnotations(),
+            titlesData: FlTitlesData(
+              show: true,
+              leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 24,
+                  interval: 1,
+                  getTitlesWidget: (value, meta) {
+                    final i = value.round();
+                    if (i < 0 || i >= trend.length) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        shortDate(trend[i].date),
+                        style: TextStyle(
+                          fontFamily: ZyndioType.family,
+                          fontSize: 11,
+                          color: c.textTertiary,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            lineBarsData: [
+              LineChartBarData(
+                spots: spots,
+                isCurved: false,
+                barWidth: 3,
+                isStrokeCapRound: true,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0B6FD6), Color(0xFF7444F0)],
+                ),
+                dotData: FlDotData(
+                  show: true,
+                  getDotPainter: (spot, pct, bar, index) => FlDotCirclePainter(
+                    radius: 5,
+                    color: c.bgSurface,
+                    strokeWidth: 2.5,
+                    strokeColor: const Color(0xFF3D5BF5),
                   ),
                 ),
-              ],
-              if (delta != null) ...[
-                const SizedBox(height: 10),
-                Text(
-                  delta,
-                  style: TextStyle(
-                    fontFamily: ZyndioType.family,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: context.z25.deltaNeutral, // neutral, never red/green
+                belowBarData: BarAreaData(
+                  show: true,
+                  gradient: const LinearGradient(
+                    colors: [Color(0x470B6FD6), Color(0x000B6FD6)], // 28% → 0
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
                   ),
                 ),
-              ],
+              ),
             ],
           ),
         ),
