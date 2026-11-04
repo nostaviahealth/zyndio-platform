@@ -51,12 +51,7 @@ insert into tc040_allow values
   ('public.redeem_clinic_link_code(text)',       'authenticated', 'flutter rpc'),
   ('public.unlink_patient_record()',             'authenticated', 'flutter rpc'),
   ('public.patient_leaderboard_top10()',         'authenticated', 'flutter rpc'),
-  -- create-patient edge function calls it with the CALLER's JWT client.
-  ('public.create_patient_record(uuid, text, text)', 'authenticated', 'create-patient edge fn (caller JWT)'),
-  -- Called inside SECURITY INVOKER rpcs above, so the caller needs EXECUTE.
-  ('public.physician_roster_base()',             'authenticated', 'callee of physician_patient_roster / chip_counts (invoker)'),
-  ('public.lab_report_held(uuid)',               'authenticated', 'callee of patient_trend / patient_latest_results (invoker)'),
-  ('public.write_audit_log(text, uuid, uuid, uuid, jsonb)', 'authenticated', 'callee of open_patient_detail (invoker)'),
+  -- Physician portal P0 (POR-03..06, PP-01).
   -- POR-05 ranges: web rpc (definer, _portal_gate) + invoker helpers of the lab read rpcs.
   ('public.list_range_sets()',                   'authenticated', 'web rpc'),
   ('public.get_range_set_items(uuid)',           'authenticated', 'web rpc'),
@@ -81,7 +76,13 @@ insert into tc040_allow values
   -- PP-01 plan and modules.
   ('public.get_org_plan()',                      'authenticated', 'web rpc'),
   ('public.list_org_plan_history()',             'authenticated', 'web rpc'),
-  ('public.set_org_plan(text, text[], text)',    'authenticated', 'web rpc');
+  ('public.set_org_plan(text, text[], text)',    'authenticated', 'web rpc'),
+  -- create-patient edge function calls it with the CALLER's JWT client.
+  ('public.create_patient_record(uuid, text, text)', 'authenticated', 'create-patient edge fn (caller JWT)'),
+  -- Called inside SECURITY INVOKER rpcs above, so the caller needs EXECUTE.
+  ('public.physician_roster_base()',             'authenticated', 'callee of physician_patient_roster / chip_counts (invoker)'),
+  ('public.lab_report_held(uuid)',               'authenticated', 'callee of patient_trend / patient_latest_results (invoker)'),
+  ('public.write_audit_log(text, uuid, uuid, uuid, jsonb)', 'authenticated', 'callee of open_patient_detail (invoker)');
 
 create temp view tc040_exec as
 select format('%I.%I(%s)', n.nspname, p.proname, oidvectortypes(p.proargtypes)) as fn, r.grantee

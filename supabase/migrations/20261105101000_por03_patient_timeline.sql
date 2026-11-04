@@ -15,7 +15,7 @@
 -- on occurred_at. Sources shipped here: labs, treatment, program. POR-04 adds
 -- 'visits'. wearable_daily / food_logs / companion escalations are not on main
 -- yet; their branches add a source the same way.
--- Tests: supabase/tests/751_por03_patient_timeline.sql.
+-- Tests: supabase/tests/771_por03_patient_timeline.sql.
 
 create type public.timeline_event as (
   occurred_at timestamptz,

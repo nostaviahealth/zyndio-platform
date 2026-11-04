@@ -16,7 +16,7 @@
 -- every active member of the clinic can read the current plan (the app gates
 -- module features on it). Each change writes an 'org_plan_changed' audit row.
 -- New clinics start on Core with no standard modules chosen.
--- Tests: supabase/tests/754_pp01_org_plan_modules.sql.
+-- Tests: supabase/tests/774_pp01_org_plan_modules.sql.
 
 create table public.plan_modules (
   module_key text primary key check (module_key ~ '^[a-z0-9_]{1,40}$'),

@@ -13,7 +13,7 @@
 --   * treatment is explicit columns only - never a dose.
 --   * one 'patient_record_exported' audit row per export: actor, patient,
 --     clinic, format and row counts.
--- Tests: supabase/tests/753_por06_patient_export.sql.
+-- Tests: supabase/tests/773_por06_patient_export.sql.
 
 create function public.export_patient_record(p_patient_id uuid, p_format text)
 returns jsonb

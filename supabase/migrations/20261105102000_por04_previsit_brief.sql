@@ -18,7 +18,7 @@
 --                        no_treatment
 --     Viewing a brief is audited like a detail open.
 --   * Visits also become a timeline source ('visits').
--- Tests: supabase/tests/752_por04_previsit_brief.sql.
+-- Tests: supabase/tests/772_por04_previsit_brief.sql.
 
 create table public.patient_visits (
   id uuid primary key default gen_random_uuid(),

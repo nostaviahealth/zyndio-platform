@@ -19,7 +19,7 @@
 -- it. Without an approved row the stored default range and status are used as
 -- before, and range_source = 'default' tells the portal to keep showing the
 -- default-range caveat. Approving a set refreshes the clinic's roster rollup.
--- Tests: supabase/tests/750_por05_lab_range_sets.sql.
+-- Tests: supabase/tests/770_por05_lab_range_sets.sql.
 
 -- ---------------------------------------------------------------------------
 -- Tables
