@@ -8,7 +8,7 @@ summary, and receive webhooks. PRD: INT-01, INT-02, INT-03 (plus PP-03 for the p
   `https://<project>.supabase.co/functions/v1/partner-api/v1`. Both paths route the same way.
 - **Implementation:** `supabase/functions/partner-api/` (HTTP layer),
   `supabase/functions/deliver-webhooks/` (delivery worker),
-  `supabase/migrations/20261104150000_int01_*` … `20261104150200_int02_*` (tables, RPCs, cron).
+  `supabase/migrations/20261104170000_int01_*` … `20261104170200_int02_*` (tables, RPCs, cron).
 - **Environments:** each API client is either **sandbox** (`zyc_test_…`) or **production**
   (`zyc_live_…`). Patients and webhook endpoints belong to the environment of the client that
   created them, so sandbox and production never see each other's data, even when they use the
@@ -135,7 +135,7 @@ refresh token). Send them as `Authorization: Bearer zyat_…`.
   "deactivated_at": null,
   "last_invited_at": "2026-11-04T15:00:00.000Z",
   "consents": [
-    { "consent_type": "data_sharing", "granted": true, "updated_at": "2026-11-04T15:10:00.000Z" }
+    { "consent_type": "health_data", "granted": true, "version": "0.1", "updated_at": "2026-11-04T15:10:00.000Z" }
   ],
   "connected_sources": []
 }
@@ -146,7 +146,7 @@ refresh token). Send them as `Authorization: Bearer zyat_…`.
 - `active`: has signed in at least once.
 - `deactivated`: deactivated through the API.
 
-`consents` holds the latest row per consent type. `connected_sources` stays empty until wearable
+`consents` holds the latest row per consent type (APP-02 versioned consents: a revoke shows as `granted: false`). `connected_sources` stays empty until wearable
 connections land.
 
 ### `POST /v1/patients` — enrol (`patients:write`)
@@ -158,7 +158,7 @@ connections land.
 `zyndio_patient_id` and `email` are required. Names can be 1–100 characters and `phone` must be E.164.
 This call does four things:
 - Creates the patient account in the API client's clinic.
-- Sends the Zyndio invite, a set-your-password link valid for 7 days.
+- Sends the Zyndio invite email. It carries no link or password: the patient opens the app and signs in with a one-time code emailed to that address (APP-01). Their first sign-in accepts the invite.
 - Fires `patient.enrolled`.
 - Returns `201` with the patient object.
 
@@ -179,11 +179,11 @@ Any of `given_name`, `family_name`, `phone` (`null` clears a field), `email`, an
 `"status": "deactivated"`. Fields you leave out are not changed.
 
 - `email` can only change **before** the patient's first sign-in. A fresh invite goes to the new
-  address and the old link stops working. After first sign-in it returns
+  address and the earlier invite is revoked. After first sign-in it returns
   `409 email_change_not_allowed`.
 - `"status": "deactivated"` does the following:
   - Ends the patient's sessions.
-  - Expires any invite link.
+  - Revokes any open invite.
   - Blocks sign-in.
   - Fires `patient.deactivated`.
 
@@ -192,10 +192,10 @@ Any of `given_name`, `family_name`, `phone` (`null` clears a field), `email`, an
 
 ### `POST /v1/patients/{zyndio_patient_id}/invites` (`patients:write`)
 
-Resends the invite. It replaces any earlier link. Returns `202`:
+Resends the invite email. Any earlier open invite is revoked. Returns `202`:
 
 ```json
-{ "object": "invite", "zyndio_patient_id": "zp-10042", "sent_at": "2026-11-04T15:00:00.000Z", "expires_at": "2026-11-11T15:00:00.000Z" }
+{ "object": "invite", "zyndio_patient_id": "zp-10042", "sent_at": "2026-11-04T15:00:00.000Z" }
 ```
 
 These errors can come back:
@@ -240,7 +240,7 @@ These errors can come back:
 | `patient.enrolled` | `POST /patients` succeeds | `zyndio_patient_id`, `status`, `enrolled_at` |
 | `patient.activated` | The patient's first sign-in | `zyndio_patient_id`, `activated_at` |
 | `patient.deactivated` | `PATCH … {"status":"deactivated"}` | `zyndio_patient_id`, `deactivated_at` |
-| `consent.updated` | Any consent row for the patient is created, changed or deleted | `zyndio_patient_id`, `consent_type`, `granted`, `change` (`created`/`updated`/`deleted`), `updated_at` |
+| `consent.updated` | Any consent row for the patient is created, changed (including revoked) or deleted | `zyndio_patient_id`, `consent_type`, `document`, `version`, `granted`, `revoked_at`, `change` (`created`/`updated`/`deleted`), `updated_at` |
 
 Events only fire for patients enrolled through this API, and only to endpoints in the same
 environment.
@@ -253,7 +253,7 @@ environment.
   "event_type": "consent.updated",
   "created_at": "2026-11-04T15:10:00.000Z",
   "schema_version": 1,
-  "data": { "zyndio_patient_id": "zp-10042", "consent_type": "data_sharing", "granted": true, "change": "created", "updated_at": "2026-11-04T15:10:00.000Z" }
+  "data": { "zyndio_patient_id": "zp-10042", "consent_type": "health_data", "document": "zyndio_health_data", "version": "0.1", "granted": true, "revoked_at": null, "change": "created", "updated_at": "2026-11-04T15:10:00.000Z" }
 }
 ```
 

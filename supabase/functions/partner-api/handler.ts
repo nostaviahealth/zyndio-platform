@@ -13,7 +13,7 @@
 //     server side (partner_resolve_patient feeds them to GoTrue calls only).
 //
 // All database work goes through the service-role partner_* RPCs
-// (20261104150100), which re-scope every call to the API client's org and
+// (20261104170100), which re-scope every call to the API client's org and
 // environment. Dependencies are injected so handler_test.ts can run it
 // without a live stack.
 import { ApiError, ErrorCode, errorBody } from './errors.ts'
@@ -47,7 +47,7 @@ export interface PartnerApiDeps {
   deleteAuthUser(userId: string): Promise<void>
   updateAuthEmail(userId: string, email: string): Promise<'ok' | 'email_unavailable' | 'internal'>
   banAuthUser(userId: string): Promise<boolean>
-  // 64 hex chars of CSPRNG output.
+  // 64 hex chars of CSPRNG output (access tokens).
   randomToken(): string
   requestId(): string
   log(message: string, detail?: unknown): void
@@ -197,11 +197,6 @@ export function createPartnerApiHandler(deps: PartnerApiDeps): (req: Request) =>
     return ctx.params.id as string
   }
 
-  async function newInvite(): Promise<{ token: string; hash: string }> {
-    const token = deps.randomToken()
-    return { token, hash: await sha256Hex(token) }
-  }
-
   async function page(
     ctx: Ctx,
     fn: string,
@@ -257,7 +252,6 @@ export function createPartnerApiHandler(deps: PartnerApiDeps): (req: Request) =>
       throw new ApiError('internal_error', 'An internal error occurred.')
     }
 
-    const invite = await newInvite()
     let data: unknown
     try {
       data = await rpc<unknown>('partner_enrol_patient', {
@@ -267,8 +261,6 @@ export function createPartnerApiHandler(deps: PartnerApiDeps): (req: Request) =>
         p_given_name: givenName,
         p_family_name: familyName,
         p_phone: phone,
-        p_invite_token: invite.token,
-        p_invite_token_hash: invite.hash,
       })
       throwIfRpcError(data, {
         patient_already_exists: ['patient_already_exists', 'A patient with this zyndio_patient_id is already enrolled.'],
@@ -335,13 +327,10 @@ export function createPartnerApiHandler(deps: PartnerApiDeps): (req: Request) =>
       }
       if (outcome !== 'ok') throw new ApiError('internal_error', 'An internal error occurred.')
       patch.email = true // recorded in the audit field list; the value lives in auth.users
-      // The previous invite link went to the old address: send a fresh one.
-      const invite = await newInvite()
+      // The previous invite went to the old address: send a fresh one.
       const sent = await rpc<unknown>('partner_send_invite', {
         p_api_client_id: ctx.principal.apiClientId,
         p_zyndio_patient_id: zyndioPatientId,
-        p_invite_token: invite.token,
-        p_invite_token_hash: invite.hash,
         p_bypass_throttle: true,
       })
       if ((sent as { error?: string } | null)?.error) deps.log('partner-api: re-invite after email change skipped', sent)
@@ -367,12 +356,9 @@ export function createPartnerApiHandler(deps: PartnerApiDeps): (req: Request) =>
 
   async function sendInvite(ctx: Ctx): Promise<Result> {
     rejectUnknownFields(ctx.body, [])
-    const invite = await newInvite()
     const data = await rpc<unknown>('partner_send_invite', {
       p_api_client_id: ctx.principal.apiClientId,
       p_zyndio_patient_id: patientId(ctx),
-      p_invite_token: invite.token,
-      p_invite_token_hash: invite.hash,
       p_bypass_throttle: false,
     })
     throwIfRpcError(data, {

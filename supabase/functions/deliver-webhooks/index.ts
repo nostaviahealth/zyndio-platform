@@ -1,6 +1,6 @@
 // INT-02 webhook delivery worker entrypoint. service_role only (same bearer
 // check as process-outbox); invoked every minute by pg_cron through pg_net
-// (_cron_kick_webhook_worker, 20261104150200) whenever a delivery is due.
+// (_cron_kick_webhook_worker, 20261104170200) whenever a delivery is due.
 // WEBHOOKS_ALLOW_LOCAL_RECEIVERS=true lets local dev deliver to
 // http://127.0.0.1 / localhost; never set it in a deployed environment.
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'

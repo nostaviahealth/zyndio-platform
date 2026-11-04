@@ -1,5 +1,5 @@
 // Input rules for the partner API. The database re-checks the same limits
-// (table checks in 20261104150000), these just give the partner a precise
+// (table checks in 20261104170000), these just give the partner a precise
 // 400 instead of a generic one.
 import { ApiError } from './errors.ts'
 import { MAX_EMAIL_LENGTH, isValidEmail, normalizeEmail } from '../_shared/validation.ts'

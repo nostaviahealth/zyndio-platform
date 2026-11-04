@@ -2,9 +2,9 @@ import { supabase } from './supabase';
 
 // PP-03: the org admin's Integrations page. Reads go straight to the tables
 // under RLS (org_admin + aal2 + own org, column grants that never include a
-// secret, hash or event payload - 20261104150000); every change goes through
+// secret, hash or event payload - 20261104170000); every change goes through
 // an integration_admin_* RPC that re-checks the same rule server side and
-// writes an audit row (20261104150100). Secrets come back exactly once, from
+// writes an audit row (20261104170100). Secrets come back exactly once, from
 // the create / rotate call, and are never stored client side.
 
 export type Environment = 'sandbox' | 'production';

@@ -1,4 +1,6 @@
 -- INT-01 / INT-02 / INT-03 / PP-03: functions for the partner API.
+-- Runs after APP-01 (20261104160000): enrolment invites go through its
+-- issue_patient_invite() / patient_invites, not a password link.
 --
 --   * internal helpers (_iso_utc, _integration_public_id, _emit_integration_event,
 --     _partner_patient_json, ...): no client grant, called only from the
@@ -160,6 +162,7 @@ as $$
       select jsonb_agg(jsonb_build_object(
                'consent_type', c.j ->> 'consent_type',
                'granted', c.j -> 'granted',
+               'version', c.j ->> 'version',
                'updated_at', public._iso_utc((c.j ->> 'updated_at')::timestamptz)
              ) order by c.j ->> 'consent_type')
         from (
@@ -176,13 +179,15 @@ as $$
   where l.id = p_link_id;
 $$;
 
--- New invite for a partner-enrolled patient: reuses the patient password-set
--- flow (patient_password_resets + patient-reset-password) with a 7-day expiry
--- and a 'password_reset' outbox row tagged purpose = 'patient_invite', so the
--- existing token redaction (emailStub.ts) and the 15-minute outbox scrub
--- (_scrub_stale_notification_outbox) cover it unchanged. Any earlier,
--- still-live link for this account is expired first.
-create function public._partner_issue_invite(p_link_id uuid, p_token text, p_token_hash text)
+-- New invite for a partner-enrolled patient through the one patient-invite
+-- path (APP-01, 20261104160000): issue_patient_invite() records it in
+-- patient_invites (revoking any earlier open invite) and the email is a
+-- credential-free 'patient_invite' outbox row - the same row
+-- _shared/patientInvite.ts sendPatientInvite() queues for create-patient. The
+-- patient then signs in with an emailed one-time code; their first sign-in
+-- accepts the invite. Done in SQL (not via the TS helper) so enrolment, link,
+-- invite and event commit or roll back together.
+create function public._partner_issue_invite(p_link_id uuid)
 returns jsonb
 language plpgsql
 security definer
@@ -190,26 +195,15 @@ set search_path = pg_catalog, public
 as $$
 declare
   v_link public.zyndio_patient_links%rowtype;
-  v_email text;
-  v_expires timestamptz := now() + interval '7 days';
+  v_invite jsonb;
 begin
-  if p_token is null or p_token_hash !~ '^[0-9a-f]{64}$' then
-    raise exception 'invalid invite token' using errcode = '22023';
-  end if;
-
   select * into v_link from public.zyndio_patient_links where id = p_link_id;
-  select email into v_email from auth.users where id = v_link.patient_id;
 
-  update public.patient_password_resets
-     set expires_at = now()
-   where user_id = v_link.patient_id and used_at is null and expires_at > now();
-
-  insert into public.patient_password_resets (user_id, token_hash, expires_at)
-    values (v_link.patient_id, p_token_hash, v_expires);
+  v_invite := public.issue_patient_invite(v_link.patient_id, null, 'api');
 
   insert into public.notification_outbox (user_id, org_id, type, payload)
-    values (v_link.patient_id, v_link.org_id, 'password_reset',
-            jsonb_build_object('email', v_email, 'token', p_token, 'purpose', 'patient_invite'));
+    values (v_link.patient_id, v_link.org_id, 'patient_invite',
+            jsonb_build_object('email', v_invite ->> 'email', 'invite_id', v_invite ->> 'invite_id'));
 
   update public.zyndio_patient_links
      set last_invited_at = now(), invite_count = invite_count + 1, updated_at = now()
@@ -218,8 +212,7 @@ begin
   return jsonb_build_object(
     'object', 'invite',
     'zyndio_patient_id', v_link.zyndio_patient_id,
-    'sent_at', public._iso_utc(now()),
-    'expires_at', public._iso_utc(v_expires)
+    'sent_at', public._iso_utc(now())
   );
 end;
 $$;
@@ -642,9 +635,7 @@ create function public.partner_enrol_patient(
   p_zyndio_patient_id text,
   p_given_name text,
   p_family_name text,
-  p_phone text,
-  p_invite_token text,
-  p_invite_token_hash text
+  p_phone text
 )
 returns jsonb
 language plpgsql
@@ -690,7 +681,7 @@ begin
     p_given_name, p_family_name, p_phone, p_api_client_id
   ) returning id into v_link_id;
 
-  perform public._partner_issue_invite(v_link_id, p_invite_token, p_invite_token_hash);
+  perform public._partner_issue_invite(v_link_id);
 
   perform public._emit_integration_event(v_client.org_id, v_client.environment, 'patient.enrolled',
     jsonb_build_object('zyndio_patient_id', p_zyndio_patient_id, 'status', 'invited',
@@ -714,8 +705,6 @@ $$;
 create function public.partner_send_invite(
   p_api_client_id uuid,
   p_zyndio_patient_id text,
-  p_invite_token text,
-  p_invite_token_hash text,
   p_bypass_throttle boolean default false
 )
 returns jsonb
@@ -740,7 +729,8 @@ begin
     return jsonb_build_object('error', 'patient_deactivated');
   end if;
   if v_link.activated_at is not null
-     or exists (select 1 from auth.users where id = v_link.patient_id and last_sign_in_at is not null) then
+     or exists (select 1 from auth.users where id = v_link.patient_id and last_sign_in_at is not null)
+     or exists (select 1 from public.patient_invites where patient_id = v_link.patient_id and accepted_at is not null) then
     return jsonb_build_object('error', 'patient_already_active');
   end if;
   if not coalesce(p_bypass_throttle, false)
@@ -749,7 +739,7 @@ begin
     return jsonb_build_object('error', 'rate_limited');
   end if;
 
-  v_result := public._partner_issue_invite(v_link.id, p_invite_token, p_invite_token_hash);
+  v_result := public._partner_issue_invite(v_link.id);
   perform public._audit_log_insert('partner_patient_invite_sent', null, v_link.patient_id, v_client.org_id,
     jsonb_build_object('api_client', v_client.client_id));
   return v_result;
@@ -759,8 +749,9 @@ $$;
 -- PATCH /v1/patients/{id}: contact fields (absent = unchanged, null = clear)
 -- and/or {"status": "deactivated"}. Email changes are applied to auth.users by
 -- the Edge Function before this runs. Deactivation is one-way via the API:
--- invite links expire, sessions end (force_sign_out), patient.deactivated
--- fires; the Edge Function then bans the auth user so they cannot sign in.
+-- the open invite is revoked, sessions end (force_sign_out), patient.deactivated
+-- fires; the Edge Function then bans the auth user, which also makes them
+-- ineligible for code sign-in (_patient_code_signin_eligible).
 create function public.partner_update_patient(
   p_api_client_id uuid,
   p_zyndio_patient_id text,
@@ -811,9 +802,9 @@ begin
     update public.zyndio_patient_links
        set deactivated_at = now(), updated_at = now()
      where id = v_link.id;
-    update public.patient_password_resets
-       set expires_at = now()
-     where user_id = v_link.patient_id and used_at is null and expires_at > now();
+    update public.patient_invites
+       set revoked_at = now()
+     where patient_id = v_link.patient_id and accepted_at is null and revoked_at is null;
     perform public.force_sign_out(v_link.patient_id);
     perform public._emit_integration_event(v_client.org_id, v_client.environment, 'patient.deactivated',
       jsonb_build_object('zyndio_patient_id', v_link.zyndio_patient_id,
@@ -1331,6 +1322,9 @@ begin
       'zyndio_patient_id', v_link.zyndio_patient_id,
       'consent_type', v_row ->> 'consent_type',
       'granted', case when TG_OP = 'DELETE' then 'false'::jsonb else coalesce(v_row -> 'granted', 'null'::jsonb) end,
+      'document', v_row ->> 'document',
+      'version', v_row ->> 'version',
+      'revoked_at', public._iso_utc((v_row ->> 'revoked_at')::timestamptz),
       'change', case TG_OP when 'INSERT' then 'created' when 'UPDATE' then 'updated' else 'deleted' end,
       'updated_at', public._iso_utc(coalesce((v_row ->> 'updated_at')::timestamptz, now()))
     ));
@@ -1360,7 +1354,7 @@ begin
     'public.integration_wearable_summary(uuid)',
     'public.integration_connected_sources(uuid)',
     'public._partner_patient_json(uuid)',
-    'public._partner_issue_invite(uuid, text, text)',
+    'public._partner_issue_invite(uuid)',
     'public._webhook_url_error(text, text)',
     'public._webhook_endpoint_json(uuid, boolean)',
     'public._webhook_endpoint_create(uuid, text, text, text, text[], uuid, uuid)',
@@ -1382,8 +1376,8 @@ begin
     'public.partner_resolve_patient(uuid, text)',
     'public.partner_get_patient(uuid, text)',
     'public.partner_list_patients(uuid, text, text, int)',
-    'public.partner_enrol_patient(uuid, uuid, text, text, text, text, text, text)',
-    'public.partner_send_invite(uuid, text, text, text, boolean)',
+    'public.partner_enrol_patient(uuid, uuid, text, text, text, text)',
+    'public.partner_send_invite(uuid, text, boolean)',
     'public.partner_update_patient(uuid, text, jsonb)',
     'public.partner_patient_summary(uuid, text)',
     'public.partner_list_webhook_endpoints(uuid, text, text, int)',

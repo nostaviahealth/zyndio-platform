@@ -72,7 +72,7 @@ select ok(not has_function_privilege(r, f, 'EXECUTE'), format('%s cannot execute
   from unnest(array[
     'public.partner_issue_token(text, text, text[], text)',
     'public.partner_authenticate(text)',
-    'public.partner_enrol_patient(uuid, uuid, text, text, text, text, text, text)',
+    'public.partner_enrol_patient(uuid, uuid, text, text, text, text)',
     'public.partner_get_patient(uuid, text)',
     'public.partner_patient_summary(uuid, text)',
     'public.webhook_claim_due(int)',
@@ -80,7 +80,7 @@ select ok(not has_function_privilege(r, f, 'EXECUTE'), format('%s cannot execute
     'public._emit_integration_event(uuid, text, text, jsonb)',
     'public._partner_patient_json(uuid)']) f,
        unnest(array['anon', 'authenticated']) r;
-select ok(has_function_privilege('service_role', 'public.partner_enrol_patient(uuid, uuid, text, text, text, text, text, text)', 'EXECUTE'),
+select ok(has_function_privilege('service_role', 'public.partner_enrol_patient(uuid, uuid, text, text, text, text)', 'EXECUTE'),
   'service_role can execute partner_enrol_patient');
 
 -- ---------------------------------------------------------------------------
@@ -238,7 +238,7 @@ select is(public.partner_rotate_webhook_secret('00000000-0000-0000-0000-00000076
 -- 6. Enrolment (INT-01) + patient.enrolled
 -- ---------------------------------------------------------------------------
 insert into int01_j select 'int01_enrol', public.partner_enrol_patient('00000000-0000-0000-0000-000000760c01', '00000000-0000-0000-0000-000000760a01',
-           'zp-fictional-001', 'Fictional', 'Person', '+15555550101', 'fictional-invite-token', repeat('f', 64));
+           'zp-fictional-001', 'Fictional', 'Person', '+15555550101');
 reset role;
 
 select is((select j ->> 'zyndio_patient_id' from (select j from int01_j where k = 'int01_enrol') int01_enrol), 'zp-fictional-001', 'enrol returns the patient object');
@@ -254,11 +254,14 @@ select is((select display_name from public.patients where id = '00000000-0000-00
   'Fictional Person', 'display name from given + family');
 select is((select proof_method from public.patient_record_links where app_user_id = '00000000-0000-0000-0000-000000760a01' and status = 'active'),
   'clinic_provisioned', 'active clinic_provisioned record link, as create_patient_record makes');
-select is((select expires_at - created_at from public.patient_password_resets where token_hash = repeat('f', 64)),
-  interval '7 days', 'invite link lives 7 days');
-select is((select payload ->> 'purpose' from public.notification_outbox
-            where user_id = '00000000-0000-0000-0000-000000760a01' and type = 'password_reset'),
-  'patient_invite', 'invite queued on the outbox (scrubbed like every password-set token)');
+select is((select source from public.patient_invites
+            where patient_id = '00000000-0000-0000-0000-000000760a01' and accepted_at is null and revoked_at is null),
+  'api', 'APP-01 invite recorded with source api');
+select is((select payload - 'invite_id' from public.notification_outbox
+            where user_id = '00000000-0000-0000-0000-000000760a01' and type = 'patient_invite'),
+  '{"email": "int01-patient-one@example.test"}'::jsonb, 'patient_invite email queued, carrying no credential');
+select is((select count(*)::int from public.patient_password_resets where user_id = '00000000-0000-0000-0000-000000760a01'), 0,
+  'no password link is issued (patients sign in with a code)');
 select is((select count(*)::int from public.webhook_events
             where event_type = 'patient.enrolled' and data ->> 'zyndio_patient_id' = 'zp-fictional-001'), 1,
   'patient.enrolled event recorded');
@@ -270,16 +273,16 @@ select is((select count(*)::int from public.audit_log where event_type = 'partne
 
 select tests.authenticate_as_service_role();
 select is(public.partner_enrol_patient('00000000-0000-0000-0000-000000760c01', '00000000-0000-0000-0000-000000760a02',
-           'zp-fictional-001', null, null, null, 't2', repeat('2', 64)) ->> 'error',
+           'zp-fictional-001', null, null, null) ->> 'error',
   'patient_already_exists', 'same zyndio_patient_id twice -> patient_already_exists');
 select is(public.partner_enrol_patient('00000000-0000-0000-0000-000000760c01', '00000000-0000-0000-0000-0000000a0002',
-           'zp-staff', null, null, null, 't3', repeat('3', 64)) ->> 'error',
+           'zp-staff', null, null, null) ->> 'error',
   'email_unavailable', 'a staff account can never become a partner patient');
 select is(public.partner_enrol_patient('00000000-0000-0000-0000-000000760c01', '00000000-0000-0000-0000-0000000a1001',
-           'zp-existing', null, null, null, 't4', repeat('4', 64)) ->> 'error',
+           'zp-existing', null, null, null) ->> 'error',
   'email_unavailable', 'an existing patient account is not re-bound');
 select is(public.partner_enrol_patient('00000000-0000-0000-0000-000000760c01', '00000000-0000-0000-0000-000000760a02',
-           'zp-bad-phone', null, null, '555-0102', 't5', repeat('5', 64)) ->> 'error',
+           'zp-bad-phone', null, null, '555-0102') ->> 'error',
   'invalid_request', 'non-E.164 phone refused by the table check');
 
 -- the same zyndio_patient_id may exist in production separately from sandbox
@@ -293,7 +296,7 @@ select is(public.partner_resolve_patient('00000000-0000-0000-0000-000000760c01',
   '00000000-0000-0000-0000-000000760a01', 'resolve gives the Edge Function the internal id (never sent to the partner)');
 
 select ok(public.partner_enrol_patient('00000000-0000-0000-0000-000000760c01', '00000000-0000-0000-0000-000000760a02',
-           'zp-fictional-002', 'Second', null, null, 't6', repeat('6', 64)) ? 'zyndio_patient_id', 'second enrolment');
+           'zp-fictional-002', 'Second', null, null) ? 'zyndio_patient_id', 'second enrolment');
 select is(jsonb_array_length(public.partner_list_patients('00000000-0000-0000-0000-000000760c01', null, null, 1)), 1,
   'list honours the limit');
 select is(public.partner_list_patients('00000000-0000-0000-0000-000000760c01',
@@ -313,16 +316,18 @@ select is(public.partner_issue_token('zyc_test_bbbbbbbbbbbbbbbbbbbbbbbb', encode
 -- ---------------------------------------------------------------------------
 -- 7. Invites
 -- ---------------------------------------------------------------------------
-select is(public.partner_send_invite('00000000-0000-0000-0000-000000760c01', 'zp-fictional-001', 'again', repeat('8', 64)) ->> 'error',
+select is(public.partner_send_invite('00000000-0000-0000-0000-000000760c01', 'zp-fictional-001') ->> 'error',
   'rate_limited', 'a second invite inside a minute is throttled');
-select is(public.partner_send_invite('00000000-0000-0000-0000-000000760c01', 'zp-fictional-001', 'again', repeat('8', 64), true) ->> 'object',
+select is(public.partner_send_invite('00000000-0000-0000-0000-000000760c01', 'zp-fictional-001', true) ->> 'object',
   'invite', 'bypass (after an email change) sends');
 reset role;
-select is((select count(*)::int from public.patient_password_resets
-            where user_id = '00000000-0000-0000-0000-000000760a01' and expires_at > now()), 1,
-  'only the newest invite link is live');
+select is((select count(*)::int from public.patient_invites
+            where patient_id = '00000000-0000-0000-0000-000000760a01' and accepted_at is null and revoked_at is null), 1,
+  'only the newest invite is open');
+select is((select count(*)::int from public.patient_invites where patient_id = '00000000-0000-0000-0000-000000760a01'), 2,
+  'the earlier invite is kept, revoked');
 select tests.authenticate_as_service_role();
-select is(public.partner_send_invite('00000000-0000-0000-0000-000000760c01', 'zp-unknown', 'x', repeat('8', 64)) ->> 'error',
+select is(public.partner_send_invite('00000000-0000-0000-0000-000000760c01', 'zp-unknown') ->> 'error',
   'not_found', 'unknown patient -> not_found');
 
 -- ---------------------------------------------------------------------------
@@ -333,7 +338,8 @@ insert into public.consents (id, org_id, patient_id, consent_type, granted) valu
   ('00000000-0000-0000-0000-000000760d01', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-000000760a01', 'data_sharing', true);
 select is((select data from public.webhook_events where event_type = 'consent.updated' order by created_at desc limit 1)
             - 'updated_at',
-  '{"zyndio_patient_id": "zp-fictional-001", "consent_type": "data_sharing", "granted": true, "change": "created"}'::jsonb,
+  '{"zyndio_patient_id": "zp-fictional-001", "consent_type": "data_sharing", "document": "data_sharing", "version": null,
+    "revoked_at": null, "granted": true, "change": "created"}'::jsonb,
   'consent insert -> consent.updated');
 select is((select count(*)::int from public.webhook_deliveries d join public.webhook_events e on e.id = d.event_id
             where e.event_type = 'consent.updated'), 3,
@@ -368,7 +374,7 @@ select is((select count(*)::int from public.webhook_events where event_type = 'p
 select tests.authenticate_as_service_role();
 select is(public.partner_get_patient('00000000-0000-0000-0000-000000760c01', 'zp-fictional-001') ->> 'status', 'active',
   'status active after first sign-in');
-select is(public.partner_send_invite('00000000-0000-0000-0000-000000760c01', 'zp-fictional-001', 'x', repeat('9', 64), true) ->> 'error',
+select is(public.partner_send_invite('00000000-0000-0000-0000-000000760c01', 'zp-fictional-001', true) ->> 'error',
   'patient_already_active', 'no invite once the patient has signed in');
 
 -- ---------------------------------------------------------------------------
@@ -395,11 +401,11 @@ select is((select count(*)::int from public.webhook_events where event_type = 'p
   'exactly one patient.deactivated event');
 select is((select count(*)::int from auth.sessions where user_id = '00000000-0000-0000-0000-000000760a02'), 0,
   'deactivation ends the patient''s sessions');
-select is((select count(*)::int from public.patient_password_resets
-            where user_id = '00000000-0000-0000-0000-000000760a02' and expires_at > now()), 0,
-  'deactivation kills the outstanding invite link');
+select is((select count(*)::int from public.patient_invites
+            where patient_id = '00000000-0000-0000-0000-000000760a02' and accepted_at is null and revoked_at is null), 0,
+  'deactivation revokes the open invite');
 select tests.authenticate_as_service_role();
-select is(public.partner_send_invite('00000000-0000-0000-0000-000000760c01', 'zp-fictional-002', 'x', repeat('9', 64), true) ->> 'error',
+select is(public.partner_send_invite('00000000-0000-0000-0000-000000760c01', 'zp-fictional-002', true) ->> 'error',
   'patient_deactivated', 'no invite for a deactivated patient');
 
 -- ---------------------------------------------------------------------------

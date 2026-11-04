@@ -152,7 +152,7 @@ class Fake {
         const p = this.patients.get(args.p_zyndio_patient_id as string)
         if (!p) return ok({ error: 'not_found' })
         p.invites++
-        return ok({ object: 'invite', zyndio_patient_id: p.zpid, sent_at: '2026-11-04T10:00:00.000Z', expires_at: '2026-11-11T10:00:00.000Z' })
+        return ok({ object: 'invite', zyndio_patient_id: p.zpid, sent_at: '2026-11-04T10:00:00.000Z' })
       }
       case 'partner_update_patient': {
         const p = this.patients.get(args.p_zyndio_patient_id as string)
@@ -407,8 +407,9 @@ Deno.test('POST /patients enrols, sends the invite, and never returns the intern
   assertEquals(body.status, 'invited')
 
   const enrol = fake.calls.find((c) => c.fn === 'partner_enrol_patient')!
-  assertEquals(enrol.args.p_invite_token_hash, await sha256Hex(enrol.args.p_invite_token as string))
   assertEquals(enrol.args.p_phone, '+15555550101')
+  // APP-01 invite: no credential travels with the invite (code sign-in)
+  assertFalse(Object.keys(enrol.args).some((k) => k.includes('token')))
 })
 
 Deno.test('Idempotency-Key: required on POST, replay returns the original, different body is 422', async () => {
