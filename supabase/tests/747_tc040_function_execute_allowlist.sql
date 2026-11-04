@@ -56,7 +56,13 @@ insert into tc040_allow values
   -- Called inside SECURITY INVOKER rpcs above, so the caller needs EXECUTE.
   ('public.physician_roster_base()',             'authenticated', 'callee of physician_patient_roster / chip_counts (invoker)'),
   ('public.lab_report_held(uuid)',               'authenticated', 'callee of patient_trend / patient_latest_results (invoker)'),
-  ('public.write_audit_log(text, uuid, uuid, uuid, jsonb)', 'authenticated', 'callee of open_patient_detail (invoker)');
+  ('public.write_audit_log(text, uuid, uuid, uuid, jsonb)', 'authenticated', 'callee of open_patient_detail (invoker)'),
+  -- P1 Clinical & Governance RPCs (APP-03, POR-07, POR-08, INT-04).
+  ('public.set_partner_outcome_authorisation(boolean, text, text)', 'authenticated', 'flutter rpc (APP-03)'),
+  ('public.is_partner_outcome_authorised(uuid)', 'authenticated', 'outcome compute & delivery gate (APP-03)'),
+  ('public.record_patient_treatment_event(uuid, text, text, text, numeric, text, text, text, timestamp with time zone, text)', 'authenticated', 'web rpc (POR-07 / INT-04)'),
+  ('public.get_patient_treatment_context(uuid)', 'authenticated', 'web rpc (POR-07 / INT-04)'),
+  ('public.list_org_audit_log(integer, text)',   'authenticated', 'web rpc (POR-08)');
 
 create temp view tc040_exec as
 select format('%I.%I(%s)', n.nspname, p.proname, oidvectortypes(p.proargtypes)) as fn, r.grantee
