@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import type { AnalyteMapRow } from '../../supabase/functions/_shared/labNormalize.ts';
 
 export const LAB_PIPELINE_MIGRATION = fileURLToPath(
-  new URL('../../supabase/migrations/20261104130000_app05_lab_pipeline.sql', import.meta.url),
+  new URL('../../supabase/migrations/20261105130000_app05_lab_pipeline.sql', import.meta.url),
 );
 
 export interface SeededAnalyte extends AnalyteMapRow {

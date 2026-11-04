@@ -1,5 +1,5 @@
 -- ---------------------------------------------------------------------------
--- APP-05: the lab pipeline schema (20261104130000_app05_lab_pipeline.sql).
+-- APP-05: the lab pipeline schema (20261105130000_app05_lab_pipeline.sql).
 --   * lab_analyte_loinc: the reviewed starting codes; readable by signed-in
 --     users only; no client writes; one alias can't map to two analytes.
 --   * lab_reports.file_sha256: one report per file per patient (dedupe), hex

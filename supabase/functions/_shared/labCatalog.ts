@@ -6,7 +6,7 @@
 //
 // The analyte -> LOINC mapping itself is NOT decided here: it lives in the
 // reviewed table public.lab_analyte_loinc (migration
-// 20261104130000_app05_lab_pipeline.sql), which the function reads at run
+// 20261105130000_app05_lab_pipeline.sql), which the function reads at run
 // time. tests/lab-pipeline/catalog-drift.test.ts fails if the two drift
 // (every key and LOINC here must be in the migration's seed and vice versa).
 //
