@@ -10,6 +10,8 @@
 /// "View Full Biomarker Report".
 library;
 
+import 'lab_range_wording.dart';
+
 enum BiomarkerSegment { nad, metabolic, hormones, inflammation }
 
 extension BiomarkerSegmentLabel on BiomarkerSegment {
@@ -88,21 +90,22 @@ String biomarkerRangeCaption({
   required double? high,
   String status = '',
 }) {
+  // APP-06: one bounded caption for any out-of-range value, above or below.
+  // It never names a condition or a direction of concern; see
+  // lib/config/lab_range_wording.dart.
   if (value != null) {
-    if (high != null && value > high) return 'Above lab range';
-    if (low != null && value < low) return 'Below lab range';
-    if (low != null || high != null) return 'Within lab range';
+    if (high != null && value > high) return kOutsideClinicRange;
+    if (low != null && value < low) return kOutsideClinicRange;
+    if (low != null || high != null) return kWithinClinicRange;
   }
   switch (status.toLowerCase().trim()) {
     case 'high':
-      return 'Above lab range';
     case 'low':
-      return 'Below lab range';
     case 'outlier':
     case 'abnormal':
     case 'critical':
-      return 'Outside lab range';
+      return kOutsideClinicRange;
   }
-  if (low == null && high == null) return 'No lab range provided';
-  return 'Within lab range';
+  if (low == null && high == null) return kNoRangeProvided;
+  return kWithinClinicRange;
 }

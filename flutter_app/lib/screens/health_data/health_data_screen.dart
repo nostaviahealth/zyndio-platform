@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../config/lab_range_wording.dart';
 import '../../config/theme.dart';
 import '../../providers/lab_analysis_provider.dart';
 import '../../providers/lab_reports_provider.dart';
@@ -911,7 +912,6 @@ class _HealthDataScreenState extends ConsumerState<HealthDataScreen> {
     final normal = allAggregatedMarkers.where((m) => m.isInRange).length;
     final outliers = allAggregatedMarkers.where((m) => m.isOutlier).length;
     final total = allAggregatedMarkers.length;
-    final isHealthy = optimal > total / 2;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
@@ -920,6 +920,8 @@ class _HealthDataScreenState extends ConsumerState<HealthDataScreen> {
         children: [
           _buildPanelHeaderSummaryCard(),
           if (widget.reportType != 'Blood') const SizedBox(height: 16),
+          const DefaultRangesCaveat(),
+          const SizedBox(height: 12),
           // ── Hero: Biomarker Health Card ──
           Container(
             width: double.infinity,
@@ -932,7 +934,8 @@ class _HealthDataScreenState extends ConsumerState<HealthDataScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      isHealthy ? 'Optimal' : 'Needs Focus',
+                      // APP-06: a neutral title, never a grade of the patient.
+                      'Your results',
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w900,
@@ -974,7 +977,9 @@ class _HealthDataScreenState extends ConsumerState<HealthDataScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  "Your biomarker profile is ${isHealthy ? 'optimal' : 'improving'}. $optimal out of $total markers are in the ideal range.",
+                  outliers == 0
+                      ? '${total - outliers} of $total markers are within range.'
+                      : '${total - outliers} of $total markers are within range. $outliers ${outliers == 1 ? 'is' : 'are'} outside your clinic\'s range: discuss ${outliers == 1 ? 'it' : 'them'} with your care team.',
                   style: TextStyle(
                     fontSize: 15,
                     color: context.nc.textSecondary,
@@ -1001,7 +1006,7 @@ class _HealthDataScreenState extends ConsumerState<HealthDataScreen> {
                     ),
                     const SizedBox(width: 12),
                     StatPill(
-                      label: 'OUTLIERS',
+                      label: 'OUTSIDE RANGE',
                       count: outliers,
                       color: const Color(0xFFEF4444),
                       bg: const Color(0xFFEF4444).withValues(alpha: 0.1),
@@ -1018,9 +1023,9 @@ class _HealthDataScreenState extends ConsumerState<HealthDataScreen> {
                 Container(height: 1, color: context.nc.divider),
                 const SizedBox(height: 16),
 
-                // Summary text
+                // Summary text (APP-06: data only, no grade and no advice)
                 Text(
-                  "Latest report analyzed on ${activeReport.date}. Your aggregated biomarker profile looks ${isHealthy ? 'strong' : 'fair'}. Keep fasts during the window for better metabolic flexibility.",
+                  'Latest report: ${activeReport.date}.',
                   style: TextStyle(
                     fontSize: 14,
                     color: context.nc.textSecondary,
