@@ -46,6 +46,10 @@ insert into tc040_allow values
   ('public.open_patient_detail(uuid)',           'authenticated', 'web rpc'),
   ('public.patient_trend(uuid, text, text)',     'authenticated', 'web rpc'),
   ('public.patient_latest_results(uuid)',        'authenticated', 'web rpc'),
+  ('public.list_outcomes_review_queue()',        'authenticated', 'web rpc (POR-09)'),
+  ('public.review_outcome_record(text, text, text, boolean, text)', 'authenticated', 'web rpc (POR-09)'),
+  ('public.list_unmatched_partner_scans()',      'authenticated', 'web rpc (POR-10)'),
+  ('public.bind_unmatched_partner_scan(uuid, uuid)', 'authenticated', 'web rpc (POR-10)'),
   -- Flutter (apps/mobile) .rpc( call sites.
   ('public.redeem_telehealth_link_code(text)',   'authenticated', 'flutter rpc'),
   ('public.redeem_clinic_link_code(text)',       'authenticated', 'flutter rpc'),
