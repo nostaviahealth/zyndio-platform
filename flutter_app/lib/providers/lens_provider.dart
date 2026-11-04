@@ -482,7 +482,8 @@ class LensScanNotifier extends Notifier<LensScanState> {
     if (client == null || userId == null) return null;
 
     try {
-      final fileExt = p.extension(image.path);
+      // food-images accepts only lowercase image extensions (APP-08 policy).
+      final fileExt = p.extension(image.path).toLowerCase();
       final fileName = '${DateTime.now().millisecondsSinceEpoch}$fileExt';
       final filePath = '$userId/$fileName';
       await client.storage.from('food-images').upload(filePath, image);
@@ -503,7 +504,7 @@ class LensScanNotifier extends Notifier<LensScanState> {
 
     try {
       final payload = {
-        'user_id': userId,
+        'patient_id': userId,
         'image_path': filePath,
         'analysis_json': analysis.toJson(),
         'meal_type': 'MEAL',

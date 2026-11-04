@@ -1,7 +1,6 @@
 import Flutter
 import UIKit
 import HealthKit
-import FBSDKCoreKit
 import Firebase
 import FirebaseMessaging
 import UserNotifications
@@ -33,13 +32,6 @@ import UserNotifications
     application.registerForRemoteNotifications()
     Messaging.messaging().delegate = self
 
-    // ── Force Facebook SDK initialization BEFORE Flutter ──────────────────
-    // SDK v18 ignores Info.plist and reads ATT status directly.
-    // We must initialize natively to ensure advertiser ID collection is enabled.
-    Settings.shared.isAdvertiserIDCollectionEnabled = true
-    Settings.shared.isAutoLogAppEventsEnabled = true
-    ApplicationDelegate.shared.application(application, didFinishLaunchingWithOptions: launchOptions)
-    
     GeneratedPluginRegistrant.register(with: self)
 
     guard let registrar = self.registrar(forPlugin: "com.zyndio.HealthChannels") else {

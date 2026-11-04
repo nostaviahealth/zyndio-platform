@@ -49,7 +49,6 @@ import '../screens/settings/nutrition_goals_screen.dart';
 import '../screens/settings/ai_memories_screen.dart';
 import '../screens/home/cycle_tracking_screen.dart';
 import '../services/ai_consent_service.dart';
-import '../services/analytics_service.dart';
 import '../screens/shop/shop_home_screen.dart';
 import '../screens/shop/shop_product_list_screen.dart';
 import '../screens/shop/shop_product_detail_screen.dart';
@@ -91,10 +90,6 @@ final routerProvider = Provider<GoRouter>((ref) {
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/',
     debugLogDiagnostics: true,
-    observers: [
-      if (AnalyticsService().observer != null)
-        AnalyticsService().observer!,
-    ],
     redirect: (context, state) {
       // TC-025 legacy-path + patient-extras redirects (A3/A4).
       final tc = tc025Redirect(state.matchedLocation,

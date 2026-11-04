@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
-import 'analytics_service.dart';
 
 class RevenueCatService {
   static const iosApiKey = String.fromEnvironment('REVENUECAT_IOS_KEY');
@@ -92,13 +91,6 @@ class RevenueCatService {
       
       if (hasPlus) {
         debugPrint('✅ RevenueCat: Entitlement "$entitlementPlus" is ACTIVE');
-        // Log to Firebase Analytics
-        await AnalyticsService().logPurchase(
-          productId: package.storeProduct.identifier,
-          price: package.storeProduct.price,
-          currency: package.storeProduct.currencyCode,
-        );
-        await AnalyticsService().setUserIsPlus(true);
       } else {
         debugPrint('⚠️ RevenueCat: Purchase returned BUT entitlement "$entitlementPlus" NOT found in active entitlements.');
         debugPrint('🛒 RevenueCat: Active Entitlements: ${customerInfo.entitlements.active.keys.toList()}');

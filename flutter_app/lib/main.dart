@@ -10,7 +10,6 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'config/supabase_config.dart';
 import 'services/revenue_cat_service.dart';
 import 'services/user_habit_service.dart';
-import 'services/analytics_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:platform_wearables/platform_wearables.dart';
@@ -24,7 +23,6 @@ void main() async {
     // Initialize Firebase
     try {
       await Firebase.initializeApp();
-      await AnalyticsService().initialize();
     } catch (e) {
       debugPrint('⚠️ Firebase init failed: $e');
     }

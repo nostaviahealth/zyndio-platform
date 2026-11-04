@@ -47,7 +47,7 @@ class CorrelationEngine {
           final response = await client
               .from('food_logs')
               .select()
-              .eq('user_id', userId)
+              .eq('patient_id', userId)
               .gte('logged_at', fourteenDaysAgo.toIso8601String());
           foodLogs = (response as List).cast<Map<String, dynamic>>();
         } catch (e) {
@@ -262,7 +262,7 @@ class CorrelationEngine {
             final response = await client
                 .from('food_logs')
                 .select()
-                .eq('user_id', userId)
+                .eq('patient_id', userId)
                 .gte('logged_at', sevenDaysAgo.toIso8601String())
                 .order('logged_at', ascending: false);
             recentFoodLogs = (response as List).cast<Map<String, dynamic>>();

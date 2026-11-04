@@ -21,7 +21,7 @@ class FoodContextService {
       final response = await client
           .from('food_logs')
           .select()
-          .eq('user_id', userId)
+          .eq('patient_id', userId)
           .gte('logged_at', sevenDaysAgo.toIso8601String())
           .order('logged_at', ascending: false);
 

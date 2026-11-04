@@ -25,6 +25,15 @@ void _onNotificationActionBackground(NotificationResponse details) {
   // Background actions are handled natively — this is the Flutter-side hook
 }
 
+/// APP-10: the only text a notification ever shows on the lock screen or in a
+/// banner. Callers still describe the event in `title`/`body`, but that text
+/// can carry health details (heart rate, AI coaching, lab results), so it is
+/// never displayed; the patient reads it in the app after signing in.
+@visibleForTesting
+const kNotificationTitle = 'Zyndio';
+@visibleForTesting
+const kNotificationBody = 'You have a new update in the Zyndio app.';
+
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
@@ -209,11 +218,10 @@ class NotificationService {
 
       // Foreground messages
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        debugPrint('Got a message whilst in the foreground!');
-        debugPrint('Message data: ${message.data}');
+        // No message data or text in logs: it may carry health details.
+        debugPrint('Got a message whilst in the foreground: ${message.messageId}');
 
         if (message.notification != null) {
-          debugPrint('Message also contained a notification: ${message.notification?.title}');
           showLocalNotification(
             id: message.hashCode,
             title: message.notification?.title ?? 'Notification',
@@ -342,7 +350,8 @@ class NotificationService {
     }
   }
 
-  /// Show a local notification immediately
+  /// Show a local notification immediately. `title` and `body` are never
+  /// displayed; see [kNotificationBody].
   Future<void> showLocalNotification({
     required int id,
     required String title,
@@ -376,14 +385,15 @@ class NotificationService {
     
     await _localNotifications.show(
       id,
-      title,
-      body,
+      kNotificationTitle,
+      kNotificationBody,
       platformChannelSpecifics,
       payload: payload,
     );
   }
 
-  /// Schedule a local notification at an exact DateTime with optional category
+  /// Schedule a local notification at an exact DateTime with optional category.
+  /// `title` and `body` are never displayed; see [kNotificationBody].
   Future<void> scheduleNotification({
     required int id,
     required String title,
@@ -423,8 +433,8 @@ class NotificationService {
     try {
       await _localNotifications.zonedSchedule(
         id,
-        title,
-        body,
+        kNotificationTitle,
+        kNotificationBody,
         tz.TZDateTime.from(scheduledDate, tz.local),
         platformChannelSpecifics,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -436,8 +446,8 @@ class NotificationService {
       // Fallback for Android 13/14+ if SCHEDULE_EXACT_ALARM permission is missing
       await _localNotifications.zonedSchedule(
         id,
-        title,
-        body,
+        kNotificationTitle,
+        kNotificationBody,
         tz.TZDateTime.from(scheduledDate, tz.local),
         platformChannelSpecifics,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,

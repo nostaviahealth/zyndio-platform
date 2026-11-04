@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- Internet permissions for Supabase -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
@@ -9,7 +10,8 @@
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
+    <!-- No advertising ID: no ad or analytics SDKs (PRD security controls). -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove"/>
 
     <!-- Health Connect Permissions - Comprehensive Coverage for All Android Devices -->
     <uses-permission android:name="android.permission.health.READ_STEPS"/>
@@ -136,12 +138,6 @@
             android:name="flutterEmbedding"
             android:value="2" />
         
-        <meta-data 
-            android:name="com.facebook.sdk.ApplicationId" 
-            android:value="@string/facebook_app_id"/>
-        <meta-data 
-            android:name="com.facebook.sdk.ClientToken" 
-            android:value="@string/facebook_client_token"/>
 
         <!-- Set default notification channel for background FCM delivery -->
         <meta-data
