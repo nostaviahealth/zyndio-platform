@@ -199,6 +199,9 @@ jobs:
       - name: Deno unit tests (RevenueCat webhook auth, TC-026)
         run: deno test --frozen --config supabase/functions/deno.json supabase/functions/handle-revenuecat-webhook
 
+      - name: Deno unit tests (partner API + webhook delivery, INT-01/02/03)
+        run: deno test --frozen --config supabase/functions/deno.json supabase/functions/partner-api supabase/functions/deliver-webhooks
+
       - uses: supabase/setup-cli@v1
         with:
           version: 2.122.0
