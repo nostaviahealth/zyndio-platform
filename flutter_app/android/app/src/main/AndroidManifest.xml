@@ -31,6 +31,11 @@
     <uses-permission android:name="android.permission.health.READ_WEIGHT"/>
     <uses-permission android:name="android.permission.health.READ_HEIGHT"/>
     <uses-permission android:name="android.permission.health.READ_EXERCISE_ROUTE"/>
+    <!-- APP-07: wearable_daily upload - blood pressure, and the 90-day
+         backfill (Health Connect only returns data older than 30 days before
+         the first grant with READ_HEALTH_DATA_HISTORY). -->
+    <uses-permission android:name="android.permission.health.READ_BLOOD_PRESSURE"/>
+    <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY"/>
 
     <application
         android:label="Zyndio"
