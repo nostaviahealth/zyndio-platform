@@ -46,6 +46,12 @@ insert into tc040_allow values
   ('public.open_patient_detail(uuid)',           'authenticated', 'web rpc'),
   ('public.patient_trend(uuid, text, text)',     'authenticated', 'web rpc'),
   ('public.patient_latest_results(uuid)',        'authenticated', 'web rpc'),
+  -- PP-03 Integrations page (lib/integrationsApi.ts); org_admin + aal2 re-checked inside.
+  ('public.integration_admin_create_api_client(text, text, text[])',        'authenticated', 'web rpc (PP-03)'),
+  ('public.integration_admin_revoke_api_client(uuid)',                      'authenticated', 'web rpc (PP-03)'),
+  ('public.integration_admin_create_webhook_endpoint(text, text, text, text[])', 'authenticated', 'web rpc (PP-03)'),
+  ('public.integration_admin_rotate_webhook_secret(uuid)',                  'authenticated', 'web rpc (PP-03)'),
+  ('public.integration_admin_disable_webhook_endpoint(uuid)',               'authenticated', 'web rpc (PP-03)'),
   -- Flutter (apps/mobile) .rpc( call sites.
   ('public.redeem_telehealth_link_code(text)',   'authenticated', 'flutter rpc'),
   ('public.redeem_clinic_link_code(text)',       'authenticated', 'flutter rpc'),
