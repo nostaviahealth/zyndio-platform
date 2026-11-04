@@ -1,4 +1,4 @@
-// TC-039 (TC-034 item 46): the lab-report ANALYSIS and DELETE paths print
+// TC-039 (TC-034 item 46) / APP-05: the lab-report SUBMIT (analysis) and DELETE paths print
 // nothing - no backend / AI-proxy error text, stack trace or file name in
 // device logs - and the user sees a fixed error message instead of the
 // exception's text. TC-034 item 45: "no-log" here means NOTHING is printed,
@@ -95,30 +95,17 @@ void main() {
       expect(printed, isEmpty, reason: printed.join('\n'));
     });
 
-    test('analyzeLabReport: every chunk fails -> null, nothing printed',
-        () async {
-      final b = _FailingBackend();
-      final printed = <String>[];
-      final result = await _capture(
-          printed,
-          b,
-          () => HealthDataRepository.analyzeLabReport(
-                filePath: image.path,
-                fileName: 'Fictional Person CBC.png',
-                profileId: _patientId,
-              ));
-      expect(result, isNull);
-      expect(printed, isEmpty, reason: printed.join('\n'));
-    });
-
-    test('analyzeLabReportWithProgress: failure is re-thrown, nothing printed',
+    // APP-05: the on-device extraction (analyzeLabReport /
+    // analyzeLabReportWithProgress) was removed - reports are read on the
+    // server now. The same guarantee holds for the path that replaced them.
+    test('submitLabReport: every request fails -> fixed error, nothing printed',
         () async {
       final b = _FailingBackend();
       final printed = <String>[];
       Object? error;
       await _capture(printed, b, () async {
         try {
-          await HealthDataRepository.analyzeLabReportWithProgress(
+          await HealthDataRepository.submitLabReport(
             filePath: image.path,
             fileName: 'Fictional Person CBC.png',
             profileId: _patientId,
@@ -127,7 +114,8 @@ void main() {
           error = e;
         }
       });
-      expect(error, isNotNull);
+      expect(error, isA<StateError>());
+      expect(error.toString(), isNot(contains('internal_secret')));
       expect(printed, isEmpty, reason: printed.join('\n'));
     });
 

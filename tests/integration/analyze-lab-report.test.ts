@@ -8,6 +8,12 @@
 // with the raw exception text. This suite fails on that code (no 401/403,
 // 500 with error text where a clean 4xx/501 is expected).
 //
+// APP-05: the report's own patient may now call it (the app's upload flow);
+// another patient gets 404 (same as a missing report). The CI stack runs with
+// the AI extractor OFF (LAB_AI_EXTRACTION_ENABLED unset), so a real file
+// still answers 501 and nothing is filed; filing itself is replayed through
+// lab_pipeline_file_results below.
+//
 // It also replays tests/contracts/analyze-lab-report.json (the requests the
 // handler makes, pinned on the Deno side by
 // supabase/functions/_shared/analyzeLabReport_test.ts) against real
@@ -79,6 +85,7 @@ describe.skipIf(!integrationEnvReady)('analyze-lab-report Edge Function (TC-039)
   let orgId: string;
   let patient: { userId: string; email: string; password: string };
   let patientToken: string;
+  let otherPatientToken: string;
   let pdfPath: string;
   let withFile: string;
   let withMissingFile: string;
@@ -91,6 +98,9 @@ describe.skipIf(!integrationEnvReady)('analyze-lab-report Edge Function (TC-039)
     patient = await seedLinkedPatient(orgId, 'analyze');
     cleanup.push(patient.userId);
     patientToken = (await signIn(patient.email, patient.password)).access_token!;
+    const other = await seedLinkedPatient(orgId, 'analyze-other');
+    cleanup.push(other.userId);
+    otherPatientToken = (await signIn(other.email, other.password)).access_token!;
 
     pdfPath = `${patient.userId}/${crypto.randomUUID()}.pdf`;
     const up = await service(`/storage/v1/object/lab-reports/${pdfPath}`, {
@@ -111,7 +121,7 @@ describe.skipIf(!integrationEnvReady)('analyze-lab-report Edge Function (TC-039)
 
   const payload = (id: string) => ({ type: 'INSERT', table: 'lab_reports', record: { id } });
 
-  it('rejects a caller without a token (401) and a signed-in patient (403)', async () => {
+  it('rejects a caller without a token (401); the owner patient gets 501 (extractor off), another patient 404; nothing changes', async () => {
     const anon = await callFn(FN, SUPABASE_ANON_KEY!, payload(withFile));
     const anonText = await anon.text();
     // 403 for a legacy anon JWT (valid signature, wrong role); 401 for a
@@ -124,10 +134,16 @@ describe.skipIf(!integrationEnvReady)('analyze-lab-report Edge Function (TC-039)
       body: JSON.stringify(payload(withFile)),
     });
     expect(noToken.status, await noToken.text()).toBe(401);
-    const asPatient = await callFn(FN, patientToken, payload(withFile));
+    const asPatient = await callFn(FN, patientToken, { report_id: withFile });
     const t = await asPatient.text();
-    expect(asPatient.status, t).toBe(403);
+    expect(asPatient.status, t).toBe(501);
+    expect(JSON.parse(t)).toEqual({ error: 'analysis_unavailable' });
     expectNoLeak(t);
+    const asOther = await callFn(FN, otherPatientToken, { report_id: withFile });
+    const o = await asOther.text();
+    expect(asOther.status, o).toBe(404);
+    expect(JSON.parse(o)).toEqual({ error: 'not_found' });
+    expectNoLeak(o);
     expect(await row(withFile)).toMatchObject({ data, pdf_path: pdfPath });
   });
 
@@ -180,16 +196,55 @@ describe.skipIf(!integrationEnvReady)('analyze-lab-report Edge Function (TC-039)
     expect(file.status).toBe(200);
     expect(await file.text()).toContain('fictional TC-039 report');
 
-    // The update shape, on a throwaway report (so the other cases keep theirs).
+    for (const key of ['analyte_map', 'account_name', 'account_dob'] as const) {
+      const c = contract[key];
+      const res = await service(`${c.path}?${new URLSearchParams(fill(c.query, values))}`, { method: c.method });
+      expect(res.status, `${key}: ${await res.clone().text()}`).toBe(200);
+    }
+
+    // Filing, on a throwaway report (so the other cases keep theirs).
     const scratch = await seedReport(orgId, patient.userId, null, data);
-    const merged = { ...data, markers: [{ name: 'Fictional marker', value: '1' }], summary: 'Fictional analysis', analyzed_at: '2026-11-04T00:00:00.000Z' };
-    const upd = await service(`${contract.analysis_update.path}?${new URLSearchParams(fill(contract.analysis_update.query, { ...values, report_id: scratch }))}`, {
-      method: contract.analysis_update.method,
-      headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
-      body: JSON.stringify({ data: merged }),
+    const sha = 'a'.repeat(64);
+    const report = {
+      file_sha256: sha, extraction_status: 'extracted', identity_hold: false, collected_on: '2026-10-14', lab_name: 'Fictional Reference Lab',
+      data: { markers: [{ name: 'HbA1c', value: '5.5' }], summary: 'Fictional analysis', analyzed_at: '2026-11-04T00:00:00.000Z', extraction: { extractor: 'fictional' } },
+    };
+    const result = {
+      analyte_key: 'hba1c', analyte_label: 'HbA1c', loinc: '4548-4', is_unmapped: false, value: 5.5, value_comparator: null, unit: '%',
+      status: 'within_range', range_low: null, range_high: 5.7, reported_name: 'Hemoglobin A1c', reported_value: '37', reported_unit: 'mmol/mol',
+      conversion_kind: 'hba1c', conversion_factor: 10.929, reference_range_text: '<39', field_confidence: { analyte: 0.97, value: 0.97 },
+      confidence: 0.97, review_reasons: [],
+    };
+    expect(Object.keys(report).sort()).toEqual(contract.analysis_file.report_keys);
+    expect(Object.keys(result).sort()).toEqual(contract.analysis_file.result_keys);
+    const fileIt = (id: string, p_report: unknown) => service(contract.analysis_file.path, {
+      method: contract.analysis_file.method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_report_id: id, p_report, p_results: [result] }),
     });
-    expect(upd.status, await upd.clone().text()).toBe(200);
-    expect(await upd.json()).toEqual([{ id: scratch }]);
-    expect((await row(scratch)).data).toEqual(merged);
+    const f = await fileIt(scratch, report);
+    expect(f.status, await f.clone().text()).toBe(200);
+    expect(await f.json()).toBe(1);
+    const filed = await restAdmin(`lab_reports?id=eq.${scratch}&select=data,file_sha256,extraction_status,identity_hold,collected_on,lab_name`, { method: 'GET' });
+    const [fr] = (await filed.json()) as Record<string, any>[];
+    expect(fr).toMatchObject({ file_sha256: sha, extraction_status: 'extracted', identity_hold: false, collected_on: '2026-10-14', lab_name: 'Fictional Reference Lab' });
+    expect(fr.data).toMatchObject({ ...data, ...report.data });
+    const results = await restAdmin(`lab_results?lab_report_id=eq.${scratch}&select=analyte_key,loinc,value,reported_value,reported_unit,conversion_kind,conversion_factor,taken_at`, { method: 'GET' });
+    expect(await results.json()).toEqual([{ analyte_key: 'hba1c', loinc: '4548-4', value: 5.5, reported_value: '37', reported_unit: 'mmol/mol', conversion_kind: 'hba1c', conversion_factor: 10.929, taken_at: '2026-10-14T12:00:00+00:00' }]);
+
+    // The same file filed for a second report of the same patient: 23505.
+    const scratch2 = await seedReport(orgId, patient.userId, null, data);
+    const dup = await fileIt(scratch2, report);
+    expect(dup.status, await dup.clone().text()).toBe(409);
+    expect(((await dup.json()) as { code: string }).code).toBe('23505');
+    expect(await (await restAdmin(`lab_results?lab_report_id=eq.${scratch2}&select=id`, { method: 'GET' })).json()).toEqual([]);
+
+    // A patient can't call it.
+    const asPatient = await fetch(`${SUPABASE_URL}${contract.analysis_file.path}`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_ANON_KEY!, Authorization: `Bearer ${patientToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_report_id: scratch, p_report: report, p_results: [] }),
+    });
+    expect([401, 403, 404]).toContain(asPatient.status);
   });
 });
