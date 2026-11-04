@@ -29,6 +29,7 @@ import CreatePatient from './pages/admin/CreatePatient';
 import NutritionWorkbench from './pages/admin/NutritionWorkbench';
 import { legacyAdminScreenRoutes, legacyPortalScreenRoutes } from './components/LegacyPatientScreenRoutes';
 import UsersRoles from './pages/admin/UsersRoles';
+import OperationsBilling from './pages/admin/OperationsBilling';
 import PhysicianRoster from './pages/admin/clinic/PhysicianRoster';
 import PhysicianPatientDetail from './pages/admin/clinic/PhysicianPatientDetail';
 import SignIn from './pages/admin/SignIn';
@@ -169,6 +170,14 @@ const App: React.FC = () => {
                     element={
                       <RequireRole roles={['org_admin']} pageLabel="Users and roles">
                         <UsersRoles />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="operations"
+                    element={
+                      <RequireRole roles={['org_admin']} pageLabel="Operations and billing">
+                        <OperationsBilling />
                       </RequireRole>
                     }
                   />

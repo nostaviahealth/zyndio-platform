@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Users, ClipboardList, LogOut } from 'lucide-react';
+import { Users, ShieldCheck, ClipboardList, LogOut } from 'lucide-react';
 import { usePortalAuth } from '../../contexts/PortalAuthContext';
 import { FOCUS_RING_ON_SUNKEN_CLASS } from '../ui/focusRing';
 
@@ -44,10 +44,16 @@ const Sidebar: React.FC = () => {
 
       <div className="flex-1 space-y-1 px-3">
         {isOrgAdmin ? (
-          <NavLink to="/admin/users" className={navItemClass} end>
-            <Users className="h-4 w-4" aria-hidden="true" />
-            Users and roles
-          </NavLink>
+          <>
+            <NavLink to="/admin/users" className={navItemClass} end>
+              <Users className="h-4 w-4" aria-hidden="true" />
+              Users and roles
+            </NavLink>
+            <NavLink to="/admin/operations" className={navItemClass} end>
+              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+              Operations and billing
+            </NavLink>
+          </>
         ) : (
           <NavLink to="/admin/patients" className={navItemClass}>
             <ClipboardList className="h-4 w-4" aria-hidden="true" />

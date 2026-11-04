@@ -56,7 +56,14 @@ insert into tc040_allow values
   -- Called inside SECURITY INVOKER rpcs above, so the caller needs EXECUTE.
   ('public.physician_roster_base()',             'authenticated', 'callee of physician_patient_roster / chip_counts (invoker)'),
   ('public.lab_report_held(uuid)',               'authenticated', 'callee of patient_trend / patient_latest_results (invoker)'),
-  ('public.write_audit_log(text, uuid, uuid, uuid, jsonb)', 'authenticated', 'callee of open_patient_detail (invoker)');
+  ('public.write_audit_log(text, uuid, uuid, uuid, jsonb)', 'authenticated', 'callee of open_patient_detail (invoker)'),
+  -- P1 Operations, Metering, and Compliance (PP-02, OPS-01..03) RPCs.
+  ('public.record_patient_monthly_activity(uuid, text, timestamp with time zone)', 'authenticated', 'PP-02 active patient metering'),
+  ('public.get_org_monthly_usage_summary(date)', 'authenticated', 'PP-02 org admin monthly usage summary'),
+  ('public.request_org_termination_export()',    'authenticated', 'OPS-01 Clause 6.6 termination export'),
+  ('public.set_patient_legal_hold(uuid, boolean, text)', 'authenticated', 'OPS-02 patient legal hold management'),
+  ('public.confirm_patient_data_deletion(uuid)', 'authenticated', 'OPS-02 patient data deletion + certificate'),
+  ('public.report_security_incident(text, text, text, boolean)', 'authenticated', 'OPS-03 Clause 8.8 72-hour security incident notice');
 
 create temp view tc040_exec as
 select format('%I.%I(%s)', n.nspname, p.proname, oidvectortypes(p.proargtypes)) as fn, r.grantee
