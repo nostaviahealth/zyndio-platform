@@ -439,10 +439,16 @@ select is(public.partner_patient_summary('00000000-0000-0000-0000-000000760c02',
 -- ---------------------------------------------------------------------------
 -- 11. Delivery state machine (INT-02)
 -- ---------------------------------------------------------------------------
+-- _webhook_retry_delay is internal (no client or service_role grant; only the
+-- definer-owned webhook_record_attempt calls it), so read it as the owner.
+reset role;
 select is(public._webhook_retry_delay(n), d, format('retry after attempt %s is %s', n, d))
   from (values (1, interval '1 minute'), (2, interval '5 minutes'), (3, interval '30 minutes'),
                (4, interval '2 hours'), (5, interval '6 hours'), (6, interval '12 hours'),
                (7, interval '24 hours'), (8, null::interval)) v(n, d);
+select ok(not has_function_privilege('service_role', 'public._webhook_retry_delay(int)', 'EXECUTE'),
+  'service_role cannot call the internal retry helper directly');
+select tests.authenticate_as_service_role();
 
 insert into int01_j select 'int01_claim', public.webhook_claim_due(100);
 select ok((select jsonb_array_length(j) from (select j from int01_j where k = 'int01_claim') int01_claim) > 0, 'due deliveries are claimed');
