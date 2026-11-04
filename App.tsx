@@ -27,11 +27,11 @@ import Settings from './pages/Settings';
 import Login from './pages/Login';
 import CreatePatient from './pages/admin/CreatePatient';
 import NutritionWorkbench from './pages/admin/NutritionWorkbench';
+import PlanModules from './pages/admin/PlanModules';
+import { PatientDetailRoute, ReferenceRangesRoute } from './components/admin-shell/RoleAwareRoutes';
 import { legacyAdminScreenRoutes, legacyPortalScreenRoutes } from './components/LegacyPatientScreenRoutes';
 import UsersRoles from './pages/admin/UsersRoles';
 import PhysicianRoster from './pages/admin/clinic/PhysicianRoster';
-import PlanModules from './pages/admin/PlanModules';
-import { PatientDetailRoute, ReferenceRangesRoute } from './components/admin-shell/RoleAwareRoutes';
 import SignIn from './pages/admin/SignIn';
 import AcceptInvite from './pages/admin/AcceptInvite';
 import ResetPassword from './pages/admin/ResetPassword';
@@ -175,20 +175,20 @@ const App: React.FC = () => {
                   {/* Legacy patient/:id + nutrition-lab: only behind
                       VITE_FEATURE_LEGACY_PATIENT_SCREENS (off by default). */}
                   {legacyAdminScreenRoutes()}
-                  <Route
-                    path="users"
-                    element={
-                      <RequireRole roles={['org_admin']} pageLabel="Users and roles">
-                        <UsersRoles />
-                      </RequireRole>
-                    }
-                  />
                   {/* PP-01: tier + modules and billing history, org admin only. */}
                   <Route
                     path="plan"
                     element={
                       <RequireRole roles={['org_admin']} pageLabel="Plan and modules">
                         <PlanModules />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="users"
+                    element={
+                      <RequireRole roles={['org_admin']} pageLabel="Users and roles">
+                        <UsersRoles />
                       </RequireRole>
                     }
                   />
