@@ -120,7 +120,8 @@ select is((select count(*)::int from storage.objects where bucket_id = 'food-ima
           'other-clinic physician reads no photos');
 
 select tests.authenticate_as_anon();
-select is((select count(*)::int from public.food_logs), 0, 'anon reads nothing');
+select throws_ok($$ select count(*) from public.food_logs $$, '42501', null, 'anon has no access to meal logs');
+select is((select count(*)::int from storage.objects where bucket_id = 'food-images'), 0, 'anon lists no meal photos');
 
 -- ---------------------------------------------------------------------------
 -- Deleting: log first, then its photo (a filed photo can't be pulled out)
