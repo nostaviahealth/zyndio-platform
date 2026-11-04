@@ -147,41 +147,29 @@ describe('PhysicianPatientDetail', () => {
     expect(await screen.findByText("We can't show this patient")).toBeInTheDocument();
   });
 
-  it('Timeline, Pre-visit brief and Export data each show a Soon tag, are aria-disabled but focusable, and show a tooltip on hover and keyboard focus', async () => {
-    const user = userEvent.setup();
-    renderDetail(makeApi());
+  // POR-03/04/06 replaced the TC-015 "Soon" placeholders: Timeline and
+  // Pre-visit brief are live tabs, and Export is live for physician /
+  // care_coordinator. Without an action role (read_only, or no role passed)
+  // Export stays aria-disabled with a permission tooltip - no Soon tag. Full
+  // coverage: tests/admin-shell/physician-portal-p0.test.tsx.
+  it('Timeline and Pre-visit brief are live tabs; Export is permission-gated (no Soon tags left)', async () => {
+    renderDetail(makeApi(), { viewerRole: 'read_only' });
     await screen.findByRole('heading', { name: 'Jordan Rivera' });
 
-    const timelineTab = screen.getByRole('tab', { name: /Timeline/ });
-    const previsitTab = screen.getByRole('tab', { name: /Pre-visit brief/ });
-    const exportButton = screen.getByRole('button', { name: /Export data/ });
-
-    for (const control of [timelineTab, previsitTab, exportButton]) {
-      expect(control).toHaveAttribute('aria-disabled', 'true');
-      expect(control).not.toBeDisabled();
+    for (const name of [/Timeline/, /Pre-visit brief/]) {
+      const tab = screen.getByRole('tab', { name });
+      expect(tab).not.toHaveAttribute('aria-disabled');
+      expect(within(tab).queryByText('Soon')).not.toBeInTheDocument();
     }
-    expect(within(timelineTab).getByText('Soon')).toBeInTheDocument();
-    expect(within(previsitTab).getByText('Soon')).toBeInTheDocument();
-    expect(within(exportButton).getByText('Soon')).toBeInTheDocument();
-
-    await user.hover(timelineTab);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Timeline is coming in the next update.');
-    await user.unhover(timelineTab);
-
-    fireEvent.focus(timelineTab);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Timeline is coming in the next update.');
-    fireEvent.blur(timelineTab);
-    await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
-
-    fireEvent.focus(previsitTab);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Pre-visit briefs are coming in the next update.');
-    fireEvent.blur(previsitTab);
-    await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
-
+    const exportButton = screen.getByRole('button', { name: /Export data/ });
+    expect(exportButton).toHaveAttribute('aria-disabled', 'true');
+    expect(within(exportButton).queryByText('Soon')).not.toBeInTheDocument();
     fireEvent.focus(exportButton);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Export is coming in the next update.');
+    expect(await screen.findByRole('tooltip')).toHaveTextContent("Read-only access can't export patient records.");
     fireEvent.blur(exportButton);
+    await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
 
+    expect(document.body.textContent).not.toMatch(/coming in the next update/);
     expect(document.body.textContent).not.toMatch(/Not available yet/);
   });
 

@@ -30,7 +30,8 @@ import NutritionWorkbench from './pages/admin/NutritionWorkbench';
 import { legacyAdminScreenRoutes, legacyPortalScreenRoutes } from './components/LegacyPatientScreenRoutes';
 import UsersRoles from './pages/admin/UsersRoles';
 import PhysicianRoster from './pages/admin/clinic/PhysicianRoster';
-import PhysicianPatientDetail from './pages/admin/clinic/PhysicianPatientDetail';
+import PlanModules from './pages/admin/PlanModules';
+import { PatientDetailRoute, ReferenceRangesRoute } from './components/admin-shell/RoleAwareRoutes';
 import SignIn from './pages/admin/SignIn';
 import AcceptInvite from './pages/admin/AcceptInvite';
 import ResetPassword from './pages/admin/ResetPassword';
@@ -136,7 +137,17 @@ const App: React.FC = () => {
                     path="patients/:id"
                     element={
                       <RequireRole roles={['physician', 'care_coordinator', 'read_only']}>
-                        <PhysicianPatientDetail />
+                        <PatientDetailRoute />
+                      </RequireRole>
+                    }
+                  />
+                  {/* POR-05: every clinical role can see the clinic's range
+                      sets; only a physician can draft or approve (server-enforced). */}
+                  <Route
+                    path="ranges"
+                    element={
+                      <RequireRole roles={['physician', 'care_coordinator', 'read_only']} pageLabel="Reference ranges">
+                        <ReferenceRangesRoute />
                       </RequireRole>
                     }
                   />
@@ -169,6 +180,15 @@ const App: React.FC = () => {
                     element={
                       <RequireRole roles={['org_admin']} pageLabel="Users and roles">
                         <UsersRoles />
+                      </RequireRole>
+                    }
+                  />
+                  {/* PP-01: tier + modules and billing history, org admin only. */}
+                  <Route
+                    path="plan"
+                    element={
+                      <RequireRole roles={['org_admin']} pageLabel="Plan and modules">
+                        <PlanModules />
                       </RequireRole>
                     }
                   />

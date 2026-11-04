@@ -56,7 +56,32 @@ insert into tc040_allow values
   -- Called inside SECURITY INVOKER rpcs above, so the caller needs EXECUTE.
   ('public.physician_roster_base()',             'authenticated', 'callee of physician_patient_roster / chip_counts (invoker)'),
   ('public.lab_report_held(uuid)',               'authenticated', 'callee of patient_trend / patient_latest_results (invoker)'),
-  ('public.write_audit_log(text, uuid, uuid, uuid, jsonb)', 'authenticated', 'callee of open_patient_detail (invoker)');
+  ('public.write_audit_log(text, uuid, uuid, uuid, jsonb)', 'authenticated', 'callee of open_patient_detail (invoker)'),
+  -- POR-05 ranges: web rpc (definer, _portal_gate) + invoker helpers of the lab read rpcs.
+  ('public.list_range_sets()',                   'authenticated', 'web rpc'),
+  ('public.get_range_set_items(uuid)',           'authenticated', 'web rpc'),
+  ('public.create_range_set_draft(text)',        'authenticated', 'web rpc'),
+  ('public.upsert_range_set_item(uuid, text, text, text, numeric, numeric, text)', 'authenticated', 'web rpc'),
+  ('public.delete_range_set_item(uuid)',         'authenticated', 'web rpc'),
+  ('public.approve_range_set(uuid)',             'authenticated', 'web rpc'),
+  ('public.discard_range_set_draft(uuid)',       'authenticated', 'web rpc'),
+  ('public.lab_effective_range(uuid, uuid, text, text)', 'authenticated', 'callee of lab read rpcs (invoker, RLS-scoped)'),
+  ('public.lab_effective_status(text, boolean, numeric, boolean, numeric, numeric)', 'authenticated', 'callee of lab read rpcs (immutable)'),
+  -- POR-03 timeline: dispatcher + invoker sources it unions (RLS-scoped).
+  ('public.patient_timeline(uuid, timestamp with time zone, integer)', 'authenticated', 'web rpc'),
+  ('public.timeline_source_labs(uuid)',          'authenticated', 'callee of patient_timeline (invoker)'),
+  ('public.timeline_source_treatment(uuid)',     'authenticated', 'callee of patient_timeline (invoker)'),
+  ('public.timeline_source_program(uuid)',       'authenticated', 'callee of patient_timeline (invoker)'),
+  ('public.timeline_source_visits(uuid)',        'authenticated', 'callee of patient_timeline (invoker)'),
+  -- POR-04 brief / POR-06 export.
+  ('public.record_patient_visit(uuid, date)',    'authenticated', 'web rpc'),
+  ('public.patient_previsit_brief(uuid)',        'authenticated', 'web rpc'),
+  ('public.patient_lab_rows(uuid)',              'authenticated', 'callee of patient_previsit_brief / export_patient_record (invoker)'),
+  ('public.export_patient_record(uuid, text)',   'authenticated', 'web rpc'),
+  -- PP-01 plan and modules.
+  ('public.get_org_plan()',                      'authenticated', 'web rpc'),
+  ('public.list_org_plan_history()',             'authenticated', 'web rpc'),
+  ('public.set_org_plan(text, text[], text)',    'authenticated', 'web rpc');
 
 create temp view tc040_exec as
 select format('%I.%I(%s)', n.nspname, p.proname, oidvectortypes(p.proargtypes)) as fn, r.grantee
