@@ -6,6 +6,10 @@
 begin;
 select no_plan();
 
+-- Row counts of DML run under RLS (a data-modifying WITH must be top level).
+create temp table app08_counts (k text primary key, n int);
+grant all on app08_counts to anon, authenticated;
+
 reset role;
 select set_config('request.jwt.claims', '', true);
 select set_config('storage.allow_delete_query', 'true', true);
@@ -89,8 +93,9 @@ select tests.authenticate_as('00000000-0000-0000-0000-0000000b1001', 'aal1');
 select is((select count(*)::int from public.food_logs), 0, 'other patient sees no meal logs');
 select is((select count(*)::int from storage.objects where bucket_id = 'food-images'), 0,
           'other patient sees no meal photos');
-select is((with d as (delete from public.food_logs returning 1) select count(*)::int from d), 0,
-          'other patient cannot delete A1''s logs');
+with d as (delete from public.food_logs returning 1)
+  insert into app08_counts select 'q1', count(*)::int from d;
+select is((select n from app08_counts where k = 'q1'), 0, 'other patient cannot delete A1''s logs');
 
 -- ---------------------------------------------------------------------------
 -- Staff
@@ -127,12 +132,15 @@ select is((select count(*)::int from storage.objects where bucket_id = 'food-ima
 -- Deleting: log first, then its photo (a filed photo can't be pulled out)
 -- ---------------------------------------------------------------------------
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal1');
-select is((with d as (delete from storage.objects where bucket_id = 'food-images' returning 1)
-           select count(*)::int from d), 0, 'a photo a meal log points at cannot be deleted');
-select is((with d as (delete from public.food_logs where id = '00000000-0000-0000-0000-0000000f0a01' returning 1)
-           select count(*)::int from d), 1, 'patient deletes their meal log');
-select is((with d as (delete from storage.objects where bucket_id = 'food-images' returning 1)
-           select count(*)::int from d), 1, 'then its photo');
+with d as (delete from storage.objects where bucket_id = 'food-images' returning 1)
+  insert into app08_counts select 'q2', count(*)::int from d;
+select is((select n from app08_counts where k = 'q2'), 0, 'a photo a meal log points at cannot be deleted');
+with d as (delete from public.food_logs where id = '00000000-0000-0000-0000-0000000f0a01' returning 1)
+  insert into app08_counts select 'q3', count(*)::int from d;
+select is((select n from app08_counts where k = 'q3'), 1, 'patient deletes their meal log');
+with d as (delete from storage.objects where bucket_id = 'food-images' returning 1)
+  insert into app08_counts select 'q4', count(*)::int from d;
+select is((select n from app08_counts where k = 'q4'), 1, 'then its photo');
 
 select * from finish();
 rollback;

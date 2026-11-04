@@ -7,6 +7,10 @@
 begin;
 select no_plan();
 
+-- Row counts of DML run under RLS (a data-modifying WITH must be top level).
+create temp table app09_counts (k text primary key, n int);
+grant all on app09_counts to anon, authenticated;
+
 reset role;
 select set_config('request.jwt.claims', '', true);
 
@@ -51,9 +55,9 @@ select throws_ok($$
   insert into public.companion_escalations (patient_id, kind, question)
   values ('00000000-0000-0000-0000-0000000b1001', 'clinical_question', 'x')
 $$, '42501', null, 'patient cannot file for another patient');
-select is((with u as (update public.companion_escalations set status = 'closed'
-                        where id = '00000000-0000-0000-0000-0000000e9a01' returning 1)
-           select count(*)::int from u), 0, 'patient cannot close their own escalation');
+with u as (update public.companion_escalations set status = 'closed' where id = '00000000-0000-0000-0000-0000000e9a01' returning 1)
+  insert into app09_counts select 'q1', count(*)::int from u;
+select is((select n from app09_counts where k = 'q1'), 0, 'patient cannot close their own escalation');
 select is((select count(*)::int from public.companion_escalations), 2, 'patient sees their own escalations');
 
 reset role;

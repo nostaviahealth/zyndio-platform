@@ -58,10 +58,10 @@ language plpgsql
 set search_path = ''
 as $$
 begin
+  -- A patient who names someone else's id can't see that patients row, so
+  -- org_id stays null here and the RLS WITH CHECK (evaluated before NOT NULL)
+  -- rejects the row with 42501. Any other unknown patient fails NOT NULL.
   new.org_id := (select p.org_id from public.patients p where p.id = new.patient_id);
-  if new.org_id is null then
-    raise exception 'food_logs: unknown patient' using errcode = '23503';
-  end if;
   new.updated_at := now();
   return new;
 end;
