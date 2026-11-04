@@ -23,9 +23,10 @@ export function stubLogLine(type: string, recipient: string): string {
 // Pure: nulls the plaintext invite/verification/reset token out of a payload
 // once "sent" (L8) - nothing legitimate needs it again after this point.
 // TC-012 added 'verify_email' and 'password_reset' to the same treatment as
-// 'invite'. Every other notification type's payload passes through
-// unchanged.
-const TOKEN_BEARING_TYPES = new Set(['invite', 'verify_email', 'password_reset'])
+// 'invite'. APP-01 added 'patient_login_code' (the emailed sign-in code
+// rides under payload.token). Every other notification type's payload
+// passes through unchanged.
+const TOKEN_BEARING_TYPES = new Set(['invite', 'verify_email', 'password_reset', 'patient_login_code'])
 
 export function redactSentPayload(type: string, payload: Record<string, unknown>): Record<string, unknown> {
   if (!TOKEN_BEARING_TYPES.has(type) || !('token' in payload)) return payload
