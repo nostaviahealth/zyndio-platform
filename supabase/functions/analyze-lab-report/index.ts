@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "npm:@supabase/supabase-js@2.118.0"
 import { OpenAI } from "npm:openai@4.28.0"
+import { AI_FEATURE_DISABLED_ERROR, aiFeatureAllowed } from "../_shared/aiFeatureSwitch.ts"
 
 serve(async (req) => {
     try {
@@ -11,6 +12,28 @@ serve(async (req) => {
             Deno.env.get('SUPABASE_URL') ?? '',
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         )
+
+        // PRD clause 9.2: check lab_extraction kill switch before calling model.
+        const patientId = typeof record?.patient_id === 'string'
+            ? record.patient_id
+            : typeof record?.profile_id === 'string'
+                ? record.profile_id
+                : ''
+        let allowed = false
+        try {
+            allowed = await aiFeatureAllowed(supabase, patientId, 'lab_extraction')
+        } catch {
+            return new Response(
+                JSON.stringify({ error: 'ai switch check unavailable' }),
+                { status: 503, headers: { 'Content-Type': 'application/json' } }
+            )
+        }
+        if (!allowed) {
+            return new Response(
+                JSON.stringify({ error: AI_FEATURE_DISABLED_ERROR, feature: 'lab_extraction' }),
+                { status: 503, headers: { 'Content-Type': 'application/json' } }
+            )
+        }
 
         const openai = new OpenAI({
             apiKey: Deno.env.get('GEMINI_API_KEY') ?? '',

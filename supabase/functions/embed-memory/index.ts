@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "npm:@supabase/supabase-js@2.118.0"
+import { guardPatientAiRequest } from '../_shared/patientAiGuard.ts'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -13,7 +13,22 @@ serve(async (req) => {
     }
 
     try {
-        const { user_id, content, memory_type, metadata } = await req.json()
+        let body: Record<string, unknown>
+        try {
+            body = await req.json()
+        } catch {
+            body = {}
+        }
+        const { user_id, content, memory_type, metadata } = body as Record<string, any>
+
+        // Signed-in patient, own memories only, memory feature switched on.
+        const guard = await guardPatientAiRequest(req, user_id, 'memory')
+        if (!guard.ok) {
+            return new Response(
+                JSON.stringify(guard.body),
+                { status: guard.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
 
         if (!user_id || !content) {
             return new Response(
@@ -41,8 +56,7 @@ serve(async (req) => {
         })
 
         if (!embeddingResponse.ok) {
-            const errorBody = await embeddingResponse.text()
-            console.error('Embedding API Error:', embeddingResponse.status, errorBody)
+            console.error('embed-memory: embedding API error', embeddingResponse.status)
             throw new Error(`Embedding API failed: ${embeddingResponse.status}`)
         }
 
@@ -50,17 +64,12 @@ serve(async (req) => {
         const embedding = embeddingData.data[0].embedding
 
         // 2. Store in Supabase
-        const supabase = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        )
-
-        console.log(`Storing embedding for user ${user_id}, type: ${memory_type}, content length: ${content.length}, dims: ${embedding.length}`)
+        const supabase = guard.admin
 
         const { error: insertError } = await supabase
             .from('chat_memories')
             .insert({
-                user_id,
+                user_id: guard.userId,
                 content,
                 embedding: embedding, // Pass raw array
                 memory_type: memory_type ?? 'conversation_summary',
@@ -68,7 +77,7 @@ serve(async (req) => {
             })
 
         if (insertError) {
-            console.error('Insert Error:', insertError)
+            console.error('embed-memory: insert failed', insertError.code)
             throw insertError
         }
 
@@ -78,9 +87,9 @@ serve(async (req) => {
         )
 
     } catch (error) {
-        console.error('Function Error:', error)
+        console.error('embed-memory: failed', error instanceof Error ? error.name : 'unknown')
         return new Response(
-            JSON.stringify({ error: error instanceof Error ? error.message : 'internal error' }),
+            JSON.stringify({ error: 'internal error' }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
     }

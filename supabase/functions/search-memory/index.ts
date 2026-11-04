@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "npm:@supabase/supabase-js@2.118.0"
+import { guardPatientAiRequest } from '../_shared/patientAiGuard.ts'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -13,7 +13,22 @@ serve(async (req) => {
     }
 
     try {
-        const { user_id, query, match_count } = await req.json()
+        let body: Record<string, unknown>
+        try {
+            body = await req.json()
+        } catch {
+            body = {}
+        }
+        const { user_id, query, match_count } = body as Record<string, any>
+
+        // Signed-in patient, own memories only, memory feature switched on.
+        const guard = await guardPatientAiRequest(req, user_id, 'memory')
+        if (!guard.ok) {
+            return new Response(
+                JSON.stringify(guard.body),
+                { status: guard.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
 
         if (!user_id || !query) {
             return new Response(
@@ -41,8 +56,7 @@ serve(async (req) => {
         })
 
         if (!embeddingResponse.ok) {
-            const errorBody = await embeddingResponse.text()
-            console.error('Embedding API Error:', embeddingResponse.status, errorBody)
+            console.error('search-memory: embedding API error', embeddingResponse.status)
             throw new Error(`Embedding API failed: ${embeddingResponse.status}`)
         }
 
@@ -50,20 +64,17 @@ serve(async (req) => {
         const queryEmbedding = embeddingData.data[0].embedding
 
         // 2. Call the match_memories RPC function
-        const supabase = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        )
+        const supabase = guard.admin
 
         const { data: memories, error: rpcError } = await supabase.rpc('match_memories', {
             query_embedding: JSON.stringify(queryEmbedding),
-            match_user_id: user_id,
+            match_user_id: guard.userId,
             match_count: match_count ?? 5,
             match_threshold: 0.3,
         })
 
         if (rpcError) {
-            console.error('RPC Error:', rpcError)
+            console.error('search-memory: RPC failed', rpcError.code)
             throw rpcError
         }
 
@@ -73,9 +84,9 @@ serve(async (req) => {
         )
 
     } catch (error) {
-        console.error('Function Error:', error)
+        console.error('search-memory: failed', error instanceof Error ? error.name : 'unknown')
         return new Response(
-            JSON.stringify({ error: error instanceof Error ? error.message : 'internal error', memories: [] }),
+            JSON.stringify({ error: 'internal error', memories: [] }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
     }

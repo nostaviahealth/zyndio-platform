@@ -4,6 +4,7 @@ import { AuthError, requireAuthenticatedActor } from '../_shared/requireOrgAdmin
 import { decideIntelligenceAccess, loadIntelligenceCallerFacts } from '../_shared/intelligenceAccess.ts'
 import { consumeIntelligenceBudget, rateLimitedHeaders } from '../_shared/intelligenceRateLimit.ts'
 import { INVALID_BODY_ERROR, readIntelligenceBody } from '../_shared/intelligenceBody.ts'
+import { AI_FEATURE_DISABLED_ERROR, aiFeatureAllowed, normaliseAiFeature } from '../_shared/aiFeatureSwitch.ts'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -99,6 +100,26 @@ serve(async (req) => {
                 { status: dataAccess.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
         }
+        // PRD clause 9.2: per-feature kill switch, before any provider call.
+        // Unlabelled requests count as 'companion'. Fail closed if unreadable.
+        const feature = normaliseAiFeature(body?.feature)
+        let featureAllowed: boolean
+        try {
+            featureAllowed = await aiFeatureAllowed(actor.admin, actor.userId, feature)
+        } catch (err) {
+            console.error('intelligence: ai switch check failed', err instanceof Error ? err.message : 'unknown')
+            return new Response(
+                JSON.stringify({ error: 'ai switch check unavailable' }),
+                { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+        if (!featureAllowed) {
+            return new Response(
+                JSON.stringify({ error: AI_FEATURE_DISABLED_ERROR, feature }),
+                { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+
         const {
             messages,
             stream = false,
