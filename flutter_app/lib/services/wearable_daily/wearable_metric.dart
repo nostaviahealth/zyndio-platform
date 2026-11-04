@@ -1,7 +1,7 @@
 /// APP-07: the daily wearable metrics the app uploads to `wearable_daily`.
 ///
 /// [wireName], [unit] and the plausibility limits mirror the table's CHECK
-/// constraints (supabase/migrations/20261104120000_app07_wearable_daily.sql).
+/// constraints (supabase/migrations/20261105120000_app07_wearable_daily.sql).
 /// A row the server would refuse fails its whole upload batch, so the app
 /// drops implausible values before sending.
 enum WearableAggregation {
