@@ -13,6 +13,10 @@ import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/reset_password_screen.dart';
 import '../screens/auth/delete_account_screen.dart';
 import '../screens/auth/link_record_screen.dart';
+import '../screens/auth/code_sign_in_screen.dart';
+import '../screens/onboarding/consent_screen.dart';
+import '../screens/onboarding/profile_setup_screen.dart';
+import '../providers/onboarding_provider.dart';
 
 import '../screens/health_data/health_data_screen.dart';
 
@@ -48,7 +52,6 @@ import '../screens/settings/timeline_history_screen.dart';
 import '../screens/settings/nutrition_goals_screen.dart';
 import '../screens/settings/ai_memories_screen.dart';
 import '../screens/home/cycle_tracking_screen.dart';
-import '../services/ai_consent_service.dart';
 import '../services/analytics_service.dart';
 import '../screens/shop/shop_home_screen.dart';
 import '../screens/shop/shop_product_list_screen.dart';
@@ -84,7 +87,8 @@ final routerProvider = Provider<GoRouter>((ref) {
   // This prevents sudden "Home" redirects during background token refreshes
   final isLoggedIn = ref.watch(authStateProvider.select((v) => v.value != null));
   final isDemoMode = ref.watch(isDemoModeProvider);
-  final aiConsent = ref.watch(aiConsentProvider);
+  // APP-02/APP-04: server-side onboarding status (consents + profile).
+  final onboarding = ref.watch(onboardingStatusProvider);
   final flags = ref.watch(featureFlagsProvider);
 
   return GoRouter(
@@ -107,7 +111,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       final isLoggedInState = isLoggedIn;
-      final isLoggingIn = state.matchedLocation == '/login';
+      // APP-01: /login is the emailed-code sign-in; /login/password is the
+      // password log-in kept for self-signup accounts.
+      final isLoggingIn = state.matchedLocation == '/login' ||
+          state.matchedLocation == '/login/password';
       final isSigningUp = state.matchedLocation == '/signup';
       // TC-012: verify-email/forgot-password/reset-password all happen
       // before (or without) a session - a freshly signed-up patient has no
@@ -128,16 +135,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/';
       }
 
-      // ── AI CONSENT CHECK ──
-      // If logged in but hasn't consented to AI, redirect to home to trigger onboarding
-      if (aiConsent.isLoading) return null; // Wait for data before redirecting
-      
-      final hasConsented = aiConsent.value ?? false;
-      
-      if (isLoggedInState && !hasConsented && !isAuthPage) {
-         if (state.uri.toString() != '/?onboarding=true' && state.matchedLocation != '/') {
-           return '/?onboarding=true';
-         }
+      // APP-01: open self-sign-up only when the org has turned it on.
+      if (isSigningUp && !(ref.read(selfSignupEnabledProvider).value ?? false)) {
+        return '/login';
+      }
+
+      // ── ONBOARDING GATE (APP-02 / APP-04) ──
+      // Signed in but not yet linked, consented or profiled: hold the patient
+      // on the next onboarding step. Replaces the old device-local AI
+      // consent check, which only kept a flag in SharedPreferences.
+      if (isLoggedInState && !isAuthPage) {
+        return onboardingRedirect(state.matchedLocation, onboarding);
       }
 
       return null;
@@ -148,7 +156,23 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/login',
         name: 'login',
+        builder: (context, state) =>
+            CodeSignInScreen(initialEmail: state.uri.queryParameters['email']),
+      ),
+      GoRoute(
+        path: '/login/password',
+        name: 'login-password',
         builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: onboardingConsentPath,
+        name: 'onboarding-consent',
+        builder: (context, state) => const OnboardingConsentScreen(),
+      ),
+      GoRoute(
+        path: onboardingProfilePath,
+        name: 'onboarding-profile',
+        builder: (context, state) => const OnboardingProfileScreen(),
       ),
       GoRoute(
         path: '/signup',
@@ -178,7 +202,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/delete-account',
         name: 'delete-account',
-        builder: (context, state) => const DeleteAccountScreen(),
+        builder: (context, state) => DeleteAccountScreen(
+          email: ref.read(currentUserProvider)?.email,
+          reauthWithCode: true,
+        ),
       ),
       GoRoute(
         path: '/link-record',
