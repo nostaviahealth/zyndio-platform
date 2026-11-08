@@ -102,6 +102,13 @@ supabase stop
 `supabase stop --no-backup` also discards the local database if you want a truly clean restart
 (equivalent to never having run `supabase db reset`).
 
+## Deploy checklist — client IP behind the Cloudflare proxy
+
+If an environment's apps reach Supabase through `supabase/proxy-worker.js`,
+set `supabase secrets set TRUSTED_PROXY_HOPS=1` so per-IP rate limits key on the
+visitor rather than the worker. Leave it unset when apps call Supabase directly.
+See [docs/RISKS.md § R-CLIENT-IP](./docs/RISKS.md).
+
 ## Deploy checklist (Henry) — TC-026 RevenueCat webhook
 
 Before any environment that receives RevenueCat webhooks goes live:

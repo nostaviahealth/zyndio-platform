@@ -6,20 +6,25 @@ import '../config/supabase_config.dart';
 import '../services/revenue_cat_service.dart';
 import '../services/notification_service.dart';
 import '../main.dart';
+import '../demo/demo_build_flag.dart';
 
-/// Demo mode provider - true when Supabase is not configured
-final isDemoModeProvider = Provider<bool>((ref) {
-  final initialized = ref.watch(supabaseInitializedProvider);
-  return !initialized;
-});
+/// True only in the offline demo build (`--dart-define=DEMO_BUILD=true`).
+///
+/// This used to be "Supabase not initialised", which the router read as
+/// "skip every sign-in check" - so a build with missing configuration, or a
+/// failed Supabase setup, opened the whole app without a session. A missing
+/// backend is now handled by `backendReadyRedirect` (fail closed); demo mode
+/// is an explicit build choice and never a fallback.
+final isDemoModeProvider = Provider<bool>((ref) => kDemoBuild);
 
 /// Auth state provider - watches the authentication stream
 final authStateProvider = StreamProvider<User?>((ref) {
   final initialized = ref.watch(supabaseInitializedProvider);
   
-  // If Supabase is not initialized, return a stream with null (demo mode)
+  // If Supabase is not initialized there is no session (the router sends
+  // every location to the unavailable screen - see backendReadyRedirect).
   if (!initialized) {
-    debugPrint('Auth: Running in demo mode (Supabase not initialized)');
+    debugPrint('Auth: Supabase not initialized; no session');
     return Stream.value(null);
   }
   

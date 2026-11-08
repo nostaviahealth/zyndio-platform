@@ -44,6 +44,8 @@ import '../screens/settings/leagues_screen.dart'; // <--- Added Import
 import '../screens/lens/lens_screen.dart';
 import '../screens/notifications/notification_screen.dart';
 import '../screens/common/coming_soon_screen.dart'; // <--- Added Import
+import '../screens/common/service_unavailable_screen.dart';
+import '../main.dart' show supabaseInitializedProvider;
 import '../screens/settings/timeline_history_screen.dart';
 import '../screens/settings/nutrition_goals_screen.dart';
 import '../screens/settings/ai_memories_screen.dart';
@@ -77,13 +79,32 @@ String? tc025Redirect(String loc, {required bool patientExtrasEnabled}) {
   return null;
 }
 
+/// Location of the "can't connect" screen used when the backend is not set up.
+const String kServiceUnavailablePath = '/unavailable';
+
+/// Pure fail-closed rule for a missing backend.
+///
+/// When Supabase did not initialise (no build configuration, or setup threw),
+/// there is no way to check a session, so every location goes to
+/// [kServiceUnavailablePath]. This replaces the old "demo mode" branch, which
+/// returned null here and let anyone into every screen without signing in.
+/// The offline demo is a separate entry point (`main_demo.dart`) with its own
+/// router and never reaches this one.
+String? backendReadyRedirect(String loc, {required bool backendReady}) {
+  if (!backendReady) {
+    return loc == kServiceUnavailablePath ? null : kServiceUnavailablePath;
+  }
+  if (loc == kServiceUnavailablePath) return '/';
+  return null;
+}
+
 /// App Router Configuration
 /// Matches the React app routing structure
 final routerProvider = Provider<GoRouter>((ref) {
   // Use select to only rebuild the router if the user ID or auth state genuinely changes
   // This prevents sudden "Home" redirects during background token refreshes
   final isLoggedIn = ref.watch(authStateProvider.select((v) => v.value != null));
-  final isDemoMode = ref.watch(isDemoModeProvider);
+  final backendReady = ref.watch(supabaseInitializedProvider);
   final aiConsent = ref.watch(aiConsentProvider);
   final flags = ref.watch(featureFlagsProvider);
 
@@ -96,15 +117,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         AnalyticsService().observer!,
     ],
     redirect: (context, state) {
+      // No backend means no way to check a session: fail closed before any
+      // other rule can send the patient somewhere inside the app.
+      final backend = backendReadyRedirect(state.matchedLocation,
+          backendReady: backendReady);
+      if (backend != null || !backendReady) return backend;
+
       // TC-025 legacy-path + patient-extras redirects (A3/A4).
       final tc = tc025Redirect(state.matchedLocation,
           patientExtrasEnabled: flags.patientExtrasEnabled);
       if (tc != null) return tc;
-
-      // In demo mode, always allow access (skip auth check)
-      if (isDemoMode) {
-        return null;
-      }
 
       final isLoggedInState = isLoggedIn;
       final isLoggingIn = state.matchedLocation == '/login';
@@ -143,6 +165,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+
+      GoRoute(
+        path: kServiceUnavailablePath,
+        name: 'unavailable',
+        builder: (context, state) => const ServiceUnavailableScreen(),
+      ),
 
       // Auth routes (no shell)
       GoRoute(

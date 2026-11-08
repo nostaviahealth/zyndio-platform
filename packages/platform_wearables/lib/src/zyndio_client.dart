@@ -20,20 +20,23 @@ class Zyndio {
 
   Zyndio._({
     required String apiKey,
-    required String userId,
+    required AccessTokenProvider accessToken,
     String? baseUrl,
   }) {
     _cloudService =
-        CloudService(apiKey: apiKey, userId: userId, baseUrl: baseUrl);
+        CloudService(apiKey: apiKey, accessToken: accessToken, baseUrl: baseUrl);
     _healthService = HealthService();
   }
 
+  /// [apiKey] is the public gateway key (Supabase anon key) - not a secret.
+  /// [accessToken] returns the signed-in patient's current session JWT; it is
+  /// read on every cloud call, so sign-in, refresh and sign-out need no re-init.
   static Future<void> init({
     required String apiKey,
-    required String userId,
+    required AccessTokenProvider accessToken,
     String? baseUrl,
   }) async {
-    _instance = Zyndio._(apiKey: apiKey, userId: userId, baseUrl: baseUrl);
+    _instance = Zyndio._(apiKey: apiKey, accessToken: accessToken, baseUrl: baseUrl);
   }
 
   static Zyndio get _i {
