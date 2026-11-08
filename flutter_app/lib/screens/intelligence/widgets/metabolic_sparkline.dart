@@ -16,7 +16,7 @@ final sparklineDataProvider = FutureProvider.autoDispose<Map<String, dynamic>>((
     final response = await client
         .from('food_logs')
         .select()
-        .eq('user_id', userId)
+        .eq('patient_id', userId)
         .gte('logged_at', todayStart.toIso8601String());
 
     final logs = response as List;

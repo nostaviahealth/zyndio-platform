@@ -102,6 +102,13 @@ supabase stop
 `supabase stop --no-backup` also discards the local database if you want a truly clean restart
 (equivalent to never having run `supabase db reset`).
 
+## Deploy checklist — client IP behind the Cloudflare proxy
+
+If an environment's apps reach Supabase through `supabase/proxy-worker.js`,
+set `supabase secrets set TRUSTED_PROXY_HOPS=1` so per-IP rate limits key on the
+visitor rather than the worker. Leave it unset when apps call Supabase directly.
+See [docs/RISKS.md § R-CLIENT-IP](./docs/RISKS.md).
+
 ## Deploy checklist (Henry) — TC-026 RevenueCat webhook
 
 Before any environment that receives RevenueCat webhooks goes live:
@@ -139,6 +146,20 @@ Before any environment that issues or redeems link codes goes live:
 2. **Edge env — org id (Clara L19):** set `ZYNDIO_DEFAULT_ORG_ID` to the clinic org UUID
    for this environment, **or** ensure the telehealth connector `locateForCodeRequest`
    returns `orgId` on a unique match. There is no hard-coded fallback UUID.
+
+   APP-01 reuses the same variable. Patients join only from a care-team invite and sign
+   in with an emailed 6-digit code (`patient-request-login-code` /
+   `patient-verify-login-code`). Open self-sign-up (`patient-signup`) stays refused with
+   `signup_disabled` unless that org turns it on:
+
+   ```sql
+   update public.organizations set patient_self_signup_enabled = true where id = '<org uuid>';
+   ```
+
+   If `ZYNDIO_DEFAULT_ORG_ID` is unset, self-sign-up is closed. Deploy the three new
+   functions (`patient-request-login-code`, `patient-verify-login-code`,
+   `patient-auth-config`) the same way as the other public `patient-*` functions. The app
+   calls them with only the anon key.
 
 3. **Optional — clinic-code breaker (Clara L20):** documented default is **100 failures /
    15 minutes**. Override with GUC if needed:

@@ -199,12 +199,16 @@ jobs:
       - name: Deno unit tests (RevenueCat webhook auth, TC-026)
         run: deno test --frozen --config supabase/functions/deno.json supabase/functions/handle-revenuecat-webhook
 
-      - uses: supabase/setup-cli@v1
-        with:
-          version: 2.122.0
+      - name: Deno unit tests (partner API + webhook delivery, INT-01/02/03)
+        run: deno test --frozen --config supabase/functions/deno.json supabase/functions/partner-api supabase/functions/deliver-webhooks
 
-      - name: Start local Supabase (studio/storage/inbucket unused this card)
-        run: supabase start -x studio,storage,inbucket
+      - name: Install Supabase CLI 2.122.0
+        run: bash scripts/install-supabase-cli.sh 2.122.0
+
+      # TC-039: storage is needed by the lab-report file-open and
+      # analyze-lab-report integration tests (signed links, file download).
+      - name: Start local Supabase (studio/inbucket unused; storage needed for TC-039 lab-report file tests)
+        run: supabase start -x studio,inbucket
 
       - name: Reset DB + pgTAP
         run: |
@@ -241,9 +245,8 @@ jobs:
           python -m pip install 'playwright==1.64.0' 'pillow>=10,<14'
           python -m playwright install --with-deps chromium
 
-      - uses: supabase/setup-cli@v1
-        with:
-          version: 2.122.0
+      - name: Install Supabase CLI 2.122.0
+        run: bash scripts/install-supabase-cli.sh 2.122.0
 
       - name: Start local Supabase (studio/storage/inbucket unused)
         run: supabase start -x studio,storage,inbucket
@@ -296,11 +299,23 @@ jobs:
 
       - name: Install gitleaks
         run: |
-          curl -sSfL -o gitleaks.tar.gz \
-            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          # The scanner itself is unchanged. A single 504 from the release
+          # host must not skip the scan, so the download is retried.
+          ok=0
+          for attempt in 1 2 3 4 5; do
+            if curl -sSfL --retry 5 --retry-all-errors --retry-delay 3 -o gitleaks.tar.gz \
+              https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz; then
+              ok=1
+              break
+            fi
+            echo "gitleaks download attempt ${attempt} failed"
+            sleep $((attempt * 5))
+          done
+          test "$ok" = 1
           tar -xzf gitleaks.tar.gz gitleaks
           chmod +x gitleaks
           sudo mv gitleaks /usr/local/bin/gitleaks
+          gitleaks version
 
       - name: Run gitleaks
         run: gitleaks git --config .gitleaks.toml --redact

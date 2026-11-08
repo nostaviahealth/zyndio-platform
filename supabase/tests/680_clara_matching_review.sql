@@ -182,6 +182,17 @@ values (
   '{"result":"fictional-m12"}'::jsonb
 );
 
+reset role;
+select set_config('request.jwt.claims', '', true);
+insert into public.consent_documents (consent_type, version, document, title, summary, body, required, is_placeholder, published_at)
+values ('health_data', 'synthetic-fixture', 'synthetic_health_data_fixture', 'Synthetic fixture',
+        'SYNTHETIC FIXTURE - not a legally approved document',
+        'SYNTHETIC FIXTURE - not a legally approved document. Not for patient use.',
+        false, false, now())
+on conflict (consent_type, version) do nothing;
+insert into public.consents (org_id, patient_id, consent_type, document, version, granted)
+values ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000c6801',
+        'health_data', 'synthetic_health_data_fixture', 'synthetic-fixture', true);
 select tests.authenticate_as('00000000-0000-0000-0000-0000000c6801');
 select ok(
   public.current_patient_linked(),

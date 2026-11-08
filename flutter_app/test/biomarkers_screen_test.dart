@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zyndio_patient/config/biomarker_segments.dart';
+import 'package:zyndio_patient/config/lab_range_wording.dart';
 import 'package:zyndio_patient/config/theme.dart';
 import 'package:zyndio_patient/models/lab_report.dart';
 import 'package:zyndio_patient/providers/lab_reports_provider.dart';
@@ -110,20 +111,20 @@ void main() {
 
     test('caption mapping covers every Q11 case', () {
       // within
-      expect(biomarkerRangeCaption(value: 90, low: 65, high: 99), 'Within lab range');
+      expect(biomarkerRangeCaption(value: 90, low: 65, high: 99), kWithinClinicRange);
       // above / below
-      expect(biomarkerRangeCaption(value: 140, low: 0, high: 129), 'Above lab range');
-      expect(biomarkerRangeCaption(value: 50, low: 65, high: 99), 'Below lab range');
+      expect(biomarkerRangeCaption(value: 140, low: 0, high: 129), kOutsideClinicRange);
+      expect(biomarkerRangeCaption(value: 50, low: 65, high: 99), kOutsideClinicRange);
       // needed bound missing but flagged → outside
       expect(biomarkerRangeCaption(value: null, low: null, high: null, status: 'outlier'),
-          'Outside lab range');
+          kOutsideClinicRange);
       // status-only high/low when no numeric comparison
       expect(biomarkerRangeCaption(value: null, low: null, high: null, status: 'high'),
-          'Above lab range');
+          kOutsideClinicRange);
       expect(biomarkerRangeCaption(value: null, low: null, high: null, status: 'low'),
-          'Below lab range');
+          kOutsideClinicRange);
       // no range at all
-      expect(biomarkerRangeCaption(value: 41, low: null, high: null), 'No lab range provided');
+      expect(biomarkerRangeCaption(value: 41, low: null, high: null), kNoRangeProvided);
     });
 
     test('segment map: lead-first, unmapped excluded', () {
@@ -728,8 +729,8 @@ void main() {
       expect(find.text('HbA1c'), findsOneWidget);
       expect(find.text('Glucose'), findsOneWidget);
       expect(find.text('LDL Cholesterol'), findsOneWidget);
-      expect(find.text('Above lab range'), findsOneWidget); // LDL 140 > 129
-      expect(find.text('Within lab range'), findsWidgets);
+      expect(find.text(kOutsideClinicRange), findsOneWidget); // LDL 140 > 129
+      expect(find.text(kWithinClinicRange), findsWidgets);
     });
 
     // H1 (Ava, PR #30 review): screen-reader activation == finger tap.

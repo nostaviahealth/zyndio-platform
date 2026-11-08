@@ -102,13 +102,18 @@ class AzureOpenAIService {
   }
 
   /// Helper to make AI API calls via the Edge Function proxy
-  Future<String?> callAzureAPI(List<Map<String, dynamic>> messages, {bool jsonMode = false}) async {
+  Future<String?> callAzureAPI(
+    List<Map<String, dynamic>> messages, {
+    bool jsonMode = false,
+    String feature = 'companion',
+  }) async {
     try {
       final url = Uri.parse('$_functionsUrl/functions/v1/intelligence');
       
       final body = <String, dynamic>{
         "messages": messages,
         "max_completion_tokens": 4096,
+        "feature": feature,
       };
       if (jsonMode) {
         body["response_format"] = {"type": "json_object"};
@@ -145,7 +150,10 @@ class AzureOpenAIService {
        ...messages.map((m) => {"role": m['role'] == 'model' ? 'assistant' : m['role'], "content": m['text']}),
      ];
 
-     final summary = await callAzureAPI(promptMessages.cast<Map<String, dynamic>>());
+     final summary = await callAzureAPI(
+       promptMessages.cast<Map<String, dynamic>>(),
+       feature: 'memory',
+     );
      return summary ?? "";
   }
 
@@ -191,7 +199,7 @@ class AzureOpenAIService {
       {"role": "user", "content": buffer.toString()}
     ];
 
-    final responseText = await callAzureAPI(messages, jsonMode: true);
+    final responseText = await callAzureAPI(messages, jsonMode: true, feature: 'coaching');
     if (responseText != null) {
       try {
         final Map<String, dynamic> jsonMap = jsonDecode(cleanJson(responseText));
@@ -297,6 +305,7 @@ Respond ONLY with: {"days":[{"day":$startDay,"week":$startWeek,"date":"$dateStr"
     List<Map<String, dynamic>> messages, {
     required int maxTokens,
     bool jsonMode = false,
+    String feature = 'coaching',
   }) async {
     try {
       final url = Uri.parse('$_functionsUrl/functions/v1/intelligence');
@@ -304,6 +313,7 @@ Respond ONLY with: {"days":[{"day":$startDay,"week":$startWeek,"date":"$dateStr"
       final body = <String, dynamic>{
         "messages": messages,
         "max_completion_tokens": maxTokens,
+        "feature": feature,
       };
       if (jsonMode) {
         body["response_format"] = {"type": "json_object"};
@@ -426,7 +436,7 @@ Respond ONLY with: {"days":[{"day":$startDay,"week":$startWeek,"date":"$dateStr"
       {"role": "user", "content": buffer.toString()}
     ];
 
-    final responseText = await callAzureAPI(messages, jsonMode: true);
+    final responseText = await callAzureAPI(messages, jsonMode: true, feature: 'coaching');
 
     if (responseText != null) {
       try {
@@ -562,7 +572,7 @@ Respond ONLY with: {"days":[{"day":$startDay,"week":$startWeek,"date":"$dateStr"
       {"role": "user", "content": buffer.toString()}
     ];
 
-    final responseText = await callAzureAPI(messages, jsonMode: true);
+    final responseText = await callAzureAPI(messages, jsonMode: true, feature: 'coaching');
     
     if (responseText != null) {
       try {
@@ -631,6 +641,7 @@ Respond ONLY with: {"days":[{"day":$startDay,"week":$startWeek,"date":"$dateStr"
       final body = <String, dynamic>{
         "messages": messages,
         "max_completion_tokens": 4096,
+        "feature": "companion",
       };
 
       if (tools != null && tools.isNotEmpty) {
@@ -687,6 +698,7 @@ Respond ONLY with: {"days":[{"day":$startDay,"week":$startWeek,"date":"$dateStr"
         "messages": messages,
         "max_completion_tokens": 4096,
         "stream": true,
+        "feature": "companion",
       };
 
       if (tools != null && tools.isNotEmpty) {
@@ -861,9 +873,8 @@ If a test does not clearly belong to any section header, group it under "General
           "messages": messages,
           "max_completion_tokens": 16384,
           "response_format": {"type": "json_object"},
+          "feature": "lab_extraction",
       });
-      
-      debugPrint('AzureOpenAIService: Total Extract Payload Size: ${body.length} bytes');
 
       final response = await http.post(
         url,
@@ -872,7 +883,6 @@ If a test does not clearly belong to any section header, group it under "General
       ).timeout(
         const Duration(seconds: 180),
         onTimeout: () {
-          debugPrint('AzureOpenAIService: extractBiomarkers timed out after 180 seconds');
           throw Exception('Analysis timed out. The report might be too large or the service is slow. Please try again.');
         },
       );
@@ -882,25 +892,16 @@ If a test does not clearly belong to any section header, group it under "General
         final content = data['choices'][0]['message']['content'];
         return jsonDecode(cleanJson(content));
       } else {
-        debugPrint('AzureOpenAIService: AI Proxy Error: ${response.statusCode} - ${response.body}');
-        
-        String errorMsg = 'Extraction failed (Error ${response.statusCode})';
+        // TC-039: the proxy's response body is neither printed nor copied
+        // into the exception (it can carry backend error text); the status
+        // code is enough for the caller's fixed error state.
         if (response.statusCode == 504) {
-          errorMsg = 'Analysis timed out (Error 504). This usually happens with very large reports or slow connections. We have optimized the process — please try again.';
+          throw Exception('Analysis timed out (Error 504). This usually happens with very large reports or slow connections. We have optimized the process — please try again.');
         }
-        
-        try {
-          final errorJson = jsonDecode(response.body);
-          if (errorJson['error'] != null) {
-            errorMsg += ': ${errorJson['error']}';
-          }
-        } catch (_) {}
-        
-        throw Exception(errorMsg);
+        throw Exception('Extraction failed (Error ${response.statusCode})');
       }
-    } catch (e, stackTrace) {
-      debugPrint('AzureOpenAIService: extractBiomarkers Exception: $e');
-      debugPrint('Stack Trace: $stackTrace');
+    } catch (_) {
+      // TC-039: not printed; the caller shows its own error state.
       rethrow;
     }
   }
@@ -971,6 +972,7 @@ If a test does not clearly belong to any section header, group it under "General
             "messages": messages,
             "max_completion_tokens": 2048,
             "response_format": {"type": "json_object"},
+            "feature": "food_analysis",
           }),
         ).timeout(const Duration(seconds: 45));
 
@@ -1130,6 +1132,7 @@ Score rule: Refine score considering UPF level, longevity credits, hormonal disr
             "messages": messages,
             "max_completion_tokens": 4096,
             "response_format": {"type": "json_object"},
+            "feature": "food_analysis",
           }),
         ).timeout(const Duration(seconds: 60));
 
@@ -1196,7 +1199,7 @@ Score rule: Refine score considering UPF level, longevity credits, hormonal disr
       {"role": "user", "content": buffer.toString()}
     ];
 
-    final responseText = await callAzureAPI(messages, jsonMode: true);
+    final responseText = await callAzureAPI(messages, jsonMode: true, feature: 'coaching');
     if (responseText != null) {
       try {
         final Map<String, dynamic> jsonMap = jsonDecode(cleanJson(responseText));
@@ -1234,6 +1237,7 @@ Score rule: Refine score considering UPF level, longevity credits, hormonal disr
         body: jsonEncode({
           "messages": messages,
           "max_completion_tokens": 100, // Small limit for speed
+          "feature": "coaching",
         }),
       ).timeout(const Duration(seconds: 15));
 
@@ -1260,7 +1264,7 @@ Score rule: Refine score considering UPF level, longevity credits, hormonal disr
     ];
 
     try {
-      final response = await callAzureAPI(messages);
+      final response = await callAzureAPI(messages, feature: 'food_analysis');
       return response?.trim() ?? rawText;
     } catch (e) {
       debugPrint('Transcript Refinement Exception: $e');

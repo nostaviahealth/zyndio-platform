@@ -14,8 +14,8 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [react()],
       define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+        // Never inline a server-side secret here: everything in `define`
+        // ships to every browser (tests/build-config/no-secret-defines.test.ts).
         __PREVIEW_BUILD__: mode === 'preview',
         // The preview/screenshot harness (build:preview) renders pages against
         // injected fixtures and never touches Supabase, but lib/supabase.ts

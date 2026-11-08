@@ -14,7 +14,7 @@ import '../../utils/share_canvas_util.dart';
 import '../../providers/usage_limit_provider.dart';
 import '../settings/paywall_screen.dart';
 import '../../models/food_log.dart';
-import '../../config/supabase_config.dart';
+import '../../data/food_images.dart';
 import '../settings/widgets/meal_story_card.dart';
 import 'package:flutter/services.dart';
 import '../../widgets/voice_log_dialog.dart';
@@ -208,14 +208,6 @@ class _LensScreenState extends ConsumerState<LensScreen> {
     ref.read(lensScanProvider.notifier).reset();
   }
 
-  String _getPublicUrl(String path) {
-    if (path.isEmpty) return '';
-    if (path.startsWith('http')) return path;
-    final client = SupabaseConfig.client;
-    if (client == null) return '';
-    return client.storage.from('food-images').getPublicUrl(path);
-  }
-
   @override
   Widget build(BuildContext context) {
     // Watch the global scan state — this is the ONLY state source now
@@ -242,7 +234,7 @@ class _LensScreenState extends ConsumerState<LensScreen> {
                       loggedAt: scanState.scanTime ?? DateTime.now(),
                     ),
                     data: scanState.analysis!,
-                    imageUrl: _getPublicUrl(scanState.uploadedFilePath ?? ''),
+                    imageUrl: ref.watch(foodImageUrlProvider(scanState.uploadedFilePath ?? '')).value ?? '',
                   ),
                 ),
               ),

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { ChevronLeft, Upload, FlaskConical, Info, FileText, AlertTriangle, RotateCw } from 'lucide-react';
+import { ChevronLeft, Upload, FlaskConical, Info, FileText, AlertTriangle, RotateCw, ShieldCheck } from 'lucide-react';
 import {
   ClinicalApi,
   FlagKey,
@@ -16,14 +16,19 @@ import FlagBadge from '../../../components/clinical/FlagBadge';
 import TrendChart from '../../../components/clinical/TrendChart';
 import CriticalBanner from '../../../components/ui/CriticalBanner';
 import {
-  STATUS_LABELS,
   formatMonthDay,
   formatMonthDayYear,
   formatValue,
   programWeek,
   ageFromBirthDate,
   sexFull,
+  statusLabel,
 } from '../../../lib/clinicalFormat';
+import { ExportFormat, PatientExport, PatientRecordApi, supabasePatientRecordApi } from '../../../lib/patientRecordApi';
+import { downloadExport } from '../../../lib/patientExport';
+import PatientTimeline from './PatientTimeline';
+import PrevisitBrief from './PrevisitBrief';
+import TreatmentContextPanel from '../../../components/clinical/TreatmentContextPanel';
 
 // Plain, clinician-approved marker descriptions (not patient data). Keyed by
 // analyte_key; markers without one simply show no description line.
@@ -58,7 +63,20 @@ export interface PhysicianPatientDetailProps {
   initialSelectedKey?: string;
   initialPeriod?: TrendPeriod;
   reviewDetails?: Record<string, ReviewDetail>;
+  // POR-03/04/06 read model (timeline, brief, visits, export). Injected by the
+  // preview harness and tests, like `api`.
+  recordApi?: PatientRecordApi;
+  // The signed-in staff role (from PortalAuth via the route wrapper). Export
+  // and "mark visit done" are physician / care_coordinator only; the server
+  // enforces the same rule.
+  viewerRole?: string | null;
+  initialTab?: DetailTab;
+  onDownload?: (doc: PatientExport, format: ExportFormat) => void;
 }
+
+export type DetailTab = 'labs' | 'timeline' | 'brief' | 'treatment';
+
+const ACTION_ROLES = ['physician', 'care_coordinator'];
 
 const PERIODS: TrendPeriod[] = ['3M', '6M', '1Y', 'All'];
 
@@ -75,6 +93,10 @@ const PhysicianPatientDetail: React.FC<PhysicianPatientDetailProps> = ({
   initialSelectedKey,
   initialPeriod = '6M',
   reviewDetails,
+  recordApi = supabasePatientRecordApi,
+  viewerRole,
+  initialTab = 'labs',
+  onDownload = downloadExport,
 }) => {
   const params = useParams();
   const location = useLocation();
@@ -91,6 +113,8 @@ const PhysicianPatientDetail: React.FC<PhysicianPatientDetailProps> = ({
   const [selectedKey, setSelectedKey] = useState<string | undefined>(initialSelectedKey);
   const [period, setPeriod] = useState<TrendPeriod>(initialPeriod);
   const [trend, setTrend] = useState<TrendPoint[] | null>(null);
+  const [tab, setTab] = useState<DetailTab>(initialTab);
+  const canAct = !!viewerRole && ACTION_ROLES.includes(viewerRole);
 
   const loadLatest = useCallback(async () => {
     setLatestError(false);
@@ -195,41 +219,144 @@ const PhysicianPatientDetail: React.FC<PhysicianPatientDetailProps> = ({
           </div>
           <p className="mt-1 text-sm text-[#48556A] dark:text-[#A6B0C3]">{metaParts.join(' · ')}</p>
         </div>
-        <DisabledPill
-          label="Export data"
-          icon={<Upload className="h-4 w-4" aria-hidden="true" />}
-          tooltip="Export is coming in the next update."
-        />
+        {canAct ? (
+          <ExportMenu api={recordApi} patientId={detail.patientId} onDownload={onDownload} />
+        ) : (
+          <DisabledPill
+            label="Export data"
+            icon={<Upload className="h-4 w-4" aria-hidden="true" />}
+            tooltip="Read-only access can't export patient records."
+          />
+        )}
       </div>
 
       {detail.treatment && <TreatmentStrip treatment={detail.treatment} />}
 
-      <Tabs questionsCount={questionsCount} />
+      <Tabs questionsCount={questionsCount} tab={tab} onTab={setTab} />
 
-      {latestError ? (
-        <LabsError name={detail.displayName} onRetry={loadLatest} />
-      ) : latest === null ? (
-        <LabsLoading />
-      ) : latest.length === 0 ? (
-        <LabsEmpty name={detail.displayName} />
+      {tab === 'timeline' ? (
+        <div role="tabpanel" id="panel-timeline" aria-labelledby="tab-timeline">
+          <PatientTimeline api={recordApi} patientId={detail.patientId} name={detail.displayName} />
+        </div>
+      ) : tab === 'brief' ? (
+        <div role="tabpanel" id="panel-brief" aria-labelledby="tab-brief">
+          <PrevisitBrief api={recordApi} patientId={detail.patientId} name={detail.displayName} canRecordVisit={canAct} />
+        </div>
+      ) : tab === 'treatment' ? (
+        <div role="tabpanel" id="panel-treatment" aria-labelledby="tab-treatment" className="mt-6">
+          <TreatmentContextPanel patientId={detail.patientId} canEdit={canAct} />
+        </div>
       ) : (
-        <div className="mt-6 grid grid-cols-[288px_1fr] gap-4 xl:grid-cols-[360px_1fr] xl:gap-6">
-          <MarkerList
-            markers={latest}
-            selectedKey={selected?.analyteKey}
-            onSelect={setSelectedKey}
-          />
-          {selected && (
-            <MarkerDetail
-              marker={selected}
-              trend={trend}
-              period={period}
-              onPeriod={setPeriod}
-              mode={mode}
-              reviewDetail={reviewDetails?.[selected.analyteKey]}
-            />
+        <div role="tabpanel" id="panel-labs" aria-labelledby="tab-labs">
+          {latestError ? (
+            <LabsError name={detail.displayName} onRetry={loadLatest} />
+          ) : latest === null ? (
+            <LabsLoading />
+          ) : latest.length === 0 ? (
+            <LabsEmpty name={detail.displayName} />
+          ) : (
+            <div className="mt-6 grid grid-cols-[288px_1fr] gap-4 xl:grid-cols-[360px_1fr] xl:gap-6">
+              <MarkerList
+                markers={latest}
+                selectedKey={selected?.analyteKey}
+                onSelect={setSelectedKey}
+              />
+              {selected && (
+                <MarkerDetail
+                  marker={selected}
+                  trend={trend}
+                  period={period}
+                  onPeriod={setPeriod}
+                  mode={mode}
+                  reviewDetail={reviewDetails?.[selected.analyteKey]}
+                />
+              )}
+            </div>
           )}
         </div>
+      )}
+    </div>
+  );
+};
+
+// POR-06: Export data -> JSON or CSV. The server checks the role, writes the
+// audit row (with the format) and returns the whitelisted document; the file
+// is built here. Nothing downloads if the server refuses.
+const ExportMenu: React.FC<{
+  api: PatientRecordApi;
+  patientId: string;
+  onDownload: (doc: PatientExport, format: ExportFormat) => void;
+}> = ({ api, patientId, onDownload }) => {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState<ExportFormat | null>(null);
+  const [error, setError] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  const run = async (format: ExportFormat) => {
+    setOpen(false);
+    setBusy(format);
+    setError(false);
+    try {
+      const doc = await api.exportRecord(patientId, format);
+      if (!doc) throw new Error('not found');
+      onDownload(doc, format);
+    } catch {
+      setError(true);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="relative flex flex-col items-end" ref={menuRef}>
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        disabled={busy !== null}
+        onClick={() => setOpen(!open)}
+        onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
+        className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-slate-300 bg-white px-6 text-sm font-semibold text-[#030616] hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2C5CF2] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#6C7690] dark:bg-[#10141F] dark:text-[#EEF1F8] dark:hover:bg-[#222838]"
+      >
+        <Upload className="h-4 w-4" aria-hidden="true" />
+        {busy ? 'Exporting…' : 'Export data'}
+      </button>
+      {open && (
+        <div
+          role="menu"
+          aria-label="Export format"
+          className="absolute right-0 top-12 z-10 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg dark:border-[#222838] dark:bg-[#10141F]"
+        >
+          {(['json', 'csv'] as ExportFormat[]).map((f) => (
+            <button
+              key={f}
+              type="button"
+              role="menuitem"
+              onClick={() => run(f)}
+              onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
+              className="flex min-h-[44px] w-full flex-col items-start justify-center px-4 text-left hover:bg-[#F5F7FD] focus:outline-none focus-visible:bg-[#EFF4FF] dark:hover:bg-[#151A27] dark:focus-visible:bg-[#18224A]"
+            >
+              <span className="text-sm font-semibold text-[#030616] dark:text-[#EEF1F8]">{f === 'json' ? 'JSON' : 'CSV'}</span>
+              <span className="text-xs text-slate-500 dark:text-[#8F9AAF]">
+                {f === 'json' ? 'Full record, structured' : 'One row per value, for spreadsheets'}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+      {error && (
+        <p role="alert" className="mt-2 max-w-xs text-right text-[13px] text-[#B42318] dark:text-[#FF8F86]">
+          We couldn&apos;t export this record. Nothing was downloaded. Try again.
+        </p>
       )}
     </div>
   );
@@ -241,10 +368,11 @@ const SoonTag: React.FC = () => (
   </span>
 );
 
-const DisabledPill: React.FC<{ label: string; icon?: React.ReactNode; tooltip: string }> = ({
+const DisabledPill: React.FC<{ label: string; icon?: React.ReactNode; tooltip: string; soon?: boolean }> = ({
   label,
   icon,
   tooltip,
+  soon = false,
 }) => (
   <Tooltip label={tooltip}>
     <button
@@ -255,7 +383,7 @@ const DisabledPill: React.FC<{ label: string; icon?: React.ReactNode; tooltip: s
     >
       {icon}
       {label}
-      <SoonTag />
+      {soon && <SoonTag />}
     </button>
   </Tooltip>
 );
@@ -279,23 +407,60 @@ const Field: React.FC<{ label: string; value: string; strong?: boolean }> = ({ l
   </div>
 );
 
-const DISABLED_TAB_TOOLTIPS: Record<string, string> = {
-  Timeline: 'Timeline is coming in the next update.',
-  'Pre-visit brief': 'Pre-visit briefs are coming in the next update.',
+const TAB_ORDER: DetailTab[] = ['labs', 'timeline', 'brief', 'treatment'];
+const TAB_LABELS: Record<DetailTab, string> = {
+  labs: 'Labs',
+  timeline: 'Timeline',
+  brief: 'Pre-visit brief',
+  treatment: 'Treatment',
 };
 
-const Tabs: React.FC<{ questionsCount?: number }> = ({ questionsCount }) => {
+const Tabs: React.FC<{ questionsCount?: number; tab: DetailTab; onTab: (t: DetailTab) => void }> = ({
+  questionsCount,
+  tab,
+  onTab,
+}) => {
   const questionsLabel =
     questionsCount && questionsCount > 0 ? `Questions and notes (${questionsCount})` : 'Questions and notes';
+  const refs = useRef<Record<string, HTMLButtonElement | null>>({});
+  // Arrow keys move between the live tabs (WAI-ARIA tabs pattern).
+  const onKeyDown = (e: React.KeyboardEvent, t: DetailTab) => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    e.preventDefault();
+    const i = TAB_ORDER.indexOf(t);
+    const next = TAB_ORDER[(i + (e.key === 'ArrowRight' ? 1 : TAB_ORDER.length - 1)) % TAB_ORDER.length];
+    onTab(next);
+    refs.current[next]?.focus();
+  };
+  const tabButton = (t: DetailTab) => {
+    const selected = tab === t;
+    return (
+      <button
+        key={t}
+        type="button"
+        role="tab"
+        id={`tab-${t}`}
+        aria-selected={selected}
+        aria-controls={`panel-${t}`}
+        tabIndex={selected ? 0 : -1}
+        ref={(el) => {
+          refs.current[t] = el;
+        }}
+        onClick={() => onTab(t)}
+        onKeyDown={(e) => onKeyDown(e, t)}
+        className={`relative -mb-px inline-flex min-h-[44px] items-center px-1 text-[15px] font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2C5CF2] ${
+          selected
+            ? 'border-b-[3px] border-[#2C5CF2] text-[#030616] dark:border-[#7C9CFF] dark:text-[#EEF1F8]'
+            : 'text-[#48556A] hover:text-[#030616] dark:text-[#A6B0C3] dark:hover:text-[#EEF1F8]'
+        }`}
+      >
+        {TAB_LABELS[t]}
+      </button>
+    );
+  };
   return (
     <div role="tablist" aria-label="Patient sections" className="mt-6 flex gap-6 border-b border-slate-200 dark:border-[#222838]">
-      <span
-        role="tab"
-        aria-selected="true"
-        className="relative -mb-px inline-flex min-h-[44px] items-center border-b-[3px] border-[#2C5CF2] px-1 text-[15px] font-semibold text-[#030616] dark:border-[#7C9CFF] dark:text-[#EEF1F8]"
-      >
-        Labs
-      </span>
+      {tabButton('labs')}
       <span
         role="tab"
         aria-selected="false"
@@ -304,20 +469,9 @@ const Tabs: React.FC<{ questionsCount?: number }> = ({ questionsCount }) => {
       >
         {questionsLabel}
       </span>
-      {['Timeline', 'Pre-visit brief'].map((t) => (
-        <Tooltip key={t} label={DISABLED_TAB_TOOLTIPS[t]}>
-          <span
-            role="tab"
-            aria-selected="false"
-            aria-disabled="true"
-            tabIndex={0}
-            className="relative -mb-px inline-flex min-h-[44px] cursor-not-allowed items-center px-1 text-[15px] font-semibold text-slate-400 dark:text-[#6C7690]"
-          >
-            {t}
-            <SoonTag />
-          </span>
-        </Tooltip>
-      ))}
+      {tabButton('timeline')}
+      {tabButton('brief')}
+      {tabButton('treatment')}
     </div>
   );
 };
@@ -375,7 +529,7 @@ function statusTone(status: LatestResult['status']): string {
 
 const MarkerStatusBadge: React.FC<{ marker: LatestResult }> = ({ marker }) => (
   <span className={`mt-1 inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${statusTone(marker.status)}`}>
-    {STATUS_LABELS[marker.status]}
+    {statusLabel(marker.status, marker.rangeSource)}
   </span>
 );
 
@@ -429,15 +583,27 @@ const MarkerDetail: React.FC<{
   );
 };
 
-const CAVEAT = (
-  <div className="mt-5 flex gap-3 rounded-xl border border-slate-200 bg-[#F8FAFF] p-4 dark:border-[#222838] dark:bg-[#0B0F19]">
-    <Info className="mt-0.5 h-5 w-5 shrink-0 text-slate-400 dark:text-[#8F9AAF]" aria-hidden="true" />
-    <p className="text-[13px] text-[#48556A] dark:text-[#A6B0C3]">
-      General default range, for demo use only. Zyndio&apos;s physician lead sets the ranges used for care. Until then,
-      patients see the same caveat in the app.
-    </p>
-  </div>
-);
+// POR-05: the default-range caveat shows only while the marker's range is
+// NOT from the clinic's physician-approved set. Once an approved set covers
+// the marker, a short provenance line replaces it.
+const RangeNote: React.FC<{ marker: LatestResult }> = ({ marker }) =>
+  marker.rangeSource === 'approved' ? (
+    <div className="mt-5 flex gap-3 rounded-xl border border-slate-200 p-4 dark:border-[#222838]">
+      <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#2C5CF2] dark:text-[#7C9CFF]" aria-hidden="true" />
+      <p className="text-[13px] text-[#48556A] dark:text-[#A6B0C3]">
+        Range from your clinic&apos;s physician-approved range set
+        {marker.rangeSetVersion ? ` (version ${marker.rangeSetVersion})` : ''}.
+      </p>
+    </div>
+  ) : (
+    <div className="mt-5 flex gap-3 rounded-xl border border-slate-200 bg-[#F8FAFF] p-4 dark:border-[#222838] dark:bg-[#0B0F19]">
+      <Info className="mt-0.5 h-5 w-5 shrink-0 text-slate-400 dark:text-[#8F9AAF]" aria-hidden="true" />
+      <p className="text-[13px] text-[#48556A] dark:text-[#A6B0C3]">
+        General default range, for demo use only. Zyndio&apos;s physician lead sets the ranges used for care. Until then,
+        patients see the same caveat in the app.
+      </p>
+    </div>
+  );
 
 const TrendBody: React.FC<{ marker: LatestResult; trend: TrendPoint[] | null; mode: 'light' | 'dark' }> = ({
   marker,
@@ -483,7 +649,7 @@ const TrendBody: React.FC<{ marker: LatestResult; trend: TrendPoint[] | null; mo
         </div>
       )}
 
-      {CAVEAT}
+      <RangeNote marker={marker} />
 
       {multi && (
         <div className="mt-4 divide-y divide-slate-100 dark:divide-[#222838]">

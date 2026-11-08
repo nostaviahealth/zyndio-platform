@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../screens/settings/edit_profile_screen.dart';
@@ -13,6 +14,10 @@ import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/reset_password_screen.dart';
 import '../screens/auth/delete_account_screen.dart';
 import '../screens/auth/link_record_screen.dart';
+import '../screens/auth/code_sign_in_screen.dart';
+import '../screens/onboarding/consent_screen.dart';
+import '../screens/onboarding/profile_setup_screen.dart';
+import '../providers/onboarding_provider.dart';
 
 import '../screens/health_data/health_data_screen.dart';
 
@@ -28,6 +33,7 @@ import '../screens/protocol/protocol_screen.dart';
 import '../screens/protocol/protocols_list_screen.dart';
 import '../screens/intelligence/digital_twin_screen.dart'; // <--- Added Import
 import '../screens/settings/settings_screen.dart';
+import '../screens/settings/partner_outcomes_consent_screen.dart';
 import '../screens/settings/legal_screens.dart';
 import '../screens/chat/chat_screen.dart';
 import '../screens/chat/chat_history_screen.dart';
@@ -44,12 +50,12 @@ import '../screens/settings/leagues_screen.dart'; // <--- Added Import
 import '../screens/lens/lens_screen.dart';
 import '../screens/notifications/notification_screen.dart';
 import '../screens/common/coming_soon_screen.dart'; // <--- Added Import
+import '../screens/common/service_unavailable_screen.dart';
+import '../main.dart' show supabaseInitializedProvider;
 import '../screens/settings/timeline_history_screen.dart';
 import '../screens/settings/nutrition_goals_screen.dart';
 import '../screens/settings/ai_memories_screen.dart';
 import '../screens/home/cycle_tracking_screen.dart';
-import '../services/ai_consent_service.dart';
-import '../services/analytics_service.dart';
 import '../screens/shop/shop_home_screen.dart';
 import '../screens/shop/shop_product_list_screen.dart';
 import '../screens/shop/shop_product_detail_screen.dart';
@@ -77,37 +83,69 @@ String? tc025Redirect(String loc, {required bool patientExtrasEnabled}) {
   return null;
 }
 
+/// Appointments is still mock data (MockAppointmentRepository). With the flag
+/// off (store default) every appointments location - including deep links and
+/// doctor detail - lands on Today instead of showing fictional doctors/slots.
+String? appointmentsRedirect(String loc, {required bool appointmentsEnabled}) {
+  if (appointmentsEnabled) return null;
+  if (loc == '/appointments' || loc.startsWith('/appointments/')) return '/';
+  return null;
+}
+
+/// Location of the "can't connect" screen used when the backend is not set up.
+const String kServiceUnavailablePath = '/unavailable';
+
+/// Pure fail-closed rule for a missing backend.
+///
+/// When Supabase did not initialise (no build configuration, or setup threw),
+/// there is no way to check a session, so every location goes to
+/// [kServiceUnavailablePath]. This replaces the old "demo mode" branch, which
+/// returned null here and let anyone into every screen without signing in.
+/// The offline demo is a separate entry point (`main_demo.dart`) with its own
+/// router and never reaches this one.
+String? backendReadyRedirect(String loc, {required bool backendReady}) {
+  if (!backendReady) {
+    return loc == kServiceUnavailablePath ? null : kServiceUnavailablePath;
+  }
+  if (loc == kServiceUnavailablePath) return '/';
+  return null;
+}
+
 /// App Router Configuration
 /// Matches the React app routing structure
 final routerProvider = Provider<GoRouter>((ref) {
   // Use select to only rebuild the router if the user ID or auth state genuinely changes
   // This prevents sudden "Home" redirects during background token refreshes
   final isLoggedIn = ref.watch(authStateProvider.select((v) => v.value != null));
-  final isDemoMode = ref.watch(isDemoModeProvider);
-  final aiConsent = ref.watch(aiConsentProvider);
+  final backendReady = ref.watch(supabaseInitializedProvider);
+  // APP-02/APP-04: server-side onboarding status (consents + profile).
+  final onboarding = ref.watch(onboardingStatusProvider);
   final flags = ref.watch(featureFlagsProvider);
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/',
-    debugLogDiagnostics: true,
-    observers: [
-      if (AnalyticsService().observer != null)
-        AnalyticsService().observer!,
-    ],
+    debugLogDiagnostics: kDebugMode, // no route logging in release builds
     redirect: (context, state) {
+      // No backend means no way to check a session: fail closed before any
+      // other rule can send the patient somewhere inside the app.
+      final backend = backendReadyRedirect(state.matchedLocation,
+          backendReady: backendReady);
+      if (backend != null || !backendReady) return backend;
+
       // TC-025 legacy-path + patient-extras redirects (A3/A4).
       final tc = tc025Redirect(state.matchedLocation,
           patientExtrasEnabled: flags.patientExtrasEnabled);
       if (tc != null) return tc;
-
-      // In demo mode, always allow access (skip auth check)
-      if (isDemoMode) {
-        return null;
-      }
+      final appts = appointmentsRedirect(state.matchedLocation,
+          appointmentsEnabled: flags.appointmentsEnabled);
+      if (appts != null) return appts;
 
       final isLoggedInState = isLoggedIn;
-      final isLoggingIn = state.matchedLocation == '/login';
+      // APP-01: /login is the emailed-code sign-in; /login/password is the
+      // password log-in kept for self-signup accounts.
+      final isLoggingIn = state.matchedLocation == '/login' ||
+          state.matchedLocation == '/login/password';
       final isSigningUp = state.matchedLocation == '/signup';
       // TC-012: verify-email/forgot-password/reset-password all happen
       // before (or without) a session - a freshly signed-up patient has no
@@ -128,27 +166,50 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/';
       }
 
-      // ── AI CONSENT CHECK ──
-      // If logged in but hasn't consented to AI, redirect to home to trigger onboarding
-      if (aiConsent.isLoading) return null; // Wait for data before redirecting
-      
-      final hasConsented = aiConsent.value ?? false;
-      
-      if (isLoggedInState && !hasConsented && !isAuthPage) {
-         if (state.uri.toString() != '/?onboarding=true' && state.matchedLocation != '/') {
-           return '/?onboarding=true';
-         }
+      // APP-01: open self-sign-up only when the org has turned it on.
+      if (isSigningUp && !(ref.read(selfSignupEnabledProvider).value ?? false)) {
+        return '/login';
+      }
+
+      // ── ONBOARDING GATE (APP-02 / APP-04) ──
+      // Signed in but not yet linked, consented or profiled: hold the patient
+      // on the next onboarding step. Replaces the old device-local AI
+      // consent check, which only kept a flag in SharedPreferences.
+      if (isLoggedInState && !isAuthPage) {
+        return onboardingRedirect(state.matchedLocation, onboarding);
       }
 
       return null;
     },
     routes: [
 
+      GoRoute(
+        path: kServiceUnavailablePath,
+        name: 'unavailable',
+        builder: (context, state) => const ServiceUnavailableScreen(),
+      ),
+
       // Auth routes (no shell)
       GoRoute(
         path: '/login',
         name: 'login',
+        builder: (context, state) =>
+            CodeSignInScreen(initialEmail: state.uri.queryParameters['email']),
+      ),
+      GoRoute(
+        path: '/login/password',
+        name: 'login-password',
         builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: onboardingConsentPath,
+        name: 'onboarding-consent',
+        builder: (context, state) => const OnboardingConsentScreen(),
+      ),
+      GoRoute(
+        path: onboardingProfilePath,
+        name: 'onboarding-profile',
+        builder: (context, state) => const OnboardingProfileScreen(),
       ),
       GoRoute(
         path: '/signup',
@@ -178,7 +239,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/delete-account',
         name: 'delete-account',
-        builder: (context, state) => const DeleteAccountScreen(),
+        builder: (context, state) => DeleteAccountScreen(
+          email: ref.read(currentUserProvider)?.email,
+          reauthWithCode: true,
+        ),
       ),
       GoRoute(
         path: '/link-record',
@@ -328,6 +392,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'consent',
             name: 'consent',
             builder: (context, state) => const InformedConsentScreen(),
+          ),
+          GoRoute(
+            path: 'partner_outcomes',
+            name: 'partner_outcomes',
+            builder: (context, state) => const PartnerOutcomesConsentScreen(),
           ),
           GoRoute(
             path: 'help',

@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../widgets/tc025/tc025_widgets.dart';
 import '../health_data/my_lab_records_screen.dart';
+import '../../providers/feature_flags_provider.dart';
 
 /// Care tab — interim for PR A. Tab label "Care", page title "My Care".
 ///
@@ -16,10 +17,20 @@ class CareScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final appointmentsEnabled =
+        ref.watch(featureFlagsProvider).appointmentsEnabled;
     return ZyndioTabScaffold(
       title: 'My Care',
       subtitle: 'Your clinical team, results and resources.',
       children: [
+        ZyndioStateCard(
+          icon: LucideIcons.heartPulse,
+          title: 'Your care team',
+          body: appointmentsEnabled
+              ? "Your care team's contact details and resources will appear here once your clinic adds them. Your lab results and appointments are below."
+              : "Your care team's contact details and resources will appear here once your clinic adds them. Your lab results are below.",
+        ),
+        const SizedBox(height: 12),
         ZyndioListRow(
           icon: LucideIcons.flaskConical,
           title: 'Lab Results',
@@ -28,13 +39,16 @@ class CareScreen extends ConsumerWidget {
             MaterialPageRoute(builder: (_) => const MyLabRecordsScreen()),
           ),
         ),
-        const SizedBox(height: 12),
-        ZyndioListRow(
-          icon: LucideIcons.calendarHeart,
-          title: 'Appointments',
-          subtitle: 'Book or review visits with your care team.',
-          onTap: () => context.pushNamed('appointments'),
-        ),
+        // Appointments is mock data until it ships (feature flag).
+        if (appointmentsEnabled) ...[
+          const SizedBox(height: 12),
+          ZyndioListRow(
+            icon: LucideIcons.calendarHeart,
+            title: 'Appointments',
+            subtitle: 'Book or review visits with your care team.',
+            onTap: () => context.pushNamed('appointments'),
+          ),
+        ],
       ],
     );
   }

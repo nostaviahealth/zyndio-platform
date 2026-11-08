@@ -14,6 +14,13 @@
 // An email that already exists gets a "someone tried to sign up with your
 // email" outbox stub instead of a confirmation mail - never a confirmation
 // link for an address the caller doesn't already own.
+//
+// APP-01: open self-sign-up is OFF unless the deployment's org turns it on
+// (organizations.patient_self_signup_enabled, see _shared/selfSignup.ts).
+// Patients normally join from a care-team invite and sign in with an
+// emailed code (patient-request-login-code). When it's off, every request
+// gets the same 403 signup_disabled before anything else is looked at, so
+// it reveals nothing about any email.
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { SupabaseClient } from 'npm:@supabase/supabase-js@2.118.0'
 import { corsHeadersFor, jsonResponse } from '../_shared/cors.ts'
@@ -28,6 +35,7 @@ import {
 } from '../_shared/validation.ts'
 import { clientIpFrom, sha256Hex } from '../_shared/clientIp.ts'
 import { padTimingTo } from '../_shared/timingPad.ts'
+import { isSelfSignupOpen } from '../_shared/selfSignup.ts'
 
 const SIGNUP_IP_LIMIT = 10
 const SIGNUP_IP_WINDOW_SECONDS = 15 * 60
@@ -45,6 +53,10 @@ serve(async (req) => {
   const startedAt = Date.now()
   try {
     const admin = serviceRoleClient()
+    if (!(await isSelfSignupOpen(admin, Deno.env))) {
+      return jsonResponse(req, { error: 'signup_disabled' }, 403)
+    }
+
     const body = await req.json().catch(() => ({}))
     const email = normalizeEmail(body.email)
     const password = body.password

@@ -650,6 +650,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
              onTap: () => context.push('/settings/consent'),
           ),
           _SettingsCard(
+            icon: LucideIcons.share2,
+            title: 'Partner outcomes',
+            subtitle: 'Optional sharing of clinician-reviewed milestones',
+            onTap: () => context.push('/settings/partner_outcomes'),
+          ),
+          _SettingsCard(
             icon: LucideIcons.scale,
             title: 'Open Source Licenses',
             subtitle: 'Third-party software notices',

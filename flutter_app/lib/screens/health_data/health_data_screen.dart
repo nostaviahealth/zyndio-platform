@@ -4,11 +4,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../config/lab_range_wording.dart';
 import '../../config/theme.dart';
 import '../../providers/lab_analysis_provider.dart';
 import '../../providers/lab_reports_provider.dart';
 import '../../providers/patient_provider.dart';
-import './lab_report_verification_screen.dart';
+import './lab_report_submitted_screen.dart';
 import '../../models/lab_report.dart';
 import '../../providers/navbar_provider.dart';
 import './widgets/health_widgets.dart'; // Shared Widgets
@@ -531,7 +532,7 @@ class _HealthDataScreenState extends ConsumerState<HealthDataScreen> {
                           ),
                         ),
                       ),
-                      error: (e, s) => Center(child: Text('Error: $e')),
+                      error: (_, __) => const Center(child: Text(labReportsLoadFailedMessage)),
                     ),
               ),
               if (showSampleToggle)
@@ -621,18 +622,10 @@ class _HealthDataScreenState extends ConsumerState<HealthDataScreen> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            if (isDone && state.result != null) {
-              final profile = ref.read(patientProfileProvider).value;
-              if (profile == null) return;
-
+            if (isDone && state.submission != null) {
               Navigator.of(context, rootNavigator: true).push(
                 MaterialPageRoute(
-                  builder: (_) => LabReportVerificationScreen(
-                    filePath: state.pendingFilePath ?? state.result!['title'] ?? '',
-                    fileName: state.pendingFileName ?? state.result!['title'] ?? '',
-                    profileId: profile.id,
-                    extractedData: state.result!,
-                  ),
+                  builder: (_) => LabReportSubmittedScreen(submission: state.submission!),
                 ),
               );
             } else {
@@ -911,7 +904,6 @@ class _HealthDataScreenState extends ConsumerState<HealthDataScreen> {
     final normal = allAggregatedMarkers.where((m) => m.isInRange).length;
     final outliers = allAggregatedMarkers.where((m) => m.isOutlier).length;
     final total = allAggregatedMarkers.length;
-    final isHealthy = optimal > total / 2;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
@@ -920,6 +912,8 @@ class _HealthDataScreenState extends ConsumerState<HealthDataScreen> {
         children: [
           _buildPanelHeaderSummaryCard(),
           if (widget.reportType != 'Blood') const SizedBox(height: 16),
+          const DefaultRangesCaveat(),
+          const SizedBox(height: 12),
           // ── Hero: Biomarker Health Card ──
           Container(
             width: double.infinity,
@@ -932,7 +926,8 @@ class _HealthDataScreenState extends ConsumerState<HealthDataScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      isHealthy ? 'Optimal' : 'Needs Focus',
+                      // APP-06: a neutral title, never a grade of the patient.
+                      'Your results',
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w900,
@@ -974,7 +969,9 @@ class _HealthDataScreenState extends ConsumerState<HealthDataScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  "Your biomarker profile is ${isHealthy ? 'optimal' : 'improving'}. $optimal out of $total markers are in the ideal range.",
+                  outliers == 0
+                      ? '${total - outliers} of $total markers are within range.'
+                      : '${total - outliers} of $total markers are within range. $outliers ${outliers == 1 ? 'is' : 'are'} outside your clinic\'s range: discuss ${outliers == 1 ? 'it' : 'them'} with your care team.',
                   style: TextStyle(
                     fontSize: 15,
                     color: context.nc.textSecondary,
@@ -1001,7 +998,7 @@ class _HealthDataScreenState extends ConsumerState<HealthDataScreen> {
                     ),
                     const SizedBox(width: 12),
                     StatPill(
-                      label: 'OUTLIERS',
+                      label: 'OUTSIDE RANGE',
                       count: outliers,
                       color: const Color(0xFFEF4444),
                       bg: const Color(0xFFEF4444).withValues(alpha: 0.1),
@@ -1018,9 +1015,9 @@ class _HealthDataScreenState extends ConsumerState<HealthDataScreen> {
                 Container(height: 1, color: context.nc.divider),
                 const SizedBox(height: 16),
 
-                // Summary text
+                // Summary text (APP-06: data only, no grade and no advice)
                 Text(
-                  "Latest report analyzed on ${activeReport.date}. Your aggregated biomarker profile looks ${isHealthy ? 'strong' : 'fair'}. Keep fasts during the window for better metabolic flexibility.",
+                  'Latest report: ${activeReport.date}.',
                   style: TextStyle(
                     fontSize: 14,
                     color: context.nc.textSecondary,
@@ -1416,6 +1413,12 @@ class _HealthDataScreenState extends ConsumerState<HealthDataScreen> {
                                   if (mounted) Navigator.pop(context);
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(content: Text('Report deleted successfully.')),
+                                  );
+                                } else if (context.mounted) {
+                                  // TC-039: a failed delete shows an error
+                                  // state (it used to do nothing).
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text(labReportDeleteFailedMessage), backgroundColor: Colors.red),
                                   );
                                 }
                               }

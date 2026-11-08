@@ -272,10 +272,29 @@ export async function verifyHs256Jwt(
   return payload
 }
 
+/** Server env names that may hold the project HS256 secret. Never a request header. */
+export const HS256_SECRET_ENV_KEYS = ['JWT_SECRET', 'SUPABASE_JWT_SECRET', 'SUPABASE_INTERNAL_JWT_SECRET'] as const
+
+/**
+ * HS256 secrets configured for this process, in the order above, duplicates
+ * dropped. `SUPABASE_INTERNAL_JWT_SECRET` is what `supabase start` uses to
+ * sign the local service_role JWT. A secret that arrives on the request is
+ * not read.
+ */
+export function hs256SecretsFromEnv(env: { get(key: string): string | undefined }): string[] {
+  const out: string[] = []
+  for (const key of HS256_SECRET_ENV_KEYS) {
+    const value = env.get(key)
+    if (!value || out.includes(value)) continue
+    out.push(value)
+  }
+  return out
+}
+
 export function jwtSecretFromEnv(env: { get(key: string): string | undefined }): string {
-  const secret = env.get('JWT_SECRET') || env.get('SUPABASE_JWT_SECRET')
-  if (!secret) throw new Error('JWT secret not configured')
-  return secret
+  const secrets = hs256SecretsFromEnv(env)
+  if (!secrets.length) throw new Error('JWT secret not configured')
+  return secrets[0]
 }
 
 export type JwtVerifyEnv = {
@@ -364,7 +383,20 @@ export async function verifyBearerJwt(
     typ?: string
   }
   if (header.alg === 'HS256') {
-    return verifyHs256Jwt(token, jwtSecretFromEnv(env))
+    const secrets = hs256SecretsFromEnv(env)
+    if (!secrets.length) throw new Error('JWT secret not configured')
+    let last: unknown
+    for (const secret of secrets) {
+      try {
+        return await verifyHs256Jwt(token, secret)
+      } catch (e) {
+        last = e
+        // A wrong key looks like a bad signature. Expiry and algorithm
+        // failures are about the token, not which project secret signed it.
+        if (!(e instanceof Error) || e.message !== 'bad JWT signature') throw e
+      }
+    }
+    throw last instanceof Error ? last : new Error('bad JWT signature')
   }
   if (header.alg === 'ES256') {
     return verifyEs256Jwt(token, header, headerB64, payloadB64, signatureB64, env)

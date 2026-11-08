@@ -6,20 +6,25 @@ import '../config/supabase_config.dart';
 import '../services/revenue_cat_service.dart';
 import '../services/notification_service.dart';
 import '../main.dart';
+import '../demo/demo_build_flag.dart';
 
-/// Demo mode provider - true when Supabase is not configured
-final isDemoModeProvider = Provider<bool>((ref) {
-  final initialized = ref.watch(supabaseInitializedProvider);
-  return !initialized;
-});
+/// True only in the offline demo build (`--dart-define=DEMO_BUILD=true`).
+///
+/// This used to be "Supabase not initialised", which the router read as
+/// "skip every sign-in check" - so a build with missing configuration, or a
+/// failed Supabase setup, opened the whole app without a session. A missing
+/// backend is now handled by `backendReadyRedirect` (fail closed); demo mode
+/// is an explicit build choice and never a fallback.
+final isDemoModeProvider = Provider<bool>((ref) => kDemoBuild);
 
 /// Auth state provider - watches the authentication stream
 final authStateProvider = StreamProvider<User?>((ref) {
   final initialized = ref.watch(supabaseInitializedProvider);
   
-  // If Supabase is not initialized, return a stream with null (demo mode)
+  // If Supabase is not initialized there is no session (the router sends
+  // every location to the unavailable screen - see backendReadyRedirect).
   if (!initialized) {
-    debugPrint('Auth: Running in demo mode (Supabase not initialized)');
+    debugPrint('Auth: Supabase not initialized; no session');
     return Stream.value(null);
   }
   
@@ -111,6 +116,17 @@ class AuthNotifier extends Notifier<AsyncValue<void>> {
       // (SecureLocalStorage / PSU-SES-01).
       await client.auth.setSession(data['refresh_token'] as String);
       debugPrint('Sign in successful: ${client.auth.currentUser?.email}');
+      final signedInId = client.auth.currentUser?.id;
+      if (signedInId != null) {
+        try {
+          await client.rpc('record_patient_monthly_activity', params: {
+            'p_patient_id': signedInId,
+            'p_reason': 'sign_in',
+          });
+        } catch (meterError) {
+          debugPrint('Active-patient meter was not recorded: $meterError');
+        }
+      }
 
       NotificationService().syncTokenToSupabase();
 
@@ -204,9 +220,16 @@ class AuthNotifier extends Notifier<AsyncValue<void>> {
   // ---------------------------------------------------------------------
 
   Future<void> _invokePatientAuth(String functionName, Map<String, dynamic> body) async {
+    await _invokePatientAuthData(functionName, body);
+  }
+
+  /// Like [_invokePatientAuth] but returns the function's JSON body. Empty
+  /// map in demo mode.
+  Future<Map<String, dynamic>> _invokePatientAuthData(
+      String functionName, Map<String, dynamic> body) async {
     if (!_isInitialized) {
       await Future.delayed(const Duration(milliseconds: 400));
-      return;
+      return const {};
     }
     final client = SupabaseConfig.client;
     if (client == null) throw PatientAuthException('internal_error');
@@ -215,14 +238,68 @@ class AuthNotifier extends Notifier<AsyncValue<void>> {
       final response = await client.functions.invoke(functionName, body: body);
       final data = response.data;
       if (data is Map && data['error'] != null) {
-        throw PatientAuthException(data['error'].toString());
+        throw PatientAuthException.fromBody(data);
       }
+      return data is Map ? Map<String, dynamic>.from(data) : const {};
     } on FunctionException catch (e) {
       final details = e.details;
-      final code = (details is Map && details['error'] != null)
-          ? details['error'].toString()
-          : 'internal_error';
-      throw PatientAuthException(code);
+      if (details is Map && details['error'] != null) {
+        throw PatientAuthException.fromBody(details);
+      }
+      throw PatientAuthException('internal_error');
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // APP-01: invite-based sign-in with an emailed one-time code. Patients are
+  // enrolled by their care team (create-patient / integration API) and sign
+  // in with that email; no password. Server policy: 6 digits, 10 minutes,
+  // single use, 5 wrong tries lock the email for 15 minutes.
+  // ---------------------------------------------------------------------
+
+  /// Emails a 6-digit code. Succeeds the same way for any well-formed email
+  /// (PSU-ENUM-01), so the UI always moves on to code entry.
+  Future<void> requestLoginCode(String email) =>
+      _invokePatientAuth('patient-request-login-code', {'email': email});
+
+  /// Redeems [code] for [email] and stores the resulting session. Throws
+  /// [PatientAuthException] with `invalid_code`, `code_expired`, `locked`
+  /// (with [PatientAuthException.retryAfterSeconds]) or `rate_limited`.
+  Future<void> verifyLoginCode(String email, String code) async {
+    if (!_isInitialized) {
+      state = const AsyncValue.loading();
+      await Future.delayed(const Duration(milliseconds: 400));
+      state = const AsyncValue.data(null);
+      return;
+    }
+    final client = SupabaseConfig.client;
+    if (client == null) throw PatientAuthException('internal_error');
+
+    state = const AsyncValue.loading();
+    try {
+      final data = await _invokePatientAuthData(
+          'patient-verify-login-code', {'email': email, 'code': code});
+      final refreshToken = data['refresh_token'];
+      if (refreshToken is! String || refreshToken.isEmpty) {
+        throw PatientAuthException('internal_error');
+      }
+      // Same as signIn(): setSession persists via SecureLocalStorage (PSU-SES-01).
+      await client.auth.setSession(refreshToken);
+      NotificationService().syncTokenToSupabase();
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+
+  /// Apple 5.1.1(v) deletion for a passwordless (invited) patient: the
+  /// re-auth is a fresh code sent with [requestLoginCode] to their own email.
+  Future<void> deleteAccountWithCode(String code) async {
+    await _invokePatientAuth('patient-delete-account', {'code': code});
+    if (_isInitialized) {
+      final client = SupabaseConfig.client;
+      await client?.auth.signOut();
     }
   }
 
@@ -310,9 +387,40 @@ final authNotifierProvider = NotifierProvider<AuthNotifier, AsyncValue<void>>(()
 /// 'password_too_common', 'rate_limited', 'invalid_or_expired_link') - UI
 /// code maps it to Ava's copy rather than showing raw server text.
 class PatientAuthException implements Exception {
-  PatientAuthException(this.code);
+  PatientAuthException(this.code, {this.retryAfterSeconds});
+
+  /// Reads `{ error, retry_after_seconds? }` from a function's JSON body.
+  factory PatientAuthException.fromBody(Map<dynamic, dynamic> body) {
+    final retry = body['retry_after_seconds'];
+    return PatientAuthException(
+      body['error'].toString(),
+      retryAfterSeconds: retry is num ? retry.ceil() : null,
+    );
+  }
+
   final String code;
+
+  /// Set with `locked`: seconds until the sign-in lock ends.
+  final int? retryAfterSeconds;
 
   @override
   String toString() => 'PatientAuthException: $code';
 }
+
+/// APP-01: whether this deployment's org has open self-sign-up turned on
+/// (organizations.patient_self_signup_enabled, via patient-auth-config).
+/// Off by default, on any error, and in demo mode: patients join from a
+/// care-team invite. patient-signup enforces the same setting server-side.
+final selfSignupEnabledProvider = FutureProvider<bool>((ref) async {
+  if (!ref.watch(supabaseInitializedProvider)) return false;
+  final client = SupabaseConfig.client;
+  if (client == null) return false;
+  try {
+    final response = await client.functions.invoke('patient-auth-config', body: const {});
+    final data = response.data;
+    return data is Map && data['self_signup_enabled'] == true;
+  } catch (e) {
+    debugPrint('patient-auth-config failed: $e');
+    return false;
+  }
+});

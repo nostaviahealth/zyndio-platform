@@ -30,7 +30,7 @@ const FoodIntelligence: React.FC = () => {
                 const { data, error } = await supabase
                     .from('food_logs')
                     .select('*')
-                    .eq('user_id', user.id)
+                    .eq('patient_id', user.id)
                     .order('logged_at', { ascending: false });
 
                 if (error) throw error;

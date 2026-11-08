@@ -100,5 +100,18 @@ enabled = true
 # edge-runtime-policy.test.ts. `functions serve` still reloads on file change.
 policy = "per_worker"
 
+# INT-01: partners authenticate with the partner API's own OAuth bearer tokens
+# (opaque, checked against api_access_tokens in partner-api/handler.ts), not
+# Supabase JWTs, so the gateway JWT check is off for this one function only.
+# Every other function keeps verify_jwt on (TC-011).
+[functions.partner-api]
+verify_jwt = false
+
+# INT-04: the treatment partner token is not a Supabase JWT. The handler binds
+# it to one clinic and checks the current APP-03 authorisation before a read
+# or a write. The gateway JWT check would reject that token first.
+[functions.treatment-events]
+verify_jwt = false
+
 [analytics]
 enabled = false

@@ -1,0 +1,82 @@
+{
+  "_comment": "TC-039 / APP-05: the requests the analyze-lab-report Edge Function makes (service role) for one lab report. Pinned on both sides: supabase/functions/_shared/analyzeLabReport_test.ts proves the handler sends exactly these requests (real supabase-js on a fake fetch), and tests/integration/analyze-lab-report.test.ts proves the real migrated schema + storage accept them. Only the report id comes from the request; everything else is re-read from the row's real columns. {report_id} is the lab_reports id, {patient_id} its patient_id, {pdf_path} its stored object path. Results are filed in one transaction by lab_pipeline_file_results (service_role only); p_report.data is merged into the existing `data` payload and adds exactly the keys in analysis_file.data_keys_added (plus `date` / `lab_name` when printed).",
+  "row_lookup": {
+    "method": "GET",
+    "path": "/rest/v1/lab_reports",
+    "query": {
+      "select": "id,patient_id,data,pdf_path,file_sha256",
+      "id": "eq.{report_id}"
+    }
+  },
+  "file_download": {
+    "method": "GET",
+    "path": "/storage/v1/object/lab-reports/{pdf_path}"
+  },
+  "analyte_map": {
+    "method": "GET",
+    "path": "/rest/v1/lab_analyte_loinc",
+    "query": {
+      "select": "analyte_key,loinc,aliases"
+    }
+  },
+  "account_name": {
+    "method": "GET",
+    "path": "/rest/v1/patients",
+    "query": {
+      "select": "display_name",
+      "id": "eq.{patient_id}"
+    }
+  },
+  "account_dob": {
+    "method": "GET",
+    "path": "/rest/v1/patient_roster_meta",
+    "query": {
+      "select": "birth_date",
+      "patient_id": "eq.{patient_id}"
+    }
+  },
+  "analysis_file": {
+    "method": "POST",
+    "path": "/rest/v1/rpc/lab_pipeline_file_results",
+    "body_keys": [
+      "p_report",
+      "p_report_id",
+      "p_results"
+    ],
+    "report_keys": [
+      "collected_on",
+      "data",
+      "extraction_status",
+      "file_sha256",
+      "identity_hold",
+      "lab_name"
+    ],
+    "data_keys_added": [
+      "analyzed_at",
+      "extraction",
+      "markers",
+      "summary"
+    ],
+    "result_keys": [
+      "analyte_key",
+      "analyte_label",
+      "confidence",
+      "conversion_factor",
+      "conversion_kind",
+      "field_confidence",
+      "is_unmapped",
+      "loinc",
+      "range_high",
+      "range_low",
+      "reference_range_text",
+      "reported_name",
+      "reported_unit",
+      "reported_value",
+      "review_reasons",
+      "status",
+      "unit",
+      "value",
+      "value_comparator"
+    ]
+  }
+}

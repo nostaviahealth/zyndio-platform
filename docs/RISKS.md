@@ -26,3 +26,14 @@
 - **Status:** Mitigated in app (TC-011 L11): `supabase/functions/_shared/cors.ts` reflects the request's `Origin` only when it matches a fixed list of local admin dev origins (`127.0.0.1`/`localhost` on `5173`/`3100`) or the `ADMIN_ORIGIN`/`SITE_URL` env var. `Access-Control-Allow-Origin: *` is gone.
 - **Ops requirement:** Every deployed environment (staging, production) must set `ADMIN_ORIGIN` (or `SITE_URL`) to the real deployed admin app origin, or every cross-origin call from the deployed admin app will be blocked by the browser.
 - **Owner:** Leo / deploy checklist.
+
+## R-CLIENT-IP — per-IP rate limits depend on the proxy chain
+
+- **Status:** Mitigated in app (security-hardening): `supabase/functions/_shared/clientIp.ts` no longer trusts the caller-supplied first `x-forwarded-for` hop (or `x-real-ip`), which let any client pick a fresh IP per request and bypass the per-IP limits on patient sign-up, sign-in, password reset, email change and link-code requests. It now reads the hop appended by the gateway, skipping `TRUSTED_PROXY_HOPS` extra trusted proxies (default 0). `supabase/proxy-worker.js` now replaces the caller's `x-forwarded-for` with Cloudflare's `CF-Connecting-IP`.
+- **Ops requirement:** Environments reached through the Cloudflare proxy worker must set `TRUSTED_PROXY_HOPS=1` on the Edge Functions (`supabase secrets set TRUSTED_PROXY_HOPS=1`); otherwise every proxied visitor shares the worker's IP bucket. Direct-to-Supabase environments leave it unset. Per-email limits are unaffected either way.
+- **Owner:** Leo / deploy checklist.
+
+## R-REVENUECAT-ORDERING — webhook events are deduplicated and ordered
+
+- **Status:** Fixed (security-hardening): `public.apply_revenuecat_event` records each RevenueCat event id (duplicates are no-ops) and only writes premium state for an event newer than the last one applied, so a delayed EXPIRATION can no longer downgrade a renewed patient. EXPIRATION now always revokes (its `entitlement_ids` still list the expired entitlement, which used to keep patients premium), CANCELLATION keeps access until `expiration_at_ms`, `subscription_expires_at` is written, and a crash returns 5xx so RevenueCat retries.
+- **Ops requirement:** RevenueCat must send real event ids and `event_timestamp_ms` (it does for every event type); payloads without them are acknowledged and ignored, and logged.

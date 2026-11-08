@@ -8,7 +8,7 @@ import '../../config/theme.dart';
 import '../../providers/patient_provider.dart';
 import '../../providers/lab_analysis_provider.dart';
 import '../../providers/lab_reports_provider.dart';
-import './lab_report_verification_screen.dart';
+import './lab_report_submitted_screen.dart';
 
 class LabReportUploadScreen extends ConsumerStatefulWidget {
   const LabReportUploadScreen({super.key});
@@ -87,26 +87,16 @@ class _LabReportUploadScreenState
   Widget build(BuildContext context) {
     final analysisState = ref.watch(labAnalysisProvider);
 
-    // React to completion — navigate to verification
+    // React to completion — show what happened to the report (APP-05: it is
+    // already filed and read on the server; there is nothing to verify).
     ref.listen<LabAnalysisState>(labAnalysisProvider, (_, next) {
-      if (next.status == LabAnalysisStatus.completed && next.result != null) {
-        final profile = ref.read(patientProfileProvider).value;
-        if (profile == null || !mounted) return;
-        
-        // 🔥 CRITICAL: We stop calling consumeResult() here to prevent the UI from resetting 
-        // to "Select File" while the navigation is still transitioning. 
-        // Logic moved to the end of verification screen.
-        
+      if (next.status == LabAnalysisStatus.completed && next.submission != null) {
+        if (!mounted) return;
         ref.invalidate(labReportsProvider);
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => LabReportVerificationScreen(
-              filePath: _selectedFile?.path ?? next.result!['title'] ?? '',
-              fileName: _selectedFile?.name ?? next.result!['title'] ?? '',
-              profileId: profile.id,
-              extractedData: next.result!,
-            ),
+            builder: (_) => LabReportSubmittedScreen(submission: next.submission!),
           ),
         );
       }
@@ -352,17 +342,11 @@ class _LabReportUploadScreenState
   Widget _buildViewResultsButton(LabAnalysisState state) {
     return GestureDetector(
       onTap: () {
-        final profile = ref.read(patientProfileProvider).value;
-        if (profile == null || state.result == null) return;
+        if (state.submission == null) return;
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => LabReportVerificationScreen(
-              filePath: state.pendingFilePath ?? state.result!['title'] ?? '',
-              fileName: state.pendingFileName ?? state.result!['title'] ?? '',
-              profileId: profile.id,
-              extractedData: state.result!,
-            ),
+            builder: (_) => LabReportSubmittedScreen(submission: state.submission!),
           ),
         );
       },
@@ -386,7 +370,7 @@ class _LabReportUploadScreenState
           ],
         ),
         child: const Text(
-          'View & Verify Results',
+          'View Results',
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w800,

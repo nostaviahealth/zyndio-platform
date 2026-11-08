@@ -221,6 +221,16 @@ select set_config('request.jwt.claims', '', true);
 -- ---------------------------------------------------------------------------
 -- Patients' own write paths are unaffected by the immutability trigger.
 -- ---------------------------------------------------------------------------
+reset role;
+select set_config('request.jwt.claims', '', true);
+insert into public.consent_documents (consent_type, version, document, title, summary, body, required, is_placeholder, published_at)
+values ('health_data', 'synthetic-fixture', 'synthetic_health_data_fixture', 'Synthetic fixture',
+        'SYNTHETIC FIXTURE - not a legally approved document',
+        'SYNTHETIC FIXTURE - not a legally approved document. Not for patient use.',
+        false, false, now());
+insert into public.consents (org_id, patient_id, consent_type, document, version, granted)
+values ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001',
+        'health_data', 'synthetic_health_data_fixture', 'synthetic-fixture', true);
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal1');
 with u as (update public.consents set granted = false where id = '00000000-0000-0000-0000-00000046a401' returning 1)
   insert into tc040_seen select 'a1-update-own-consent', count(*) from u;

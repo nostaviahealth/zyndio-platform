@@ -30,7 +30,6 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>com.googleusercontent.apps.742868132720-op8bpk01tjt3npl8m21maabkneps4mbp</string>
-				<string>fb910153241839925</string>
 				<string>zyndiohealth</string>
 				<string>com.zyndio.health</string>
 			</array>
@@ -46,8 +45,6 @@
 	<true/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
@@ -65,11 +62,11 @@
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Zyndio requires speech recognition to allow you to log meals via voice.</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>We use your health data to provide personalized coaching and insights.</string>
+	<string>Zyndio reads the Apple Health data you choose to share, such as activity, sleep, heart rate, body measurements, blood glucose and cycle data, to show your health trends, personalise your program and share them with your care team.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>We need permission to save workout data to Apple Health.</string>
+	<string>Zyndio reads from Apple Health and does not save data to it without asking you first.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Zyndio uses the local network to connect to the Dart debugger and enable features like hot reload.</string>
+	<string>Development builds of Zyndio use the local network to connect to debugging tools. App Store builds do not include this permission.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Zyndio needs photo library access so you can easily select and upload existing lab reports and meal photos for AI analysis.</string>
 
@@ -82,6 +79,27 @@
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneClassName</key>
+					<string>UIWindowScene</string>
+					<key>UISceneDelegateClassName</key>
+					<string>FlutterSceneDelegate</string>
+					<key>UISceneConfigurationName</key>
+					<string>flutter</string>
+					<key>UISceneStoryboardFile</key>
+					<string>Main</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 	<key>UIStatusBarHidden</key>
@@ -124,33 +142,5 @@
 		</dict>
 	</dict>
 
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<string>fbapi</string>
-		<string>fb-messenger-share-api</string>
-	</array>
-	<key>NSUserTrackingUsageDescription</key>
-	<string>Zyndio uses your device's advertising identifier to accurately measure the effectiveness of our health and longevity ad campaigns, ensuring we reach the users who benefit most from our insights.</string>
-	<key>SKAdNetworkItems</key>
-	<array>
-		<dict>
-			<key>SKAdNetworkIdentifier</key>
-			<string>v9wttpbfk9.skadnetwork</string>
-		</dict>
-		<dict>
-			<key>SKAdNetworkIdentifier</key>
-			<string>n38lu8286q.skadnetwork</string>
-		</dict>
-	</array>
-	<key>FacebookAppID</key>
-	<string>910153241839925</string>
-	<key>FacebookClientToken</key>
-	<string>0723f246609a63e206a141eeb2c013da</string>
-	<key>FacebookDisplayName</key>
-	<string>Zyndio</string>
-	<key>FacebookAdvertiserIDCollectionEnabled</key>
-	<true/>
-	<key>FacebookAutoLogAppEventsEnabled</key>
-	<true/>
 </dict>
 </plist>

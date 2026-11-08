@@ -1,82 +1,102 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "npm:@supabase/supabase-js@2.118.0"
+import { guardPatientAiRequest } from '../_shared/patientAiGuard.ts'
+import { rateLimitedHeaders } from '../_shared/intelligenceRateLimit.ts'
+import {
+    consumeMemoryBudget,
+    embeddingRequestBody,
+    extractEmbedding,
+    parseSearchRequest,
+} from '../_shared/memoryRequest.ts'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+function json(body: unknown, status = 200, extra: Record<string, string> = {}): Response {
+    return new Response(JSON.stringify(body), {
+        status,
+        headers: { ...corsHeaders, ...extra, 'Content-Type': 'application/json' },
+    })
+}
+
+// Order: auth + own-data + kill switch (guard) -> input limits -> rate budget
+// -> provider -> match_memories (service role, guard.userId only).
 serve(async (req) => {
-    // Handle CORS preflight
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders })
     }
 
     try {
-        const { user_id, query, match_count } = await req.json()
+        let body: Record<string, unknown>
+        try {
+            const parsed = await req.json()
+            body = parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+        } catch {
+            body = {}
+        }
 
-        if (!user_id || !query) {
-            return new Response(
-                JSON.stringify({ error: 'user_id and query are required' }),
-                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        // Signed-in patient, own memories only, memory feature switched on.
+        const guard = await guardPatientAiRequest(req, body.user_id, 'memory')
+        if (!guard.ok) return json(guard.body, guard.status)
+
+        if (!body.user_id) return json({ error: 'user_id and query are required' }, 400)
+        const input = parseSearchRequest(body)
+        if (!input.ok) return json({ error: input.error }, 400)
+
+        let budget
+        try {
+            budget = await consumeMemoryBudget(guard.admin, guard.userId)
+        } catch {
+            console.error('search-memory: rate limit check failed')
+            return json({ error: 'rate limit check unavailable', memories: [] }, 503)
+        }
+        if (!budget.allowed) {
+            return json(
+                { error: 'rate_limited', retry_after_seconds: budget.retryAfterSeconds, memories: [] },
+                429,
+                rateLimitedHeaders(budget.retryAfterSeconds),
             )
         }
 
-        // 1. Generate embedding for the query
         const embeddingApiKey = Deno.env.get('GEMINI_API_KEY') ?? ''
-        const embeddingDeployment = 'gemini-embedding-001'
+        if (!embeddingApiKey) {
+            console.error('search-memory: GEMINI_API_KEY not set')
+            return json({ error: 'AI service not configured', memories: [] }, 500)
+        }
 
-        const embeddingUrl = `https://generativelanguage.googleapis.com/v1beta/openai/embeddings`
-
-        const embeddingResponse = await fetch(embeddingUrl, {
+        const embeddingResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/embeddings', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${embeddingApiKey}`,
             },
-            body: JSON.stringify({
-                input: query,
-                model: embeddingDeployment,
-            }),
+            body: JSON.stringify(embeddingRequestBody(input.value.query)),
         })
 
         if (!embeddingResponse.ok) {
-            const errorBody = await embeddingResponse.text()
-            console.error('Embedding API Error:', embeddingResponse.status, errorBody)
-            throw new Error(`Embedding API failed: ${embeddingResponse.status}`)
+            await embeddingResponse.body?.cancel()
+            console.error('search-memory: embedding API error', embeddingResponse.status)
+            return json({ error: 'ai_provider_error', memories: [] }, 502)
         }
 
-        const embeddingData = await embeddingResponse.json()
-        const queryEmbedding = embeddingData.data[0].embedding
+        const queryEmbedding = extractEmbedding(await embeddingResponse.json())
 
-        // 2. Call the match_memories RPC function
-        const supabase = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        )
-
-        const { data: memories, error: rpcError } = await supabase.rpc('match_memories', {
+        const { data: memories, error: rpcError } = await guard.admin.rpc('match_memories', {
             query_embedding: JSON.stringify(queryEmbedding),
-            match_user_id: user_id,
-            match_count: match_count ?? 5,
+            match_user_id: guard.userId,
+            match_count: input.value.matchCount,
             match_threshold: 0.3,
         })
 
         if (rpcError) {
-            console.error('RPC Error:', rpcError)
+            console.error('search-memory: RPC failed', rpcError.code)
             throw rpcError
         }
 
-        return new Response(
-            JSON.stringify({ memories: memories ?? [] }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-
+        return json({ memories: memories ?? [] })
     } catch (error) {
-        console.error('Function Error:', error)
-        return new Response(
-            JSON.stringify({ error: error instanceof Error ? error.message : 'internal error', memories: [] }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        console.error('search-memory: failed', error instanceof Error ? error.name : 'unknown')
+        return json({ error: 'internal error', memories: [] }, 500)
     }
 })

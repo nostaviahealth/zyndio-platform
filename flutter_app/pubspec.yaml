@@ -15,15 +15,12 @@ dependencies:
   
   # Firebase
   firebase_core: ^3.6.0
-  firebase_analytics: ^11.4.1
   firebase_messaging: ^15.2.10
   flutter_local_notifications: ^18.0.1
   timezone: ^0.9.4
   flutter_timezone: ^5.0.2
   
   # Meta Ads
-  facebook_app_events: 0.27.0
-  app_tracking_transparency: ^2.0.4
   
   # State Management
   flutter_riverpod: ^3.2.1
@@ -78,8 +75,8 @@ dependencies:
   # Native icon switching handled via MethodChannel (no plugin needed)
 
   # In-App Purchases (RevenueCat)
-  purchases_flutter: ^8.2.0
-  purchases_ui_flutter: ^8.2.0
+  purchases_flutter: ^10.19.0
+  purchases_ui_flutter: ^10.19.0
 
   share_plus: ^10.1.2
   animations: ^2.0.11
@@ -103,6 +100,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  config:
+    enable-swift-package-manager: false
   
   assets:
     - assets/images/

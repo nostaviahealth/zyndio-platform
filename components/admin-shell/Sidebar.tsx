@@ -1,8 +1,10 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Users, ClipboardList, LogOut } from 'lucide-react';
+import { Users, ClipboardList, LogOut, Plug, ScrollText, ShieldCheck } from 'lucide-react';
 import { usePortalAuth } from '../../contexts/PortalAuthContext';
 import { FOCUS_RING_ON_SUNKEN_CLASS } from '../ui/focusRing';
+// Physician portal P0 nav icons (own import so parallel nav changes don't collide).
+import { SlidersHorizontal, Package } from 'lucide-react';
 
 const ROLE_LABELS: Record<string, string> = {
   org_admin: 'Admin',
@@ -12,7 +14,8 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 // C41: 264 wide, role-conditional nav. Admins only ever see "Users and
-// roles" (least privilege, Henry: "admins manage users only"); clinical
+// roles" and (PP-03) "Integrations" (least privilege, Henry: "admins manage
+// users only" - integrations are credentials, not clinical data); clinical
 // roles only ever see "Patients".
 const Sidebar: React.FC = () => {
   const { role, email, signOut } = usePortalAuth();
@@ -44,14 +47,41 @@ const Sidebar: React.FC = () => {
 
       <div className="flex-1 space-y-1 px-3">
         {isOrgAdmin ? (
-          <NavLink to="/admin/users" className={navItemClass} end>
-            <Users className="h-4 w-4" aria-hidden="true" />
-            Users and roles
-          </NavLink>
+          <>
+            <NavLink to="/admin/users" className={navItemClass} end>
+              <Users className="h-4 w-4" aria-hidden="true" />
+              Users and roles
+            </NavLink>
+            <NavLink to="/admin/integrations" className={navItemClass} end>
+              <Plug className="h-4 w-4" aria-hidden="true" />
+              Integrations
+            </NavLink>
+            <NavLink to="/admin/operations" className={navItemClass} end>
+              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+              Operations and billing
+            </NavLink>
+            <NavLink to="/admin/audit" className={navItemClass} end>
+              <ScrollText className="h-4 w-4" aria-hidden="true" />
+              Audit log
+            </NavLink>
+          </>
         ) : (
           <NavLink to="/admin/patients" className={navItemClass}>
             <ClipboardList className="h-4 w-4" aria-hidden="true" />
             Patients
+          </NavLink>
+        )}
+        {/* POR-05: clinical roles also get "Reference ranges". PP-01: the org
+            admin also gets "Plan and modules" (admin-only; billing config). */}
+        {isOrgAdmin ? (
+          <NavLink to="/admin/plan" className={navItemClass} end>
+            <Package className="h-4 w-4" aria-hidden="true" />
+            Plan and modules
+          </NavLink>
+        ) : (
+          <NavLink to="/admin/ranges" className={navItemClass} end>
+            <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+            Reference ranges
           </NavLink>
         )}
       </div>

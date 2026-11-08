@@ -11,6 +11,7 @@ import 'services/extras_notification_guard.dart';
 import 'services/notification_scheduler.dart';
 import 'services/notification_service.dart';
 import 'services/watch_service.dart';
+import 'services/wearable_daily/wearable_daily_sync.dart';
 
 /// Main Zyndio App Widget
 class BrandHealthApp extends ConsumerWidget {
@@ -38,6 +39,9 @@ class BrandHealthApp extends ConsumerWidget {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       WatchService.initialize(ref);
       ref.read(wearableSyncProvider.notifier).sync();
+      // APP-07: upload daily wearable data now and on every return to the
+      // foreground (no-op until signed in, linked and connected).
+      WearableDailySync.instance.startAutoSync();
     });
 
     return MaterialApp.router(

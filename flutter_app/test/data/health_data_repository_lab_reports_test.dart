@@ -172,6 +172,8 @@ void main() {
       );
     });
 
+    // TC-039 (TC-034 item 45): nothing at all is printed - not just the two
+    // phrases this test used to look for.
     test('a backend error does not print its error text', () async {
       final h = _Harness(_undefinedColumn);
       final printed = <String>[];
@@ -180,9 +182,7 @@ void main() {
           await _withClient(h, () => HealthDataRepository.fetchReports(_patientId));
         } catch (_) {}
       });
-      expect(printed.where((l) => l.contains('does not exist') || l.contains('HealthRepo Error')),
-          isEmpty,
-          reason: printed.join('\n'));
+      expect(printed, isEmpty, reason: printed.join('\n'));
     });
 
     test('no signed-in patient: empty list and no request', () async {

@@ -1,0 +1,39 @@
+{
+  "_comment": "APP-05: the requests the patient app makes to submit a lab report (the one lab path: file it, then the server reads it). Pinned on both sides: flutter_app/test/data/health_data_repository_lab_submit_test.dart proves HealthDataRepository.submitLabReport sends exactly these, and tests/integration/patient-lab-report-submit.test.ts proves the migrated schema + RLS + Edge Function accept them. {patient_id} is the signed-in patient's auth user id, {org_id} their clinic (read with org_lookup in patient-lab-report-writes.json), {object} the uuid file name uploaded into the private lab-reports bucket, {sha256} the file's lower-case hex SHA-256, {today} the local date, {report_id} the id the insert returned. The user's file name is never sent.",
+  "dedupe_lookup": {
+    "method": "GET",
+    "path": "/rest/v1/lab_reports",
+    "query": {
+      "select": "id,extraction_status",
+      "patient_id": "eq.{patient_id}",
+      "file_sha256": "eq.{sha256}"
+    }
+  },
+  "submit_insert": {
+    "method": "POST",
+    "path": "/rest/v1/lab_reports",
+    "query": {
+      "select": "id"
+    },
+    "body": {
+      "org_id": "{org_id}",
+      "patient_id": "{patient_id}",
+      "report_type": "patient_upload",
+      "data": {
+        "title": "Lab report",
+        "date": "{today}",
+        "summary": "Uploaded from mobile app.",
+        "markers": []
+      },
+      "pdf_path": "{patient_id}/{object}.pdf",
+      "file_sha256": "{sha256}"
+    }
+  },
+  "analyze_call": {
+    "method": "POST",
+    "path": "/functions/v1/analyze-lab-report",
+    "body": {
+      "report_id": "{report_id}"
+    }
+  }
+}

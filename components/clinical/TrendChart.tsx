@@ -45,7 +45,7 @@ const TrendChart: React.FC<TrendChartProps> = ({ points, analyteLabel, unit, mod
   const rangeLow = ranged?.rangeLow ?? null;
   const rangeHigh = ranged?.rangeHigh ?? null;
   const hasBand = rangeLow !== null || rangeHigh !== null;
-  const legend = rangeLegendText(rangeLow, rangeHigh, unit);
+  const legend = rangeLegendText(rangeLow, rangeHigh, unit, ranged?.rangeSource);
 
   const values = points.map((p) => p.value).filter((v): v is number => v !== null);
   const bounds = [...values, ...(rangeLow !== null ? [rangeLow] : []), ...(rangeHigh !== null ? [rangeHigh] : [])];

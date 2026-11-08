@@ -1,4 +1,4 @@
-import { LabStatus } from './clinicalApi';
+import { LabStatus, RangeSource } from './clinicalApi';
 
 // Shared, clinician-approved display formatting for the physician portal.
 // Everything is computed in UTC so screenshots are deterministic regardless
@@ -104,6 +104,16 @@ export const STATUS_LABELS: Record<LabStatus, string> = {
 };
 
 /**
+ * POR-05: the badge label for a status, by where its range came from. Only
+ * "within" changes wording - "Within default range" until the clinic's
+ * physician-approved set covers the marker, then "Within clinic range".
+ */
+export function statusLabel(status: LabStatus, rangeSource: RangeSource = 'default'): string {
+  if (status === 'within_range' && rangeSource === 'approved') return 'Within clinic range';
+  return STATUS_LABELS[status];
+}
+
+/**
  * C59/C30 trend chart y-axis: grid at 0.5 steps over the domain rounded out
  * to the nearest 0.5 (e.g. values 5.5-6.2 -> ticks 5 / 5.5 / 6 / 6.5). Takes
  * every plotted value plus any range band bounds, so the band is always
@@ -125,15 +135,20 @@ export function yAxisTicks(values: number[]): number[] {
   return ticks;
 }
 
-/** "Default range below 5.7%" / "4.0–5.6%" / "above 2.6%", or null for no band. */
+/**
+ * "Default range below 5.7%" / "4.0–5.6%" / "above 2.6%", or null for no band.
+ * POR-05: "Clinic range …" when the range is from the approved set.
+ */
 export function rangeLegendText(
   rangeLow: number | null,
   rangeHigh: number | null,
-  unit: string | null
+  unit: string | null,
+  rangeSource: RangeSource = 'default'
 ): string | null {
   const u = unit ?? '';
+  const prefix = rangeSource === 'approved' ? 'Clinic range' : 'Default range';
   if (rangeLow === null && rangeHigh === null) return null;
-  if (rangeLow === null && rangeHigh !== null) return `Default range below ${rangeHigh}${u}`;
-  if (rangeLow !== null && rangeHigh === null) return `Default range above ${rangeLow}${u}`;
-  return `Default range ${rangeLow}–${rangeHigh}${u}`;
+  if (rangeLow === null && rangeHigh !== null) return `${prefix} below ${rangeHigh}${u}`;
+  if (rangeLow !== null && rangeHigh === null) return `${prefix} above ${rangeLow}${u}`;
+  return `${prefix} ${rangeLow}–${rangeHigh}${u}`;
 }

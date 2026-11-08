@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/onboarding_provider.dart';
 import 'widgets/patient_auth_chrome.dart';
 
 /// Ava 13-link-record — fictional-data UI wired to matching RPCs / Edge.
@@ -121,6 +123,7 @@ class _LinkRecordScreenState extends ConsumerState<LinkRecordScreen> {
       await ref.read(authNotifierProvider.notifier).unlinkPatientRecord();
       if (!mounted) return;
       setState(() => _step = 'intro');
+      ref.invalidate(onboardingStatusProvider);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -552,7 +555,17 @@ class _LinkRecordScreenState extends ConsumerState<LinkRecordScreen> {
         const SizedBox(height: 24),
         AuthPrimaryButton(
           label: 'Go to Today',
-          onPressed: () => Navigator.of(context).maybePop(),
+          // APP-02: a newly linked record still needs consent and a
+          // profile; refreshing the onboarding status lets the router's
+          // gate take the patient there (or to Today once done).
+          onPressed: () {
+            ref.invalidate(onboardingStatusProvider);
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              context.go('/');
+            }
+          },
         ),
         const SizedBox(height: 12),
         Text(

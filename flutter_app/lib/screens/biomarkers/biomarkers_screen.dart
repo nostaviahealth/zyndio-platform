@@ -9,6 +9,7 @@ import 'package:intl/intl.dart' show DateFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../config/biomarker_segments.dart';
+import '../../config/lab_range_wording.dart';
 import '../../config/theme.dart';
 import '../../models/lab_report.dart';
 import '../../providers/lab_reports_provider.dart';
@@ -334,6 +335,8 @@ class _BiomarkersScreenState extends ConsumerState<BiomarkersScreen> {
         ],
       ],
       const SizedBox(height: 16),
+      const DefaultRangesCaveat(),
+      const SizedBox(height: 12),
       _ViewFullReportCta(
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const HealthDataScreen()),

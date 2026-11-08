@@ -1,87 +1,105 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "npm:@supabase/supabase-js@2.118.0"
+import { guardPatientAiRequest } from '../_shared/patientAiGuard.ts'
+import { rateLimitedHeaders } from '../_shared/intelligenceRateLimit.ts'
+import {
+    consumeMemoryBudget,
+    embeddingRequestBody,
+    extractEmbedding,
+    parseEmbedRequest,
+} from '../_shared/memoryRequest.ts'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+function json(body: unknown, status = 200, extra: Record<string, string> = {}): Response {
+    return new Response(JSON.stringify(body), {
+        status,
+        headers: { ...corsHeaders, ...extra, 'Content-Type': 'application/json' },
+    })
+}
+
+// Order: auth + own-data + kill switch (guard) -> input limits -> rate budget
+// -> provider. Nothing reaches the embedding provider unmetered or oversized.
 serve(async (req) => {
-    // Handle CORS preflight
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders })
     }
 
     try {
-        const { user_id, content, memory_type, metadata } = await req.json()
+        let body: Record<string, unknown>
+        try {
+            const parsed = await req.json()
+            body = parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+        } catch {
+            body = {}
+        }
 
-        if (!user_id || !content) {
-            return new Response(
-                JSON.stringify({ error: 'user_id and content are required' }),
-                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        // Signed-in patient, own memories only, memory feature switched on.
+        const guard = await guardPatientAiRequest(req, body.user_id, 'memory')
+        if (!guard.ok) return json(guard.body, guard.status)
+
+        if (!body.user_id) return json({ error: 'user_id and content are required' }, 400)
+        const input = parseEmbedRequest(body)
+        if (!input.ok) return json({ error: input.error }, 400)
+
+        let budget
+        try {
+            budget = await consumeMemoryBudget(guard.admin, guard.userId)
+        } catch {
+            console.error('embed-memory: rate limit check failed')
+            return json({ error: 'rate limit check unavailable' }, 503)
+        }
+        if (!budget.allowed) {
+            return json(
+                { error: 'rate_limited', retry_after_seconds: budget.retryAfterSeconds },
+                429,
+                rateLimitedHeaders(budget.retryAfterSeconds),
             )
         }
 
-        // 1. Generate embedding via Gemini
         const embeddingApiKey = Deno.env.get('GEMINI_API_KEY') ?? ''
-        const embeddingDeployment = 'gemini-embedding-001'
+        if (!embeddingApiKey) {
+            console.error('embed-memory: GEMINI_API_KEY not set')
+            return json({ error: 'AI service not configured' }, 500)
+        }
 
-        const embeddingUrl = `https://generativelanguage.googleapis.com/v1beta/openai/embeddings`
-
-        const embeddingResponse = await fetch(embeddingUrl, {
+        const embeddingResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/embeddings', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${embeddingApiKey}`,
             },
-            body: JSON.stringify({
-                input: content,
-                model: embeddingDeployment,
-            }),
+            body: JSON.stringify(embeddingRequestBody(input.value.content)),
         })
 
         if (!embeddingResponse.ok) {
-            const errorBody = await embeddingResponse.text()
-            console.error('Embedding API Error:', embeddingResponse.status, errorBody)
-            throw new Error(`Embedding API failed: ${embeddingResponse.status}`)
+            await embeddingResponse.body?.cancel()
+            console.error('embed-memory: embedding API error', embeddingResponse.status)
+            return json({ error: 'ai_provider_error' }, 502)
         }
 
-        const embeddingData = await embeddingResponse.json()
-        const embedding = embeddingData.data[0].embedding
+        const embedding = extractEmbedding(await embeddingResponse.json())
 
-        // 2. Store in Supabase
-        const supabase = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        )
-
-        console.log(`Storing embedding for user ${user_id}, type: ${memory_type}, content length: ${content.length}, dims: ${embedding.length}`)
-
-        const { error: insertError } = await supabase
+        const { error: insertError } = await guard.admin
             .from('chat_memories')
             .insert({
-                user_id,
-                content,
-                embedding: embedding, // Pass raw array
-                memory_type: memory_type ?? 'conversation_summary',
-                metadata: metadata ?? {},
+                user_id: guard.userId,
+                content: input.value.content,
+                embedding,
+                memory_type: input.value.memoryType,
+                metadata: input.value.metadata,
             })
 
         if (insertError) {
-            console.error('Insert Error:', insertError)
+            console.error('embed-memory: insert failed', insertError.code)
             throw insertError
         }
 
-        return new Response(
-            JSON.stringify({ success: true, dimensions: embedding.length }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-
+        return json({ success: true, dimensions: embedding.length })
     } catch (error) {
-        console.error('Function Error:', error)
-        return new Response(
-            JSON.stringify({ error: error instanceof Error ? error.message : 'internal error' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        console.error('embed-memory: failed', error instanceof Error ? error.name : 'unknown')
+        return json({ error: 'internal error' }, 500)
     }
 })

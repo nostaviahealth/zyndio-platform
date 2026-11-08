@@ -88,6 +88,13 @@ serve(async (req) => {
       orgId: null,
       metadata: {},
     })
+    if (tokenJson.user?.id) {
+      const { error: meterError } = await admin.rpc('record_patient_monthly_activity', {
+        p_patient_id: tokenJson.user.id,
+        p_reason: 'sign_in',
+      })
+      if (meterError) console.error('meter_sign_in_failed', meterError.message)
+    }
     await padTimingTo(startedAt, 250)
     return jsonResponse(req, {
       status: 'ok',

@@ -12,6 +12,7 @@ import '../../providers/protocol_provider.dart';
 import '../../providers/protocol_progress_provider.dart';
 import '../../providers/consistency_provider.dart';
 import '../../widgets/health_disclaimer_banner.dart';
+import '../../widgets/tc025/tc025_widgets.dart';
 import '../wearables/widgets/dashboard_card_style.dart';
 import '../../providers/blueprint_provider.dart';
 import '../../providers/navbar_provider.dart';
@@ -67,15 +68,50 @@ class _ProtocolScreenState extends ConsumerState<ProtocolScreen>
     final protocolState = ref.watch(protocolProvider);
 
     if (protocolState.isLoading) {
-      return Container(
-        color: context.nc.isDark ? Colors.transparent : context.nc.scaffoldBg,
-        child: Center(
-          child: CircularProgressIndicator(color: BrandColors.emerald500),
-        ),
+      return const ZyndioTabScaffold(
+        title: 'My Plan',
+        subtitle: 'Published by your care team.',
+        children: [
+          ZyndioStateCard(
+            icon: LucideIcons.clipboardList,
+            title: 'Loading your plan',
+            body: 'Checking for a plan your care team has published.',
+          ),
+        ],
       );
     }
 
-    final protocol = protocolState.selectedProtocol ?? ProtocolData.mock;
+    if (protocolState.loadFailed) {
+      return ZyndioTabScaffold(
+        title: 'My Plan',
+        subtitle: 'Published by your care team.',
+        children: [
+          ZyndioStateCard(
+            icon: LucideIcons.triangleAlert,
+            title: "We couldn't load your plan",
+            body: 'Check your connection and try again.',
+            actionLabel: 'Try again',
+            onAction: () => ref.read(protocolProvider.notifier).fetchLibrary(),
+          ),
+        ],
+      );
+    }
+
+    final protocol = protocolState.selectedProtocol;
+    if (protocol == null) {
+      return const ZyndioTabScaffold(
+        title: 'My Plan',
+        subtitle: 'Published by your care team.',
+        children: [
+          ZyndioStateCard(
+            icon: LucideIcons.clipboardList,
+            title: 'No plan yet',
+            body:
+                'Your care team has not published a plan. This screen does not fill in a sample plan.',
+          ),
+        ],
+      );
+    }
     final accent = _categories[_selectedIndex].color;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(

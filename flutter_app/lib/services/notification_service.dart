@@ -9,6 +9,7 @@ import '../config/supabase_config.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'notification_permission_prompt.dart' show NotificationPermissionRequester;
 
 /// Background message handler for FCM.
 /// Must be a top-level function.
@@ -25,7 +26,16 @@ void _onNotificationActionBackground(NotificationResponse details) {
   // Background actions are handled natively — this is the Flutter-side hook
 }
 
-class NotificationService {
+/// APP-10: the only text a notification ever shows on the lock screen or in a
+/// banner. Callers still describe the event in `title`/`body`, but that text
+/// can carry health details (heart rate, AI coaching, lab results), so it is
+/// never displayed; the patient reads it in the app after signing in.
+@visibleForTesting
+const kNotificationTitle = 'Zyndio';
+@visibleForTesting
+const kNotificationBody = 'You have a new update in the Zyndio app.';
+
+class NotificationService implements NotificationPermissionRequester {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
@@ -85,8 +95,9 @@ class NotificationService {
       debugPrint('Could not initialize timezone location, fallback mapping used: $e');
     }
 
-    // 1. Request permissions (iOS/Android 13+)
-    await requestPermissions();
+    // 1. No permission request here: initialize() runs at launch, before the
+    // patient has signed in. The prompt comes once, in context, from
+    // NotificationPermissionPrompt (MainShell) - App Store guideline 4.5.4.
 
     // 2. Configure Local Notifications with Interactive Actions
     const AndroidInitializationSettings initializationSettingsAndroid =
@@ -209,11 +220,10 @@ class NotificationService {
 
       // Foreground messages
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        debugPrint('Got a message whilst in the foreground!');
-        debugPrint('Message data: ${message.data}');
+        // No message data or text in logs: it may carry health details.
+        debugPrint('Got a message whilst in the foreground: ${message.messageId}');
 
         if (message.notification != null) {
-          debugPrint('Message also contained a notification: ${message.notification?.title}');
           showLocalNotification(
             id: message.hashCode,
             title: message.notification?.title ?? 'Notification',
@@ -233,7 +243,15 @@ class NotificationService {
       });
 
       // Handle initial message if app was terminated
-      RemoteMessage? initialMessage = await fcm.getInitialMessage();
+      RemoteMessage? initialMessage;
+      try {
+        // firebase_messaging can leave this call hanging if the iOS plugin
+        // registers after launch. Startup must not wait forever.
+        initialMessage = await fcm.getInitialMessage().timeout(const Duration(seconds: 3));
+      } on TimeoutException {
+        debugPrint('getInitialMessage timed out; startup continues');
+        initialMessage = null;
+      }
       if (initialMessage != null) {
         debugPrint('App opened from terminated state via notification!');
       }
@@ -259,19 +277,20 @@ class NotificationService {
     final actionId = details.actionId;
     final payload = details.payload;
 
-    debugPrint('🔔 Notification response — action: $actionId, payload: $payload');
+    debugPrint('Notification response received');
 
     if (actionId != null && actionId.isNotEmpty) {
       // User tapped an ACTION BUTTON (not just the notification body)
       onActionReceived?.call(actionId, payload);
     } else {
       // User tapped the notification body itself
-      debugPrint('Notification tapped: $payload');
+      debugPrint('Notification tapped');
       _deliverTap(payload);
     }
   }
 
   /// Request permissions for notifications
+  @override
   Future<bool> requestPermissions() async {
     // 1. Android Specific: Request POST_NOTIFICATIONS (Android 13+) 
     // and SCHEDULE_EXACT_ALARM (Android 12+) via permission_handler
@@ -342,7 +361,8 @@ class NotificationService {
     }
   }
 
-  /// Show a local notification immediately
+  /// Show a local notification immediately. `title` and `body` are never
+  /// displayed; see [kNotificationBody].
   Future<void> showLocalNotification({
     required int id,
     required String title,
@@ -376,14 +396,15 @@ class NotificationService {
     
     await _localNotifications.show(
       id,
-      title,
-      body,
+      kNotificationTitle,
+      kNotificationBody,
       platformChannelSpecifics,
       payload: payload,
     );
   }
 
-  /// Schedule a local notification at an exact DateTime with optional category
+  /// Schedule a local notification at an exact DateTime with optional category.
+  /// `title` and `body` are never displayed; see [kNotificationBody].
   Future<void> scheduleNotification({
     required int id,
     required String title,
@@ -423,8 +444,8 @@ class NotificationService {
     try {
       await _localNotifications.zonedSchedule(
         id,
-        title,
-        body,
+        kNotificationTitle,
+        kNotificationBody,
         tz.TZDateTime.from(scheduledDate, tz.local),
         platformChannelSpecifics,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -436,8 +457,8 @@ class NotificationService {
       // Fallback for Android 13/14+ if SCHEDULE_EXACT_ALARM permission is missing
       await _localNotifications.zonedSchedule(
         id,
-        title,
-        body,
+        kNotificationTitle,
+        kNotificationBody,
         tz.TZDateTime.from(scheduledDate, tz.local),
         platformChannelSpecifics,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
