@@ -686,14 +686,16 @@ class _InsightCard extends StatelessWidget {
               const ZyndioIconTile(
                   icon: LucideIcons.brain, tint: ZyndioTint.violet, size: 40),
               const SizedBox(width: 12),
-              Text(
-                'Zyndio AI Insight',
-                style: TextStyle(
-                  fontFamily: ZyndioType.family,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.2,
-                  color: c.textPrimary,
+              Expanded(
+                child: Text(
+                  'Zyndio AI Insight',
+                  style: TextStyle(
+                    fontFamily: ZyndioType.family,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                    color: c.textPrimary,
+                  ),
                 ),
               ),
             ],

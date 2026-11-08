@@ -225,7 +225,6 @@ class _TabItem extends StatelessWidget {
                   duration: const Duration(milliseconds: 240),
                   curve: Curves.easeOutCubic,
                   height: 52,
-                  padding: EdgeInsets.symmetric(horizontal: selected ? 16 : 0),
                   decoration: BoxDecoration(
                     gradient: selected ? ZyndioGradients.brand : null,
                     borderRadius: BorderRadius.circular(26),
@@ -238,31 +237,37 @@ class _TabItem extends StatelessWidget {
                           ]
                         : null,
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(spec.icon,
-                          size: 22,
-                          color: selected ? Colors.white : c.textTertiary),
-                      if (selected) ...[
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            spec.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.fade,
-                            softWrap: false,
-                            style: TextStyle(
-                              fontFamily: ZyndioType.family,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
+                  // Padding switches instantly; only colour and shadow animate.
+                  // (Animating it while the slot narrows overflowed the pill.)
+                  child: Padding(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: selected ? 16 : 0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(spec.icon,
+                            size: 22,
+                            color: selected ? Colors.white : c.textTertiary),
+                        if (selected) ...[
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              spec.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.fade,
+                              softWrap: false,
+                              style: TextStyle(
+                                fontFamily: ZyndioType.family,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
