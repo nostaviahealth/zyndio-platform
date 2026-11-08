@@ -64,6 +64,7 @@ bash scripts/test-check-no-external-web-assets.sh                 # self-test pr
 
 ## Docs
 
+- [PROJECT_STATUS.md](./PROJECT_STATUS.md) — what is done, what is left, and what is waiting on others. Read first; update it when you finish something significant.
 - [README.md](./README.md) — setup, prerequisites, run/test/build commands.
 - [SUPABASE-SETUP.md](./SUPABASE-SETUP.md) — standing up a dev Supabase project.
 - [admin-setup.md](./admin-setup.md) — creating and troubleshooting admin access.

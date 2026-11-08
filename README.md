@@ -2,6 +2,8 @@
 
 Zyndio is a health & longevity platform with a Flutter patient app and a React/Vite admin web app, both backed by Supabase.
 
+> **Picking the project up?** Start with [PROJECT_STATUS.md](./PROJECT_STATUS.md): what is done, what is left, and what is waiting on others.
+
 ## Prerequisites
 
 - Flutter 3.47.8 (stable channel)
