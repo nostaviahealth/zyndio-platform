@@ -538,9 +538,15 @@ void main() {
         if (!f.path.endsWith('.png')) continue;
         final name = f.uri.pathSegments.last;
         for (final out in outs) {
-          final destDir = Directory('${out.path}/$screen')
-            ..createSync(recursive: true);
-          f.copySync('${destDir.path}/$name');
+          // The second destination is one developer's local workspace; skip
+          // any destination this machine can't create (e.g. CI runners).
+          try {
+            final destDir = Directory('${out.path}/$screen')
+              ..createSync(recursive: true);
+            f.copySync('${destDir.path}/$name');
+          } on FileSystemException {
+            continue;
+          }
         }
         copied++;
       }
