@@ -29,6 +29,7 @@ import CreatePatient from './pages/admin/CreatePatient';
 import NutritionWorkbench from './pages/admin/NutritionWorkbench';
 import { legacyAdminScreenRoutes, legacyPortalScreenRoutes } from './components/LegacyPatientScreenRoutes';
 import UsersRoles from './pages/admin/UsersRoles';
+import Integrations from './pages/admin/Integrations';
 import PhysicianRoster from './pages/admin/clinic/PhysicianRoster';
 import PhysicianPatientDetail from './pages/admin/clinic/PhysicianPatientDetail';
 import SignIn from './pages/admin/SignIn';
@@ -169,6 +170,16 @@ const App: React.FC = () => {
                     element={
                       <RequireRole roles={['org_admin']} pageLabel="Users and roles">
                         <UsersRoles />
+                      </RequireRole>
+                    }
+                  />
+                  {/* PP-03: zyndio.com integration credentials, webhooks and
+                      delivery log - org admins only, like Users and roles. */}
+                  <Route
+                    path="integrations"
+                    element={
+                      <RequireRole roles={['org_admin']} pageLabel="Integrations">
+                        <Integrations />
                       </RequireRole>
                     }
                   />

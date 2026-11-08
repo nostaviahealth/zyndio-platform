@@ -100,5 +100,12 @@ enabled = true
 # edge-runtime-policy.test.ts. `functions serve` still reloads on file change.
 policy = "per_worker"
 
+# INT-01: partners authenticate with the partner API's own OAuth bearer tokens
+# (opaque, checked against api_access_tokens in partner-api/handler.ts), not
+# Supabase JWTs, so the gateway JWT check is off for this one function only.
+# Every other function keeps verify_jwt on (TC-011).
+[functions.partner-api]
+verify_jwt = false
+
 [analytics]
 enabled = false

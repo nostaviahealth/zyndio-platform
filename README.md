@@ -51,6 +51,13 @@ Also set `ZYNDIO_DEFAULT_ORG_ID` (or supply `orgId` from the telehealth connecto
 no silent default org UUID.
 
 
+### INT-01/02 deploy note (partner API + webhooks)
+
+The zyndio.com server integration (`partner-api` + `deliver-webhooks` Edge Functions) needs two
+Vault secrets per environment (`webhook_worker_url`, `webhook_worker_service_key`) and
+`verify_jwt = false` for `partner-api` only. Full reference and checklist:
+[docs/PARTNER_API.md](./docs/PARTNER_API.md).
+
 ## Root admin web app (Vite)
 
 ```bash
