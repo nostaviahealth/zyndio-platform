@@ -126,6 +126,12 @@ class AuthWordmark extends StatelessWidget {
   /// Official tagline from the Zyndio brand pack (zyndio-logo-wide.png).
   static const tagline = 'PHYSICIAN-LED TELEHEALTH CARE';
 
+  /// Lockup proportions follow the official wide logo: the mark spans both
+  /// text lines; "ZYNDIO" is light and widely tracked; the tagline is small,
+  /// about twice the wordmark's width. The mark asset is cropped to its edges
+  /// (zyndio-mark-tight.png) so its height really matches the text block.
+  static const double markHeight = 44;
+
   @override
   Widget build(BuildContext context) {
     final c = zcOf(context);
@@ -135,14 +141,14 @@ class AuthWordmark extends StatelessWidget {
       child: ExcludeSemantics(
         child: Row(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Image.asset(
-              'assets/icons/zyndio-mark.png',
-              height: 44,
-              width: 44,
+              'assets/icons/zyndio-mark-tight.png',
+              height: markHeight,
               excludeFromSemantics: true,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -151,20 +157,22 @@ class AuthWordmark extends StatelessWidget {
                   'ZYNDIO',
                   style: TextStyle(
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w600,
-                    fontSize: 26,
-                    letterSpacing: 0.06 * 26,
+                    fontWeight: FontWeight.w400,
+                    fontSize: 24,
+                    height: 1.0,
+                    letterSpacing: 0.18 * 24,
                     color: c.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 7),
                 Text(
                   tagline,
                   style: TextStyle(
-                    fontSize: 11,
-                    height: 16 / 11,
+                    fontFamily: 'Inter',
                     fontWeight: FontWeight.w500,
-                    letterSpacing: 0.12 * 11,
+                    fontSize: 9.5,
+                    height: 1.0,
+                    letterSpacing: 0.12 * 9.5,
                     color: c.brandOnSubtle,
                   ),
                 ),
