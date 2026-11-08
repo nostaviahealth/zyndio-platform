@@ -19,7 +19,7 @@ abstract class NotificationPermissionRequester {
 class NotificationPermissionPrompt {
   NotificationPermissionPrompt(this._prefs, this._requester);
 
-  static const askedKey = 'notification_permission_asked_v1';
+  static const askedPrefName = 'notification_permission_asked_v1';
 
   final Future<SharedPreferences> Function() _prefs;
   final NotificationPermissionRequester _requester;
@@ -28,8 +28,8 @@ class NotificationPermissionPrompt {
   Future<bool> maybeAskOnce() async {
     try {
       final prefs = await _prefs();
-      if (prefs.getBool(askedKey) ?? false) return false;
-      await prefs.setBool(askedKey, true);
+      if (prefs.getBool(askedPrefName) ?? false) return false;
+      await prefs.setBool(askedPrefName, true);
       await _requester.requestPermissions();
       return true;
     } catch (e) {

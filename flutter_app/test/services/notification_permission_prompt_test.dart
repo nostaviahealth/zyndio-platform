@@ -29,7 +29,7 @@ void main() {
   });
 
   test('a patient who was already asked is never asked again', () async {
-    SharedPreferences.setMockInitialValues({NotificationPermissionPrompt.askedKey: true});
+    SharedPreferences.setMockInitialValues({NotificationPermissionPrompt.askedPrefName: true});
     final fake = _FakeRequester();
     final prompt = NotificationPermissionPrompt(SharedPreferences.getInstance, fake);
     expect(await prompt.maybeAskOnce(), isFalse);
@@ -41,7 +41,7 @@ void main() {
     final prompt = NotificationPermissionPrompt(SharedPreferences.getInstance, fake);
     expect(await prompt.maybeAskOnce(), isFalse);
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getBool(NotificationPermissionPrompt.askedKey), isTrue);
+    expect(prefs.getBool(NotificationPermissionPrompt.askedPrefName), isTrue);
     expect(await prompt.maybeAskOnce(), isFalse);
     expect(fake.calls, 1);
   });
