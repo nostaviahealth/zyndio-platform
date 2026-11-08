@@ -96,6 +96,8 @@ function harness(backend: Backend, overrides: Partial<AnalyzeLabReportDeps> & { 
         : { userId, isPatient: true, staffRole: null, isPlatformAdmin: false },
     ),
     consumeBudget: (userId) => { budget.push(userId); return Promise.resolve({ allowed: true }); },
+    // PRD 9.2 kill switch on; its behaviour is covered in analyzeLabReport_test.ts.
+    featureAllowed: () => Promise.resolve(true),
     ...rest,
   };
   return { seen, logs, deps, extracted, budget };
