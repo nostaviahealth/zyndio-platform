@@ -33,6 +33,8 @@ import { legacyAdminScreenRoutes, legacyPortalScreenRoutes } from './components/
 import UsersRoles from './pages/admin/UsersRoles';
 import Integrations from './pages/admin/Integrations';
 import PhysicianRoster from './pages/admin/clinic/PhysicianRoster';
+import OutcomesReviewQueue from './pages/admin/clinic/OutcomesReviewQueue';
+import UnmatchedRecordsQueue from './pages/admin/clinic/UnmatchedRecordsQueue';
 import SignIn from './pages/admin/SignIn';
 import AcceptInvite from './pages/admin/AcceptInvite';
 import ResetPassword from './pages/admin/ResetPassword';
@@ -170,6 +172,22 @@ const App: React.FC = () => {
                     element={
                       <RequireRole roles={['physician', 'care_coordinator']}>
                         <NutritionWorkbench />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="outcomes"
+                    element={
+                      <RequireRole roles={['physician', 'care_coordinator', 'read_only']}>
+                        <OutcomesReviewQueue />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="unmatched-scans"
+                    element={
+                      <RequireRole roles={['physician', 'care_coordinator']}>
+                        <UnmatchedRecordsQueue />
                       </RequireRole>
                     }
                   />
