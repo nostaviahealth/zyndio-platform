@@ -129,6 +129,19 @@ class _OnboardingConsentScreenState extends ConsumerState<OnboardingConsentScree
             AuthStatusBanner(message: _error!),
             const SizedBox(height: 16),
           ],
+          if (status.value?.documentsReady == false) ...[
+            const AuthStatusBanner(
+              tone: AuthBannerTone.warning,
+              message:
+                  'The current documents are placeholders, not approved wording. Health data stays locked until Zyndio publishes the real documents.',
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (docs.isEmpty)
+            const AuthStatusBanner(
+              message: 'There is no approved document to agree to yet. Nothing has been opened.',
+            )
+          else
           Container(
             decoration: BoxDecoration(
               color: c.bgSurface,
@@ -159,12 +172,14 @@ class _OnboardingConsentScreenState extends ConsumerState<OnboardingConsentScree
               ],
             ),
           ),
+          if (docs.isNotEmpty) ...[
           const SizedBox(height: 24),
           AuthPrimaryButton(
             label: 'Agree and continue',
             loading: _saving,
             onPressed: () => _submit(docs),
           ),
+          ],
           const SizedBox(height: 12),
           Text(
             'We keep a record of each version you agree to and when.',

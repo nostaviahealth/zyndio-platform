@@ -116,8 +116,14 @@ export interface PatientExport {
   labResults: ExportLabRow[];
 }
 
+export interface TimelineCursor {
+  occurredAt: string;
+  source: string;
+  refId: string | null;
+}
+
 export interface PatientRecordApi {
-  fetchTimeline(patientId: string, before?: string | null, limit?: number): Promise<TimelineEvent[]>;
+  fetchTimeline(patientId: string, before?: string | TimelineCursor | null, limit?: number): Promise<TimelineEvent[]>;
   fetchBrief(patientId: string): Promise<PrevisitBrief | null>;
   recordVisit(patientId: string, visitOn?: string | null): Promise<void>;
   exportRecord(patientId: string, format: ExportFormat): Promise<PatientExport | null>;
@@ -294,10 +300,17 @@ export function mapExport(v: unknown): PatientExport | null {
   };
 }
 
-export async function fetchTimeline(patientId: string, before: string | null = null, limit = 200): Promise<TimelineEvent[]> {
+export async function fetchTimeline(
+  patientId: string,
+  before: string | TimelineCursor | null = null,
+  limit = 200,
+): Promise<TimelineEvent[]> {
+  const cursor = typeof before === 'object' && before !== null ? before : null;
   const { data, error } = await supabase.rpc('patient_timeline', {
     p_patient_id: patientId,
-    p_before: before,
+    p_before: cursor ? cursor.occurredAt : before,
+    p_before_source: cursor?.source ?? null,
+    p_before_ref: cursor?.refId ?? null,
     p_limit: limit,
   });
   if (error) throw error;

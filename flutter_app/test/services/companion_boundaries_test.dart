@@ -10,6 +10,11 @@ void main() {
       'I think I am having a stroke',
       "I can't breathe properly",
       'I want to kill myself',
+      'I want to die',
+      'My chest hurts',
+      "I can't catch my breath",
+      'I have shortness of breath',
+      'I took all my pills',
       'Is this an emergency?',
     ]) {
       test('emergency: "$text"', () {
@@ -35,6 +40,8 @@ void main() {
       'How many mg of sodium is in this soup?',
       'What is insulin resistance?',
       'How can I sleep better?',
+      'I do not have chest pain',
+      'no shortness of breath today',
     ]) {
       test('companion: "$text"', () {
         expect(routeCompanionMessage(text), CompanionRoute.companion);
@@ -43,17 +50,43 @@ void main() {
   });
 
   group('emergencyGuidance', () {
-    test('points US patients to 911 and says the care team was alerted', () {
-      final g = emergencyGuidance('chest pain');
-      expect(g, contains('911'));
-      expect(g, contains('care team has been alerted'));
-      expect(g, isNot(contains('112')));
-      expect(g, isNot(contains('988')));
+    test('911 guidance does not depend on whether a row was saved', () {
+      final saved = emergencyGuidance('chest pain', filed: true);
+      final failed = emergencyGuidance('chest pain', filed: false);
+      expect(saved, contains('911'));
+      expect(failed, contains('911'));
+      expect(saved, contains('does not mean anyone has seen it'));
+      expect(failed, contains('Nothing was filed'));
+      expect(saved, isNot(contains('has been alerted')));
+      expect(failed, isNot(contains('has been alerted')));
+      expect(saved, isNot(contains('988')));
     });
 
-    test('adds the 988 crisis line for self-harm language', () {
-      expect(emergencyGuidance('I want to end my life'), contains('988'));
+    test('adds the 988 crisis line for self-harm language even when filing failed', () {
+      expect(emergencyGuidance('I want to die', filed: false), contains('988'));
     });
+  });
+
+  test('escalated turns stay out of the model history, the summary, and persistence', () {
+    const secret = 'I have chest pain and I want to die';
+    final turns = [
+      CompanionTurn(role: 'user', text: secret, withheld: true),
+      CompanionTurn(
+        role: 'model',
+        text: emergencyGuidance(secret, filed: false),
+        withheld: true,
+      ),
+      const CompanionTurn(role: 'user', text: 'What should I eat for breakfast?', withheld: false),
+      const CompanionTurn(role: 'model', text: 'Eggs and fruit.', withheld: false),
+    ];
+    final forModel = turnsForModel(turns);
+    final joined = forModel.map((t) => t.text).join('\n');
+    expect(joined, isNot(contains('chest pain')));
+    expect(joined, isNot(contains('want to die')));
+    expect(joined, contains('breakfast'));
+    final persisted = turns.map((t) => textForPersistence(text: t.text, withheld: t.withheld)).join('\n');
+    expect(persisted, isNot(contains(secret)));
+    expect(persisted, contains('breakfast'));
   });
 
   test('filing is a no-op for ordinary companion messages', () async {

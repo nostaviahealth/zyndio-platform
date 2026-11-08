@@ -15,11 +15,17 @@ Map<String, dynamic> _doc(String type) => {
       'is_placeholder': true,
     };
 
-OnboardingStatus _status({bool linked = true, List<String> missing = const [], bool profile = false}) =>
+OnboardingStatus _status({
+  bool linked = true,
+  List<String> missing = const [],
+  bool profile = false,
+  bool documentsReady = true,
+}) =>
     OnboardingStatus.fromJson({
       'linked': linked,
       'missing_consents': [for (final t in missing) _doc(t)],
       'profile_complete': profile,
+      'documents_ready': documentsReady,
     });
 
 AsyncValue<OnboardingStatus?> _data(OnboardingStatus s) => AsyncValue.data(s);
@@ -37,6 +43,9 @@ void main() {
     });
     test('done when consented and profiled', () {
       expect(_status(profile: true).nextRoute, isNull);
+    });
+    test('placeholder documents keep the patient on the consent step', () {
+      expect(_status(profile: true, documentsReady: false).nextRoute, onboardingConsentPath);
     });
     test('parses the placeholder documents the server hands over', () {
       final s = _status(missing: ['terms']);
@@ -93,9 +102,11 @@ void main() {
       expect(onboardingRedirect('/delete-account', err), isNull);
     });
 
-    test('no redirect while the first status load is in flight, or when signed out/demo', () {
-      expect(onboardingRedirect('/', const AsyncValue<OnboardingStatus?>.loading()), isNull);
-      expect(onboardingRedirect('/', const AsyncValue<OnboardingStatus?>.data(null)), isNull);
+    test('a loading or missing status stays off clinical pages', () {
+      expect(onboardingRedirect('/', const AsyncValue<OnboardingStatus?>.loading()), onboardingConsentPath);
+      expect(onboardingRedirect('/', const AsyncValue<OnboardingStatus?>.data(null)), onboardingConsentPath);
+      expect(onboardingRedirect(onboardingConsentPath, const AsyncValue<OnboardingStatus?>.loading()), isNull);
+      expect(onboardingRedirect('/delete-account', const AsyncValue<OnboardingStatus?>.data(null)), isNull);
     });
   });
 

@@ -12,17 +12,56 @@ import '../config/supabase_config.dart';
 ///   * anything else -> the AI companion, as before.
 enum CompanionRoute { emergency, careTeam, companion }
 
-final _emergencyPattern = RegExp(
-  r"\b(chest pain|heart attack|stroke|suicid\w*|kill myself|end my life|hurt myself|self[- ]harm|"
-  r"can'?t breathe|cannot breathe|trouble breathing|bleeding out|unconscious|overdos\w*|"
-  r"seizure|anaphyla\w*|emergency|911)\b",
+final _emergencyPhrases = <RegExp>[
+  RegExp(r'\bchest pain\b', caseSensitive: false),
+  RegExp(r'\bchest hurts\b', caseSensitive: false),
+  RegExp(r'\bheart attack\b', caseSensitive: false),
+  RegExp(r'\bstroke\b', caseSensitive: false),
+  RegExp(r'\bsuicid\w*\b', caseSensitive: false),
+  RegExp(r'\bkill myself\b', caseSensitive: false),
+  RegExp(r'\bend my life\b', caseSensitive: false),
+  RegExp(r'\bhurt myself\b', caseSensitive: false),
+  RegExp(r'\bself[- ]harm\b', caseSensitive: false),
+  RegExp(r'\bwant to die\b', caseSensitive: false),
+  RegExp(r"\bcan'?t breathe\b", caseSensitive: false),
+  RegExp(r'\bcannot breathe\b', caseSensitive: false),
+  RegExp(r'\btrouble breathing\b', caseSensitive: false),
+  RegExp(r"\bcan'?t catch my breath\b", caseSensitive: false),
+  RegExp(r'\bcannot catch my breath\b', caseSensitive: false),
+  RegExp(r'\bshortness of breath\b', caseSensitive: false),
+  RegExp(r'\bbleeding out\b', caseSensitive: false),
+  RegExp(r'\bunconscious\b', caseSensitive: false),
+  RegExp(r'\boverdos\w*\b', caseSensitive: false),
+  RegExp(r'\btook all my pills\b', caseSensitive: false),
+  RegExp(r'\bseizure\b', caseSensitive: false),
+  RegExp(r'\banaphyla\w*\b', caseSensitive: false),
+  RegExp(r'\bemergency\b', caseSensitive: false),
+  RegExp(r'\b911\b', caseSensitive: false),
+];
+
+final _negationBefore = RegExp(
+  r"(?:no|not|without|never|don'?t|do not|doesn'?t|does not)\b(?:\s+\w+){0,4}\s*$",
   caseSensitive: false,
 );
 
 final _selfHarmPattern = RegExp(
-  r'\b(suicid\w*|kill myself|end my life|hurt myself|self[- ]harm)\b',
+  r"\b(suicid\w*|kill myself|end my life|hurt myself|self[- ]harm|want to die)\b",
   caseSensitive: false,
 );
+
+bool textLooksLikeEmergency(String text) {
+  for (final phrase in _emergencyPhrases) {
+    for (final match in phrase.allMatches(text)) {
+      final hit = match.group(0)!.toLowerCase();
+      final startsWithCant = hit.startsWith("can't") || hit.startsWith('cant') || hit.startsWith('cannot');
+      if (!startsWithCant && _negationBefore.hasMatch(text.substring(0, match.start))) {
+        continue;
+      }
+      return true;
+    }
+  }
+  return false;
+}
 
 final _clinicalPattern = RegExp(
   r'\b(dose|doses|dosing|dosage|prescri\w*|medication|medicine|'
@@ -33,19 +72,44 @@ final _clinicalPattern = RegExp(
 );
 
 CompanionRoute routeCompanionMessage(String text) {
-  if (_emergencyPattern.hasMatch(text)) return CompanionRoute.emergency;
+  if (textLooksLikeEmergency(text)) return CompanionRoute.emergency;
   if (_clinicalPattern.hasMatch(text)) return CompanionRoute.careTeam;
   return CompanionRoute.companion;
 }
 
-/// Shown when emergency language is detected. US-facing (Zyndio patients are
-/// US adults); 988 is added for self-harm language.
-String emergencyGuidance(String text) {
+/// One turn the model, the session summary, and a retry are allowed to see.
+class CompanionTurn {
+  const CompanionTurn({required this.role, required this.text, required this.withheld});
+
+  final String role;
+  final String text;
+  final bool withheld;
+}
+
+/// Escalated turns never enter a model request, a summary, or a retry.
+List<CompanionTurn> turnsForModel(List<CompanionTurn> turns) =>
+    [for (final turn in turns) if (!turn.withheld) turn];
+
+/// Persisted text for an escalated turn is empty, so a reload cannot replay it.
+String textForPersistence({required String text, required bool withheld}) => withheld ? '' : text;
+
+/// Emergency guidance is always the same 911 / 988 copy. [filed] only says
+/// whether a row was saved. It never claims a person was alerted.
+String emergencyGuidance(String text, {required bool filed}) {
   final buffer = StringBuffer(
     'If this is an emergency, call 911 or go to the nearest emergency room now. '
-    'I am an AI companion and can\'t help in an emergency. '
-    'Your Zyndio care team has been alerted.',
+    'I am an AI companion and cannot help in an emergency. ',
   );
+  if (filed) {
+    buffer.write(
+      'I saved a copy for your care team. That does not mean anyone has seen it, '
+      'and it is not confirmation that an alert was delivered.',
+    );
+  } else {
+    buffer.write(
+      'I could not save this for your care team. Nothing was filed and nobody was notified.',
+    );
+  }
   if (_selfHarmPattern.hasMatch(text)) {
     buffer.write(' If you are thinking about harming yourself, call or text 988 '
         '(Suicide & Crisis Lifeline) any time.');

@@ -303,6 +303,18 @@ select is((select count(*) from public.invites)::int, 0, 'read_only_a x invites 
 -- visibility into organizations/org_members/invites at all (no org_members
 -- row of their own).
 -- ---------------------------------------------------------------------------
+reset role;
+select set_config('request.jwt.claims', '', true);
+-- SYNTHETIC FIXTURE. Not a legally approved document. Lets this file keep
+-- proving that a consented patient can read their own labs.
+insert into public.consent_documents (consent_type, version, document, title, summary, body, required, is_placeholder, published_at)
+values ('health_data', 'synthetic-fixture', 'synthetic_health_data_fixture', 'Synthetic fixture',
+        'SYNTHETIC FIXTURE - not a legally approved document',
+        'SYNTHETIC FIXTURE - not a legally approved document. Not for patient use.',
+        false, false, now());
+insert into public.consents (org_id, patient_id, consent_type, document, version, granted)
+values ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001',
+        'health_data', 'synthetic_health_data_fixture', 'synthetic-fixture', true);
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal2');
 
 select is((select count(*) from public.organizations)::int, 0,

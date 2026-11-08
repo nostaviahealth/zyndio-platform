@@ -52,6 +52,17 @@ select throws_ok($$ delete from public.lab_analyte_loinc $$, '42501', null, 'cli
 -- lab_reports: SHA-256 dedupe
 -- ---------------------------------------------------------------------------
 
+reset role;
+select set_config('request.jwt.claims', '', true);
+insert into public.consent_documents (consent_type, version, document, title, summary, body, required, is_placeholder, published_at)
+values ('health_data', 'synthetic-fixture', 'synthetic_health_data_fixture', 'Synthetic fixture',
+        'SYNTHETIC FIXTURE - not a legally approved document',
+        'SYNTHETIC FIXTURE - not a legally approved document. Not for patient use.',
+        false, false, now());
+insert into public.consents (org_id, patient_id, consent_type, document, version, granted)
+values ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001',
+        'health_data', 'synthetic_health_data_fixture', 'synthetic-fixture', true);
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal1');
 -- Patient A1 files a report with a file hash (as the app does).
 select lives_ok($$ insert into public.lab_reports (id, org_id, patient_id, report_type, data, file_sha256) values
   ('00000000-0000-0000-0000-00000051a301', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001',

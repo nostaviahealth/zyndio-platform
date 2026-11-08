@@ -38,6 +38,7 @@ class Fake {
   banned: string[] = []
   emailUpdates: string[] = []
   takenEmails = new Set(['taken@example.test'])
+  forceCreateError: 'email_unavailable' | 'internal' | null = null
   failNext: string | null = null
   enrolError: string | null = null
   inviteError: string | null = null
@@ -207,6 +208,7 @@ class Fake {
     return {
       rpc: (fn, args) => this.rpc(fn, args),
       createAuthUser: (email) => {
+        if (this.forceCreateError) return Promise.resolve({ error: this.forceCreateError })
         if (this.takenEmails.has(email)) return Promise.resolve({ error: 'email_unavailable' as const })
         const userId = `${INTERNAL_UUID_PREFIX}${String(this.authUsers.size + 1).padStart(12, '0')}`
         this.authUsers.set(userId, email)
@@ -436,12 +438,11 @@ Deno.test('4xx results are replayed too; 5xx results are not stored so a retry c
   const { handle, fake } = await setup()
   const token = await tokenFor(handle)
   fake.takenEmails.add('fictional.one@example.test')
-  await assertError(await handle(call('POST', '/patients', token, { body: NEW_PATIENT, key: 'k-409' })), 409, 'email_unavailable')
+  await assertError(await handle(call('POST', '/patients', token, { body: NEW_PATIENT, key: 'k-409' })), 500, 'internal_error')
   const again = await handle(call('POST', '/patients', token, { body: NEW_PATIENT, key: 'k-409' }))
-  assertEquals(again.headers.get('idempotent-replayed'), 'true')
-  assertEquals(again.status, 409)
-  // the original body, including the original request_id
-  assertEquals((await again.json()).error.code, 'email_unavailable')
+  assertEquals(again.headers.get('idempotent-replayed'), null)
+  assertEquals(again.status, 500)
+  assertEquals((await again.json()).error.code, 'internal_error')
 
   fake.takenEmails.clear()
   fake.failNext = 'partner_enrol_patient'
@@ -450,6 +451,36 @@ Deno.test('4xx results are replayed too; 5xx results are not stored so a retry c
   assertEquals(fake.deletedUsers.length, 1, 'the orphan auth account was cleaned up')
   const retry = await handle(call('POST', '/patients', token, { body: NEW_PATIENT, key: 'k-500' }))
   assertEquals(retry.status, 201)
+})
+
+Deno.test('an existing platform email is not distinguishable from an internal failure, in any environment', async () => {
+  const { handle, fake } = await setup()
+  const sandbox = await tokenFor(handle)
+  fake.clients.set('zyc_test_productionproductionprod', { id: 'client-prod', scopes: ['patients:read', 'patients:write', 'webhooks:manage'] })
+  fake.secretHashes.set('zyc_test_productionproductionprod', await sha256Hex(SANDBOX_SECRET))
+  const production = await tokenFor(handle, 'zyc_test_productionproductionprod')
+
+  const shape = async (token: string, email: string) => {
+    const res = await handle(call('POST', '/patients', token, { body: { ...NEW_PATIENT, email } }))
+    const body = await res.json()
+    return { status: res.status, code: body.error.code, message: body.error.message }
+  }
+
+  const existingSandbox = await shape(sandbox, 'taken@example.test')
+  const existingProductionProbe = await shape(production, 'taken@example.test')
+  fake.forceCreateError = 'internal'
+  const internal = await shape(sandbox, 'brand.new@example.test')
+  fake.forceCreateError = null
+  const fresh = await handle(call('POST', '/patients', sandbox, {
+    body: { ...NEW_PATIENT, zyndio_patient_id: 'zp-fictional-fresh', email: 'brand.other@example.test' },
+  }))
+
+  assertEquals(existingSandbox, { status: 500, code: 'internal_error', message: 'An internal error occurred.' })
+  assertEquals(existingProductionProbe, existingSandbox)
+  assertEquals(internal, existingSandbox)
+  assertEquals(fresh.status, 201)
+  assertFalse(JSON.stringify(existingSandbox).includes('email_unavailable'))
+  assertEquals(fake.authUsers.size, 1)
 })
 
 Deno.test('duplicate zyndio_patient_id is 409 before any account is created', async () => {
@@ -468,7 +499,7 @@ Deno.test('enrol RPC refusal removes the freshly minted account', async () => {
   const { handle, fake } = await setup()
   const token = await tokenFor(handle)
   fake.enrolError = 'email_unavailable'
-  await assertError(await handle(call('POST', '/patients', token, { body: NEW_PATIENT })), 409, 'email_unavailable')
+  await assertError(await handle(call('POST', '/patients', token, { body: NEW_PATIENT })), 500, 'internal_error')
   assertEquals(fake.deletedUsers.length, 1)
 })
 
@@ -592,10 +623,14 @@ Deno.test('GET /patients/{id}/summary (INT-03)', async () => {
 Deno.test('webhook endpoints: create shows the secret once, list never does, rotate, delete', async () => {
   const { handle } = await setup()
   const token = await tokenFor(handle)
-  const created = await handle(call('POST', '/webhook-endpoints', token, { body: { url: 'https://hooks.example.test/in' } }))
+  const created = await handle(call('POST', '/webhook-endpoints', token, { body: { url: 'https://hooks.example.test/in' }, key: 'wh-1' }))
   assertEquals(created.status, 201)
   const ep = await created.json()
   assertMatch(ep.secret, /^whsec_/)
+  const replay = await handle(call('POST', '/webhook-endpoints', token, { body: { url: 'https://hooks.example.test/in' }, key: 'wh-1' }))
+  assertEquals(replay.status, 201)
+  assertEquals(replay.headers.get('idempotent-replayed'), 'true')
+  assertFalse('secret' in await replay.json())
 
   const list = await (await handle(call('GET', '/webhook-endpoints', token))).json()
   assertEquals(list.data.length, 1)

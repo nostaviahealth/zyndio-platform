@@ -168,7 +168,11 @@ select is(public.partner_idempotency_begin('00000000-0000-0000-0000-000000760c01
   'in_progress', 'same key while running -> in_progress');
 select is(public.partner_idempotency_begin('00000000-0000-0000-0000-000000760c01', 'key-1', 'POST', 'patients', repeat('e', 64)) ->> 'state',
   'mismatch', 'same key, different body -> mismatch');
-select public.partner_idempotency_complete('00000000-0000-0000-0000-000000760c01', 'key-1', 201, '{"object":"patient"}');
+select public.partner_idempotency_complete('00000000-0000-0000-0000-000000760c01', 'key-1', 201,
+  '{"object":"patient","secret":"whsec_fictional_not_a_real_secret"}');
+select is((select response_body ? 'secret' from public.api_idempotency_keys
+            where api_client_id = '00000000-0000-0000-0000-000000760c01' and idempotency_key = 'key-1'),
+  false, 'idempotency replay does not keep a webhook secret');
 select is(public.partner_idempotency_begin('00000000-0000-0000-0000-000000760c01', 'key-1', 'POST', 'patients', repeat('d', 64)),
   '{"state": "replay", "response_status": 201, "response_body": {"object": "patient"}}'::jsonb, 'completed key -> replay of the original');
 select is(public.partner_idempotency_begin('00000000-0000-0000-0000-000000760c03', 'key-1', 'POST', 'patients', repeat('d', 64)) ->> 'state',
@@ -344,6 +348,9 @@ select is((select count(*)::int from public.webhook_events where event_type = 'c
 update public.consents set granted = false where id = '00000000-0000-0000-0000-000000760d01';
 select is((select data -> 'granted' from public.webhook_events where event_type = 'consent.updated'
             and data ->> 'change' = 'updated'), 'false'::jsonb, 'withdrawal -> consent.updated granted=false');
+select is(position('hba1c' in (select data::text from public.webhook_events where event_type = 'consent.updated'
+            and data ->> 'change' = 'updated')), 0,
+  'a consent withdrawal event carries no lab values');
 update public.consents set granted = false where id = '00000000-0000-0000-0000-0000000a4001';
 select is((select count(*)::int from public.webhook_events where event_type = 'consent.updated'), 2,
   'consents of patients not enrolled via the API emit nothing');
@@ -417,6 +424,18 @@ insert into public.lab_results (org_id, patient_id, lab_report_id, analyte_key, 
   ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-000000760a01', '00000000-0000-0000-0000-000000760f01',
    'hba1c', 'HbA1c', 6.1, '%', 'outside_range', 4.0, 5.6, now() - interval '1 day');
 select set_config('app.lab_report_flag_rpc', 'off', true);
+select tests.authenticate_as_service_role();
+insert into int01_j select 'int01_summary_held', public.partner_patient_summary('00000000-0000-0000-0000-000000760c01', 'zp-fictional-001');
+select is((select j -> 'consent' from (select j from int01_j where k = 'int01_summary_held') s), '"not_granted"'::jsonb,
+  'withdrawn data_sharing is an explicit denial');
+select is((select jsonb_array_length(j -> 'biomarkers') from (select j from int01_j where k = 'int01_summary_held') s), 0,
+  'withdrawn data_sharing returns no biomarker rows');
+select is(position('6.1' in (select j::text from (select j from int01_j where k = 'int01_summary_held') s)), 0,
+  'withdrawn data_sharing returns no lab values');
+select is(position('hba1c' in (select j::text from (select j from int01_j where k = 'int01_summary_held') s)), 0,
+  'withdrawn data_sharing returns no analyte names');
+reset role;
+update public.consents set granted = true where id = '00000000-0000-0000-0000-000000760d01';
 select tests.authenticate_as_service_role();
 insert into int01_j select 'int01_summary', public.partner_patient_summary('00000000-0000-0000-0000-000000760c01', 'zp-fictional-001');
 select is((select jsonb_array_length(j -> 'biomarkers') from (select j from int01_j where k = 'int01_summary') int01_summary), 1, 'one latest value per analyte');

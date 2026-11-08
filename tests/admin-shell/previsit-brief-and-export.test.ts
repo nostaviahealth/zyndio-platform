@@ -149,7 +149,13 @@ describe('POR-04/POR-03 mappers are whitelists', () => {
   it('calls the right RPCs with the right arguments', async () => {
     rpc.mockResolvedValue({ data: [], error: null });
     await fetchTimeline('p1', '2026-10-01T00:00:00Z', 50);
-    expect(rpc).toHaveBeenLastCalledWith('patient_timeline', { p_patient_id: 'p1', p_before: '2026-10-01T00:00:00Z', p_limit: 50 });
+    expect(rpc).toHaveBeenLastCalledWith('patient_timeline', {
+      p_patient_id: 'p1',
+      p_before: '2026-10-01T00:00:00Z',
+      p_before_source: null,
+      p_before_ref: null,
+      p_limit: 50,
+    });
     rpc.mockResolvedValue({ data: null, error: null });
     await fetchBrief('p1');
     expect(rpc).toHaveBeenLastCalledWith('patient_previsit_brief', { p_patient_id: 'p1' });
@@ -175,6 +181,10 @@ describe('POR-06 CSV', () => {
     expect(csvCell('+1')).toBe("'+1");
     expect(csvCell('-2')).toBe("'-2");
     expect(csvCell('@SUM(A1)')).toBe("'@SUM(A1)");
+    expect(csvCell(' =HYPERLINK("x")')).toBe(`"' =HYPERLINK(""x"")"`);
+    expect(csvCell('\n=1+1')).toBe("\"'\n=1+1\"");
+    expect(csvCell('\uFEFF=1+1')).toBe("'=1+1");
+    expect(csvCell(' hello')).toBe(' hello');
     expect(csvCell(-0.8)).toBe('-0.8');
     expect(csvCell(null)).toBe('');
   });

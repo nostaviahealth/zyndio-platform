@@ -127,6 +127,53 @@ flutter build apk --debug --dart-define-from-file=dart_defines.json
 
 Leave `LAB_AI_EXTRACTION_ENABLED` unset. The lab path must answer unavailable. Set it only on a machine where every report is fictional, and only with a key that is not committed.
 
+## Tracker (integration branch only)
+
+Original pull-request approvals do not cover this head. Nothing here is cleared for patient use, production, or a live notification.
+
+| Finding | State on this branch |
+|---|---|
+| PR #38 M1 account enumeration | Fixed in the partner handler: existing and missing emails share `500 internal_error`. Deno test covers sandbox and a second client. |
+| PR #38 M2 webhook SSRF | Fixed: resolve A/AAAA, refuse non-public addresses, pinned connect or `dns_pin_unavailable`. Mock DNS tests. No live metadata request. |
+| PR #38 M3 withdrawn data_sharing | Fixed in `partner_patient_summary`. pgTAP 760 expects an empty summary, then a re-grant. |
+| PR #37 H1 false “care team has been alerted” | Fixed. 911 guidance is always shown. A saved row says it was saved and that nobody is confirmed to have seen it. A failed save says nothing was filed. |
+| PR #37 H2 escalated text reaches the model | Fixed. Those turns are marked withheld and omitted from model history, summary, memory, and the saved session text. |
+| PR #37 M3 crisis phrases | Added the reported phrases, plus a short negation guard. Not a clinical triage. |
+| PR #37 M4 client `kind` trusted | Server rewrites `kind` from the question text before the alert trigger. Mislabelled emergency language still alerts. Ordinary text labelled emergency does not. |
+| PR #41 H1 consent timestamp two-step | Server owns `granted_at` / `revoked_at` for every role, including a null-to-past update. |
+| PR #41 H2 health data without approved consent | Patient lab and file policies require the current non-placeholder `health_data` grant. Placeholder documents leave `documents_ready` false. The app does not enter clinical pages while status is loading, null, or unready. |
+| PR #41 M3 date of birth | Profile trigger rejects under-18, future, and pre-1900 on insert and on a date change. A null date is left null. |
+| PR #41 M4 resurrecting a withdrawal | Clearing `revoked_at` raises for staff and for the table owner. A new grant is a new row. |
+| PR #41 M5 login-code budget and X-Forwarded-For | Reissue keeps the attempt count until the lock window ends. The rate-limit identity is the last forwarded hop. A rate-limit RPC error returns 503, not success. |
+| PR #40 deletion versus freeze triggers | Deleting a user may only null that user’s foreign key after the user row is gone. Deleting a clinic may remove range sets and plan history only because the clinic row is gone. Direct edits still raise. Overlapping plan periods raise. |
+| PR #40 timeline cursor | `patient_timeline` takes `(occurred_at, source, ref_id)`. The timeline page sends that tuple. |
+| PR #40 CSV formula cells | A formula marker after a BOM, space, or newline is prefixed before quoting. |
+| PR #39 wearable lows, PR #40 brief aggregation, PR #36 iOS startup, PR #42 magic-byte and size checks | Not in this pass. Recorded, not claimed fixed. |
+| Facebook token still in git history | Not rotated and history not rewritten. A founder has to rotate that credential in the Facebook account. |
+
+## Partner API review (8 Nov 2026)
+
+Clara **blocks original pull request #38** at `cd66fb4857435ba85d2e98141c2bcbfc2e210463`
+despite recorded CI 8/8 (run 41897253868). That block is on the original
+branch. Fixes below are on this integration branch only. #38 itself is unchanged.
+Recorded head tests (pgTAP 2113, Deno 152, vitest 298) did not catch these.
+
+| Gate | On this branch |
+|---|---|
+| M1 POST /v1/patients disclosed account existence (409 `email_unavailable` vs 201), including a sandbox client probing another environment | External response is generic `500 internal_error` for an existing address and for any other create failure. A new address is still 201. `patient_already_exists` stays, because that is the caller's own id. |
+| M2 webhook SSRF: a public-looking name can resolve to link-local or loopback and still pass SQL plus `isDeliverableUrl` | Delivery resolves A and AAAA. Any non-public address, including IPv4-mapped IPv6, denies the host. The connection target is the resolved address; SNI stays the hostname. No redirect is followed. If this runtime cannot pin, delivery records `dns_pin_unavailable` and does not call `fetch`. Tests use a mock resolver. No live metadata request. |
+| M3 withdrawn `data_sharing` still returned lab values | `partner_patient_summary` returns empty health fields and `consent: not_granted` unless the latest `data_sharing` row is granted. pgTAP 760 now expects that denial, then re-grants and checks the positive summary. The withdrawal webhook still says `granted: false` and must not contain analyte names. |
+
+Lows:
+
+| Item | State |
+|---|---|
+| Idempotency cache stored webhook secrets for 7 days | Stripped in the handler and again in `partner_idempotency_complete`. Replay does not return `secret`. |
+| Client secret hash compared with `<>` | `partner_issue_token` uses `_sha256_hex_equal`. |
+| Sign-in ban ran after the deactivation write | Ban runs first. If it fails, the patient stays active. |
+| Enrolment writes an invite into `notification_outbox` | Still true. Local send is the existing outbox stub (`emailStub.ts`), not a direct provider call. No new live send was added. A per-client enrolment rate limit is **not** added. |
+| Shared webhook worker has no per-clinic cap | **Not done.** |
+
 ## Review status (8 Nov 2026, 11:38 IST)
 
 Clara approved **pull request #35** at `fa7de1b9d236c6a5b0331d5d671045a54af69969`.

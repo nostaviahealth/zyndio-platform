@@ -35,6 +35,16 @@ import {
 } from './validation.ts'
 import { sha256Hex } from '../_shared/webhookSignature.ts'
 
+const CACHED_SECRET_KEYS = ['secret', 'client_secret', 'previous_secret', 'invite_token', 'token'] as const
+
+/** Drop one-time credentials before an idempotency replay is stored. */
+export function redactCachedSecrets(body: unknown): unknown {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return body
+  const out: Record<string, unknown> = { ...(body as Record<string, unknown>) }
+  for (const key of CACHED_SECRET_KEYS) delete out[key]
+  return out
+}
+
 export interface RpcResult {
   data: unknown
   error: { code?: string; message: string } | null
@@ -251,9 +261,9 @@ export function createPartnerApiHandler(deps: PartnerApiDeps): (req: Request) =>
 
     const created = await deps.createAuthUser(email)
     if ('error' in created) {
-      if (created.error === 'email_unavailable') {
-        throw new ApiError('email_unavailable', 'This email address cannot be used for a new patient account.')
-      }
+      // Same shape for "this email already has an account" and any other
+      // create failure. A distinct 409 let a sandbox client probe whether
+      // an address exists on the platform, including in another environment.
       throw new ApiError('internal_error', 'An internal error occurred.')
     }
 
@@ -272,7 +282,8 @@ export function createPartnerApiHandler(deps: PartnerApiDeps): (req: Request) =>
       })
       throwIfRpcError(data, {
         patient_already_exists: ['patient_already_exists', 'A patient with this zyndio_patient_id is already enrolled.'],
-        email_unavailable: ['email_unavailable', 'This email address cannot be used for a new patient account.'],
+        // Account-existence refusals use the same external error as a failed create.
+        email_unavailable: ['internal_error', 'An internal error occurred.'],
         invalid_request: ['invalid_request', 'One or more fields are invalid.'],
       })
     } catch (err) {
@@ -330,10 +341,9 @@ export function createPartnerApiHandler(deps: PartnerApiDeps): (req: Request) =>
         )
       }
       const outcome = await deps.updateAuthEmail(resolved.user_id, email)
-      if (outcome === 'email_unavailable') {
-        throw new ApiError('email_unavailable', 'This email address cannot be used for this patient.')
+      if (outcome !== 'ok') {
+        throw new ApiError('internal_error', 'An internal error occurred.')
       }
-      if (outcome !== 'ok') throw new ApiError('internal_error', 'An internal error occurred.')
       patch.email = true // recorded in the audit field list; the value lives in auth.users
       // The previous invite link went to the old address: send a fresh one.
       const invite = await newInvite()
@@ -347,6 +357,13 @@ export function createPartnerApiHandler(deps: PartnerApiDeps): (req: Request) =>
       if ((sent as { error?: string } | null)?.error) deps.log('partner-api: re-invite after email change skipped', sent)
     }
 
+    if (patch.status === 'deactivated' && !(await deps.banAuthUser(resolved.user_id))) {
+      // Ban first. If GoTrue refuses, the patient stays active in the
+      // database and can still sign in — the two sides stay together.
+      // A retry bans again (idempotent) and then deactivates.
+      throw new ApiError('internal_error', 'An internal error occurred.')
+    }
+
     const data = await rpc<unknown>('partner_update_patient', {
       p_api_client_id: ctx.principal.apiClientId,
       p_zyndio_patient_id: zyndioPatientId,
@@ -356,12 +373,6 @@ export function createPartnerApiHandler(deps: PartnerApiDeps): (req: Request) =>
       not_found: notFoundPatient,
       invalid_request: ['invalid_request', 'One or more fields are invalid.'],
     })
-
-    if (patch.status === 'deactivated' && !(await deps.banAuthUser(resolved.user_id))) {
-      // The database side is already deactivated (sessions ended, links
-      // expired); a retry of this PATCH re-applies the sign-in ban.
-      throw new ApiError('internal_error', 'An internal error occurred.')
-    }
     return { status: 200, body: data }
   }
 
@@ -635,7 +646,9 @@ export function createPartnerApiHandler(deps: PartnerApiDeps): (req: Request) =>
         p_api_client_id: principal.apiClientId,
         p_key: key,
         p_response_status: result.status,
-        p_response_body: result.body,
+        // The live response may contain a one-time secret. The 7-day replay
+        // cache must not. SQL strips the same keys again.
+        p_response_body: redactCachedSecrets(result.body),
       })
     }
     return result

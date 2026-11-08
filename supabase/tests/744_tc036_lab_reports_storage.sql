@@ -93,6 +93,16 @@ select is((select count(*)::int from storage.objects where bucket_id = 'lab-repo
 -- ---------------------------------------------------------------------------
 -- Patient A1 (clinic A)
 -- ---------------------------------------------------------------------------
+reset role;
+select set_config('request.jwt.claims', '', true);
+insert into public.consent_documents (consent_type, version, document, title, summary, body, required, is_placeholder, published_at)
+values ('health_data', 'synthetic-fixture', 'synthetic_health_data_fixture', 'Synthetic fixture',
+        'SYNTHETIC FIXTURE - not a legally approved document',
+        'SYNTHETIC FIXTURE - not a legally approved document. Not for patient use.',
+        false, false, now());
+insert into public.consents (org_id, patient_id, consent_type, document, version, granted)
+values ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001',
+        'health_data', 'synthetic_health_data_fixture', 'synthetic-fixture', true);
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal1');
 select is((select array_agg(name order by name) from storage.objects where bucket_id = 'lab-reports'),
   array['00000000-0000-0000-0000-0000000a1001/36a00000-0000-4000-8000-000000000001.pdf',

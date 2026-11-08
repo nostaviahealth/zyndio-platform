@@ -38,19 +38,23 @@ serve(async (req) => {
     }
 
     const ipKey = await sha256Hex(clientIpFrom(req))
-    const { data: ipAllowed } = await admin.rpc('check_and_consume_rate_limit', {
+    const ipLimit = await admin.rpc('check_and_consume_rate_limit', {
       p_bucket: 'patient_login_code_request_ip',
       p_key_hash: ipKey,
       p_limit: REQUEST_IP_LIMIT,
       p_window_seconds: REQUEST_IP_WINDOW_SECONDS,
     })
-    const { data: emailAllowed } = await admin.rpc('check_and_consume_rate_limit', {
+    const emailLimit = await admin.rpc('check_and_consume_rate_limit', {
       p_bucket: 'patient_login_code_request_email',
       p_key_hash: await sha256Hex(email),
       p_limit: REQUEST_EMAIL_LIMIT,
       p_window_seconds: REQUEST_EMAIL_WINDOW_SECONDS,
     })
-    if (ipAllowed === false || emailAllowed === false) {
+    if (ipLimit.error || emailLimit.error || ipLimit.data == null || emailLimit.data == null) {
+      await padTimingTo(startedAt, PAD_MS)
+      return jsonResponse(req, { error: 'rate_limit_unavailable' }, 503)
+    }
+    if (ipLimit.data === false || emailLimit.data === false) {
       await padTimingTo(startedAt, PAD_MS)
       return jsonResponse(req, { error: 'rate_limited' }, 429)
     }
@@ -87,7 +91,7 @@ serve(async (req) => {
     await padTimingTo(startedAt, PAD_MS)
     return jsonResponse(req, { status: 'ok' })
   } catch (err) {
-    console.error('patient-request-login-code error', err)
+    console.error('patient-request-login-code error', err instanceof Error ? err.name : 'unknown')
     await padTimingTo(startedAt, PAD_MS)
     return jsonResponse(req, { error: 'internal_error' }, 500)
   }

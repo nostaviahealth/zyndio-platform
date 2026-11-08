@@ -7,6 +7,16 @@
 begin;
 select no_plan();
 
+-- SYNTHETIC FIXTURE so the patient insert path is reachable.
+insert into public.consent_documents (consent_type, version, document, title, summary, body, required, is_placeholder, published_at)
+values ('health_data', 'synthetic-fixture', 'synthetic_health_data_fixture', 'Synthetic fixture',
+        'SYNTHETIC FIXTURE - not a legally approved document',
+        'SYNTHETIC FIXTURE - not a legally approved document. Not for patient use.',
+        false, false, now());
+insert into public.consents (org_id, patient_id, consent_type, document, version, granted)
+values ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001',
+        'health_data', 'synthetic_health_data_fixture', 'synthetic-fixture', true);
+
 -- Patient insert with a forged flag is stripped.
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal2'); -- patient_a1 (linked)
 insert into public.lab_reports (

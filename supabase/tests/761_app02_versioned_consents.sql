@@ -55,6 +55,8 @@ select ok(
   (select bool_and((e ->> 'is_placeholder')::boolean and e ->> 'body' like 'PLACEHOLDER%')
      from jsonb_array_elements(public.patient_onboarding_status() -> 'missing_consents') e),
   'the gate hands the app the placeholder text to show');
+select is((public.patient_onboarding_status() ->> 'documents_ready')::boolean, false,
+  'placeholder documents do not count as ready');
 
 -- ---------------------------------------------------------------------------
 -- grant
@@ -62,6 +64,9 @@ select ok(
 select throws_ok(
   $$ select public.grant_patient_consents('[{"consent_type":"terms","version":"0.0"}]'::jsonb) $$,
   '22023', 'consent_version_stale', 'agreeing to a version that is not current is refused');
+select throws_ok(
+  $$ select public.grant_patient_consents('[{"consent_type":"health_data;drop","version":"0.1"}]'::jsonb) $$,
+  '22023', 'unknown consent type', 'a consent type outside the allowlist is refused');
 select throws_ok(
   $$ select public.grant_patient_consents('[{"consent_type":"marketing","version":"0.1"}]'::jsonb) $$,
   '22023', null, 'an unknown consent type is refused');
@@ -104,6 +109,19 @@ select ok(
   (select granted_at > now() - interval '1 minute' from public.consents
     where patient_id = '00000000-0000-0000-0000-0000000a1001' and consent_type = 'partner_disclosure'),
   'a client-supplied granted_at is replaced by the server clock');
+insert into public.consents (org_id, patient_id, consent_type, document, version, granted)
+  values ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001',
+          'partner_disclosure', 'zyndio_partner_disclosure', '0.1', false);
+select throws_ok(
+  $$ update public.consents set granted_at = '2001-01-01'
+      where patient_id = '00000000-0000-0000-0000-0000000a1001'
+        and consent_type = 'partner_disclosure' and granted_at is null $$,
+  '42501', null, 'a two-step update cannot backdate granted_at from null');
+select throws_ok(
+  $$ update public.consents set granted_at = '2099-01-01', granted = true
+      where patient_id = '00000000-0000-0000-0000-0000000a1001'
+        and consent_type = 'partner_disclosure' and granted_at is null $$,
+  '42501', null, 'a future granted_at cannot activate an inactive row');
 select throws_ok(
   $$ insert into public.consents (org_id, patient_id, consent_type, granted)
      values ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', 'terms', true) $$,
@@ -209,6 +227,17 @@ select ok(
   (select revoked_at is not null from public.consents
     where patient_id = '00000000-0000-0000-0000-0000000a1001' and consent_type = 'health_data'),
   'a staff withdrawal is recorded as revoked_at');
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0003', 'aal2');
+select throws_ok(
+  $$ update public.consents set revoked_at = null
+      where patient_id = '00000000-0000-0000-0000-0000000a1001' and consent_type = 'health_data' $$,
+  '42501', null, 'clinic staff cannot clear revoked_at');
+reset role;
+select set_config('request.jwt.claims', '', true);
+select throws_ok(
+  $$ update public.consents set revoked_at = null
+      where patient_id = '00000000-0000-0000-0000-0000000a1001' and consent_type = 'health_data' $$,
+  '42501', null, 'service role cannot resurrect a revoked consent either');
 
 -- Legacy data_sharing fixture row still reads granted and got a granted_at.
 select ok(

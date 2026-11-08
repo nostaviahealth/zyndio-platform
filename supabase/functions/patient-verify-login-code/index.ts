@@ -47,13 +47,17 @@ serve(async (req) => {
     }
 
     const ipKey = await sha256Hex(clientIpFrom(req))
-    const { data: ipAllowed } = await admin.rpc('peek_rate_limit', {
+    const ipLimit = await admin.rpc('peek_rate_limit', {
       p_bucket: 'patient_login_code_verify_ip',
       p_key_hash: ipKey,
       p_limit: VERIFY_IP_FAIL_LIMIT,
       p_window_seconds: VERIFY_IP_WINDOW_SECONDS,
     })
-    if (ipAllowed === false) {
+    if (ipLimit.error || ipLimit.data == null) {
+      await padTimingTo(startedAt, PAD_MS)
+      return jsonResponse(req, { error: 'rate_limit_unavailable' }, 503)
+    }
+    if (ipLimit.data === false) {
       await writeAuditLog(admin, {
         eventType: 'patient_login_code_ip_rate_limited',
         actorUserId: null,
@@ -114,7 +118,7 @@ serve(async (req) => {
     await padTimingTo(startedAt, PAD_MS)
     return jsonResponse(req, { status: 'ok', ...session })
   } catch (err) {
-    console.error('patient-verify-login-code error', err instanceof Error ? err.message : 'unknown')
+    console.error('patient-verify-login-code error', err instanceof Error ? err.name : 'unknown')
     await padTimingTo(startedAt, PAD_MS)
     return jsonResponse(req, { error: 'internal_error' }, 500)
   }

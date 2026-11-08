@@ -156,7 +156,9 @@ class ChatMessage {
   final List<MessageBlock> blocks;
   final DateTime? timestamp;
   final String? imagePath; 
-  final String? reaction; 
+  final String? reaction;
+  /// Escalated clinical or emergency text. Kept off the model, the summary, and disk.
+  final bool withheldFromModel; 
 
   // Helpers for legacy / top-level access
   String get text => blocks.whereType<TextBlock>().map((e) => e.text).join('\n\n');
@@ -176,6 +178,7 @@ class ChatMessage {
     this.timestamp,
     this.imagePath,
     this.reaction,
+    this.withheldFromModel = false,
   }) : blocks = blocks ?? _migrateLegacy(text, attachment, simulation, mealPlan, ctaActions);
 
   static List<MessageBlock> _migrateLegacy(String? text, HealthProtocol? att, SimulationResult? sim, MealPlan? meal, List<CtaAction>? cta) {
@@ -198,16 +201,19 @@ class ChatMessage {
       timestamp: timestamp,
       imagePath: imagePath,
       reaction: reaction ?? this.reaction,
+      withheldFromModel: withheldFromModel,
     );
   }
 
   Map<String, dynamic> toJson() {
+    final stored = withheldFromModel ? const <MessageBlock>[] : blocks;
     return {
       'isUser': isUser,
-      'blocks': blocks.map((b) => b.toJson()).toList(),
+      'blocks': stored.map((b) => b.toJson()).toList(),
       'timestamp': timestamp?.toIso8601String() ?? DateTime.now().toIso8601String(),
-      if (imagePath != null) 'imagePath': imagePath,
-      if (reaction != null) 'reaction': reaction,
+      if (!withheldFromModel && imagePath != null) 'imagePath': imagePath,
+      if (!withheldFromModel && reaction != null) 'reaction': reaction,
+      if (withheldFromModel) 'withheldFromModel': true,
     };
   }
 
@@ -231,6 +237,7 @@ class ChatMessage {
       timestamp: json['timestamp'] != null ? DateTime.parse(json['timestamp']) : null,
       imagePath: json['imagePath'],
       reaction: json['reaction'],
+      withheldFromModel: json['withheldFromModel'] == true,
     );
   }
 }
@@ -308,6 +315,7 @@ class ChatNotifier extends Notifier<ChatState> {
   Future<void> regenerateLastResponse() async {
     final lastText = state.lastUserMessageText;
     if (lastText == null || lastText.isEmpty) return;
+    if (routeCompanionMessage(lastText) != CompanionRoute.companion) return;
     // Remove last AI message
     final msgs = List<ChatMessage>.from(state.messages);
     if (msgs.isNotEmpty && !msgs.last.isUser) msgs.removeLast();
@@ -501,25 +509,38 @@ class ChatNotifier extends Notifier<ChatState> {
 
     // Create a title based on the first user message
     String title = "New Conversation";
-    final firstUserMsg = state.messages.firstWhere((m) => m.isUser, orElse: () => ChatMessage(text: "New Conversation", isUser: true));
+    final shareable = turnsForModel([
+      for (final m in state.messages)
+        CompanionTurn(role: m.isUser ? 'user' : 'model', text: m.text, withheld: m.withheldFromModel),
+    ]);
+    ChatMessage? firstShareable;
+    for (final m in state.messages) {
+      if (m.isUser && !m.withheldFromModel) {
+        firstShareable = m;
+        break;
+      }
+    }
+    final firstUserMsg = firstShareable ?? ChatMessage(text: "New Conversation", isUser: true);
     if (firstUserMsg.text.isNotEmpty) {
       title = firstUserMsg.text.length > 30 ? "${firstUserMsg.text.substring(0, 30)}..." : firstUserMsg.text;
     }
     
     // Get last message text
-    final lastMsg = state.messages.lastOrNull?.text ?? "No messages";
+    final lastVisible = state.messages.lastOrNull;
+    final lastMsg = lastVisible == null
+        ? "No messages"
+        : (lastVisible.withheldFromModel ? "Handoff" : lastVisible.text);
 
     // Generate Summary if session has substance (> 2 messages) and no summary exists yet (or update it)
     String? summary;
-    if (state.messages.length >= 2) {
+    if (shareable.length >= 2) {
        print("RAG DEBUG: Threshold met (${state.messages.length} msgs). Generating summary...");
        
        try {
          // Convert to map for service safely
-         final List<Map<String, String>> history = state.messages.map((m) => {
-            "role": m.isUser ? "user" : "model",
-            "text": m.text
-         }).toList();
+         final List<Map<String, String>> history = [
+           for (final turn in shareable) {"role": turn.role, "text": turn.text},
+         ];
          
          summary = await _aiService.generateChatSummary(history);
          print("RAG DEBUG: Generated summary: $summary");
@@ -543,7 +564,13 @@ class ChatNotifier extends Notifier<ChatState> {
       title: title,
       date: DateTime.now(),
       lastMessage: lastMsg,
-      messages: state.messages,
+      messages: [
+        for (final m in state.messages)
+          if (!m.withheldFromModel)
+            m
+          else
+            ChatMessage(isUser: m.isUser, text: '', withheldFromModel: true, timestamp: m.timestamp),
+      ],
       summary: summary,
     );
 
@@ -565,14 +592,26 @@ class ChatNotifier extends Notifier<ChatState> {
     // care team as escalations (see companion_boundaries.dart).
     final route = routeCompanionMessage(text);
     if (route != CompanionRoute.companion) {
-      final userMsg = ChatMessage(text: text, isUser: true, timestamp: DateTime.now());
-      state = state.copyWith(messages: [...state.messages, userMsg]);
       final filed = await fileCompanionEscalation(route, text);
       final reply = route == CompanionRoute.emergency
-          ? emergencyGuidance(text)
+          ? emergencyGuidance(text, filed: filed)
           : (filed ? careTeamHandoffReply : careTeamHandoffFailedReply);
-      final replyMsg = ChatMessage(text: reply, isUser: false, timestamp: DateTime.now());
-      state = state.copyWith(messages: [...state.messages, replyMsg]);
+      final userMsg = ChatMessage(
+        text: text,
+        isUser: true,
+        timestamp: DateTime.now(),
+        withheldFromModel: true,
+      );
+      final replyMsg = ChatMessage(
+        text: reply,
+        isUser: false,
+        timestamp: DateTime.now(),
+        withheldFromModel: true,
+      );
+      state = state.copyWith(
+        messages: [...state.messages, userMsg, replyMsg],
+        lastUserMessageText: '',
+      );
       return;
     }
     // ------------------------------------
@@ -870,10 +909,10 @@ class ChatNotifier extends Notifier<ChatState> {
       buffer.writeln("\nBase analysis on the data above. Don't ask for data you already have. Reference memories naturally.");
 
       // 2. Build Message List with optional image in the last user turn
-      final history = state.messages.sublist(0, state.messages.length - 1).map((m) => {
-        "role": m.isUser ? "user" : "model",
-        "text": m.text
-      }).toList();
+      final history = turnsForModel([
+        for (final m in state.messages.sublist(0, state.messages.length - 1))
+          CompanionTurn(role: m.isUser ? 'user' : 'model', text: m.text, withheld: m.withheldFromModel),
+      ]).map((m) => {"role": m.role, "text": m.text}).toList();
 
       final List<Map<String, dynamic>> apiMessages = [
           {"role": "system", "content": buffer.toString()},

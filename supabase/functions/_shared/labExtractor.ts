@@ -17,6 +17,8 @@ export const LAB_AI_FLAG = 'LAB_AI_EXTRACTION_ENABLED'
 export const DEFAULT_LAB_MODEL = 'gemini-3.5-flash'
 /** Inline request limit is ~20 MB of base64; keep well under it. */
 export const MAX_EXTRACT_BYTES = 14 * 1024 * 1024
+/** Bound on the provider call. A hung socket must not keep the function open. */
+export const LAB_EXTRACT_TIMEOUT_MS = 20_000
 export const MAX_RESULTS = 300
 
 export interface LabExtractor {
@@ -135,26 +137,38 @@ export function sanitizeExtraction(json: unknown): RawExtraction {
   }
 }
 
-export function geminiLabExtractor(opts: { apiKey: string; model: string; fetch: Fetch }): LabExtractor {
+export function geminiLabExtractor(opts: { apiKey: string; model: string; fetch: Fetch; timeoutMs?: number }): LabExtractor {
   return {
     name: opts.model,
     async extract(file, mimeType) {
       if (file.byteLength > MAX_EXTRACT_BYTES) throw new Error('extraction: file too large')
-      const res = await opts.fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(opts.model)}:generateContent`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': opts.apiKey },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: EXTRACTION_PROMPT }] },
-            contents: [{
-              role: 'user',
-              parts: [{ inlineData: { mimeType, data: base64(file) } }, { text: 'Extract this lab report.' }],
-            }],
-            generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: EXTRACTION_SCHEMA },
-          }),
-        },
-      )
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? LAB_EXTRACT_TIMEOUT_MS)
+      let res: Response
+      try {
+        res = await opts.fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(opts.model)}:generateContent`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': opts.apiKey },
+            body: JSON.stringify({
+              systemInstruction: { parts: [{ text: EXTRACTION_PROMPT }] },
+              contents: [{
+                role: 'user',
+                parts: [{ inlineData: { mimeType, data: base64(file) } }, { text: 'Extract this lab report.' }],
+              }],
+              generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: EXTRACTION_SCHEMA },
+            }),
+            signal: controller.signal,
+          },
+        )
+      } catch (e) {
+        const name = e instanceof Error ? e.name : ''
+        if (name === 'AbortError' || name === 'TimeoutError') throw new Error('extraction: timeout')
+        throw e
+      } finally {
+        clearTimeout(timer)
+      }
       // Status only: the provider's error body is never read into logs.
       if (!res.ok) throw new Error(`extraction: provider status ${res.status}`)
       const body = await res.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] }

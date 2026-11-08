@@ -50,11 +50,15 @@ class OnboardingStatus {
     required this.linked,
     required this.missingConsents,
     required this.profileComplete,
+    required this.documentsReady,
   });
 
   final bool linked;
   final List<ConsentDocument> missingConsents;
   final bool profileComplete;
+
+  /// False while the current required documents are still placeholders.
+  final bool documentsReady;
 
   factory OnboardingStatus.fromJson(Map<String, dynamic> json) => OnboardingStatus(
         linked: json['linked'] == true,
@@ -63,14 +67,16 @@ class OnboardingStatus {
             ConsentDocument.fromJson(Map<String, dynamic>.from(e as Map)),
         ],
         profileComplete: json['profile_complete'] == true,
+        documentsReady: json['documents_ready'] == true,
       );
 
   /// The onboarding step to show, or null once everything is done. An
   /// unlinked account (self-signup with no clinic record yet) has to link
-  /// first: consents and profile live on the clinic record.
+  /// first: consents and profile live on the clinic record. Placeholder
+  /// documents keep the patient on the consent step.
   String? get nextRoute {
     if (!linked) return '/link-record';
-    if (missingConsents.isNotEmpty) return onboardingConsentPath;
+    if (!documentsReady || missingConsents.isNotEmpty) return onboardingConsentPath;
     if (!profileComplete) return onboardingProfilePath;
     return null;
   }
@@ -90,16 +96,14 @@ const onboardingAllowedPaths = {
 };
 
 /// Pure APP-02 gate for the router. [status] is the provider's state:
-/// loading -> no redirect yet; error -> the consent step (fails closed: it
-/// shows the error and a retry); data -> the next unfinished step. Once
-/// onboarding is done, the onboarding pages send the patient home.
+/// loading, a null status, and an error all stay off clinical pages. The
+/// consent, link, and delete-account routes stay reachable.
 String? onboardingRedirect(String location, AsyncValue<OnboardingStatus?> status) {
-  if (status.isLoading && !status.hasValue) return null;
-  if (status.hasError && !status.hasValue) {
+  if ((status.isLoading && !status.hasValue) || (status.hasError && !status.hasValue) || status.value == null) {
     return onboardingAllowedPaths.contains(location) ? null : onboardingConsentPath;
   }
   final s = status.value;
-  if (s == null) return null;
+  if (s == null) return onboardingConsentPath;
   final next = s.nextRoute;
   if (next == null) {
     return location.startsWith('/onboarding/') ? '/' : null;

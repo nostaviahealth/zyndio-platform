@@ -90,6 +90,19 @@ select is(public.redeem_patient_login_code('physician-a@example.test', '222222',
 select is(public.redeem_patient_login_code('never-requested@example.test', '123456', 5, 900) ->> 'result', 'invalid',
   'an email that never requested a code is invalid');
 
+-- A reissue before the lock does not hand out a fresh attempt budget.
+select public.issue_patient_login_code('reissue-budget@example.test', '121212', 600);
+select public.redeem_patient_login_code('reissue-budget@example.test', '000001', 5, 900);
+select public.redeem_patient_login_code('reissue-budget@example.test', '000002', 5, 900);
+select public.redeem_patient_login_code('reissue-budget@example.test', '000003', 5, 900);
+select public.redeem_patient_login_code('reissue-budget@example.test', '000004', 5, 900);
+select public.issue_patient_login_code('reissue-budget@example.test', '131313', 600);
+select is((select attempts from public.patient_login_codes
+            where email_hash = public._patient_email_hash('reissue-budget@example.test')), 4,
+  'reissuing a code keeps the four wrong tries already spent');
+select is(public.redeem_patient_login_code('reissue-budget@example.test', '000009', 5, 900) ->> 'result', 'locked',
+  'the fifth wrong try still locks after a reissue');
+
 -- ---------------------------------------------------------------------------
 -- lockout: 5 wrong tries, then locked; a re-issue keeps the lock
 -- ---------------------------------------------------------------------------

@@ -79,7 +79,8 @@ insert into tc040_allow values
   ('public.lab_effective_range(uuid, uuid, text, text)', 'authenticated', 'callee of lab read rpcs (invoker, RLS-scoped)'),
   ('public.lab_effective_status(text, boolean, numeric, boolean, numeric, numeric)', 'authenticated', 'callee of lab read rpcs (immutable)'),
   -- POR-03 timeline: dispatcher + invoker sources it unions (RLS-scoped).
-  ('public.patient_timeline(uuid, timestamp with time zone, integer)', 'authenticated', 'web rpc'),
+  ('public.patient_timeline(uuid, timestamp with time zone, integer, text, uuid)', 'authenticated', 'web rpc'),
+  ('public.patient_health_data_access_granted(uuid)', 'authenticated', 'RLS: patient lab access requires approved health_data consent'),
   ('public.timeline_source_labs(uuid)',          'authenticated', 'callee of patient_timeline (invoker)'),
   ('public.timeline_source_treatment(uuid)',     'authenticated', 'callee of patient_timeline (invoker)'),
   ('public.timeline_source_program(uuid)',       'authenticated', 'callee of patient_timeline (invoker)'),

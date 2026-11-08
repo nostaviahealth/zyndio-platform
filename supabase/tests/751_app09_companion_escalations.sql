@@ -67,6 +67,29 @@ select is((select open_questions from public.patient_roster_meta where patient_i
 select is((select count(*)::int from public.notification_outbox where type = 'companion_emergency')
             - (select n from app09_outbox_before), 1,
           'the emergency alerts clinic A''s active physician (no escalation contact set)');
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal1');
+select lives_ok($$
+  insert into public.companion_escalations (patient_id, kind, question)
+  values ('00000000-0000-0000-0000-0000000a1001', 'clinical_question', 'chest pain, cannot breathe')
+$$, 'a mislabelled emergency is still filed');
+reset role;
+select set_config('request.jwt.claims', '', true);
+select is((select kind from public.companion_escalations where question = 'chest pain, cannot breathe'),
+          'emergency', 'the server upgrades emergency language the client marked clinical');
+select is((select count(*)::int from public.notification_outbox
+            where type = 'companion_emergency'
+              and payload ->> 'escalation_id' = (select id::text from public.companion_escalations
+                                                  where question = 'chest pain, cannot breathe')),
+          1, 'the upgraded row alerts; the payload stays id-only');
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal1');
+select lives_ok($$
+  insert into public.companion_escalations (patient_id, kind, question)
+  values ('00000000-0000-0000-0000-0000000a1001', 'emergency', 'What should I eat for breakfast?')
+$$, 'an ordinary message labelled emergency is still filed');
+reset role;
+select set_config('request.jwt.claims', '', true);
+select is((select kind from public.companion_escalations where question = 'What should I eat for breakfast?'),
+          'clinical_question', 'the server does not alert on a client emergency label alone');
 select is((select count(*)::int from public.notification_outbox
             where type = 'companion_emergency'
               and payload ? 'escalation_id' and (select count(*) from jsonb_object_keys(payload)) = 1),
@@ -92,7 +115,7 @@ select is((select array_agg(user_id) from public.notification_outbox
 -- Staff
 -- ---------------------------------------------------------------------------
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal2');
-select is((select count(*)::int from public.companion_escalations), 3, 'own-clinic physician reads escalations');
+select is((select count(*)::int from public.companion_escalations), 5, 'own-clinic physician reads escalations');
 select lives_ok($$
   update public.companion_escalations set status = 'answered' where id = '00000000-0000-0000-0000-0000000e9a01'
 $$, 'physician marks a question answered');
@@ -108,7 +131,7 @@ select results_eq(
   $$ values ('00000000-0000-0000-0000-0000000a0002'::uuid, true) $$,
   'resolution is stamped with who and when');
 select is((select open_questions from public.patient_roster_meta where patient_id = '00000000-0000-0000-0000-0000000a1001'),
-          2, 'answering one lowers the open count');
+          4, 'answering one lowers the open count');
 select ok(exists (select 1 from public.audit_log where event_type = 'companion_escalation_status_changed'),
           'status change is audited');
 

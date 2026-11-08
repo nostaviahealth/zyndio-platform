@@ -134,7 +134,7 @@ void main() {
         );
 
     setUp(() => repo = FakeOnboardingRepository(
-          status: OnboardingStatus(linked: true, missingConsents: docs, profileComplete: false),
+          status: OnboardingStatus(linked: true, missingConsents: docs, profileComplete: false, documentsReady: true),
         ));
 
     testWidgets('lists the three required documents, marked placeholder', (tester) async {
@@ -206,7 +206,7 @@ void main() {
         );
 
     setUp(() => repo = FakeOnboardingRepository(
-          status: const OnboardingStatus(linked: true, missingConsents: [], profileComplete: false),
+          status: const OnboardingStatus(linked: true, missingConsents: [], profileComplete: false, documentsReady: true),
           profile: const ClinicalProfile(displayName: 'Jordan Rivera'),
         ));
 

@@ -4,10 +4,14 @@
 // per-email-hash dimension (always available) is the one enumeration-safety
 // actually depends on - per-IP is defense in depth on top of it.
 export function clientIpFrom(req: Request): string {
+  // The platform appends the observed peer as the last hop. The first hop is
+  // whatever the caller sent, so it is not an identity.
   const forwarded = req.headers.get('x-forwarded-for')
-  if (forwarded) return forwarded.split(',')[0].trim()
-  const real = req.headers.get('x-real-ip')
-  if (real) return real.trim()
+  if (forwarded) {
+    const hops = forwarded.split(',').map((part) => part.trim()).filter((part) => part.length > 0)
+    const last = hops.length > 0 ? hops[hops.length - 1] : ''
+    if (last.length > 0) return last
+  }
   return 'unknown'
 }
 

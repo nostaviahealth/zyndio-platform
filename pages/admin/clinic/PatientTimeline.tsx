@@ -41,7 +41,12 @@ const PatientTimeline: React.FC<{ api: PatientRecordApi; patientId: string; name
     if (!events || events.length === 0) return;
     setLoadingMore(true);
     try {
-      const page = await api.fetchTimeline(patientId, events[events.length - 1].occurredAt, PAGE);
+      const last = events[events.length - 1];
+      const page = await api.fetchTimeline(
+        patientId,
+        { occurredAt: last.occurredAt, source: last.source, refId: last.refId },
+        PAGE,
+      );
       setEvents([...events, ...page]);
       setHasMore(page.length === PAGE);
     } catch {

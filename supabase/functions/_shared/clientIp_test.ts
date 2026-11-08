@@ -1,16 +1,16 @@
 import { assertEquals, assertNotEquals } from 'https://deno.land/std@0.168.0/testing/asserts.ts'
 import { clientIpFrom, sha256Hex } from './clientIp.ts'
 
-Deno.test('clientIpFrom prefers the first x-forwarded-for hop', () => {
+Deno.test('clientIpFrom uses the last x-forwarded-for hop, not the caller-supplied first hop', () => {
   const req = new Request('http://localhost', {
-    headers: { 'x-forwarded-for': '203.0.113.9, 10.0.0.1' },
+    headers: { 'x-forwarded-for': '203.0.113.9, 198.51.100.8' },
   })
-  assertEquals(clientIpFrom(req), '203.0.113.9')
+  assertEquals(clientIpFrom(req), '198.51.100.8')
 })
 
-Deno.test('clientIpFrom falls back to x-real-ip', () => {
+Deno.test('clientIpFrom ignores a caller-supplied x-real-ip', () => {
   const req = new Request('http://localhost', { headers: { 'x-real-ip': '198.51.100.4' } })
-  assertEquals(clientIpFrom(req), '198.51.100.4')
+  assertEquals(clientIpFrom(req), 'unknown')
 })
 
 Deno.test('clientIpFrom falls back to unknown rather than throwing', () => {

@@ -32,6 +32,16 @@ values
   ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001',
    '00000000-0000-0000-0000-0000000778a2', 'ldl', 'LDL', 96, 'mg/dL', 'within_range', now());
 
+-- SYNTHETIC FIXTURE so the held-versus-released check is not vacuous.
+insert into public.consent_documents (consent_type, version, document, title, summary, body, required, is_placeholder, published_at)
+values ('health_data', 'synthetic-fixture', 'synthetic_health_data_fixture', 'Synthetic fixture',
+        'SYNTHETIC FIXTURE - not a legally approved document',
+        'SYNTHETIC FIXTURE - not a legally approved document. Not for patient use.',
+        false, false, now());
+insert into public.consents (org_id, patient_id, consent_type, document, version, granted)
+values ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001',
+        'health_data', 'synthetic_health_data_fixture', 'synthetic-fixture', true);
+
 -- Patient A1: released row and file, not the held ones. Unfiled object stays.
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal1');
 select is(

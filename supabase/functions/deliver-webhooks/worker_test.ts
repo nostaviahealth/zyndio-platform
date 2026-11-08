@@ -1,7 +1,7 @@
 // INT-02 delivery worker: signing, attempt logging, failure classification.
 // Retry timing / dead letter live in SQL (supabase/tests/760_int01_partner_api.sql).
 import { assert, assertEquals, assertFalse } from 'https://deno.land/std@0.168.0/testing/asserts.ts'
-import { Claim, deliverDue, deliverOne, envelopeBody, isDeliverableUrl, RpcResult, WorkerDeps } from './worker.ts'
+import { Claim, deliverDue, deliverOne, envelopeBody, isDeliverableUrl, isPublicIp, PinnedTarget, RpcResult, WorkerDeps } from './worker.ts'
 import { sha256Hex, verifySignatureHeader } from '../_shared/webhookSignature.ts'
 
 const SECRET = 'whsec_000000000000000000000000000000000000000000000001'
@@ -27,6 +27,7 @@ function claim(n: number, overrides: Partial<Claim> = {}): Claim {
 function harness(respond: (req: Request) => Promise<Response> | Response, queue: Claim[][] = []) {
   const recorded: Record<string, unknown>[] = []
   const sent: Request[] = []
+  const pinned: PinnedTarget[] = []
   let clock = 1793790000000
   const deps: WorkerDeps = {
     rpc(fn: string, args: Record<string, unknown>): Promise<RpcResult> {
@@ -44,12 +45,26 @@ function harness(respond: (req: Request) => Promise<Response> | Response, queue:
       clock += 37
       return await respond(req)
     },
+    resolveDns: async (_host, record) => (record === 'A' ? ['8.8.8.8'] : []),
+    connectPinned: async (target, request) => {
+      pinned.push(target)
+      const req = new Request(`https://${target.host}${request.pathAndQuery}`, {
+        method: request.method,
+        headers: request.headers,
+        body: request.body,
+        redirect: 'manual',
+      })
+      sent.push(req.clone())
+      clock += 37
+      const res = await respond(req)
+      return { status: res.status }
+    },
     nowMs: () => clock,
     timeoutMs: 1000,
     allowLocalReceivers: false,
     log: () => {},
   }
-  return { deps, recorded, sent }
+  return { deps, recorded, sent, pinned }
 }
 
 Deno.test('envelope body has exactly the five documented fields in a fixed order', () => {
@@ -87,7 +102,7 @@ Deno.test('during a rotation both secrets sign the delivery', async () => {
 Deno.test('non-2xx, redirects, network errors and timeouts are recorded as failures', async () => {
   const cases: [() => Promise<Response> | Response, number | null, string][] = [
     [() => new Response('nope', { status: 500 }), 500, 'http_500'],
-    [() => new Response(null, { status: 302, headers: { location: 'https://elsewhere.example.test' } }), 302, 'http_302'],
+    [() => new Response(null, { status: 302, headers: { location: 'https://elsewhere.example.test' } }), 302, 'redirect_blocked'],
     [() => Promise.reject(new TypeError('connection refused')), null, 'network_error'],
     [() => Promise.reject(new DOMException('timed out', 'TimeoutError')), null, 'timeout'],
   ]
@@ -121,6 +136,55 @@ Deno.test('isDeliverableUrl: local receivers only with the explicit dev switch',
   assert(isDeliverableUrl('http://127.0.0.1:9999/in', true))
   assertFalse(isDeliverableUrl('https://user:pw@hooks.example.test/in', false))
   assertFalse(isDeliverableUrl('not a url', false))
+})
+
+Deno.test('a public-looking name that resolves to a non-public address is not connected', async () => {
+  const cases: [string, string[]][] = [
+    ['169.254.169.254.nip.io', ['169.254.169.254']],
+    ['127.0.0.1.nip.io', ['127.0.0.1']],
+    ['metadata.example.test', ['::ffff:169.254.169.254']],
+    ['split.example.test', ['8.8.8.8', '10.1.2.3']],
+    ['empty.example.test', []],
+  ]
+  for (const [host, answers] of cases) {
+    const { deps, recorded, pinned, sent } = harness(() => new Response('no', { status: 200 }))
+    deps.resolveDns = async () => answers
+    await deliverOne(deps, claim(1, { url: `https://${host}/latest` }))
+    assertEquals(pinned.length, 0, host)
+    assertEquals(sent.length, 0, host)
+    assertEquals(recorded[0].p_error, 'url_not_allowed')
+  }
+})
+
+Deno.test('delivery connects to the resolved public address and keeps the hostname for SNI', async () => {
+  const { deps, pinned, sent } = harness(() => new Response('ok', { status: 200 }))
+  let lookups = 0
+  deps.resolveDns = async (host, record) => {
+    lookups += 1
+    assertEquals(host, 'hooks.example.test')
+    return record === 'A' ? ['8.8.8.8'] : ['2001:4860:4860::8888']
+  }
+  assertEquals(await deliverOne(deps, claim(1)), 'succeeded')
+  assertEquals(lookups, 2)
+  assertEquals(pinned, [{ ip: '8.8.8.8', host: 'hooks.example.test', port: 443 }])
+  assertEquals(sent.length, 1)
+  assert(sent[0].url.startsWith('https://hooks.example.test/'))
+})
+
+Deno.test('without a pinned connect, delivery fails closed and does not fetch the hostname', async () => {
+  const { deps, recorded, sent } = harness(() => new Response('ok', { status: 200 }))
+  deps.connectPinned = undefined
+  await deliverOne(deps, claim(1))
+  assertEquals(sent.length, 0)
+  assertEquals(recorded[0].p_error, 'dns_pin_unavailable')
+})
+
+Deno.test('isPublicIp denies loopback, link-local, private and mapped addresses', () => {
+  for (const ip of ['127.0.0.1', '10.1.2.3', '169.254.169.254', '192.168.1.1', '172.16.0.1', '::1', '::ffff:127.0.0.1', 'fe80::1', 'fd00::1']) {
+    assertFalse(isPublicIp(ip), ip)
+  }
+  assert(isPublicIp('8.8.8.8'))
+  assert(isPublicIp('2001:4860:4860::8888'))
 })
 
 Deno.test('deliverDue drains batches until the queue is empty', async () => {

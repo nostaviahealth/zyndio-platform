@@ -7,7 +7,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { corsHeadersFor, jsonResponse } from '../_shared/cors.ts'
 import { parseBearerToken, verifyBearerJwt } from '../_shared/validation.ts'
 import { serviceRoleClient } from '../_shared/requireOrgAdminActor.ts'
-import { deliverDue } from './worker.ts'
+import { deliverDue, denoPinnedConnect, denoResolveDns } from './worker.ts'
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeadersFor(req) })
@@ -30,6 +30,8 @@ serve(async (req) => {
     const result = await deliverDue({
       rpc: (fn, args) => admin.rpc(fn, args),
       fetch: (url, init) => fetch(url, init),
+      resolveDns: denoResolveDns(),
+      connectPinned: denoPinnedConnect(),
       nowMs: () => Date.now(),
       timeoutMs: 10_000,
       allowLocalReceivers: Deno.env.get('WEBHOOKS_ALLOW_LOCAL_RECEIVERS') === 'true',

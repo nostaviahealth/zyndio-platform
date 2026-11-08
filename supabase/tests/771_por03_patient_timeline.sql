@@ -114,5 +114,23 @@ select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal2');
 select throws_ok($$ insert into public.timeline_sources (source_key, fn, label) values ('x', 'public.tl751_extra(uuid)', 'X') $$,
   '42501', null, 'clients cannot register sources');
 
+-- Two lab events at the same timestamp. A timestamp-only cursor drops the
+-- second; the (occurred_at, source, ref_id) cursor keeps it.
+reset role;
+select set_config('request.jwt.claims', '', true);
+insert into public.lab_reports (id, org_id, patient_id, report_type, data) values
+  ('00000000-0000-0000-0000-000000751c01', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', 'panel_c1', '{}'),
+  ('00000000-0000-0000-0000-000000751c02', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', 'panel_c2', '{}');
+insert into public.lab_results (org_id, patient_id, lab_report_id, analyte_key, analyte_label, value, unit, status, taken_at) values
+  ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', '00000000-0000-0000-0000-000000751c01', 'hba1c', 'HbA1c', 5.1, '%', 'within_range', '2026-06-01 12:00:00+00'),
+  ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', '00000000-0000-0000-0000-000000751c02', 'ldl', 'LDL', 90, 'mg/dL', 'within_range', '2026-06-01 12:00:00+00');
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal2');
+select is((select ref_id from public.patient_timeline('00000000-0000-0000-0000-0000000a1001', '2026-06-01 12:00:00+00', 1, 'labs', '00000000-0000-0000-0000-000000751c01')),
+  '00000000-0000-0000-0000-000000751c02'::uuid,
+  'the tuple cursor returns the other event that shares the timestamp');
+select is((select count(*)::int from public.patient_timeline('00000000-0000-0000-0000-0000000a1001', '2026-06-01 12:00:00+00', 20)
+            where ref_id = '00000000-0000-0000-0000-000000751c02'), 0,
+  'a timestamp-only cursor drops the same-timestamp sibling');
+
 select * from finish();
 rollback;
