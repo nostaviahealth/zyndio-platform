@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -104,31 +105,39 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
   }
 }
 
-/// Baseline and latest scan side by side (mockup body figures).
-/// The scan stage: baseline and latest bodies glowing on a deep navy panel
-/// (DEXA imagery reads best on dark), dates in white, an arrow between.
+/// Baseline and latest scan side by side (mockup body figures) on a soft
+/// lavender-to-sky panel with a faint scan grid; dates under each title.
 class _ScanPanels extends StatelessWidget {
   const _ScanPanels({required this.baseline, required this.latest});
   final StoredBodyScan? baseline;
   final StoredBodyScan latest;
 
+  static String _pretty(String iso) {
+    final d = DateTime.tryParse(iso);
+    return d == null ? iso : DateFormat('d MMM y').format(d);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final titleColor = dark ? Colors.white : c.textPrimary;
+    final dateColor = dark ? Colors.white.withValues(alpha: 0.65) : c.textSecondary;
     Widget figure(String title, String date) => Expanded(
           child: Column(
             children: [
               Text(title,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontFamily: ZyndioType.family,
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: Colors.white)),
+                      color: titleColor)),
               const SizedBox(height: 2),
-              Text(date,
+              Text(_pretty(date),
                   style: TextStyle(
                       fontFamily: ZyndioType.family,
-                      fontSize: 12,
-                      color: Colors.white.withValues(alpha: 0.65))),
+                      fontSize: 12.5,
+                      color: dateColor)),
               const SizedBox(height: 14),
               const SizedBox(
                 width: 92,
@@ -148,23 +157,25 @@ class _ScanPanels extends StatelessWidget {
           borderRadius: BorderRadius.circular(28),
           child: Container(
             padding: const EdgeInsets.fromLTRB(12, 20, 12, 22),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFF151A3E), Color(0xFF0B0F26)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: dark
+                    ? const [Color(0xFF151A3E), Color(0xFF0B0F26)]
+                    : const [Color(0xFFF1EDFF), Color(0xFFE6F1FF)],
               ),
             ),
             child: Stack(
               children: [
                 // Faint scan grid behind the figures.
-                Positioned.fill(child: CustomPaint(painter: _GridPainter())),
+                Positioned.fill(child: CustomPaint(painter: _GridPainter(dark: dark))),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     if (baseline != null) ...[
                       figure('Baseline', baseline!.scanDate),
-                      Icon(LucideIcons.arrowRight, size: 22, color: Colors.white.withValues(alpha: 0.7)),
+                      Icon(LucideIcons.arrowRight, size: 22, color: dark ? Colors.white.withValues(alpha: 0.7) : c.textTertiary),
                     ],
                     figure('Latest Scan', latest.scanDate),
                   ],
@@ -179,10 +190,13 @@ class _ScanPanels extends StatelessWidget {
 }
 
 class _GridPainter extends CustomPainter {
+  const _GridPainter({required this.dark});
+  final bool dark;
+
   @override
   void paint(Canvas canvas, Size size) {
     final p = Paint()
-      ..color = Colors.white.withValues(alpha: 0.05)
+      ..color = dark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFF4F57EE).withValues(alpha: 0.07)
       ..strokeWidth = 1;
     for (double x = 0; x < size.width; x += 22) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), p);
@@ -193,7 +207,7 @@ class _GridPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _GridPainter old) => old.dark != dark;
 }
 
 class _CompareGrid extends StatelessWidget {

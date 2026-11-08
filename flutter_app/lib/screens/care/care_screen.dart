@@ -19,7 +19,8 @@ class CareScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final appointmentsEnabled = ref.watch(featureFlagsProvider).appointmentsEnabled;
+    final appointmentsEnabled =
+        ref.watch(featureFlagsProvider).appointmentsEnabled;
     return ZyndioTabScaffold(
       title: 'My Care',
       subtitle: 'Your clinical team, results and resources.',
@@ -62,6 +63,21 @@ class CareScreen extends ConsumerWidget {
           ),
         ],
         const SizedBox(height: 12),
+        // Client brief: a secure clinical portal. No portal link exists yet,
+        // so the row says so honestly instead of opening a placeholder.
+        ZyndioListRow(
+          icon: LucideIcons.shieldCheck,
+          tint: ZyndioTint.indigo,
+          title: 'Secure Clinical Portal',
+          subtitle: 'Message your care team and share records securely.',
+          trailingBadge: 'Coming soon',
+          onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text(
+                    'Your clinic will share secure portal access here soon.')),
+          ),
+        ),
+        const SizedBox(height: 12),
         ZyndioListRow(
           icon: LucideIcons.bookOpen,
           tint: ZyndioTint.amber,
@@ -88,7 +104,8 @@ class _ProfileCard extends ConsumerWidget {
     final initials = zyndioInitials(name);
     final details = [
       if (p?.age != null) 'Age ${p!.age}',
-      if (p?.createdAt != null) 'Member since ${DateFormat('MMM yyyy').format(p!.createdAt!)}',
+      if (p?.createdAt != null)
+        'Member since ${DateFormat('MMM yyyy').format(p!.createdAt!)}',
     ];
     return Semantics(
       button: true,
@@ -112,7 +129,8 @@ class _ProfileCard extends ConsumerWidget {
                   ),
                   child: Container(
                     alignment: Alignment.center,
-                    decoration: BoxDecoration(shape: BoxShape.circle, color: c.bgSurface),
+                    decoration: BoxDecoration(
+                        shape: BoxShape.circle, color: c.bgSurface),
                     child: initials.isEmpty
                         ? Icon(LucideIcons.user, size: 28, color: c.textPrimary)
                         : Text(

@@ -55,27 +55,24 @@ class ZyndioTabScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
     final list = ListView(
-      padding: EdgeInsets.fromLTRB(0, hero == null ? top + 12 : 0, 0, 120),
+      padding: EdgeInsets.fromLTRB(0, hero == null ? top + 6 : 0, 0, 120),
       children: [
         if (hero != null)
           hero!
         else
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                    child: ZyndioPageHeader(
-                        title: title, subtitle: subtitle, eyebrow: eyebrow)),
-                const SizedBox(width: 12),
-                const Padding(
-                    padding: EdgeInsets.only(top: 2),
-                    child: ZyndioAvatarButton()),
+                const ZyndioBrandRow(),
+                const SizedBox(height: 18),
+                ZyndioPageHeader(
+                    title: title, subtitle: subtitle, eyebrow: eyebrow),
               ],
             ),
           ),
-        SizedBox(height: hero == null ? 24 : 20),
+        SizedBox(height: hero == null ? 22 : 20),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
@@ -93,9 +90,39 @@ class ZyndioTabScaffold extends StatelessWidget {
           : SystemUiOverlayStyle.dark,
       child: Container(
         color: context.z25.screenBg,
-        child: onRefresh == null
-            ? list
-            : RefreshIndicator(onRefresh: onRefresh!, child: list),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: onRefresh == null
+                  ? list
+                  : RefreshIndicator(onRefresh: onRefresh!, child: list),
+            ),
+            // Soft fade under the status bar so scrolled content never
+            // collides with the clock.
+            if (hero == null)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: top + 8,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        stops: const [0.7, 1.0],
+                        colors: [
+                          context.z25.screenBg,
+                          context.z25.screenBg.withValues(alpha: 0),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -224,117 +251,61 @@ class ZyndioSectionLabel extends StatelessWidget {
   }
 }
 
-/// Brand row (specs §1): 26pt Zyndio mark + "ZYNDIO AI" wordmark, and a 48pt
-/// initials avatar on the right that opens Profile & settings. Scrolls with the
-/// page content.
-class ZyndioBrandRow extends ConsumerWidget {
+/// Client mockup header: the Zyndio mark and "ZYNDIO AI" wordmark on the
+/// left, the patient's avatar (opens Profile & settings) on the right.
+class ZyndioBrandRow extends StatelessWidget {
   const ZyndioBrandRow({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final c = Theme.of(context).extension<ZyndioColors>()!;
-    final profile = ref.watch(patientProfileProvider).value;
-    final initials = zyndioInitials(profile?.name);
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Row(
-        children: [
-          Image.asset('assets/icons/zyndio-mark-tight.png',
-              height: 24, excludeFromSemantics: true),
-          const SizedBox(width: 10),
-          Text(
-            'ZYNDIO AI',
-            style: TextStyle(
-              fontFamily: ZyndioType.family,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.4,
-              color: c.textPrimary,
-            ),
-          ),
-          const Spacer(),
-          Semantics(
-            button: true,
-            container: true,
-            label: 'Profile and settings',
-            onTap: () => context.pushNamed('settings'), // H1
-            child: ExcludeSemantics(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => context.pushNamed('settings'),
-                child: SizedBox(
-                  width: 52,
-                  height: 52,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // Gradient ring around the avatar (client mockup).
-                      Container(
-                        width: 48,
-                        height: 48,
-                        padding: const EdgeInsets.all(2),
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: ZyndioGradients.brand,
-                        ),
-                        child: Container(
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: c.bgSurface,
-                          ),
-                          child: initials.isEmpty
-                              ? Icon(LucideIcons.user,
-                                  size: 20, color: c.textPrimary)
-                              : Text(
-                                  initials,
-                                  style: TextStyle(
-                                    fontFamily: ZyndioType.family,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: c.textPrimary,
-                                  ),
-                                ),
-                        ),
-                      ),
-                      // Online dot.
-                      Positioned(
-                        right: 3,
-                        bottom: 4,
-                        child: Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: const Color(0xFF22C55E),
-                            border: Border.all(color: c.bgSurface, width: 2),
-                          ),
-                        ),
-                      ),
-                    ],
+    return Row(
+      children: [
+        Semantics(
+          label: 'Zyndio AI',
+          header: false,
+          child: ExcludeSemantics(
+            child: Row(
+              children: [
+                Image.asset('assets/icons/zyndio-mark-tight.png',
+                    height: 22, excludeFromSemantics: true),
+                const SizedBox(width: 9),
+                Text(
+                  'ZYNDIO AI',
+                  style: TextStyle(
+                    fontFamily: ZyndioType.family,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.6,
+                    color: c.textPrimary,
                   ),
                 ),
-              ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+        const Spacer(),
+        const ZyndioAvatarButton(),
+      ],
     );
   }
 }
 
 /// Colour families for gradient icon tiles (client mockup's coloured icons).
 enum ZyndioTint {
-  blue([Color(0xFF4F7CFF), Color(0xFF2E62E6)]),
-  violet([Color(0xFF8B6BFF), Color(0xFF6A4CF5)]),
-  rose([Color(0xFFFF6B8B), Color(0xFFE5486A)]),
-  green([Color(0xFF34D399), Color(0xFF12A36A)]),
-  amber([Color(0xFFFFB547), Color(0xFFF08A1C)]),
-  teal([Color(0xFF38C6E0), Color(0xFF0E94B0)]),
-  indigo([Color(0xFF5B6CFF), Color(0xFF3B3FD8)]);
+  blue([Color(0xFF4F7CFF), Color(0xFF2E62E6)], Color(0xFFEAF0FF)),
+  violet([Color(0xFF8B6BFF), Color(0xFF6A4CF5)], Color(0xFFF0EBFF)),
+  rose([Color(0xFFFF6B8B), Color(0xFFE5486A)], Color(0xFFFFEDF1)),
+  green([Color(0xFF34D399), Color(0xFF12A36A)], Color(0xFFE5F7EF)),
+  amber([Color(0xFFFFB547), Color(0xFFF08A1C)], Color(0xFFFFF3E2)),
+  teal([Color(0xFF38C6E0), Color(0xFF0E94B0)], Color(0xFFE3F6FA)),
+  indigo([Color(0xFF5B6CFF), Color(0xFF3B3FD8)], Color(0xFFECEDFF));
 
-  const ZyndioTint(this.colors);
+  const ZyndioTint(this.colors, this.pastel);
   final List<Color> colors;
+
+  /// Soft tinted card surface for this colour (light mode only).
+  final Color pastel;
   LinearGradient get gradient => LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
