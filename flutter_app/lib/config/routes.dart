@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../screens/settings/edit_profile_screen.dart';
@@ -79,6 +80,15 @@ String? tc025Redirect(String loc, {required bool patientExtrasEnabled}) {
   return null;
 }
 
+/// Appointments is still mock data (MockAppointmentRepository). With the flag
+/// off (store default) every appointments location - including deep links and
+/// doctor detail - lands on Today instead of showing fictional doctors/slots.
+String? appointmentsRedirect(String loc, {required bool appointmentsEnabled}) {
+  if (appointmentsEnabled) return null;
+  if (loc == '/appointments' || loc.startsWith('/appointments/')) return '/';
+  return null;
+}
+
 /// Location of the "can't connect" screen used when the backend is not set up.
 const String kServiceUnavailablePath = '/unavailable';
 
@@ -111,7 +121,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/',
-    debugLogDiagnostics: true,
+    debugLogDiagnostics: kDebugMode, // no route logging in release builds
     observers: [
       if (AnalyticsService().observer != null)
         AnalyticsService().observer!,
@@ -127,6 +137,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       final tc = tc025Redirect(state.matchedLocation,
           patientExtrasEnabled: flags.patientExtrasEnabled);
       if (tc != null) return tc;
+      final appts = appointmentsRedirect(state.matchedLocation,
+          appointmentsEnabled: flags.appointmentsEnabled);
+      if (appts != null) return appts;
 
       final isLoggedInState = isLoggedIn;
       final isLoggingIn = state.matchedLocation == '/login';

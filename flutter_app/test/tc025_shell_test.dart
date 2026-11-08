@@ -14,6 +14,9 @@ import 'package:zyndio_patient/screens/care/care_screen.dart';
 import 'package:zyndio_patient/screens/progress/progress_screen.dart';
 import 'package:zyndio_patient/screens/today/today_screen.dart';
 import 'package:zyndio_patient/widgets/main_shell.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:zyndio_patient/providers/feature_flags_provider.dart';
+import 'package:zyndio_patient/services/notification_permission_prompt.dart';
 
 /// Keeps the brand-row avatar initials deterministic without hitting Supabase.
 class _TestProfileNotifier extends PatientProfileNotifier {
@@ -69,10 +72,31 @@ GoRouter _shellRouter() => GoRouter(
       ],
     );
 
-Future<void> _pumpShell(WidgetTester tester, {Brightness b = Brightness.light}) async {
+/// Records prompts instead of touching the OS permission dialog.
+class _FakeRequester implements NotificationPermissionRequester {
+  int calls = 0;
+  @override
+  Future<bool> requestPermissions() async {
+    calls++;
+    return true;
+  }
+}
+
+Future<void> _pumpShell(
+  WidgetTester tester, {
+  Brightness b = Brightness.light,
+  FeatureFlags flags = const FeatureFlags(),
+  _FakeRequester? requester,
+}) async {
+  SharedPreferences.setMockInitialValues({});
+  final fake = requester ?? _FakeRequester();
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        featureFlagsProvider.overrideWithValue(flags),
+        notificationPermissionPromptProvider.overrideWithValue(
+          NotificationPermissionPrompt(SharedPreferences.getInstance, fake),
+        ),
         patientProfileProvider.overrideWith(() => _TestProfileNotifier()),
         // Fictional: no lab reports, so the Biomarkers tab never hits Supabase.
         labReportsProvider.overrideWith((ref) async => const []),
@@ -88,6 +112,21 @@ Future<void> _pumpShell(WidgetTester tester, {Brightness b = Brightness.light}) 
 }
 
 void main() {
+  group('appointmentsRedirect (pure rules)', () {
+    test('flag off: every appointments location lands on Today', () {
+      for (final loc in ['/appointments', '/appointments/doctor/d1']) {
+        expect(appointmentsRedirect(loc, appointmentsEnabled: false), '/', reason: loc);
+      }
+    });
+    test('flag off: other locations are untouched', () {
+      expect(appointmentsRedirect('/care', appointmentsEnabled: false), isNull);
+      expect(appointmentsRedirect('/appointmentsx', appointmentsEnabled: false), isNull);
+    });
+    test('flag on: appointments stays reachable', () {
+      expect(appointmentsRedirect('/appointments', appointmentsEnabled: true), isNull);
+    });
+  });
+
   group('tc025Redirect (pure rules)', () {
     test('legacy tab paths map to their new homes', () {
       expect(tc025Redirect('/protocol', patientExtrasEnabled: false), '/my-plan');
@@ -166,8 +205,40 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('My Care'), findsOneWidget);
       expect(find.text('Lab Results'), findsOneWidget);
-      expect(find.text('Appointments'), findsOneWidget);
+      // Appointments is mock data: hidden in the store build (flag off).
+      expect(find.text('Appointments'), findsNothing);
       handle.dispose();
+    });
+
+    testWidgets('store build hides every Appointments entry point', (tester) async {
+      await _pumpShell(tester);
+      await tester.tap(find.bySemanticsLabel('Progress, tab 2 of 5'));
+      await tester.pumpAndSettle();
+      expect(find.text('No DEXASCAN results yet'), findsOneWidget);
+      expect(find.text('Book my baseline scan'), findsNothing);
+      await tester.tap(find.bySemanticsLabel('Care, tab 5 of 5'));
+      await tester.pumpAndSettle();
+      expect(find.text('Appointments'), findsNothing);
+    });
+
+    testWidgets('with appointmentsEnabled the entry points come back', (tester) async {
+      await _pumpShell(tester, flags: const FeatureFlags(appointmentsEnabled: true));
+      await tester.tap(find.bySemanticsLabel('Progress, tab 2 of 5'));
+      await tester.pumpAndSettle();
+      expect(find.text('Book my baseline scan'), findsOneWidget);
+      await tester.tap(find.bySemanticsLabel('Care, tab 5 of 5'));
+      await tester.pumpAndSettle();
+      expect(find.text('Appointments'), findsOneWidget);
+    });
+
+    testWidgets('the signed-in shell asks for notifications once, not again on rebuild',
+        (tester) async {
+      final fake = _FakeRequester();
+      await _pumpShell(tester, requester: fake);
+      expect(fake.calls, 1);
+      await tester.tap(find.bySemanticsLabel('Care, tab 5 of 5'));
+      await tester.pumpAndSettle();
+      expect(fake.calls, 1);
     });
 
     testWidgets('brand-row avatar opens Profile & settings', (tester) async {

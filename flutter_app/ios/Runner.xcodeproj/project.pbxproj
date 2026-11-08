@@ -349,6 +349,7 @@
 				129DD22695347D5A30EAC07E /* [CP] Embed Pods Frameworks */,
 				8E39ADA89A4D6EDB6408A81F /* [CP] Copy Pods Resources */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
+				5A0FE11E0C4A5E5D1B0A7F01 /* Strip Debug-Only Info.plist Keys */,
 			);
 			buildRules = (
 			);
@@ -455,6 +456,22 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		5A0FE11E0C4A5E5D1B0A7F01 /* Strip Debug-Only Info.plist Keys */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}",
+			);
+			name = "Strip Debug-Only Info.plist Keys";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Store builds must not carry the debug-only local-network prompt or the\n# Dart VM service Bonjour entries (used by the debugger / hot reload).\ncase \"${CONFIGURATION}\" in\n  Release*)\n    PLIST=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\n    /usr/libexec/PlistBuddy -c \"Delete :NSLocalNetworkUsageDescription\" \"$PLIST\" 2>/dev/null || true\n    /usr/libexec/PlistBuddy -c \"Delete :NSBonjourServices\" \"$PLIST\" 2>/dev/null || true\n    ;;\nesac\n";
+		};
 		129DD22695347D5A30EAC07E /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;

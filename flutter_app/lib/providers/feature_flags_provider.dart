@@ -6,6 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// * [patientExtrasEnabled] — Shop, Meditate, Cycle Tracking (hidden, not deleted).
 /// * [longevityScoreEnabled] — the Today Longevity ring (hidden until Zyndio
 ///   supplies a formula/value).
+/// * [appointmentsEnabled] — Appointments booking. Still backed by
+///   MockAppointmentRepository (fictional doctors and slots), so it must not
+///   reach store users; its routes redirect to Today and its entry points
+///   (Progress "Book my baseline scan", Care "Appointments") are hidden.
 ///
 /// The compile-time defaults can only ever turn a flag **on** via an explicit
 /// `--dart-define`; the safe default is always off. There is no remote/org
@@ -17,10 +21,12 @@ class FeatureFlags {
   const FeatureFlags({
     this.patientExtrasEnabled = false,
     this.longevityScoreEnabled = false,
+    this.appointmentsEnabled = false,
   });
 
   final bool patientExtrasEnabled;
   final bool longevityScoreEnabled;
+  final bool appointmentsEnabled;
 
   /// Compile-time defaults. Off unless explicitly enabled at build time.
   static const FeatureFlags compileDefaults = FeatureFlags(
@@ -28,16 +34,20 @@ class FeatureFlags {
         bool.fromEnvironment('PATIENT_EXTRAS_ENABLED', defaultValue: false),
     longevityScoreEnabled:
         bool.fromEnvironment('LONGEVITY_SCORE_ENABLED', defaultValue: false),
+    appointmentsEnabled:
+        bool.fromEnvironment('APPOINTMENTS_ENABLED', defaultValue: false),
   );
 
   FeatureFlags copyWith({
     bool? patientExtrasEnabled,
     bool? longevityScoreEnabled,
+    bool? appointmentsEnabled,
   }) =>
       FeatureFlags(
         patientExtrasEnabled: patientExtrasEnabled ?? this.patientExtrasEnabled,
         longevityScoreEnabled:
             longevityScoreEnabled ?? this.longevityScoreEnabled,
+        appointmentsEnabled: appointmentsEnabled ?? this.appointmentsEnabled,
       );
 }
 

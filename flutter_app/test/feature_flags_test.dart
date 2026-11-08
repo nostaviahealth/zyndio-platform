@@ -10,11 +10,13 @@ void main() {
       final flags = container.read(featureFlagsProvider);
       expect(flags.patientExtrasEnabled, isFalse);
       expect(flags.longevityScoreEnabled, isFalse);
+      expect(flags.appointmentsEnabled, isFalse);
     });
 
     test('compileDefaults are false', () {
       expect(FeatureFlags.compileDefaults.patientExtrasEnabled, isFalse);
       expect(FeatureFlags.compileDefaults.longevityScoreEnabled, isFalse);
+      expect(FeatureFlags.compileDefaults.appointmentsEnabled, isFalse);
     });
 
     test('is overridable (for a future remote source / tests)', () {

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../widgets/tc025/tc025_widgets.dart';
+import '../../providers/feature_flags_provider.dart';
 
 /// Progress tab — interim for PR A (specs §3.2 Empty state only).
 ///
@@ -15,6 +16,8 @@ class ProgressScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final appointmentsEnabled =
+        ref.watch(featureFlagsProvider).appointmentsEnabled;
     return ZyndioTabScaffold(
       title: 'Body Composition',
       subtitle: 'DEXASCAN · Measurable results. Real progress.',
@@ -25,8 +28,11 @@ class ProgressScreen extends ConsumerWidget {
           body:
               'Your body composition will appear here after your baseline scan '
               'has been reviewed by your care team.',
-          actionLabel: 'Book my baseline scan',
-          onAction: () => context.pushNamed('appointments'),
+          // Booking is mock data until Appointments ships (feature flag).
+          actionLabel: appointmentsEnabled ? 'Book my baseline scan' : null,
+          onAction: appointmentsEnabled
+              ? () => context.pushNamed('appointments')
+              : null,
         ),
       ],
     );

@@ -65,11 +65,11 @@
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Zyndio requires speech recognition to allow you to log meals via voice.</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>We use your health data to provide personalized coaching and insights.</string>
+	<string>Zyndio reads the Apple Health data you choose to share, such as activity, sleep, heart rate, body measurements, blood glucose and cycle data, to show your health trends, personalise your program and share them with your care team.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>We need permission to save workout data to Apple Health.</string>
+	<string>Zyndio reads from Apple Health and does not save data to it without asking you first.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Zyndio uses the local network to connect to the Dart debugger and enable features like hot reload.</string>
+	<string>Development builds of Zyndio use the local network to connect to debugging tools. App Store builds do not include this permission.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Zyndio needs photo library access so you can easily select and upload existing lab reports and meal photos for AI analysis.</string>
 
