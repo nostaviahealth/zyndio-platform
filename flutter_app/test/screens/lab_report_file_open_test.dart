@@ -248,7 +248,12 @@ void main() {
     launchResults = [false, false, false];
     await pumpScreen(tester, b, ReportDetailScreen(report: report(_ownPath)));
     await tapOpen(tester);
-    expect(b.signs, hasLength(LabReportFileOpener.maxAttempts));
+    // Literal 2: the first open plus one fresh link. A mutation of
+    // LabReportFileOpener.maxAttempts to 3 would sign and launch a third
+    // time (launchResults has three failures) and fail here.
+    expect(LabReportFileOpener.maxAttempts, 2);
+    expect(b.signs, hasLength(2));
+    expect(launched, hasLength(2));
     expect(find.text(reportFileOpenFailedMessage), findsOneWidget);
   });
 
