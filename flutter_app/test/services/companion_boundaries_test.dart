@@ -50,20 +50,22 @@ void main() {
   });
 
   group('emergencyGuidance', () {
-    test('911 guidance does not depend on whether a row was saved', () {
+    test('local emergency guidance does not depend on whether a row was saved', () {
       final saved = emergencyGuidance('chest pain', filed: true);
       final failed = emergencyGuidance('chest pain', filed: false);
-      expect(saved, contains('911'));
-      expect(failed, contains('911'));
+      expect(saved, contains('local emergency services'));
+      expect(failed, contains('local emergency services'));
       expect(saved, contains('does not mean anyone has seen it'));
       expect(failed, contains('Nothing was filed'));
       expect(saved, isNot(contains('has been alerted')));
-      expect(failed, isNot(contains('has been alerted')));
-      expect(saved, isNot(contains('988')));
+      expect(failed, isNot(contains('911')));
+      expect(failed, isNot(contains('988')));
     });
 
-    test('adds the 988 crisis line for self-harm language even when filing failed', () {
-      expect(emergencyGuidance('I want to die', filed: false), contains('988'));
+    test('self-harm guidance does not name a hotline the product has not configured', () {
+      final text = emergencyGuidance('I want to die', filed: false);
+      expect(text, contains('local emergency or crisis services'));
+      expect(text, isNot(contains('988')));
     });
   });
 

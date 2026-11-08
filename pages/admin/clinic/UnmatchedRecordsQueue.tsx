@@ -37,10 +37,19 @@ export interface ClinicPatientOption {
 export interface UnmatchedRecordsApi {
   listUnmatchedScans(): Promise<UnmatchedPartnerScanItem[]>;
   listClinicPatients(): Promise<ClinicPatientOption[]>;
-  bindScan(scanId: string, patientId: string): Promise<{
+  bindScan(
+    scanId: string,
+    patientId: string,
+    confirmMrn: string,
+    confirmPartnerPatientId: string
+  ): Promise<{
     scan_id: string;
     patient_id: string;
     binding_status: 'bound';
+  }>;
+  rejectScan(scanId: string): Promise<{
+    scan_id: string;
+    binding_status: 'rejected';
   }>;
 }
 
@@ -66,10 +75,12 @@ export const supabaseUnmatchedRecordsApi: UnmatchedRecordsApi = {
       mrn: String(r.mrn ?? ''),
     }));
   },
-  async bindScan(scanId: string, patientId: string) {
+  async bindScan(scanId: string, patientId: string, confirmMrn: string, confirmPartnerPatientId: string) {
     const { data, error } = await supabase.rpc('bind_unmatched_partner_scan', {
       p_scan_id: scanId,
       p_patient_id: patientId,
+      p_confirm_mrn: confirmMrn,
+      p_confirm_partner_patient_id: confirmPartnerPatientId,
     });
     if (error) throw error;
     return data as {
@@ -77,6 +88,13 @@ export const supabaseUnmatchedRecordsApi: UnmatchedRecordsApi = {
       patient_id: string;
       binding_status: 'bound';
     };
+  },
+  async rejectScan(scanId: string) {
+    const { data, error } = await supabase.rpc('reject_unmatched_partner_scan', {
+      p_scan_id: scanId,
+    });
+    if (error) throw error;
+    return data as { scan_id: string; binding_status: 'rejected' };
   },
 };
 
@@ -109,13 +127,7 @@ const UnmatchedRecordsQueue: React.FC<UnmatchedRecordsQueueProps> = ({
       ]);
       setScans(scanRows);
       setPatients(patientRows);
-      if (patientRows.length > 0) {
-        const defaults: Record<string, string> = {};
-        for (const s of scanRows) {
-          defaults[s.id] = patientRows[0].patientId;
-        }
-        setSelectedPatientByScan(defaults);
-      }
+      setSelectedPatientByScan({});
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Unable to load unmatched partner scans.');
     }
@@ -132,18 +144,33 @@ const UnmatchedRecordsQueue: React.FC<UnmatchedRecordsQueueProps> = ({
       return;
     }
 
+    const matchedPatient = patients.find((p) => p.patientId === patientId);
     setErrorMsg(null);
     setBoundNotice(null);
     setBusyScanId(scan.id);
     try {
-      await api.bindScan(scan.id, patientId);
-      const matchedPatient = patients.find((p) => p.patientId === patientId);
+      await api.bindScan(scan.id, patientId, matchedPatient?.mrn ?? '', scan.partner_patient_id);
       setScans((prev) => (prev ?? []).filter((s) => s.id !== scan.id));
       setBoundNotice(
         `Scan ${scan.partner_scan_id} bound to ${matchedPatient?.displayName ?? patientId} (${matchedPatient?.mrn ?? ''}).`
       );
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Failed to bind partner scan.');
+    } finally {
+      setBusyScanId(null);
+    }
+  };
+
+  const handleReject = async (scan: UnmatchedPartnerScanItem) => {
+    setErrorMsg(null);
+    setBoundNotice(null);
+    setBusyScanId(scan.id);
+    try {
+      await api.rejectScan(scan.id);
+      setScans((prev) => (prev ?? []).filter((s) => s.id !== scan.id));
+      setBoundNotice(`Scan ${scan.partner_scan_id} was rejected and was not assigned to a patient.`);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to reject partner scan.');
     } finally {
       setBusyScanId(null);
     }
@@ -258,6 +285,7 @@ const UnmatchedRecordsQueue: React.FC<UnmatchedRecordsQueueProps> = ({
                   }
                   className="min-h-[44px] rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-[#030616] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2C5CF2] dark:border-[#6C7690] dark:bg-[#0B0F19] dark:text-[#EEF1F8]"
                 >
+                  <option value="">Choose a patient</option>
                   {patients.map((p) => (
                     <option key={p.patientId} value={p.patientId}>
                       {p.displayName} ({p.mrn})
@@ -274,6 +302,15 @@ const UnmatchedRecordsQueue: React.FC<UnmatchedRecordsQueueProps> = ({
                 >
                   <Link2 className="h-4 w-4" aria-hidden="true" />
                   Bind to Patient
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Reject scan ${scan.partner_scan_id}`}
+                  disabled={busyScanId === scan.id}
+                  onClick={() => handleReject(scan)}
+                  className="inline-flex min-h-[44px] items-center rounded-full border border-slate-300 px-5 text-sm font-semibold text-[#030616] hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2C5CF2] dark:border-[#6C7690] dark:text-[#EEF1F8] dark:hover:bg-[#1A2130]"
+                >
+                  Reject
                 </button>
               </div>
             )}

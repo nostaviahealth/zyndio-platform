@@ -250,7 +250,9 @@ select set_config('request.jwt.claims', '', true);
 update public.patients set display_name = 'Fictional Patient A1' where id = '00000000-0000-0000-0000-0000000a1001';
 update public.patient_profiles set data = '{"note":"fictional"}' where id = '00000000-0000-0000-0000-0000000a2001';
 update public.lab_reports set report_type = 'basic_panel' where id = '00000000-0000-0000-0000-0000000a3001';
-update public.consents set granted = true where id = '00000000-0000-0000-0000-0000000a4001';
+-- The withdrawn row stays withdrawn. A later grant is a new row.
+insert into public.consents (org_id, patient_id, consent_type, granted)
+values ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', 'data_sharing', true);
 
 -- ---------------------------------------------------------------------------
 -- read_only_a: select-only on clinical tables, no writes anywhere.

@@ -19,6 +19,7 @@ function createInMemorySandboxStore(seed?: {
   scans: BodyCompositionScanRow[];
   outcomes: Map<string, OutcomeRecordRow>;
   events: PartnerWebhookEvent[];
+  audits: Array<{ orgId: string; patientId: string; partnerScanId: string; partnerPatientId: string }>;
 } {
   const patients = seed?.patients ?? [
     {
@@ -33,6 +34,7 @@ function createInMemorySandboxStore(seed?: {
     outcomes.set(`${o.org_id}:${o.record_id}`, o);
   }
   const events: PartnerWebhookEvent[] = [];
+  const audits: Array<{ orgId: string; patientId: string; partnerScanId: string; partnerPatientId: string }> = [];
 
   const store: OutcomesSandboxStore = {
     async findPatientByZyndioId(orgId, zyndioPatientId) {
@@ -82,9 +84,12 @@ function createInMemorySandboxStore(seed?: {
     async emitPartnerEvent(event) {
       events.push(event);
     },
+    async auditAutobind(args) {
+      audits.push(args);
+    },
   };
 
-  return { store, scans, outcomes, events };
+  return { store, scans, outcomes, events, audits };
 }
 
 function fakeEnv(vars: Record<string, string> = {}) {
@@ -110,7 +115,7 @@ Deno.test('INT-05: rejects unauthenticated requests with 401', async () => {
 });
 
 Deno.test('INT-05: matched zyndio_patient_id binds scan immediately and is idempotent on partner_scan_id + partner_scan_version', async () => {
-  const { store, scans, events } = createInMemorySandboxStore();
+  const { store, scans, events, audits } = createInMemorySandboxStore();
   const payload = {
     zyndio_patient_id: 'ZP-10482',
     partner_patient_id: 'DEX-PAT-10482',
@@ -148,6 +153,8 @@ Deno.test('INT-05: matched zyndio_patient_id binds scan immediately and is idemp
   assertEquals(firstBody.idempotent_replay, false);
   assertEquals(scans.length, 1);
   assertEquals(events.length, 0);
+  assertEquals(audits.length, 1);
+  assertEquals(audits[0].patientId, '00000000-0000-0000-0000-0000000a1001');
 
   // Replay with identical partner_scan_id + partner_scan_version
   const replay = await handleOutcomesSandboxRequest(makeReq(), { env: fakeEnv(), store });
@@ -193,34 +200,121 @@ Deno.test('INT-05: unknown zyndio_patient_id routes to unmatched queue and emits
   assertEquals(events[0].event_type, 'measurement.unmatched');
 });
 
-Deno.test('INT-05: POST /v1/measurements/body-composition/documents accepts DEXA PDF metadata', async () => {
+Deno.test('INT-05: a partner key cannot write another clinic by sending X-Partner-Org-Id', async () => {
   const { store, scans } = createInMemorySandboxStore();
-  const req = new Request('https://example.test/v1/measurements/body-composition/documents', {
+  const req = new Request('https://example.test/v1/measurements/body-composition', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
       Authorization: 'Bearer dexascan-test-api-key',
+      'X-Partner-Org-Id': '00000000-0000-0000-0000-00000000000b',
     },
     body: JSON.stringify({
-      zyndio_patient_id: 'ZP-10482',
-      partner_patient_id: 'DEX-PAT-10482',
-      partner_scan_id: 'DEXA-DOC-20261028-01',
-      partner_scan_version: 1,
+      partner_patient_id: 'DEX-PAT-OTHER',
+      partner_scan_id: 'DEXA-OTHER-CLINIC',
       scan_date: '2026-10-28',
       device_vendor: 'Hologic',
       device_model: 'Horizon A',
       software_version: 'APEX 5.6.1',
-      document_sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-      content_type: 'application/pdf',
+      measures: { weight_lb: 180 },
     }),
   });
-
   const res = await handleOutcomesSandboxRequest(req, { env: fakeEnv(), store });
-  assertEquals(res.status, 202);
-  const body = await res.json();
-  assertEquals(body.status, 'received');
-  assertEquals(body.binding_status, 'bound');
+  assertEquals(res.status, 403);
+  assertEquals(scans.length, 0);
+});
+
+Deno.test('INT-05: invalid DEXA dates, versions, and measures are refused before a write', async () => {
+  const { store, scans } = createInMemorySandboxStore();
+  const base = {
+    partner_patient_id: 'DEX-PAT-10482',
+    partner_scan_id: 'DEXA-INVALID',
+    device_vendor: 'Hologic',
+    device_model: 'Horizon A',
+    software_version: 'APEX 5.6.1',
+    measures: { weight_lb: 180, body_fat_pct: 28 },
+  };
+  const post = (body: Record<string, unknown>) =>
+    handleOutcomesSandboxRequest(
+      new Request('https://example.test/v1/measurements/body-composition', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          Authorization: 'Bearer dexascan-test-api-key',
+        },
+        body: JSON.stringify(body),
+      }),
+      { env: fakeEnv(), store }
+    );
+
+  assertEquals((await post({ ...base, scan_date: '2026-02-31' })).status, 400);
+  assertEquals((await post({ ...base, scan_date: '2026-10-28', partner_scan_version: '1' })).status, 400);
+  assertEquals((await post({ ...base, scan_date: '2026-10-28', measures: { weight_lb: -5 } })).status, 422);
+  assertEquals((await post({ ...base, scan_date: '2026-10-28', measures: { body_fat_pct: 250 } })).status, 422);
+  assertEquals(scans.length, 0);
+});
+
+Deno.test('INT-05: the document route parses a structured DEXA document and refuses a URL or a hash', async () => {
+  const { store, scans } = createInMemorySandboxStore();
+  const headers = {
+    'content-type': 'application/json',
+    Authorization: 'Bearer dexascan-test-api-key',
+  };
+  const identity = {
+    zyndio_patient_id: 'ZP-10482',
+    partner_patient_id: 'DEX-PAT-10482',
+    partner_scan_id: 'DEXA-DOC-20261028-01',
+    partner_scan_version: 1,
+    scan_date: '2026-10-28',
+    device_vendor: 'Hologic',
+    device_model: 'Horizon A',
+    software_version: 'APEX 5.6.1',
+  };
+
+  const urlRes = await handleOutcomesSandboxRequest(
+    new Request('https://example.test/v1/measurements/body-composition/documents', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        ...identity,
+        document_url: 'lab-reports/00000000-0000-0000-0000-0000000b1001/report.pdf',
+        document: { weight_lb: 194, body_fat_pct: 28.4 },
+      }),
+    }),
+    { env: fakeEnv(), store }
+  );
+  assertEquals(urlRes.status, 422);
+  assertEquals(scans.length, 0);
+
+  const hashRes = await handleOutcomesSandboxRequest(
+    new Request('https://example.test/v1/measurements/body-composition/documents', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        ...identity,
+        document_sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      }),
+    }),
+    { env: fakeEnv(), store }
+  );
+  assertEquals(hashRes.status, 422);
+  assertEquals(scans.length, 0);
+
+  const parsed = await handleOutcomesSandboxRequest(
+    new Request('https://example.test/v1/measurements/body-composition/documents', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        ...identity,
+        document: { weight_lb: 194, fat_mass_lb: 55, lean_mass_lb: 133, body_fat_pct: 28.4 },
+      }),
+    }),
+    { env: fakeEnv(), store }
+  );
+  assertEquals(parsed.status, 202);
   assertEquals(scans.length, 1);
+  assertEquals(scans[0].measures.weight_lb, 194);
+  assertEquals(scans[0].measures.body_fat_pct, 28.4);
 });
 
 Deno.test('INT-06: GET /v1/outcomes/{record_id}, GET /v1/outcomes?updated_since=, and POST /v1/outcomes/{record_id}/redeliver', async () => {

@@ -390,6 +390,7 @@ describe('POR-10: UnmatchedRecordsQueue UI', () => {
         },
       ]),
       bindScan,
+      rejectScan: vi.fn(),
     };
 
     render(<UnmatchedRecordsQueue api={api} />);
@@ -410,9 +411,44 @@ describe('POR-10: UnmatchedRecordsQueue UI', () => {
     await waitFor(() => {
       expect(bindScan).toHaveBeenCalledWith(
         'scan_unmatched_1',
-        '00000000-0000-0000-0000-0000000a1002'
+        '00000000-0000-0000-0000-0000000a1002',
+        'ZP-10483',
+        'DEX-PAT-10482'
       );
     });
     expect(await screen.findByText(/Scan DEXA-SCAN-20261028-99 bound to Avery Chen/i)).toBeInTheDocument();
+  });
+
+  it('does not preselect a patient and can reject a scan without binding', async () => {
+    mockUsePortalAuth.mockReturnValue({ role: 'physician' });
+    const bindScan = vi.fn();
+    const rejectScan = vi.fn().mockResolvedValue({
+      scan_id: unmatchedScan.id,
+      binding_status: 'rejected',
+    });
+    const api: UnmatchedRecordsApi = {
+      listUnmatchedScans: vi.fn().mockResolvedValue([unmatchedScan]),
+      listClinicPatients: vi.fn().mockResolvedValue([
+        { patientId: '00000000-0000-0000-0000-0000000a1001', displayName: 'Avery Chen', mrn: 'ZP-10482' },
+        { patientId: '00000000-0000-0000-0000-0000000a1002', displayName: 'Jordan Rivera', mrn: 'ZP-10483' },
+      ]),
+      bindScan,
+      rejectScan,
+    };
+
+    render(<UnmatchedRecordsQueue api={api} />);
+    await screen.findByText(/DEXA-SCAN-20261028-99/);
+    const select = screen.getByRole('combobox', {
+      name: 'Select patient for scan DEXA-SCAN-20261028-99',
+    });
+    expect((select as HTMLSelectElement).value).toBe('');
+    expect(screen.getByRole('button', { name: 'Bind scan DEXA-SCAN-20261028-99' })).toBeDisabled();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Reject scan DEXA-SCAN-20261028-99' }));
+    await waitFor(() => {
+      expect(rejectScan).toHaveBeenCalledWith('scan_unmatched_1');
+    });
+    expect(bindScan).not.toHaveBeenCalled();
   });
 });

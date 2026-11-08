@@ -35,6 +35,8 @@ import Integrations from './pages/admin/Integrations';
 import PhysicianRoster from './pages/admin/clinic/PhysicianRoster';
 import OutcomesReviewQueue from './pages/admin/clinic/OutcomesReviewQueue';
 import UnmatchedRecordsQueue from './pages/admin/clinic/UnmatchedRecordsQueue';
+import AuditLog from './pages/admin/AuditLog';
+import OperationsBilling from './pages/admin/OperationsBilling';
 import SignIn from './pages/admin/SignIn';
 import AcceptInvite from './pages/admin/AcceptInvite';
 import ResetPassword from './pages/admin/ResetPassword';
@@ -213,6 +215,22 @@ const App: React.FC = () => {
                   />
                   {/* PP-03: zyndio.com integration credentials, webhooks and
                       delivery log - org admins only, like Users and roles. */}
+                  <Route
+                    path="operations"
+                    element={
+                      <RequireRole roles={['org_admin']} pageLabel="Operations and billing">
+                        <OperationsBilling />
+                      </RequireRole>
+                    }
+                  />
+                  <Route
+                    path="audit"
+                    element={
+                      <RequireRole roles={['org_admin']} pageLabel="Audit log">
+                        <AuditLog />
+                      </RequireRole>
+                    }
+                  />
                   <Route
                     path="integrations"
                     element={

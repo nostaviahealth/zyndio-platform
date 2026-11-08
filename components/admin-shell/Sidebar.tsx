@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Users, ClipboardList, LogOut, Plug } from 'lucide-react';
+import { Users, ClipboardList, LogOut, Plug, ScrollText, ShieldCheck } from 'lucide-react';
 import { usePortalAuth } from '../../contexts/PortalAuthContext';
 import { FOCUS_RING_ON_SUNKEN_CLASS } from '../ui/focusRing';
 // Physician portal P0 nav icons (own import so parallel nav changes don't collide).
@@ -55,6 +55,14 @@ const Sidebar: React.FC = () => {
             <NavLink to="/admin/integrations" className={navItemClass} end>
               <Plug className="h-4 w-4" aria-hidden="true" />
               Integrations
+            </NavLink>
+            <NavLink to="/admin/operations" className={navItemClass} end>
+              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+              Operations and billing
+            </NavLink>
+            <NavLink to="/admin/audit" className={navItemClass} end>
+              <ScrollText className="h-4 w-4" aria-hidden="true" />
+              Audit log
             </NavLink>
           </>
         ) : (

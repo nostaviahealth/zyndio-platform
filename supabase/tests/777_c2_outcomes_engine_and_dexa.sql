@@ -12,6 +12,20 @@ select has_table('public', 'body_composition_scans', 'body_composition_scans tab
 select has_table('public', 'outcome_records', 'outcome_records table exists');
 
 select ok(
+  not has_table_privilege('anon', 'public.body_composition_scans', 'TRUNCATE')
+  and not has_table_privilege('authenticated', 'public.body_composition_scans', 'TRUNCATE')
+  and not has_table_privilege('anon', 'public.outcome_records', 'TRUNCATE')
+  and not has_table_privilege('authenticated', 'public.outcome_records', 'TRUNCATE'),
+  'anon and authenticated cannot TRUNCATE body_composition_scans or outcome_records'
+);
+
+select ok(
+  not has_function_privilege('anon', 'public.partner_disclosure_currently_granted(uuid, uuid)', 'EXECUTE')
+  and not has_function_privilege('authenticated', 'public.partner_disclosure_currently_granted(uuid, uuid)', 'EXECUTE'),
+  'partner disclosure helper is not callable by anon or authenticated'
+);
+
+select ok(
   not has_table_privilege('authenticated', 'public.body_composition_scans', 'INSERT')
   and not has_table_privilege('authenticated', 'public.body_composition_scans', 'UPDATE')
   and not has_table_privilege('authenticated', 'public.body_composition_scans', 'DELETE'),
@@ -123,7 +137,7 @@ insert into public.outcome_records (
     'flagged',
     true,
     '[Milestone D180] Total weight 228 -> 194 lb (-34 lb, -14.9%, improving). Clinical context flag: RAISED.',
-    '{"record_id":"rec_a1_d180_v1","partner_patient_id":"DEX-PAT-A1","zyndio_patient_token":"zpt_fixture_a1"}'::jsonb
+    '{"record_id":"rec_a1_d180_v1","partner_patient_id":"DEX-PAT-A1","patient_label":"fixture a1"}'::jsonb
   ),
   (
     '00000000-0000-0000-0000-000000c21002',
@@ -241,10 +255,32 @@ select throws_ok(
   'physician_a cannot approve an outcome record when partner disclosure consent is not granted'
 );
 
--- Restore consent and approve with clinical flag cleared
+-- A granted data_sharing row does not authorise partnership disclosure.
 reset role;
 select set_config('request.jwt.claims', '', true);
-update public.consents set granted = true where patient_id = '00000000-0000-0000-0000-0000000a1001';
+insert into public.consents (org_id, patient_id, consent_type, granted)
+values ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', 'data_sharing', true);
+
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal2'); -- physician_a
+select throws_ok(
+  $$ select public.review_outcome_record('rec_a1_d180_v1', 'approve', 'Reviewed summary.', true, 'Flag cleared') $$,
+  'P0001',
+  'partner disclosure consent is required before approving an outcome record',
+  'a granted data_sharing row does not override a missing partner_disclosure'
+);
+
+-- The current partner_disclosure row is what the gate reads.
+reset role;
+select set_config('request.jwt.claims', '', true);
+insert into public.consents (org_id, patient_id, consent_type, granted, document, version)
+values (
+  '00000000-0000-0000-0000-00000000000a',
+  '00000000-0000-0000-0000-0000000a1001',
+  'partner_disclosure',
+  true,
+  'zyndio_partner_disclosure',
+  '0.1'
+);
 
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal2'); -- physician_a
 select is(
@@ -277,6 +313,36 @@ select is(
   'audit_log records outcome_record_reviewed approval event'
 );
 
+-- Withdrawing partner_disclosure blocks a later approval even while data_sharing stays granted.
+insert into public.outcome_records (
+  record_id, org_id, patient_id, milestone, record_version, rules_version,
+  state, lean_mass_flag, clinical_context_flag, clinician_summary, payload
+) values (
+  'rec_a1_withdraw_v1',
+  '00000000-0000-0000-0000-00000000000a',
+  '00000000-0000-0000-0000-0000000a1001',
+  'd90',
+  1,
+  'v1.0',
+  'in_review',
+  'none',
+  false,
+  '[Milestone D90] Withdrawal check.',
+  '{"record_id":"rec_a1_withdraw_v1"}'::jsonb
+);
+update public.consents
+  set granted = false
+  where patient_id = '00000000-0000-0000-0000-0000000a1001'
+    and consent_type = 'partner_disclosure';
+
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0002', 'aal2'); -- physician_a
+select throws_ok(
+  $$ select public.review_outcome_record('rec_a1_withdraw_v1', 'approve', 'Should not ship.', false, null) $$,
+  'P0001',
+  'partner disclosure consent is required before approving an outcome record',
+  'withdrawing partner_disclosure blocks approval while data_sharing remains granted'
+);
+
 -- ---------------------------------------------------------------------------
 -- 5. Immutability of delivered outcome records (corrections must use version + 1)
 -- ---------------------------------------------------------------------------
@@ -294,6 +360,20 @@ select throws_ok(
   'P0001',
   'delivered outcome records are immutable; insert record_version + 1 to issue a correction',
   'delivered outcome record cannot have payload mutated in place'
+);
+
+select throws_ok(
+  $$ update public.outcome_records set state = 'in_review' where record_id = 'rec_a1_d180_v1' $$,
+  'P0001',
+  'delivered outcome records are immutable; insert record_version + 1 to issue a correction',
+  'a delivered outcome cannot be cycled back to in_review'
+);
+
+select throws_ok(
+  $$ update public.outcome_records set state = 'in_review', payload = '{"rewritten":true}'::jsonb where record_id = 'rec_a1_d180_v1' $$,
+  'P0001',
+  'delivered outcome records are immutable; insert record_version + 1 to issue a correction',
+  'cycling state and rewriting the payload in one update is rejected'
 );
 
 -- Issuing a correction via record_version + 1 succeeds
@@ -339,7 +419,7 @@ select is(
 
 -- Cannot bind Org A scan to Org B patient
 select throws_ok(
-  $$ select public.bind_unmatched_partner_scan('00000000-0000-0000-0000-000000c20002', '00000000-0000-0000-0000-0000000b1001') $$,
+  $$ select public.bind_unmatched_partner_scan('00000000-0000-0000-0000-000000c20002', '00000000-0000-0000-0000-0000000b1001', 'MRN-B1', 'DEX-PAT-UNMATCHED-A') $$,
   'P0002',
   null,
   'care_coordinator_a cannot bind an Org A scan to an Org B patient'
@@ -347,15 +427,48 @@ select throws_ok(
 
 -- Cannot bind Org B scan
 select throws_ok(
-  $$ select public.bind_unmatched_partner_scan('00000000-0000-0000-0000-000000c20003', '00000000-0000-0000-0000-0000000a1001') $$,
+  $$ select public.bind_unmatched_partner_scan('00000000-0000-0000-0000-000000c20003', '00000000-0000-0000-0000-0000000a1001', 'MRN-A1', 'DEX-PAT-UNMATCHED-B') $$,
   'P0002',
   null,
   'care_coordinator_a cannot bind an Org B scan'
 );
 
+select throws_ok(
+  $$ select public.bind_unmatched_partner_scan('00000000-0000-0000-0000-000000c20002', '00000000-0000-0000-0000-0000000a1001', 'MRN-OTHER', 'DEX-PAT-UNMATCHED-A') $$,
+  'P0001', null, 'a matching clinic is not enough when the MRN does not match');
+select throws_ok(
+  $$ select public.bind_unmatched_partner_scan('00000000-0000-0000-0000-000000c20002', '00000000-0000-0000-0000-0000000a1001', 'MRN-A1', 'DEX-PAT-SOMEONE-ELSE') $$,
+  'P0001', null, 'the partner patient id on the scan must be confirmed');
+
+reset role;
+select set_config('request.jwt.claims', '', true);
+insert into public.body_composition_scans (
+  id, org_id, patient_id, zyndio_patient_id, partner_patient_id,
+  partner_scan_id, partner_scan_version, scan_date, site_id,
+  device_vendor, device_model, software_version, measures, binding_status
+) values (
+  '00000000-0000-0000-0000-000000c20004',
+  '00000000-0000-0000-0000-00000000000a',
+  null, 'ZP-CANCEL', 'DEX-PAT-CANCEL', 'DEX-SCAN-CANCEL', 1,
+  date '2026-10-28', 'SITE-SF-01', 'Hologic', 'Horizon A', 'APEX 5.6.1',
+  '{"weight_lb":180}'::jsonb, 'unmatched'
+);
+
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a0003', 'aal2'); -- care_coordinator_a
+select is(
+  (select public.reject_unmatched_partner_scan('00000000-0000-0000-0000-000000c20004') ->> 'binding_status'),
+  'rejected',
+  'cancellation rejects the scan and does not assign a patient'
+);
+select is(
+  (select patient_id is null from public.body_composition_scans where id = '00000000-0000-0000-0000-000000c20004'),
+  true,
+  'a rejected scan has no patient'
+);
+
 -- Valid bind in Org A succeeds
 select is(
-  (select public.bind_unmatched_partner_scan('00000000-0000-0000-0000-000000c20002', '00000000-0000-0000-0000-0000000a1001') ->> 'binding_status'),
+  (select public.bind_unmatched_partner_scan('00000000-0000-0000-0000-000000c20002', '00000000-0000-0000-0000-0000000a1001', 'MRN-A1', 'DEX-PAT-UNMATCHED-A') ->> 'binding_status'),
   'bound',
   'care_coordinator_a binds unmatched scan to patient A1'
 );
@@ -368,7 +481,7 @@ select is(
 
 -- Re-binding an already bound scan fails
 select throws_ok(
-  $$ select public.bind_unmatched_partner_scan('00000000-0000-0000-0000-000000c20002', '00000000-0000-0000-0000-0000000a1001') $$,
+  $$ select public.bind_unmatched_partner_scan('00000000-0000-0000-0000-000000c20002', '00000000-0000-0000-0000-0000000a1001', 'MRN-A1', 'DEX-PAT-UNMATCHED-A') $$,
   'P0001',
   'scan is already bound or rejected',
   'cannot re-bind a scan that is already bound'

@@ -107,5 +107,11 @@ policy = "per_worker"
 [functions.partner-api]
 verify_jwt = false
 
+# INT-04: the treatment partner token is not a Supabase JWT. The handler binds
+# it to one clinic and checks the current APP-03 authorisation before a read
+# or a write. The gateway JWT check would reject that token first.
+[functions.treatment-events]
+verify_jwt = false
+
 [analytics]
 enabled = false

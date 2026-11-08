@@ -68,6 +68,12 @@ export interface OutcomesSandboxStore {
   listReleasedOutcomeRecords(orgId: string, updatedSince?: string | null): Promise<OutcomeRecordRow[]>;
   markOutcomeDelivered(orgId: string, recordId: string): Promise<void>;
   emitPartnerEvent(event: PartnerWebhookEvent): Promise<void>;
+  auditAutobind(args: {
+    orgId: string;
+    patientId: string;
+    partnerScanId: string;
+    partnerPatientId: string;
+  }): Promise<void>;
 }
 
 export interface OutcomesSandboxDeps {
@@ -98,27 +104,98 @@ function constantTimeEquals(a: string, b: string): boolean {
 function authenticatePartnerRequest(
   req: Request,
   env: { get(key: string): string | undefined }
-): { authorized: boolean; orgId: string; partnerSecret: string } {
+): { authorized: boolean; orgId: string; partnerSecret: string; status?: number; error?: string } {
   const expectedKey = env.get('OUTCOMES_PARTNER_API_KEY') ?? '';
   const partnerSecret = env.get('OUTCOMES_PARTNER_SECRET') ?? expectedKey;
-  const defaultOrgId = env.get('OUTCOMES_PARTNER_ORG_ID') ?? '00000000-0000-0000-0000-00000000000a';
+  const configuredOrgId = (env.get('OUTCOMES_PARTNER_ORG_ID') ?? '').trim();
 
-  if (!expectedKey) {
-    return { authorized: false, orgId: defaultOrgId, partnerSecret: '' };
+  if (!expectedKey || !configuredOrgId) {
+    return { authorized: false, orgId: '', partnerSecret: '', status: 401, error: 'unauthorized' };
   }
 
   const authHeader = req.headers.get('Authorization') ?? '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim();
   if (!token || !constantTimeEquals(token, expectedKey)) {
-    return { authorized: false, orgId: defaultOrgId, partnerSecret: '' };
+    return { authorized: false, orgId: '', partnerSecret: '', status: 401, error: 'unauthorized' };
   }
 
+  // The header is not authority. A different clinic is a denial, not a switch.
   const headerOrgId = req.headers.get('X-Partner-Org-Id')?.trim();
+  if (headerOrgId && headerOrgId !== configuredOrgId) {
+    return { authorized: false, orgId: '', partnerSecret: '', status: 403, error: 'org_not_authorized' };
+  }
+
   return {
     authorized: true,
-    orgId: headerOrgId || defaultOrgId,
+    orgId: configuredOrgId,
     partnerSecret,
   };
+}
+
+export function isRealCalendarDate(iso: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+/**
+ * Isolated synthetic DEXA document parser. It reads a structured document
+ * object only. A hash, a URL, or a storage path is not a document, and this
+ * function does not fetch or store files.
+ */
+export function parseDexaDocument(
+  document: unknown
+): { measures: Record<string, unknown> } | { error: string } {
+  if (!document || typeof document !== 'object' || Array.isArray(document)) {
+    return { error: 'document_parser_unavailable' };
+  }
+  const doc = document as Record<string, unknown>;
+  const measures: Record<string, unknown> = {};
+  for (const key of ['weight_lb', 'fat_mass_lb', 'lean_mass_lb'] as const) {
+    if (doc[key] === undefined) continue;
+    const n = doc[key];
+    if (typeof n !== 'number' || !Number.isFinite(n) || n <= 0 || n > 700) {
+      return { error: 'invalid_weight' };
+    }
+    measures[key] = n;
+  }
+  if (doc.body_fat_pct !== undefined) {
+    const n = doc.body_fat_pct;
+    if (typeof n !== 'number' || !Number.isFinite(n) || n < 0 || n > 100) {
+      return { error: 'invalid_body_fat' };
+    }
+    measures.body_fat_pct = n;
+  }
+  if (doc.visceral_fat !== undefined) {
+    const n = doc.visceral_fat;
+    if (typeof n !== 'number' || !Number.isFinite(n) || n < 0) {
+      return { error: 'invalid_visceral_fat' };
+    }
+    measures.visceral_fat = n;
+  }
+  if (Object.keys(measures).length === 0) return { error: 'document_parser_unavailable' };
+  return { measures };
+}
+
+/** Returns an error code, or null when the measures are physiologically usable. */
+export function dexaMeasureError(measures: Record<string, unknown>): string | null {
+  const weight = measures.weight_lb;
+  if (weight !== undefined && weight !== null) {
+    if (typeof weight !== 'number' || !Number.isFinite(weight) || weight <= 0 || weight > 700) {
+      return 'invalid_weight';
+    }
+  }
+  const fat = measures.body_fat_pct ?? measures.fat_pct;
+  if (fat !== undefined && fat !== null) {
+    if (typeof fat !== 'number' || !Number.isFinite(fat) || fat < 0 || fat > 100) {
+      return 'invalid_body_fat';
+    }
+  }
+  return null;
 }
 
 function deriveIngestionId(
@@ -154,7 +231,7 @@ export async function handleOutcomesSandboxRequest(
 
   const auth = authenticatePartnerRequest(req, deps.env);
   if (!auth.authorized) {
-    return jsonResponse({ error: 'unauthorized' }, 401);
+    return jsonResponse({ error: auth.error ?? 'unauthorized' }, auth.status ?? 401);
   }
 
   const url = new URL(req.url);
@@ -180,10 +257,17 @@ export async function handleOutcomesSandboxRequest(
 
     const partner_patient_id = typeof body.partner_patient_id === 'string' ? body.partner_patient_id.trim() : '';
     const partner_scan_id = typeof body.partner_scan_id === 'string' ? body.partner_scan_id.trim() : '';
-    const partner_scan_version =
-      typeof body.partner_scan_version === 'number' && Number.isInteger(body.partner_scan_version) && body.partner_scan_version >= 1
-        ? body.partner_scan_version
-        : 1;
+    let partner_scan_version = 1;
+    if (body.partner_scan_version !== undefined) {
+      if (
+        typeof body.partner_scan_version !== 'number' ||
+        !Number.isInteger(body.partner_scan_version) ||
+        body.partner_scan_version < 1
+      ) {
+        return jsonResponse({ error: 'invalid_partner_scan_version' }, 400);
+      }
+      partner_scan_version = body.partner_scan_version;
+    }
     const scan_date = typeof body.scan_date === 'string' ? body.scan_date.trim() : '';
     const site_id = typeof body.site_id === 'string' ? body.site_id.trim() : null;
     const zyndio_patient_id =
@@ -211,7 +295,7 @@ export async function handleOutcomesSandboxRequest(
     const software_version =
       typeof scannerObj.software_version === 'string' ? scannerObj.software_version.trim() : '';
 
-    if (!partner_patient_id || !partner_scan_id || !/^\d{4}-\d{2}-\d{2}$/.test(scan_date)) {
+    if (!partner_patient_id || !partner_scan_id || !isRealCalendarDate(scan_date)) {
       return jsonResponse(
         {
           error: 'validation_error',
@@ -233,30 +317,13 @@ export async function handleOutcomesSandboxRequest(
 
     let measures: Record<string, unknown>;
     if (isDocumentRoute) {
-      const document_sha256 = typeof body.document_sha256 === 'string' ? body.document_sha256.trim() : '';
       const document_url = typeof body.document_url === 'string' ? body.document_url.trim() : '';
-      const content_type = typeof body.content_type === 'string' ? body.content_type.trim() : 'application/pdf';
-      if (!document_sha256 && !document_url) {
-        return jsonResponse(
-          {
-            error: 'validation_error',
-            message: 'document_sha256 or document_url is required for document ingestion',
-          },
-          400
-        );
+      if (document_url) {
+        return jsonResponse({ error: 'document_url_not_accepted' }, 422);
       }
-      const rawMeasures =
-        body.measures && typeof body.measures === 'object' && !Array.isArray(body.measures)
-          ? (body.measures as Record<string, unknown>)
-          : {};
-      measures = {
-        ...rawMeasures,
-        document: {
-          document_sha256: document_sha256 || null,
-          document_url: document_url || null,
-          content_type,
-        },
-      };
+      const parsed = parseDexaDocument(body.document);
+      if ('error' in parsed) return jsonResponse({ error: parsed.error }, 422);
+      measures = parsed.measures;
     } else {
       if (!body.measures || typeof body.measures !== 'object' || Array.isArray(body.measures)) {
         return jsonResponse(
@@ -269,6 +336,9 @@ export async function handleOutcomesSandboxRequest(
       }
       measures = body.measures as Record<string, unknown>;
     }
+
+    const measureError = dexaMeasureError(measures);
+    if (measureError) return jsonResponse({ error: measureError }, 422);
 
     const ingestion_id = deriveIngestionId(
       auth.partnerSecret,
@@ -320,6 +390,15 @@ export async function handleOutcomesSandboxRequest(
       measures,
       binding_status,
     });
+
+    if (matchedPatient) {
+      await deps.store.auditAutobind({
+        orgId: auth.orgId,
+        patientId: matchedPatient.id,
+        partnerScanId: partner_scan_id,
+        partnerPatientId: partner_patient_id,
+      });
+    }
 
     if (binding_status === 'unmatched') {
       const event_id = deriveEventId(

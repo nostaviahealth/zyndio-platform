@@ -38,7 +38,7 @@ import {
   type IntelligenceCallerFacts,
 } from './intelligenceAccess.ts'
 import { consumeIntelligenceBudget, rateLimitedHeaders, type IntelligenceBudget } from './intelligenceRateLimit.ts'
-import { MAX_EXTRACT_BYTES, mimeTypeForPath, type LabExtractor } from './labExtractor.ts'
+import { MAX_EXTRACT_BYTES, bytesMatchDeclaredType, mimeTypeForPath, type LabExtractor } from './labExtractor.ts'
 import {
   DEFAULT_CONFIDENCE_THRESHOLD,
   normalizeExtraction,
@@ -137,12 +137,13 @@ export async function handleAnalyzeLabReport(req: Request, deps: AnalyzeLabRepor
     const bytes = new Uint8Array(await file.arrayBuffer())
     const sha256 = await sha256Hex(bytes)
     if (row.file_sha256 && row.file_sha256 !== sha256) return fail('file_hash_mismatch', 422, 'file_hash_mismatch')
-
-    // Flag off: nothing is read, nothing invented, nothing written.
-    if (!deps.extractor) return fail('extractor_disabled', 501, 'analysis_unavailable')
     const mimeType = mimeTypeForPath(row.pdf_path)
     if (!mimeType) return fail('unsupported_file_type', 422, 'unsupported_file_type')
     if (bytes.byteLength > MAX_EXTRACT_BYTES) return fail('file_too_large', 422, 'file_too_large')
+    if (!bytesMatchDeclaredType(bytes, mimeType)) return fail('invalid_file_content', 422, 'invalid_file_content')
+
+    // Flag off: nothing is sent to a model and nothing is written.
+    if (!deps.extractor) return fail('extractor_disabled', 501, 'analysis_unavailable')
 
     if (patientId !== null) {
       let budget: IntelligenceBudget

@@ -111,6 +111,17 @@ class AuthNotifier extends Notifier<AsyncValue<void>> {
       // (SecureLocalStorage / PSU-SES-01).
       await client.auth.setSession(data['refresh_token'] as String);
       debugPrint('Sign in successful: ${client.auth.currentUser?.email}');
+      final signedInId = client.auth.currentUser?.id;
+      if (signedInId != null) {
+        try {
+          await client.rpc('record_patient_monthly_activity', params: {
+            'p_patient_id': signedInId,
+            'p_reason': 'sign_in',
+          });
+        } catch (meterError) {
+          debugPrint('Active-patient meter was not recorded: $meterError');
+        }
+      }
 
       NotificationService().syncTokenToSupabase();
 

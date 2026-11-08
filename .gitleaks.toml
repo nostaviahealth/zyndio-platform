@@ -3,5 +3,6 @@
 useDefault = true
 
 [allowlist]
-description = "CocoaPods Podfile.lock entries are SHA checksums of public pods, not secrets"
+description = "Podfile.lock checksums are public pod hashes. The one stopword is the old synthetic fixture string left in commit ebbed40; the live test no longer uses it. Rules stay on."
 paths = ['''(^|/)Podfile( \d+)?\.lock$''']
+stopwords = ["zpt_fixture_a1"]

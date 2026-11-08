@@ -89,6 +89,16 @@ function createSupabaseOutcomesStore(client: SupabaseClient): OutcomesSandboxSto
       if (error) throw new Error(`markOutcomeDelivered failed: ${error.message}`);
     },
 
+    async auditAutobind(args) {
+      const { error } = await client.rpc('record_partner_scan_autobind', {
+        p_org_id: args.orgId,
+        p_patient_id: args.patientId,
+        p_partner_scan_id: args.partnerScanId,
+        p_partner_patient_id: args.partnerPatientId,
+      });
+      if (error) throw new Error('audit_failed');
+    },
+
     async emitPartnerEvent(event: PartnerWebhookEvent) {
       const { error } = await client.from('notification_outbox').insert({
         org_id: event.org_id,

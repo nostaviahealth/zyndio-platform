@@ -28,6 +28,7 @@ import { ExportFormat, PatientExport, PatientRecordApi, supabasePatientRecordApi
 import { downloadExport } from '../../../lib/patientExport';
 import PatientTimeline from './PatientTimeline';
 import PrevisitBrief from './PrevisitBrief';
+import TreatmentContextPanel from '../../../components/clinical/TreatmentContextPanel';
 
 // Plain, clinician-approved marker descriptions (not patient data). Keyed by
 // analyte_key; markers without one simply show no description line.
@@ -73,7 +74,7 @@ export interface PhysicianPatientDetailProps {
   onDownload?: (doc: PatientExport, format: ExportFormat) => void;
 }
 
-export type DetailTab = 'labs' | 'timeline' | 'brief';
+export type DetailTab = 'labs' | 'timeline' | 'brief' | 'treatment';
 
 const ACTION_ROLES = ['physician', 'care_coordinator'];
 
@@ -241,6 +242,10 @@ const PhysicianPatientDetail: React.FC<PhysicianPatientDetailProps> = ({
         <div role="tabpanel" id="panel-brief" aria-labelledby="tab-brief">
           <PrevisitBrief api={recordApi} patientId={detail.patientId} name={detail.displayName} canRecordVisit={canAct} />
         </div>
+      ) : tab === 'treatment' ? (
+        <div role="tabpanel" id="panel-treatment" aria-labelledby="tab-treatment" className="mt-6">
+          <TreatmentContextPanel patientId={detail.patientId} canEdit={canAct} />
+        </div>
       ) : (
         <div role="tabpanel" id="panel-labs" aria-labelledby="tab-labs">
           {latestError ? (
@@ -402,8 +407,13 @@ const Field: React.FC<{ label: string; value: string; strong?: boolean }> = ({ l
   </div>
 );
 
-const TAB_ORDER: DetailTab[] = ['labs', 'timeline', 'brief'];
-const TAB_LABELS: Record<DetailTab, string> = { labs: 'Labs', timeline: 'Timeline', brief: 'Pre-visit brief' };
+const TAB_ORDER: DetailTab[] = ['labs', 'timeline', 'brief', 'treatment'];
+const TAB_LABELS: Record<DetailTab, string> = {
+  labs: 'Labs',
+  timeline: 'Timeline',
+  brief: 'Pre-visit brief',
+  treatment: 'Treatment',
+};
 
 const Tabs: React.FC<{ questionsCount?: number; tab: DetailTab; onTab: (t: DetailTab) => void }> = ({
   questionsCount,
@@ -461,6 +471,7 @@ const Tabs: React.FC<{ questionsCount?: number; tab: DetailTab; onTab: (t: Detai
       </span>
       {tabButton('timeline')}
       {tabButton('brief')}
+      {tabButton('treatment')}
     </div>
   );
 };

@@ -178,6 +178,21 @@ export function geminiLabExtractor(opts: { apiKey: string; model: string; fetch:
   }
 }
 
+/** True when the bytes match the type implied by the file name. */
+export function bytesMatchDeclaredType(bytes: Uint8Array, mimeType: string): boolean {
+  const starts = (sig: number[]) => sig.every((b, i) => bytes[i] === b)
+  if (mimeType === 'application/pdf') return starts([0x25, 0x50, 0x44, 0x46])
+  if (mimeType === 'image/png') return starts([0x89, 0x50, 0x4e, 0x47])
+  if (mimeType === 'image/jpeg') return starts([0xff, 0xd8, 0xff])
+  if (mimeType === 'image/webp') {
+    return starts([0x52, 0x49, 0x46, 0x46]) && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50
+  }
+  if (mimeType === 'image/heic') {
+    return bytes.length >= 12 && bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70
+  }
+  return false
+}
+
 export function mimeTypeForPath(path: string): string | null {
   const ext = path.slice(path.lastIndexOf('.') + 1).toLowerCase()
   return ({ pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', heic: 'image/heic', webp: 'image/webp' } as Record<string, string>)[ext] ?? null

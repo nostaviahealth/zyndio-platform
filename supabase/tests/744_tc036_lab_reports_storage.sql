@@ -102,6 +102,8 @@ values ('health_data', 'synthetic-fixture', 'synthetic_health_data_fixture', 'Sy
         false, false, now());
 insert into public.consents (org_id, patient_id, consent_type, document, version, granted)
 values ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001',
+        'health_data', 'synthetic_health_data_fixture', 'synthetic-fixture', true),
+       ('00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000b1001',
         'health_data', 'synthetic_health_data_fixture', 'synthetic-fixture', true);
 select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal1');
 select is((select array_agg(name order by name) from storage.objects where bucket_id = 'lab-reports'),

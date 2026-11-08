@@ -139,8 +139,10 @@ select throws_ok(
   '42501', null, 'the version of a recorded consent cannot be changed');
 select is(public.revoke_patient_consent('partner_disclosure'), 1, 'the patient can revoke an optional consent');
 select ok(
-  (select revoked_at is not null and not granted from public.consents
-    where patient_id = '00000000-0000-0000-0000-0000000a1001' and consent_type = 'partner_disclosure'),
+  (select bool_and(revoked_at is not null and not granted) from public.consents
+    where patient_id = '00000000-0000-0000-0000-0000000a1001'
+      and consent_type = 'partner_disclosure'
+      and granted_at is not null),
   'revoking sets revoked_at and flips granted to false; the row is kept');
 select throws_ok(
   $$ update public.consents set revoked_at = null

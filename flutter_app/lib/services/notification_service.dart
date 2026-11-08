@@ -241,7 +241,15 @@ class NotificationService {
       });
 
       // Handle initial message if app was terminated
-      RemoteMessage? initialMessage = await fcm.getInitialMessage();
+      RemoteMessage? initialMessage;
+      try {
+        // firebase_messaging can leave this call hanging if the iOS plugin
+        // registers after launch. Startup must not wait forever.
+        initialMessage = await fcm.getInitialMessage().timeout(const Duration(seconds: 3));
+      } on TimeoutException {
+        debugPrint('getInitialMessage timed out; startup continues');
+        initialMessage = null;
+      }
       if (initialMessage != null) {
         debugPrint('App opened from terminated state via notification!');
       }
@@ -267,14 +275,14 @@ class NotificationService {
     final actionId = details.actionId;
     final payload = details.payload;
 
-    debugPrint('🔔 Notification response — action: $actionId, payload: $payload');
+    debugPrint('Notification response received');
 
     if (actionId != null && actionId.isNotEmpty) {
       // User tapped an ACTION BUTTON (not just the notification body)
       onActionReceived?.call(actionId, payload);
     } else {
       // User tapped the notification body itself
-      debugPrint('Notification tapped: $payload');
+      debugPrint('Notification tapped');
       _deliverTap(payload);
     }
   }

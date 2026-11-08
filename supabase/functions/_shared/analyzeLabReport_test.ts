@@ -36,6 +36,7 @@ type Backend = {
   row?: Record<string, unknown> | null
   lookupFails?: boolean
   downloadFails?: boolean
+  fileBytes?: Uint8Array
   updateFails?: boolean
 }
 
@@ -63,7 +64,7 @@ function harness(backend: Backend, overrides: Partial<AnalyzeLabReportDeps> = {}
     }
     if (u.pathname.startsWith('/storage/v1/object/lab-reports/')) {
       if (backend.downloadFails) return json({ statusCode: '404', error: 'not_found', message: ERROR_TEXT }, 400)
-      return new Response(PDF_BYTES, { status: 200, headers: { 'content-type': 'application/pdf' } })
+      return new Response(backend.fileBytes ?? PDF_BYTES, { status: 200, headers: { 'content-type': 'application/pdf' } })
     }
     if (u.pathname === '/rest/v1/lab_analyte_loinc') return json([{ analyte_key: 'hba1c', loinc: '4548-4', aliases: ['HbA1c'] }])
     if (u.pathname === '/rest/v1/patients') return json([{ display_name: 'Fictional Patient' }])
@@ -202,6 +203,32 @@ Deno.test('analyze-lab-report: unknown report 404; report with no file 422; noth
   assertEquals(r.status, 422)
   assertEquals(r.json, { status: 'skipped', reason: 'no_file' })
   assertEquals(h.seen.length, 1)
+})
+
+Deno.test('analyze-lab-report: non-PDF bytes named .pdf are rejected before extraction', async () => {
+  let extracted = false
+  const h = harness(
+    { row: ROW, fileBytes: new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]) },
+    { extractor: { name: 'x', extract: () => { extracted = true; return Promise.resolve(EXTRACTION) } } },
+  )
+  const r = await call(h.deps)
+  assertEquals(r.status, 422)
+  assertEquals(r.json, { error: 'invalid_file_content' })
+  assertEquals(extracted, false)
+})
+
+Deno.test('analyze-lab-report: files over 14MB are rejected before extraction', async () => {
+  let extracted = false
+  const big = new Uint8Array(14 * 1024 * 1024 + 1)
+  big.set([37, 80, 68, 70])
+  const h = harness(
+    { row: ROW, fileBytes: big },
+    { extractor: { name: 'x', extract: () => { extracted = true; return Promise.resolve(EXTRACTION) } } },
+  )
+  const r = await call(h.deps)
+  assertEquals(r.status, 422)
+  assertEquals(r.json, { error: 'file_too_large' })
+  assertEquals(extracted, false)
 })
 
 Deno.test('analyze-lab-report: extractor switched off -> 501, nothing analysed or written (no invented results)', async () => {

@@ -160,6 +160,8 @@ describe('POR-03 Timeline tab', () => {
     await user.keyboard('{ArrowRight}');
     expect(screen.getByRole('tab', { name: 'Pre-visit brief' })).toHaveAttribute('aria-selected', 'true');
     await user.keyboard('{ArrowRight}');
+    expect(screen.getByRole('tab', { name: 'Treatment' })).toHaveAttribute('aria-selected', 'true');
+    await user.keyboard('{ArrowRight}');
     expect(screen.getByRole('tab', { name: 'Labs' })).toHaveAttribute('aria-selected', 'true');
   });
 });

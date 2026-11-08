@@ -6,6 +6,7 @@ import {
   computeHomaIrSameDraw,
   computeOutcomeRecord,
   computeZyndioPatientToken,
+  evaluateMeasureComparison,
 } from './outcomesEngine.ts';
 
 Deno.test('Schedule C Golden Fixture reproduces exact PRD pages 35-36 & 43 numbers', () => {
@@ -136,4 +137,65 @@ Deno.test('Method-change rule: returns insufficient_data when DEXA vendor, LDL a
   assertEquals(rec.measures.hrv.trend_reason, 'method_changed_hrv_metric');
   assertEquals(rec.measures.lp_a.trend, 'insufficient_data');
   assertEquals(rec.measures.lp_a.trend_reason, 'method_changed_lpa_units');
+});
+
+Deno.test('HOMA-IR converts pmol/L with 6.945 and refuses unknown, negative, or non-finite inputs', () => {
+  const fromPmol = computeHomaIrSameDraw(
+    { value: 108, unit: 'mg/dL', draw_date: '2026-05-01' },
+    { value: 18.1 * 6.945, unit: 'pmol/L', draw_date: '2026-05-01' }
+  );
+  assertEquals(fromPmol.value, 4.83);
+
+  const fromMm = computeHomaIrSameDraw(
+    { value: 6, unit: 'mM', draw_date: '2026-05-01' },
+    { value: 18.1, unit: 'uIU/mL', draw_date: '2026-05-01' }
+  );
+  assertEquals(fromMm.value, 4.83);
+
+  const negative = computeHomaIrSameDraw(
+    { value: -108, unit: 'mg/dL', draw_date: '2026-05-01' },
+    { value: 18.1, unit: 'uIU/mL', draw_date: '2026-05-01' }
+  );
+  assertEquals(negative.value, null);
+  assertEquals(negative.reason, 'invalid_numeric_value');
+
+  const unknown = computeHomaIrSameDraw(
+    { value: 6, unit: 'mystery', draw_date: '2026-05-01' },
+    { value: 18.1, unit: 'uIU/mL', draw_date: '2026-05-01' }
+  );
+  assertEquals(unknown.value, null);
+  assertEquals(unknown.reason, 'invalid_numeric_value');
+});
+
+Deno.test('a zero baseline is not a stable trend, and lb is not compared with kg as the same number', () => {
+  const zero = evaluateMeasureComparison({
+    key: 'weight',
+    label: 'Total weight',
+    baselineSample: { value: 0, unit: 'lb' },
+    followupSample: { value: 10, unit: 'lb' },
+  });
+  assertEquals(zero.trend, 'insufficient_data');
+  assertEquals(zero.trend_reason, 'zero_baseline');
+
+  const rec = computeOutcomeRecord({
+    ...GOLDEN_FIXTURE_INPUT,
+    baseline_dexa: {
+      ...GOLDEN_FIXTURE_INPUT.baseline_dexa!,
+      measures: {
+        ...GOLDEN_FIXTURE_INPUT.baseline_dexa!.measures,
+        visceral_fat: 80,
+        visceral_fat_unit: 'kg',
+      },
+    },
+    followup_dexa: {
+      ...GOLDEN_FIXTURE_INPUT.followup_dexa!,
+      measures: {
+        ...GOLDEN_FIXTURE_INPUT.followup_dexa!.measures,
+        visceral_fat: 80,
+        visceral_fat_unit: 'lbs',
+      },
+    },
+  });
+  assertEquals(rec.measures.visceral_fat.baseline, 176.4);
+  assertEquals(rec.measures.visceral_fat.followup, 80);
 });

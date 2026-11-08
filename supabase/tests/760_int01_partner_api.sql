@@ -435,7 +435,8 @@ select is(position('6.1' in (select j::text from (select j from int01_j where k 
 select is(position('hba1c' in (select j::text from (select j from int01_j where k = 'int01_summary_held') s)), 0,
   'withdrawn data_sharing returns no analyte names');
 reset role;
-update public.consents set granted = true where id = '00000000-0000-0000-0000-000000760d01';
+insert into public.consents (org_id, patient_id, consent_type, granted)
+values ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-000000760a01', 'data_sharing', true);
 select tests.authenticate_as_service_role();
 insert into int01_j select 'int01_summary', public.partner_patient_summary('00000000-0000-0000-0000-000000760c01', 'zp-fictional-001');
 select is((select jsonb_array_length(j -> 'biomarkers') from (select j from int01_j where k = 'int01_summary') int01_summary), 1, 'one latest value per analyte');

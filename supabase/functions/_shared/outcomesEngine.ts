@@ -550,45 +550,77 @@ export function normaliseBiomarkerUnit(
   const lowerUnit = rawUnit.toLowerCase();
   switch (key) {
     case 'fasting_glucose':
-      if (lowerUnit === 'mmol/l') {
+      if (value < 0) return { value: null, unit: rawUnit || 'mg/dL', normalised: false };
+      if (lowerUnit === 'mmol/l' || lowerUnit === 'mm') {
         return { value: roundTo(value * 18.0182, 1), unit: 'mg/dL', normalised: true };
       }
-      return { value: roundTo(value, 1), unit: 'mg/dL', normalised: false };
+      if (lowerUnit === 'mg/dl' || lowerUnit === '') {
+        return { value: roundTo(value, 1), unit: 'mg/dL', normalised: lowerUnit === 'mg/dl' };
+      }
+      return { value: null, unit: rawUnit, normalised: false };
     case 'triglycerides':
-      if (lowerUnit === 'mmol/l') {
+      if (value < 0) return { value: null, unit: rawUnit || 'mg/dL', normalised: false };
+      if (lowerUnit === 'mmol/l' || lowerUnit === 'mm') {
         return { value: roundTo(value * 88.57, 1), unit: 'mg/dL', normalised: true };
       }
-      return { value: roundTo(value, 1), unit: 'mg/dL', normalised: false };
+      if (lowerUnit === 'mg/dl' || lowerUnit === '') {
+        return { value: roundTo(value, 1), unit: 'mg/dL', normalised: lowerUnit === 'mg/dl' };
+      }
+      return { value: null, unit: rawUnit, normalised: false };
     case 'ldl_c':
     case 'hdl_c':
     case 'non_hdl_c':
-      if (lowerUnit === 'mmol/l') {
+      if (value < 0) return { value: null, unit: rawUnit || 'mg/dL', normalised: false };
+      if (lowerUnit === 'mmol/l' || lowerUnit === 'mm') {
         return { value: roundTo(value * 38.67, 1), unit: 'mg/dL', normalised: true };
       }
-      return { value: roundTo(value, 1), unit: 'mg/dL', normalised: false };
+      if (lowerUnit === 'mg/dl' || lowerUnit === '') {
+        return { value: roundTo(value, 1), unit: 'mg/dL', normalised: lowerUnit === 'mg/dl' };
+      }
+      return { value: null, unit: rawUnit, normalised: false };
     case 'apob':
+      if (value < 0) return { value: null, unit: rawUnit || 'mg/dL', normalised: false };
       if (lowerUnit === 'g/l') {
         return { value: roundTo(value * 100, 1), unit: 'mg/dL', normalised: true };
       }
-      return { value: roundTo(value, 1), unit: 'mg/dL', normalised: false };
+      if (lowerUnit === 'mg/dl' || lowerUnit === '') {
+        return { value: roundTo(value, 1), unit: 'mg/dL', normalised: lowerUnit === 'mg/dl' };
+      }
+      return { value: null, unit: rawUnit, normalised: false };
     case 'creatinine':
+      if (value < 0) return { value: null, unit: rawUnit || 'mg/dL', normalised: false };
       if (lowerUnit === 'umol/l' || lowerUnit === 'µmol/l') {
         return { value: roundTo(value / 88.4, 2), unit: 'mg/dL', normalised: true };
       }
-      return { value: roundTo(value, 2), unit: 'mg/dL', normalised: false };
+      if (lowerUnit === 'mg/dl' || lowerUnit === '') {
+        return { value: roundTo(value, 2), unit: 'mg/dL', normalised: lowerUnit === 'mg/dl' };
+      }
+      return { value: null, unit: rawUnit, normalised: false };
     case 'weight':
     case 'fat_mass':
     case 'lean_mass':
     case 'appendicular_lean_mass':
-      if (lowerUnit === 'kg') {
+    case 'visceral_fat':
+      if (value < 0) return { value: null, unit: rawUnit || 'lb', normalised: false };
+      if (lowerUnit === 'kg' || lowerUnit === 'kgs') {
         return { value: roundTo(value * 2.20462, 1), unit: 'lb', normalised: true };
       }
-      return { value: roundTo(value, 1), unit: 'lb', normalised: false };
-    case 'fasting_insulin':
-      if (lowerUnit === 'pmol/l') {
-        return { value: roundTo(value / 6.0, 1), unit: 'uIU/mL', normalised: true };
+      if (lowerUnit === 'lb' || lowerUnit === 'lbs' || lowerUnit === 'pound' || lowerUnit === 'pounds' || lowerUnit === '') {
+        return { value: roundTo(value, 1), unit: 'lb', normalised: lowerUnit !== '' };
       }
-      return { value: roundTo(value, 1), unit: 'uIU/mL', normalised: false };
+      return { value: null, unit: rawUnit, normalised: false };
+    case 'fasting_insulin':
+      if (value < 0) return { value: null, unit: rawUnit || 'uIU/mL', normalised: false };
+      if (lowerUnit === 'pmol/l') {
+        return { value: roundTo(value / 6.945, 1), unit: 'uIU/mL', normalised: true };
+      }
+      if (lowerUnit === 'uiu/ml' || lowerUnit === 'mu/l' || lowerUnit === '') {
+        return { value: roundTo(value, 1), unit: 'uIU/mL', normalised: lowerUnit !== '' };
+      }
+      return { value: null, unit: rawUnit, normalised: false };
+    case 'body_fat_pct':
+      if (value < 0 || value > 100) return { value: null, unit: rawUnit || '%', normalised: false };
+      return { value: roundTo(value, 1), unit: '%', normalised: false };
     case 'lp_a':
       // Never convert between mg/dL and nmol/L
       return { value: roundTo(value, 1), unit: rawUnit || 'nmol/L', normalised: false };
@@ -704,7 +736,12 @@ export function computeHomaIrSameDraw(
 
   const normGlucose = normaliseBiomarkerUnit('fasting_glucose', glucose.value, glucose.unit);
   const normInsulin = normaliseBiomarkerUnit('fasting_insulin', insulin.value, insulin.unit);
-  if (normGlucose.value === null || normInsulin.value === null) {
+  if (
+    normGlucose.value === null ||
+    normInsulin.value === null ||
+    normGlucose.value <= 0 ||
+    normInsulin.value <= 0
+  ) {
     return {
       value: null,
       same_draw_verified: false,
@@ -990,11 +1027,11 @@ export function evaluateMeasureComparison(params: {
   }
 
   // 2. Missing baseline or follow-up check
-  if (normBase.value === null || normFollow.value === null) {
+  if (normBase.value === null || normFollow.value === null || normBase.value === 0) {
     return {
       ...baseResult,
       trend: 'insufficient_data',
-      trend_reason: 'missing_baseline_or_followup',
+      trend_reason: normBase.value === 0 ? 'zero_baseline' : 'missing_baseline_or_followup',
     };
   }
 
@@ -1084,7 +1121,14 @@ export function evaluateMeasureComparison(params: {
   }
 
   // 6. Lower-is-better & Higher-is-better measures
-  const pct = delta_pct ?? 0;
+  if (delta_pct === null) {
+    return {
+      ...baseResult,
+      trend: 'insufficient_data',
+      trend_reason: 'percent_change_undefined',
+    };
+  }
+  const pct = delta_pct;
   if (Math.abs(pct) <= stabilityBandPct) {
     return {
       ...baseResult,
@@ -1227,7 +1271,8 @@ export function computeOutcomeRecord(input: OutcomesEngineInput): ComputedOutcom
     followVal: number | null | undefined,
     unit: string,
     includeElapsed = false,
-    honorScannerChange = true
+    honorScannerChange = true,
+    units?: { baseline?: string | null; followup?: string | null }
   ): ComputeOutcomeMeasureResult =>
     evaluateMeasureComparison({
       key,
@@ -1236,23 +1281,23 @@ export function computeOutcomeRecord(input: OutcomesEngineInput): ComputedOutcom
         baseVal !== undefined && baseVal !== null
           ? {
               value: baseVal,
-              unit,
+              unit: units?.baseline ?? unit,
               status: input.baseline_dexa?.status,
               outside_window: input.baseline_dexa?.outside_window,
             }
           : input.baseline_dexa?.status === 'needs_review'
-          ? { value: null, unit, status: 'needs_review' }
+          ? { value: null, unit: units?.baseline ?? unit, status: 'needs_review' }
           : null,
       followupSample:
         followVal !== undefined && followVal !== null
           ? {
               value: followVal,
-              unit,
+              unit: units?.followup ?? unit,
               status: input.followup_dexa?.status,
               outside_window: input.followup_dexa?.outside_window,
             }
           : input.followup_dexa?.status === 'needs_review'
-          ? { value: null, unit, status: 'needs_review' }
+          ? { value: null, unit: units?.followup ?? unit, status: 'needs_review' }
           : null,
       baselineProvenance: baseDexaProv,
       followupProvenance: followDexaProv,
@@ -1301,11 +1346,13 @@ export function computeOutcomeRecord(input: OutcomesEngineInput): ComputedOutcom
     'Visceral fat',
     input.baseline_dexa?.measures.visceral_fat,
     input.followup_dexa?.measures.visceral_fat,
-    input.followup_dexa?.measures.visceral_fat_unit ??
-      input.baseline_dexa?.measures.visceral_fat_unit ??
-      'lbs',
+    input.baseline_dexa?.measures.visceral_fat_unit ?? 'lb',
     false,
-    true
+    true,
+    {
+      baseline: input.baseline_dexa?.measures.visceral_fat_unit,
+      followup: input.followup_dexa?.measures.visceral_fat_unit,
+    }
   );
   const body_fat_pct = buildDexaMeasure(
     'body_fat_pct',

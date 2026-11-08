@@ -131,25 +131,33 @@ Leave `LAB_AI_EXTRACTION_ENABLED` unset. The lab path must answer unavailable. S
 
 Original pull-request approvals do not cover this head. Nothing here is cleared for patient use, production, or a live notification.
 
-| Finding | State on this branch |
-|---|---|
-| PR #38 M1 account enumeration | Fixed in the partner handler: existing and missing emails share `500 internal_error`. Deno test covers sandbox and a second client. |
-| PR #38 M2 webhook SSRF | Fixed: resolve A/AAAA, refuse non-public addresses, pinned connect or `dns_pin_unavailable`. Mock DNS tests. No live metadata request. |
-| PR #38 M3 withdrawn data_sharing | Fixed in `partner_patient_summary`. pgTAP 760 expects an empty summary, then a re-grant. |
-| PR #37 H1 false “care team has been alerted” | Fixed. 911 guidance is always shown. A saved row says it was saved and that nobody is confirmed to have seen it. A failed save says nothing was filed. |
-| PR #37 H2 escalated text reaches the model | Fixed. Those turns are marked withheld and omitted from model history, summary, memory, and the saved session text. |
-| PR #37 M3 crisis phrases | Added the reported phrases, plus a short negation guard. Not a clinical triage. |
-| PR #37 M4 client `kind` trusted | Server rewrites `kind` from the question text before the alert trigger. Mislabelled emergency language still alerts. Ordinary text labelled emergency does not. |
-| PR #41 H1 consent timestamp two-step | Server owns `granted_at` / `revoked_at` for every role, including a null-to-past update. |
-| PR #41 H2 health data without approved consent | Patient lab and file policies require the current non-placeholder `health_data` grant. Placeholder documents leave `documents_ready` false. The app does not enter clinical pages while status is loading, null, or unready. |
-| PR #41 M3 date of birth | Profile trigger rejects under-18, future, and pre-1900 on insert and on a date change. A null date is left null. |
-| PR #41 M4 resurrecting a withdrawal | Clearing `revoked_at` raises for staff and for the table owner. A new grant is a new row. |
-| PR #41 M5 login-code budget and X-Forwarded-For | Reissue keeps the attempt count until the lock window ends. The rate-limit identity is the last forwarded hop. A rate-limit RPC error returns 503, not success. |
-| PR #40 deletion versus freeze triggers | Deleting a user may only null that user’s foreign key after the user row is gone. Deleting a clinic may remove range sets and plan history only because the clinic row is gone. Direct edits still raise. Overlapping plan periods raise. |
-| PR #40 timeline cursor | `patient_timeline` takes `(occurred_at, source, ref_id)`. The timeline page sends that tuple. |
-| PR #40 CSV formula cells | A formula marker after a BOM, space, or newline is prefixed before quoting. |
-| PR #39 wearable lows, PR #40 brief aggregation, PR #36 iOS startup, PR #42 magic-byte and size checks | Not in this pass. Recorded, not claimed fixed. |
-| Facebook token still in git history | Not rotated and history not rewritten. A founder has to rotate that credential in the Facebook account. |
+| Finding | State | Evidence on the head that contains the change |
+|---|---|---|
+| Secrets scan, one generic-api-key hit | False positive. Synthetic fixture label `zpt_fixture_a1` in `supabase/tests/777_c2_outcomes_engine_and_dexa.sql`, commit `ebbed40fca55f1a91088d39ead94c877c02b6cef`. Not a provider credential. History was not rewritten. A stopword names that fixture only. | Re-run gitleaks v8.30.1 with `.gitleaks.toml` after the stopword. |
+| PR #38 M1 account enumeration | Fixed. Existing and missing emails share `500 internal_error`. | Deno handler test. pgTAP not re-run. |
+| PR #38 M2 webhook SSRF | Fixed in source. Resolve A/AAAA, refuse non-public, pin or `dns_pin_unavailable`. | Deno worker tests with a mock resolver. No live metadata request. |
+| PR #38 M3 withdrawn data_sharing | Source updated in `partner_patient_summary` and pgTAP 760. | pgTAP not executed on this head. Not validated. |
+| PR #37 H1 false alert promise | Fixed. Guidance names local emergency services only. The product has no configured country or hotline. A saved row is described as saved, not seen. A failed save says nothing was filed. | Flutter companion test. |
+| PR #37 H2 escalated text in the model | Fixed in source. Withheld from history, summary, memory, and saved text. | Flutter unit test of the filter. |
+| PR #37 M3 crisis phrases | Reported phrases added, with a short negation guard. Not a clinical triage. | Flutter route tests. |
+| PR #37 M4 client kind | Server rewrites kind from the question. | pgTAP 751 updated. Not executed. |
+| PR #41 H1 / M4 consent history | Server-owned timestamps. Null-to-past update raises. Revocation cannot be cleared by staff or the table owner. | pgTAP 761 updated. Not executed. |
+| PR #41 H2 health data consent | Patient lab and file policies require a current non-placeholder grant. Placeholder documents keep `documents_ready` false. Loading and null status stay off clinical pages. | Flutter onboarding test. pgTAP 780 not executed. |
+| PR #41 M3 date of birth | Trigger on profile writes. Null dates stay null. | pgTAP 780 not executed. |
+| PR #41 M5 login budget and forwarded IP | Reissue keeps attempts. Last X-Forwarded-For hop. Rate-limit RPC error is 503. | Deno client-IP test. pgTAP 760 login section not executed. |
+| PR #40 deletion versus freeze | Foreign-key anonymization and clinic cascade only. Direct edits still fail. Overlap rejected. | pgTAP 779 not executed. |
+| PR #40 timeline cursor and CSV formulas | Tuple cursor in SQL and the timeline page. Formula marker after BOM, space, or newline is escaped. | Vitest CSV file. pgTAP 771 not executed. |
+| PR #40 brief repeats labs | Deferred. Not changed. | None. |
+| PR #42 lab cap, timeout, file bytes | Size and magic bytes are checked before the model call. Extractor timeout is on the Gemini fetch. Flag still defaults off. | Deno analyze-lab-report tests on this head. |
+| PR #42 held-report copy, in-function role check | Deferred. Held-row RLS from the earlier migration is in the tree. The in-function role mutation test was not added. | Not claimed. |
+| PR #36 iOS startup | `getInitialMessage` is limited to 3 seconds so startup can continue. FCM token is not printed. Arbitrary-load ATS removed. App deployment target set to 16.1. Facebook advertiser and auto-log build settings set to NO. | Source only. No Mac build. Native iOS is unverified. |
+| PR #36 plist bundling, push entitlement per configuration | Deferred. `GoogleService-Info.plist` is still not a committed credential, and `aps-environment` remains `development` in the single entitlements file. | Native iOS unverified. |
+| PR #39 wearable low 1, 90-day window only in the app | Deferred. Direct writes can still use dates back to 2000-01-01. | Not changed. |
+| PR #39 wearable low 2, empty upload marks backfill finished | Deferred. `wearable_daily_sync.dart` still records the backfill after a zero-row upload. | Not changed. |
+| PR #39 wearable low 3, nap stored as sleep_minutes | Deferred. No new sleep formula. | Not changed. |
+| PR #39 wearable low 4, immutability trigger not caught because update policy denies | Deferred. No new mutation test. | Not changed. |
+| PR #39 wearable low 5, spring-forward hour | Deferred. | Not changed. |
+| Facebook credential in git history | Founder action. Do not rotate from this branch and do not rewrite history. | Identifier only: historical Facebook client token material remains in git. Provider: Facebook. This pass did not print the value. |
 
 ## Partner API review (8 Nov 2026)
 

@@ -15,8 +15,12 @@ insert into auth.users (id, email, email_confirmed_at, aud, role) values
 insert into public.organizations (id, name) values
   ('00000000-0000-0000-0000-0000000e9410', 'Synthetic Deletion Clinic');
 
+insert into auth.users (id, email, email_confirmed_at, aud, role) values
+  ('00000000-0000-0000-0000-0000000e9403', 'synthetic-admin-2@example.test', now(), 'authenticated', 'authenticated');
+
 insert into public.org_members (user_id, org_id, role, status) values
-  ('00000000-0000-0000-0000-0000000e9402', '00000000-0000-0000-0000-0000000e9410', 'org_admin', 'active');
+  ('00000000-0000-0000-0000-0000000e9402', '00000000-0000-0000-0000-0000000e9410', 'org_admin', 'active'),
+  ('00000000-0000-0000-0000-0000000e9403', '00000000-0000-0000-0000-0000000e9410', 'org_admin', 'active');
 
 insert into public.lab_range_sets (id, org_id, version, status, created_by, approved_by, approved_at)
 values ('00000000-0000-0000-0000-0000000e9420', '00000000-0000-0000-0000-0000000e9410', 1, 'approved',

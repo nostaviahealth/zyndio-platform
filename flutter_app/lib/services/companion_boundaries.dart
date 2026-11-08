@@ -93,11 +93,12 @@ List<CompanionTurn> turnsForModel(List<CompanionTurn> turns) =>
 /// Persisted text for an escalated turn is empty, so a reload cannot replay it.
 String textForPersistence({required String text, required bool withheld}) => withheld ? '' : text;
 
-/// Emergency guidance is always the same 911 / 988 copy. [filed] only says
-/// whether a row was saved. It never claims a person was alerted.
+/// Emergency guidance does not name a country or a hotline. The product has
+/// no configured geography for emergency numbers. [filed] only says whether a
+/// row was saved. It never claims a person was alerted.
 String emergencyGuidance(String text, {required bool filed}) {
   final buffer = StringBuffer(
-    'If this is an emergency, call 911 or go to the nearest emergency room now. '
+    'If this is an emergency, contact your local emergency services or go to the nearest emergency room now. '
     'I am an AI companion and cannot help in an emergency. ',
   );
   if (filed) {
@@ -111,8 +112,7 @@ String emergencyGuidance(String text, {required bool filed}) {
     );
   }
   if (_selfHarmPattern.hasMatch(text)) {
-    buffer.write(' If you are thinking about harming yourself, call or text 988 '
-        '(Suicide & Crisis Lifeline) any time.');
+    buffer.write(' If you are thinking about harming yourself, contact local emergency or crisis services now.');
   }
   return buffer.toString();
 }
@@ -120,11 +120,11 @@ String emergencyGuidance(String text, {required bool filed}) {
 const careTeamHandoffReply =
     'That\'s a question for your Zyndio care team, so I\'ve passed it to them. '
     'They\'ll get back to you in the app. If it feels urgent, contact your clinic '
-    'directly, or call 911 in an emergency.';
+    'directly, or contact local emergency services.';
 
 const careTeamHandoffFailedReply =
     'That\'s a question for your Zyndio care team, but I couldn\'t reach them just now. '
-    'Please contact your clinic directly, or call 911 in an emergency.';
+    'Please contact your clinic directly, or contact local emergency services.';
 
 /// Files the escalation for the care team (RLS: the patient's own row; the
 /// database sets the clinic and status). Returns false when it couldn't be
