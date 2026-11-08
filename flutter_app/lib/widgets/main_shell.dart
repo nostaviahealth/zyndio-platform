@@ -5,7 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../config/theme.dart';
+import '../data/programme_journey.dart';
 import '../providers/navbar_provider.dart';
+import '../providers/programme_journey_provider.dart';
+import '../services/milestone_reminders.dart';
 import '../providers/lens_provider.dart';
 import '../services/conversion_service.dart';
 import '../services/notification_permission_prompt.dart';
@@ -47,7 +50,25 @@ class _MainShellState extends ConsumerState<MainShell> {
       if (!mounted) return;
       ref.read(notificationPermissionPromptProvider).maybeAskOnce();
     });
+    // APP-14: keep the Day 90 / 180 / 365 scan-and-labs reminders in step
+    // with the patient's records (re-planned only when the plan changes).
+    ref.listenManual<ProgrammeJourney?>(programmeJourneyProvider,
+        (previous, next) {
+      final scheduler = ref.read(milestoneReminderSchedulerProvider);
+      if (next == null || scheduler == null) return;
+      final key = planMilestoneReminders(next, DateTime.now())
+          .map((r) => '${r.id}@${r.at.toIso8601String()}')
+          .join(',');
+      if (key == _reminderPlanKey) return;
+      _reminderPlanKey = key;
+      syncMilestoneReminders(next, scheduler).then((ok) {
+        // Not allowed yet (or the plugin failed): try again on the next change.
+        if (!ok && _reminderPlanKey == key) _reminderPlanKey = null;
+      });
+    }, fireImmediately: true);
   }
+
+  String? _reminderPlanKey;
 
   void _onTapBranch(int index) {
     ref.read(navbarVisibleProvider.notifier).show();

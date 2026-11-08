@@ -1,34 +1,34 @@
 import 'dart:convert';
-import 'dart:ui';
+
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:image_cropper/image_cropper.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_cropper/image_cropper.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import '../../config/theme.dart';
-import '../../widgets/app_card.dart';
-import '../../providers/auth_provider.dart';
-import '../../providers/patient_provider.dart';
-import '../../providers/feature_flags_provider.dart';
-// <--- Added Import
-import '../../providers/module_order_provider.dart';
-import '../../widgets/onboarding_overlay.dart'; // <--- Added
-import '../health_data/my_lab_records_screen.dart';
-import '../../providers/purchase_provider.dart';
-import 'paywall_screen.dart';
-import '../../widgets/dynamic_branding_icon.dart';
-import '../../services/branding_service.dart';
-import '../../services/notification_service.dart';
-import '../../providers/organization_provider.dart';
-/// Settings screen matching React Settings.tsx
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:badges/badges.dart' as badges;
-import '../../providers/notification_provider.dart';
 
+import '../../config/theme.dart';
+import '../../demo_login/demo_login.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/feature_flags_provider.dart';
+import '../../providers/patient_provider.dart';
+import '../../providers/programme_journey_provider.dart';
+import '../../providers/purchase_provider.dart';
+import '../../services/milestone_reminders.dart';
+import '../../services/notification_service.dart';
+import '../../widgets/tc025/tc025_widgets.dart';
+import '../health_data/my_lab_records_screen.dart';
+import 'paywall_screen.dart';
 
+/// Profile & settings (opened from the avatar on every tab).
+///
+/// Organised around the programme: who you are, your records, privacy and
+/// sharing (including the separate, revocable partner-outcomes authorisation,
+/// APP-03), notifications, help, then sign out and account deletion (APP-11).
+/// Consumer extras (membership, leagues, goals, shop, meditation) appear only
+/// when the patient-extras flag is on.
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
@@ -46,909 +46,729 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _loadVersion() async {
-    final info = await PackageInfo.fromPlatform();
-    if (mounted) {
-      setState(() {
-        _appVersion = '${info.appName} v${info.version} (${info.buildNumber})';
-      });
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() => _appVersion = 'Zyndio ${info.version} (${info.buildNumber})');
+      }
+    } catch (_) {
+      // Version line falls back to "Zyndio".
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(patientProfileProvider);
-
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    final extras = ref.watch(featureFlagsProvider).patientExtrasEnabled;
     return Scaffold(
-      backgroundColor: context.nc.scaffoldBg,
+      backgroundColor: context.z25.screenBg,
       body: SafeArea(
         bottom: false,
-        child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => context.pop(),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: context.nc.inputFill,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(LucideIcons.chevronLeft, color: context.nc.iconDefault, size: 20),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Settings',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900,
-                      color: context.nc.textPrimary,
-                      letterSpacing: -1.0,
-                    ),
-                  ),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () => context.push('/notifications'),
-                    child: Consumer(
-                      builder: (context, ref, child) {
-                        final unreadCount = ref.watch(unreadNotificationCountProvider);
-                        return badges.Badge(
-                          position: badges.BadgePosition.topEnd(top: -2, end: -2),
-                          showBadge: unreadCount > 0,
-                          badgeContent: Text(
-                            unreadCount.toString(),
-                            style: const TextStyle(color: Colors.white, fontSize: 10),
-                          ),
-                          child: Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: context.nc.inputFill,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(LucideIcons.bell, color: context.nc.iconDefault, size: 20),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20), // Added space below header
-              // Membership Section
-              Consumer(
-                builder: (context, ref, _) {
-                  final purchaseState = ref.watch(purchaseProvider);
-                  final isPlus = purchaseState.isPlus;
-                  
-                  return _MembershipCard(
-                    isPlus: isPlus,
-                    onUpgrade: () => PaywallScreen.show(context),
-                    onManage: () => PaywallScreen.showCustomerCenter(),
-                  );
-                },
-              ),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+          children: [
+            _Header(onBack: () => context.pop()),
+            const SizedBox(height: 16),
+            _ProfileCard(onEditPhoto: _changePhoto),
+            const SizedBox(height: 24),
+            if (extras) ...[
+              const _MembershipRow(),
               const SizedBox(height: 24),
-
-              // Profile Section
-              const _SectionHeader(title: 'Profile'),
-              const SizedBox(height: 12),
-              
-              // Profile Card (Moved here, linked to Edit Profile)
-              Consumer(
-                builder: (context, ref, _) {
-                  final profile = ref.watch(patientProfileProvider).value;
-                  final user = ref.watch(currentUserProvider);
-                  return _ProfileCard(
-                    name: profile?.name ?? 'User',
-                    email: user?.email ?? 'No email provided',
-                    avatarUrl: profile?.avatarUrl,
-                    onTap: () => context.push('/settings/edit_profile'),
-                    onAvatarTap: () async {
-                      final picker = ImagePicker();
-                      final image = await picker.pickImage(
-                        source: ImageSource.gallery,
-                        imageQuality: 80,
-                      );
-                      
-                      if (image != null) {
-                        // 2. Crop Image
-                        final croppedFile = await ImageCropper().cropImage(
-                          sourcePath: image.path,
-                          maxWidth: 256, // Keep it light for Base64 storage
-                          maxHeight: 256,
-                          compressFormat: ImageCompressFormat.jpg,
-                          compressQuality: 70,
-                          aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1), // Force Square
-                          uiSettings: [
-                            AndroidUiSettings(
-                              toolbarTitle: 'Crop Profile Photo',
-                              toolbarColor: BrandColors.dark,
-                              toolbarWidgetColor: Colors.white,
-                              initAspectRatio: CropAspectRatioPreset.square,
-                              lockAspectRatio: true,
-                            ),
-                            IOSUiSettings(
-                              title: 'Crop Profile Photo',
-                              aspectRatioLockEnabled: true,
-                              resetAspectRatioEnabled: false,
-                              rotateButtonsHidden: true,
-                              rotateClockwiseButtonHidden: true,
-                              aspectRatioPickerButtonHidden: true,
-                              resetButtonHidden: true,
-                            ),
-                          ],
-                        );
-
-                        if (croppedFile != null) {
-                          try {
-                            // 3. Upload Cropped Image
-                            await ref.read(patientProfileProvider.notifier).updateAvatar(XFile(croppedFile.path));
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Profile photo updated')),
-                              );
-                            }
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Failed to upload: $e')),
-                              );
-                            }
-                          }
-                        }
-                      }
-                    },
-                  );
-                },
+            ],
+            const ZyndioSectionLabel('Your records'),
+            _Group(rows: [
+              _Row(
+                icon: LucideIcons.flaskConical,
+                title: 'My lab records',
+                subtitle: 'Reports you and your clinic have added',
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const MyLabRecordsScreen())),
               ),
-              const SizedBox(height: 8),
-              
-              _SettingsCard(
-                icon: LucideIcons.trophy,
-                title: 'Leagues & Rewards',
-                subtitle: 'View your badges and monthly progress',
-                onTap: () => context.push('/settings/leagues'),
-                isProminent: true,
+              _Row(
+                icon: LucideIcons.activity,
+                title: 'Connected health data',
+                subtitle: 'Apple Health or Health Connect',
+                onTap: () => context.pushNamed('connections'),
               ),
-
-              _SettingsCard(
-                icon: LucideIcons.target,
-                title: 'Activity Goals',
-                subtitle: 'Set daily Move, Training, and Steps targets',
-                onTap: () => context.push('/settings/activity_goals'),
+              _Row(
+                icon: LucideIcons.link,
+                title: 'Link clinic record',
+                subtitle: 'Connect this account to your clinic record',
+                onTap: () => context.push('/link-record'),
               ),
-              _SettingsCard(
-                icon: LucideIcons.utensilsCrossed,
-                title: 'Nutrition Goals',
-                subtitle: 'Set daily Energy and Macro targets',
-                onTap: () => context.push('/settings/nutrition_goals'),
+              _Row(
+                icon: LucideIcons.download,
+                title: 'Export health data',
+                subtitle: 'A PDF summary to share with your doctor',
+                onTap: () => context.push('/settings/export_health_data'),
               ),
-          /* Hiding for now per user request
-          _SettingsCard(
-            icon: LucideIcons.scanLine,
-            title: 'Digital Twin',
-            subtitle: 'View your personalized anatomical model',
-            onTap: () => context.push('/settings/digital_twin'),
-          ),
-          */
-          _SettingsCard(
-            icon: LucideIcons.dna,
-            title: 'Longevity Profile',
-            subtitle: 'Complete your 6-Pillar assessment',
-            onTap: () => context.pushNamed('questionnaire'),
-          ),
-          _SettingsCard(
-            icon: LucideIcons.barChart2,
-            title: 'Meditation Stats',
-            subtitle: 'View your meditation history and progress',
-            onTap: () => context.push('/settings/meditation_stats'),
-          ),
-          /* Hiding per user request
-          _SettingsCard(
-            icon: LucideIcons.activity,
-            title: 'Timeline',
-            subtitle: 'View your historical health journey',
-            onTap: () => context.push('/settings/timeline'),
-          ),
-          */
-          _SettingsCard(
-            icon: LucideIcons.fileSpreadsheet,
-            title: 'My Lab Records',
-            subtitle: 'View your uploaded lab reports',
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const MyLabRecordsScreen())),
-          ),
-          _SettingsCard(
-            icon: LucideIcons.link,
-            title: 'Link clinic record',
-            subtitle: 'Connect this account to your clinic or telehealth record',
-            onTap: () => context.push('/link-record'),
-          ),
-          _SettingsCard(
-            icon: LucideIcons.fileDown,
-            title: 'Export Health Data',
-            subtitle: 'Generate a clinical PDF snapshot for your doctor',
-            onTap: () => context.push('/settings/export_health_data'),
-          ),
-          Consumer(
-            builder: (context, ref, _) {
-              final selectedOrg = ref.watch(selectedOrganizationProvider);
-              return _SettingsCard(
-                icon: LucideIcons.building,
-                title: 'Organization',
-                subtitle: 'Selected: $selectedOrg',
-                onTap: () {
-                  showModalBottomSheet(
-                    context: context,
-                    backgroundColor: context.nc.cardSurface,
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                    ),
-                    builder: (ctx) {
-                      return SafeArea(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Select Organization',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            ListTile(
-                              title: const Text('Default', style: TextStyle(color: Colors.white)),
-                              trailing: selectedOrg == 'Default' ? const Icon(Icons.check, color: Color(0xFF007AFF)) : null,
-                              onTap: () {
-                                ref.read(patientProfileProvider.notifier).updateProfile(organization: 'Default');
-                                Navigator.pop(ctx);
-                              },
-                            ),
-                            ListTile(
-                              title: const Text('Test01', style: TextStyle(color: Colors.white)),
-                              trailing: selectedOrg == 'Test01' ? const Icon(Icons.check, color: Color(0xFF007AFF)) : null,
-                              onTap: () {
-                                ref.read(patientProfileProvider.notifier).updateProfile(organization: 'Test01');
-                                Navigator.pop(ctx);
-                              },
-                            ),
-                            ListTile(
-                              title: const Text('Test02', style: TextStyle(color: Colors.white)),
-                              trailing: selectedOrg == 'Test02' ? const Icon(Icons.check, color: Color(0xFF007AFF)) : null,
-                              onTap: () {
-                                ref.read(patientProfileProvider.notifier).updateProfile(organization: 'Test02');
-                                Navigator.pop(ctx);
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                          ],
-                        ),
-                      );
-                    },
-                  );
-                },
-              );
-            },
-          ),
-          const SizedBox(height: 24),
-
-
-          // Intelligence Section
-          const _SectionHeader(title: 'Intelligence'),
-          const SizedBox(height: 12),
-          _SettingsCard(
-            icon: LucideIcons.brain,
-            title: 'AI Memories',
-            subtitle: 'View and manage what the AI remembers about you',
-            onTap: () => context.push('/settings/memories'),
-          ),
-          const SizedBox(height: 24),
-
-          // TC-025 A4: "More from Zyndio" — Shop / Meditate / Cycle Tracking,
-          // behind the patient-extras flag (off by default for the 7 Nov build).
-          const MoreFromZyndioSection(),
-
-          // Integrations Section
-          const _SectionHeader(title: 'Integrations'),
-          const SizedBox(height: 12),
-          _SettingsCard(
-            icon: LucideIcons.watch,
-            title: 'Connections',
-            subtitle: 'Sync with Apple Health & WHOOP',
-            onTap: () => context.pushNamed('connections'),
-          ),
-          const SizedBox(height: 24),
-
-
-          // Notifications Section
-          const _SectionHeader(title: 'Notifications'),
-          const SizedBox(height: 12),
-          _SettingsSwitchCard(
-            icon: LucideIcons.bell,
-            title: 'Push Notifications',
-            subtitle: 'Real-time health alerts and reminders',
-            value: true, 
-            onChanged: (value) async {
-              if (value) {
-                final granted = await NotificationService().requestPermissions();
-                if (granted) {
-                  await NotificationService().initialize();
-                  await NotificationService().syncTokenToSupabase();
-                }
-              }
-            },
-          ),
-
-          const SizedBox(height: 24),
-
-          // Dashboard Customization Section
-          const _SectionHeader(title: 'Dashboard Customization'),
-          const SizedBox(height: 12),
-          Consumer(
-            builder: (context, ref, _) {
-              final moduleOrder = ref.watch(moduleOrderProvider);
-              return AppCard(
-                padding: const EdgeInsets.all(0),
-                child: Column(
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.all(16.0),
-                      child: Row(
-                        children: [
-                          Icon(LucideIcons.layoutDashboard, color: BrandColors.slate400, size: 20),
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Intelligence Modules Order', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16)),
-                                SizedBox(height: 4),
-                                Text('Drag to reorder dashboard cards', style: TextStyle(color: BrandColors.slate500, fontSize: 12)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 1, color: BrandColors.slate800),
-                    ReorderableListView(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      onReorder: (oldIndex, newIndex) {
-                        ref.read(moduleOrderProvider.notifier).reorder(oldIndex, newIndex);
-                      },
-                      children: [
-                        for (int i = 0; i < moduleOrder.length; i++)
-                          ListTile(
-                            key: ValueKey(moduleOrder[i].name),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                            leading: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: context.nc.scaffoldBg,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text('${i + 1}', style: const TextStyle(color: BrandColors.slate400, fontWeight: FontWeight.bold)),
-                            ),
-                            title: Text(moduleOrder[i].displayName, style: const TextStyle(color: Colors.white, fontSize: 14)),
-                            trailing: const Icon(LucideIcons.gripVertical, color: BrandColors.slate500),
-                          ),
-                      ],
-                    ),
-                  ],
+            ]),
+            const SizedBox(height: 24),
+            const ZyndioSectionLabel('Privacy and sharing'),
+            _Group(rows: [
+              _Row(
+                icon: LucideIcons.share2,
+                title: 'Partner outcomes sharing',
+                subtitle: 'Optional. Change your choice at any time.',
+                onTap: () => context.push('/settings/partner_outcomes'),
+              ),
+              _Row(
+                icon: LucideIcons.fileSignature,
+                title: 'Telehealth consent',
+                subtitle: 'Informed consent for care',
+                onTap: () => context.push('/settings/consent'),
+              ),
+              _Row(
+                icon: LucideIcons.lock,
+                title: 'Privacy Notice',
+                onTap: () => context.push('/settings/privacy'),
+              ),
+              _Row(
+                icon: LucideIcons.fileText,
+                title: 'Terms of Service',
+                onTap: () => context.push('/settings/terms'),
+              ),
+            ]),
+            const SizedBox(height: 24),
+            const ZyndioSectionLabel('Notifications'),
+            _Group(rows: [
+              _Row(
+                icon: LucideIcons.inbox,
+                title: 'Notification inbox',
+                onTap: () => context.push('/notifications'),
+              ),
+              _Row(
+                icon: LucideIcons.bellRing,
+                title: 'Allow notifications',
+                subtitle: 'Reminders for your scans and labs. No health details are shown.',
+                onTap: _allowNotifications,
+              ),
+            ]),
+            const SizedBox(height: 24),
+            if (extras) ...[
+              const _ExtrasToolsSection(),
+              const SizedBox(height: 24),
+            ],
+            const MoreFromZyndioSection(),
+            const ZyndioSectionLabel('Help'),
+            _Group(rows: [
+              _Row(
+                icon: LucideIcons.lifeBuoy,
+                title: 'Help centre',
+                subtitle: 'Answers to common questions',
+                onTap: () => context.push('/settings/help'),
+              ),
+              _Row(
+                icon: LucideIcons.mail,
+                title: 'Contact support',
+                subtitle: 'For app questions. Clinical questions go to your care team.',
+                onTap: () => _sendEmail('support@zyndio.example', 'Support request'),
+              ),
+              _Row(
+                icon: LucideIcons.scale,
+                title: 'Open source licences',
+                onTap: () => showLicensePage(
+                  context: context,
+                  applicationName: 'Zyndio',
+                  applicationLegalese: '© 2026 Zyndio. All rights reserved.',
+                  useRootNavigator: true,
                 ),
-              );
-            },
-          ),
-          
-          const SizedBox(height: 24),
-
-          // Appearance Section
-          const _SectionHeader(title: 'Appearance'),
-          const SizedBox(height: 12),
-          /* Hiding Dark Mode toggle per user request - App is now Dark Mode only
-          Consumer(
-            builder: (context, ref, _) {
-              final isDark = ref.watch(darkModeProvider);
-              return _SettingsSwitchCard(
-                icon: LucideIcons.moon,
-                title: 'Dark Mode',
-                subtitle: 'Premium intelligence dark theme',
-                value: isDark,
-                onChanged: (value) => ref.read(darkModeProvider.notifier).toggleDarkMode(),
-              );
-            },
-          ),
-          */
-            /* Hiding Immersive Background toggle per user request
-            Consumer(
-            builder: (context, ref, _) {
-              final isImmersive = ref.watch(themeProvider);
-              return _SettingsSwitchCard(
-                icon: LucideIcons.image,
-                title: 'Immersive Background',
-                subtitle: 'Use dynamic background image',
-                value: isImmersive,
-                onChanged: (value) => ref.read(themeProvider.notifier).toggleTheme(),
-              );
-            },
-          ),
-          */
-          /* Hiding per user request
-          Consumer(
-            builder: (context, ref, _) {
-              final isSwipeTimeline = ref.watch(timelineViewProvider);
-              return _SettingsSwitchCard(
-                icon: LucideIcons.layers,
-                title: 'Card Stack Timeline',
-                subtitle: 'Swipeable card experience',
-                value: isSwipeTimeline,
-                onChanged: (value) => ref.read(timelineViewProvider.notifier).toggleView(),
-              );
-            },
-          ),
-          */
-          
-
-          const SizedBox(height: 16),
-
-          // App Icon Selector
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-            child: Text("APP ICON", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: BrandColors.slate500, letterSpacing: 1)),
-          ),
-          Consumer(
-            builder: (context, ref, _) {
-              ref.watch(purchaseProvider);
-
-              return FutureBuilder<String>(
-                future: BrandingService().getActiveIconName(),
-                builder: (context, snapshot) {
-                  final activeIcon = snapshot.data ?? 'Default';
-                  
-                  return Column(
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _AppIconCard(
-                              title: 'Default',
-                              iconAsset: 'assets/icons/app_icon.png',
-                              isSelected: activeIcon == 'Default',
-                              onTap: () => BrandingService().updateAppIcon(false, persist: true).then((_) {
-                                if (context.mounted) setState(() {});
-                              }),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Stack(
-                              children: [
-                                _AppIconCard(
-                                  title: 'N PLUS',
-                                  iconAsset: 'assets/icons/plus_logo.png',
-                                  isSelected: activeIcon == 'PremiumBrand',
-                                  isLocked: false, // Unlocked for testing
-                                  onTap: () {
-                                    BrandingService().updateAppIcon(true, persist: true).then((_) {
-                                      if (context.mounted) setState(() {});
-                                    });
-                                  },
-                                ),
-                                // Lock removed for testing
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      // Premium membership requirements temporarily removed for verification
-                    ],
-                  );
-                },
-              );
-            },
-          ),
-          
-          const SizedBox(height: 16),
-          
-          /* Hiding Intelligence Theme selector per user request
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-            child: Text("INTELLIGENCE THEME", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: BrandColors.slate500, letterSpacing: 1)),
-          ),
-          Consumer(
-             builder: (context, ref, _) {
-                final aiTheme = ref.watch(aiThemeProvider);
-                return Row(
-                  children: [
-                    Expanded(
-                      child: _ThemeOptionCard(
-                        title: 'Zyndio Blue',
-                        color: const Color(0xFF3B82F6),
-                        isSelected: aiTheme == AIThemeMode.classic,
-                        onTap: () => ref.read(aiThemeProvider.notifier).toggleTheme(AIThemeMode.classic),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _ThemeOptionCard(
-                        title: 'Radiance',
-                        gradient: const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFA855F7), Color(0xFF3B82F6)]),
-                        isSelected: aiTheme == AIThemeMode.siri,
-                        onTap: () => ref.read(aiThemeProvider.notifier).toggleTheme(AIThemeMode.siri),
-                      ),
-                    ),
-                  ],
-                );
-             }
-          ),
-          */
-          const SizedBox(height: 24),
-
-          // Support Section
-          const _SectionHeader(title: 'Support'),
-          const SizedBox(height: 12),
-          _SettingsCard(
-            icon: LucideIcons.helpCircle,
-            title: 'Help Center',
-            subtitle: 'FAQs and support',
-            onTap: () => context.push('/settings/help'),
-          ),
-          _SettingsCard(
-            icon: LucideIcons.helpCircle,
-            title: 'Review Onboarding',
-            subtitle: 'See the new app introduction',
-            onTap: () {
-              showGeneralDialog(
-                context: context,
-                barrierDismissible: false,
-                barrierColor: Colors.black.withOpacity(0.5),
-                transitionDuration: const Duration(milliseconds: 400),
-                pageBuilder: (context, anim1, anim2) => const OnboardingOverlay(),
-              );
-            },
-          ),
-          _SettingsCard(
-            icon: LucideIcons.mail,
-            title: 'Contact Us',
-            subtitle: 'Get in touch with our team',
-            onTap: () => _sendEmail('support@zyndio.example', 'Support Request'),
-          ),
-           const SizedBox(height: 24),
-
-          // Legal Section
-          const _SectionHeader(title: 'Legal'),
-          const SizedBox(height: 12),
-          _SettingsCard(
-            icon: LucideIcons.fileText,
-            title: 'Terms of Service',
-            subtitle: 'Read our terms and conditions',
-             onTap: () => context.push('/settings/terms'),
-          ),
-          _SettingsCard(
-            icon: LucideIcons.lock,
-            title: 'Privacy Policy',
-            subtitle: 'How we handle your data',
-             onTap: () => context.push('/settings/privacy'),
-          ),
-          _SettingsCard(
-            icon: LucideIcons.rotateCcw,
-            title: 'Refund Policy',
-            subtitle: 'Cancellations and refunds',
-             onTap: () => context.push('/settings/refund'),
-          ),
-          _SettingsCard(
-            icon: LucideIcons.fileSignature,
-            title: 'Telehealth Consent',
-            subtitle: 'Informed consent for care',
-             onTap: () => context.push('/settings/consent'),
-          ),
-          _SettingsCard(
-            icon: LucideIcons.share2,
-            title: 'Partner outcomes',
-            subtitle: 'Optional sharing of clinician-reviewed milestones',
-            onTap: () => context.push('/settings/partner_outcomes'),
-          ),
-          _SettingsCard(
-            icon: LucideIcons.scale,
-            title: 'Open Source Licenses',
-            subtitle: 'Third-party software notices',
-             onTap: () => showLicensePage(
-               context: context,
-               applicationName: 'Zyndio',
-               applicationLegalese: '© 2026 Zyndio. All rights reserved.',
-               useRootNavigator: true,
-             ),
-          ),
-          const SizedBox(height: 24),
-
-          // Actions
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () async {
-                 // Sign out
-                await ref.read(authNotifierProvider.notifier).signOut();
-                if (context.mounted) {
-                  context.go('/login');
-                }
-              },
-              icon: Icon(LucideIcons.logOut, color: context.nc.textSecondary),
-              label: Text(
-                'Sign Out',
-                style: TextStyle(color: context.nc.textSecondary),
               ),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: context.nc.divider),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            ]),
+            const SizedBox(height: 28),
+            _SignOutButton(onTap: _signOut),
+            const SizedBox(height: 16),
+            _DeleteAccountCard(onTap: () => context.push('/delete-account')),
+            const SizedBox(height: 24),
+            Center(
+              child: Text(
+                _appVersion.isEmpty ? 'Zyndio' : _appVersion,
+                style: TextStyle(
+                  fontFamily: ZyndioType.family,
+                  fontSize: 12,
+                  color: c.textTertiary,
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          
-          // Delete Account (Apple 5.1.1(v) / Ava 12-delete-account settings row)
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Theme.of(context).extension<ZyndioColors>()?.bgSurface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Theme.of(context).extension<ZyndioColors>()?.borderSubtle ??
-                    BrandColors.slate200,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ListTile(
-                  title: Text(
-                    'Delete account',
-                    style: TextStyle(
-                      color: Theme.of(context)
-                              .extension<ZyndioColors>()
-                              ?.statusCritical ??
-                          BrandColors.red500,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  trailing: Icon(
-                    Icons.chevron_right,
-                    color: Theme.of(context)
-                            .extension<ZyndioColors>()
-                            ?.textTertiary ??
-                        BrandColors.slate400,
-                  ),
-                  onTap: () => context.push('/delete-account'),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-                  child: Text(
-                    'Permanently deletes your Zyndio app account and the data you added in the app.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Theme.of(context)
-                              .extension<ZyndioColors>()
-                              ?.textTertiary ??
-                          BrandColors.slate500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // App Version
-          Center(
-            child: Text(
-              _appVersion.isEmpty ? 'Zyndio' : _appVersion,
-              style: const TextStyle(
-                fontSize: 12,
-                color: BrandColors.slate400,
-              ),
-            ),
-          ),
-          const SizedBox(height: 40),
-        ],
-      ),
-          ),
+          ],
         ),
+      ),
     );
   }
 
-  // --- Handlers ---
-  
-  Future<void> _sendEmail(String email, String subject) async {
-      final Uri emailLaunchUri = Uri(
-        scheme: 'mailto',
-        path: email,
-        query: _encodeQueryParameters(<String, String>{
-          'subject': subject,
-        }),
-      );
-      if (await canLaunchUrl(emailLaunchUri)) {
-          await launchUrl(emailLaunchUri);
-      } else {
-           if (mounted) {
-             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open email client')));
-           }
-      }
-  }
-  
-  String? _encodeQueryParameters(Map<String, String> params) {
-    return params.entries
-        .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
-        .join('&');
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
+  Future<void> _signOut() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sign out?'),
+        content: const Text(
+            'Your records stay safe. Sign in again with your clinic invite or email.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Sign out')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    if (kDemoLoginEnabled) ref.read(demoSessionProvider.notifier).end();
+    try {
+      await ref.read(authNotifierProvider.notifier).signOut();
+    } catch (_) {
+      // The session is cleared locally either way; the sign-in screen follows.
+    }
+    if (mounted) context.go('/login');
   }
 
+  Future<void> _allowNotifications() async {
+    final messenger = ScaffoldMessenger.of(context);
+    bool granted = false;
+    try {
+      granted = await NotificationService().requestPermissions();
+      if (granted) {
+        await NotificationService().initialize();
+        // Scan-and-labs reminders can be scheduled now that they're allowed.
+        final journey = ref.read(programmeJourneyProvider);
+        final scheduler = ref.read(milestoneReminderSchedulerProvider);
+        if (journey != null && scheduler != null) {
+          await syncMilestoneReminders(journey, scheduler);
+        }
+        await NotificationService().syncTokenToSupabase();
+      }
+    } catch (_) {
+      granted = false;
+    }
+    messenger.showSnackBar(SnackBar(
+      content: Text(granted
+          ? 'Notifications are on.'
+          : "Notifications are off. You can turn them on for Zyndio in your phone's Settings."),
+    ));
+  }
+
+  Future<void> _changePhoto() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final image = await ImagePicker()
+        .pickImage(source: ImageSource.gallery, imageQuality: 80);
+    if (image == null) return;
+    final cropped = await ImageCropper().cropImage(
+      sourcePath: image.path,
+      maxWidth: 256,
+      maxHeight: 256,
+      compressFormat: ImageCompressFormat.jpg,
+      compressQuality: 70,
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Crop profile photo',
+          initAspectRatio: CropAspectRatioPreset.square,
+          lockAspectRatio: true,
+        ),
+        IOSUiSettings(
+          title: 'Crop profile photo',
+          aspectRatioLockEnabled: true,
+          resetAspectRatioEnabled: false,
+          rotateButtonsHidden: true,
+          rotateClockwiseButtonHidden: true,
+          aspectRatioPickerButtonHidden: true,
+          resetButtonHidden: true,
+        ),
+      ],
+    );
+    if (cropped == null) return;
+    try {
+      await ref
+          .read(patientProfileProvider.notifier)
+          .updateAvatar(XFile(cropped.path));
+      messenger.showSnackBar(
+          const SnackBar(content: Text('Profile photo updated')));
+    } catch (_) {
+      messenger.showSnackBar(const SnackBar(
+          content: Text("Couldn't update your photo. Please try again.")));
+    }
+  }
+
+  Future<void> _sendEmail(String email, String subject) async {
+    final uri = Uri(
+      scheme: 'mailto',
+      path: email,
+      query: 'subject=${Uri.encodeComponent(subject)}',
+    );
+    final messenger = ScaffoldMessenger.of(context);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      messenger.showSnackBar(
+          const SnackBar(content: Text('Could not open your email app')));
+    }
+  }
 }
 
-// ... Keep _SectionHeader and _SettingsCard classes ...
-class _SectionHeader extends StatelessWidget {
-  final String title;
+// ── Parts ───────────────────────────────────────────────────────────────────
 
-  const _SectionHeader({required this.title});
+class _Header extends StatelessWidget {
+  const _Header({required this.onBack});
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 8),
-      child: Text(
-        title.toUpperCase(),
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          color: context.nc.textTertiary,
-          letterSpacing: 1.5,
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    return Row(
+      children: [
+        Semantics(
+          button: true,
+          label: 'Back',
+          onTap: onBack,
+          child: ExcludeSemantics(
+            child: InkResponse(
+              onTap: onBack,
+              radius: 24,
+              child: Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: zyndioCard(context, radius: 22),
+                child: Icon(LucideIcons.chevronLeft,
+                    size: 22, color: c.textPrimary),
+              ),
+            ),
+          ),
         ),
-      ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Semantics(
+            header: true,
+            child: Text(
+              'Profile & settings',
+              style: TextStyle(
+                fontFamily: ZyndioType.family,
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.5,
+                color: c.textPrimary,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _ProfileCard extends StatelessWidget {
-  final String name;
-  final String email;
-  final String? avatarUrl;
-  final VoidCallback? onTap;
-  final VoidCallback? onAvatarTap;
+class _ProfileCard extends ConsumerWidget {
+  const _ProfileCard({required this.onEditPhoto});
+  final VoidCallback onEditPhoto;
 
-  const _ProfileCard({
-    required this.name,
-    required this.email,
-    this.avatarUrl,
-    this.onTap,
-    this.onAvatarTap,
-  });
-
-  ImageProvider? _getAvatarProvider() {
-    if (avatarUrl == null || avatarUrl!.isEmpty) return null;
-    if (avatarUrl!.startsWith('data:image')) {
+  ImageProvider? _photo(String? url) {
+    if (url == null || url.isEmpty) return null;
+    if (url.startsWith('data:image')) {
       try {
-        final base64String = avatarUrl!.split(',').last;
-        return MemoryImage(base64Decode(base64String));
-      } catch (e) {
-        debugPrint('Error decoding base64 avatar: $e');
+        return MemoryImage(base64Decode(url.split(',').last));
+      } catch (_) {
         return null;
       }
     }
-    return NetworkImage(avatarUrl!);
+    return NetworkImage(url);
   }
 
   @override
-  Widget build(BuildContext context) {
-    final avatarProvider = _getAvatarProvider();
-    
-    return AppCard(
-      onTap: onTap,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    final profile = ref.watch(patientProfileProvider).value;
+    final email = ref.watch(currentUserProvider)?.email;
+    final name = (profile?.name ?? '').trim();
+    final initials = zyndioInitials(name);
+    final photo = _photo(profile?.avatarUrl);
+    return Container(
       padding: const EdgeInsets.all(16),
-      borderRadius: BorderRadius.circular(24),
+      decoration: zyndioCard(context),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: onAvatarTap,
-            child: Stack(
-              children: [
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: context.nc.inputFill,
-                    shape: BoxShape.circle,
-                    image: avatarProvider != null
-                        ? DecorationImage(
-                            image: avatarProvider,
-                            fit: BoxFit.cover,
-                          )
-                        : null,
-                    border: Border.all(color: context.nc.cardSurface, width: 3),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 15,
-                        offset: const Offset(0, 5),
+          Semantics(
+            button: true,
+            label: 'Change profile photo',
+            onTap: onEditPhoto,
+            child: ExcludeSemantics(
+              child: GestureDetector(
+                onTap: onEditPhoto,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 68,
+                      height: 68,
+                      padding: const EdgeInsets.all(3),
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: ZyndioGradients.brand,
                       ),
-                    ],
-                  ),
-                  child: avatarProvider == null
-                      ? Center(
-                          child: Text(
-                            name.isNotEmpty ? name[0].toUpperCase() : 'U',
-                            style: const TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w800,
-                              color: BrandColors.slate500,
-                            ),
-                          ),
-                        )
-                      : null,
-                ),
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: context.nc.textPrimary,
-                      shape: BoxShape.circle,
+                      child: CircleAvatar(
+                        backgroundColor: c.bgSurface,
+                        backgroundImage: photo,
+                        child: photo != null
+                            ? null
+                            : initials.isEmpty
+                                ? Icon(LucideIcons.user,
+                                    size: 28, color: c.textPrimary)
+                                : Text(
+                                    initials,
+                                    style: TextStyle(
+                                      fontFamily: ZyndioType.family,
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w700,
+                                      color: c.textPrimary,
+                                    ),
+                                  ),
+                      ),
                     ),
-                    child: Icon(LucideIcons.camera, size: 12, color: context.nc.scaffoldBg),
-                  ),
+                    Positioned(
+                      right: -2,
+                      bottom: -2,
+                      child: Container(
+                        width: 26,
+                        height: 26,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: c.bgSurface,
+                          border: Border.all(color: c.borderSubtle),
+                        ),
+                        child: Icon(LucideIcons.camera,
+                            size: 14, color: c.textPrimary),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
-          const SizedBox(width: 20),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  name,
+                  name.isEmpty ? 'Your profile' : name,
                   style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: context.nc.textPrimary,
-                    letterSpacing: -0.5,
+                    fontFamily: ZyndioType.family,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.3,
+                    color: c.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  email,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: BrandColors.slate500,
-                    fontWeight: FontWeight.w500,
+                if (email != null && email.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    email,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: ZyndioType.family,
+                      fontSize: 14,
+                      color: c.textSecondary,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                Semantics(
+                  button: true,
+                  label: 'Edit profile',
+                  onTap: () => context.push('/settings/edit_profile'),
+                  child: ExcludeSemantics(
+                    child: GestureDetector(
+                      onTap: () => context.push('/settings/edit_profile'),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: context.z25.tileBg,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          'Edit profile',
+                          style: TextStyle(
+                            fontFamily: ZyndioType.family,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: c.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: context.nc.inputFill,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              LucideIcons.chevronRight,
-              size: 20,
-              color: BrandColors.slate400,
-            ),
-          ),
         ],
       ),
+    );
+  }
+}
+
+/// A grouped card of rows separated by hairlines (one card per section).
+class _Group extends StatelessWidget {
+  const _Group({required this.rows});
+  final List<_Row> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    return Container(
+      decoration: zyndioCard(context, radius: 22),
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        color: Colors.transparent,
+        child: Column(
+          children: [
+            for (var i = 0; i < rows.length; i++) ...[
+              if (i > 0)
+                Divider(
+                    height: 1,
+                    thickness: 1,
+                    indent: 66,
+                    color: c.borderSubtle),
+              rows[i],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Row extends StatelessWidget {
+  const _Row({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    required this.onTap,
+    this.destructive = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback onTap;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    final fg = destructive ? c.statusCritical : c.textPrimary;
+    return Semantics(
+      button: true,
+      label: [title, if (subtitle != null) subtitle].join(', '),
+      onTap: onTap,
+      child: ExcludeSemantics(
+        child: InkWell(
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 60),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: context.z25.tileBg,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, size: 18, color: fg),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontFamily: ZyndioType.family,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: fg,
+                          ),
+                        ),
+                        if (subtitle != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitle!,
+                            style: TextStyle(
+                              fontFamily: ZyndioType.family,
+                              fontSize: 13,
+                              height: 18 / 13,
+                              color: c.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(LucideIcons.chevronRight,
+                      size: 18, color: c.textTertiary),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SignOutButton extends StatelessWidget {
+  const _SignOutButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: onTap,
+        icon: Icon(LucideIcons.logOut, size: 18, color: c.textPrimary),
+        label: Text(
+          'Sign out',
+          style: TextStyle(
+            fontFamily: ZyndioType.family,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: c.textPrimary,
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(0, 52),
+          side: BorderSide(color: c.borderStrong),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(999)),
+        ),
+      ),
+    );
+  }
+}
+
+/// APP-11 / Apple 5.1.1(v): the deletion request, with the legal-records
+/// wording on the next screen.
+class _DeleteAccountCard extends StatelessWidget {
+  const _DeleteAccountCard({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    return Container(
+      decoration: zyndioCard(context, radius: 22),
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        color: Colors.transparent,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _Row(
+              icon: LucideIcons.trash2,
+              title: 'Delete account',
+              destructive: true,
+              onTap: onTap,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+              child: Text(
+                'Permanently deletes your Zyndio app account and the data you added in the app.',
+                style: TextStyle(
+                  fontFamily: ZyndioType.family,
+                  fontSize: 13,
+                  height: 18 / 13,
+                  color: c.textTertiary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Membership (in-app subscription), only with the patient-extras flag.
+class _MembershipRow extends ConsumerWidget {
+  const _MembershipRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isPlus = ref.watch(purchaseProvider).isPlus;
+    return _Group(rows: [
+      _Row(
+        icon: LucideIcons.sparkles,
+        title: isPlus ? 'Manage membership' : 'Membership',
+        subtitle: isPlus ? 'Your plan and billing' : 'See what membership adds',
+        onTap: () => isPlus
+            ? PaywallScreen.showCustomerCenter()
+            : PaywallScreen.show(context),
+      ),
+    ]);
+  }
+}
+
+/// Wellness tools outside the clinical programme, only with the
+/// patient-extras flag.
+class _ExtrasToolsSection extends StatelessWidget {
+  const _ExtrasToolsSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const ZyndioSectionLabel('Wellness tools'),
+        _Group(rows: [
+          _Row(
+            icon: LucideIcons.target,
+            title: 'Activity goals',
+            onTap: () => context.push('/settings/activity_goals'),
+          ),
+          _Row(
+            icon: LucideIcons.utensilsCrossed,
+            title: 'Nutrition goals',
+            onTap: () => context.push('/settings/nutrition_goals'),
+          ),
+          _Row(
+            icon: LucideIcons.dna,
+            title: 'Longevity profile',
+            onTap: () => context.pushNamed('questionnaire'),
+          ),
+          _Row(
+            icon: LucideIcons.history,
+            title: 'Timeline',
+            onTap: () => context.push('/settings/timeline'),
+          ),
+          _Row(
+            icon: LucideIcons.brain,
+            title: 'AI memories',
+            onTap: () => context.push('/settings/memories'),
+          ),
+          _Row(
+            icon: LucideIcons.trophy,
+            title: 'Leagues and rewards',
+            onTap: () => context.push('/settings/leagues'),
+          ),
+          _Row(
+            icon: LucideIcons.chartBar,
+            title: 'Meditation stats',
+            onTap: () => context.push('/settings/meditation_stats'),
+          ),
+        ]),
+      ],
     );
   }
 }
@@ -970,530 +790,34 @@ class MoreFromZyndioSection extends ConsumerWidget {
     final isFemale =
         ref.watch(patientProfileProvider).value?.questionnaireData?['gender'] ==
             'Female';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const _SectionHeader(title: 'More from Zyndio'),
-        const SizedBox(height: 12),
-        _SettingsCard(
-          icon: LucideIcons.shoppingBag,
-          title: 'Shop',
-          subtitle: 'Supplements and products from Zyndio',
-          onTap: () => context.push('/shop'),
-        ),
-        _SettingsCard(
-          icon: LucideIcons.flower,
-          title: 'Meditate',
-          subtitle: 'Guided meditations and breathing',
-          onTap: () => context.push('/meditate'),
-        ),
-        if (isFemale)
-          _SettingsCard(
-            icon: LucideIcons.heartPulse,
-            title: 'Cycle Tracking',
-            subtitle: 'Track your menstrual cycle',
-            onTap: () => context.push('/cycle'),
-          ),
-        const SizedBox(height: 24),
-      ],
-    );
-  }
-}
-
-class _SettingsCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-  final bool isProminent;
-
-  const _SettingsCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-    this.isProminent = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Container(
-        decoration: BoxDecoration(
-          color: context.nc.cardSurface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: context.nc.cardBorder, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: context.nc.shadowColor,
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const ZyndioSectionLabel('More from Zyndio'),
+          _Group(rows: [
+            _Row(
+              icon: LucideIcons.shoppingBag,
+              title: 'Shop',
+              subtitle: 'Supplements and products from Zyndio',
+              onTap: () => context.push('/shop'),
             ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: context.nc.inputFill,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(icon, size: 20, color: context.nc.iconDefault),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: context.nc.textPrimary,
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          subtitle,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: context.nc.textTertiary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(
-                    LucideIcons.chevronRight,
-                    size: 18,
-                    color: context.nc.textTertiary,
-                  ),
-                ],
+            _Row(
+              icon: LucideIcons.flower,
+              title: 'Meditate',
+              subtitle: 'Guided meditations and breathing',
+              onTap: () => context.push('/meditate'),
+            ),
+            if (isFemale)
+              _Row(
+                icon: LucideIcons.heartPulse,
+                title: 'Cycle Tracking',
+                subtitle: 'Track your menstrual cycle',
+                onTap: () => context.push('/cycle'),
               ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SettingsSwitchCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  const _SettingsSwitchCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.value,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: AppCard(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), // Slightly less vertical padding
-        borderRadius: BorderRadius.circular(12),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: context.nc.inputFill,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, size: 18, color: context.nc.iconDefault),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: context.nc.textPrimary,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: context.nc.textTertiary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Switch(
-              value: value, 
-              onChanged: onChanged,
-              activeThumbColor: BrandColors.emerald500,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MembershipCard extends StatelessWidget {
-  final bool isPlus;
-  final VoidCallback onUpgrade;
-  final VoidCallback onManage;
-
-  const _MembershipCard({
-    required this.isPlus,
-    required this.onUpgrade,
-    required this.onManage,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (!isPlus) {
-      return GestureDetector(
-        onTap: onUpgrade,
-        child: Container(
-          width: double.infinity,
-          height: 84,
-          decoration: BoxDecoration(
-            // "Super Zyndio" Cosmic Gradient (matching SuperGrok)
-            gradient: const LinearGradient(
-              colors: [
-                Color(0xFF1D4ED8), // Vivid Blue
-                Color(0xFF1E3A8A), // Deep Indigo
-                Color(0xFF1E1B4B), // Midnight Blue
-              ],
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-            ),
-            borderRadius: BorderRadius.circular(40),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.15),
-              width: 1.0,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF1D4ED8).withOpacity(0.2),
-                blurRadius: 15,
-                spreadRadius: 2,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(40),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Starry/Glow background effect
-                Positioned(
-                  left: 10,
-                  top: -10,
-                  child: Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          const Color(0xFF60A5FA).withOpacity(0.2),
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      // Dynamic Branding Icon (Autoswitches for Plus/Pro/Ultimate)
-                      const DynamicBrandingIcon(
-                        size: 48,
-                        showGlow: true,
-                      ),
-                      const SizedBox(width: 10),
-                      
-                      // Text Container
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Zyndio Plus',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                letterSpacing: -0.2,
-                              ),
-                            ),
-                            Text(
-                              'Smart. Personal. Pro.',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.white.withOpacity(0.7),
-                                letterSpacing: 0.1,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      
-                      const SizedBox(width: 12),
-                      
-                      // Upgrade Pill Button
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1D4ED8), // Vivid Grok Blue
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.2),
-                            width: 1.0,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 10,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: const Text(
-                          'Upgrade',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    // --- Premium "Plus" Card ---
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-        child: Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: const Color(0xFF0F172A).withOpacity(0.8), // Refined opacity
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.08),
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.3),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Stack(
-            children: [
-              // Subtle Inner Aurora Glow (Compact & Dimmed)
-              Positioned(
-                top: -20,
-                right: -10,
-                child: Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        const Color(0xFF3B82F6).withOpacity(0.06), // Reduced from 0.1
-                        Colors.transparent,
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        // Compact Brand Icon
-                        const DynamicBrandingIcon(
-                          size: 48,
-                          showGlow: true,
-                        ),
-                        const SizedBox(width: 10), // Reduced from 14
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'MEMBERSHIP STATUS',
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  letterSpacing: 2.0,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white.withOpacity(0.3), // Slightly dimmer
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'ZYNDIO PLUS',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFFE2E8F0), // Solid light slate for less glow
-                                  letterSpacing: -0.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    // Compact Manage Button
-                    GestureDetector(
-                      onTap: onManage,
-                      child: Container(
-                        width: double.infinity,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.white.withOpacity(0.08),
-                              Colors.white.withOpacity(0.04),
-                            ],
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.1),
-                            width: 1,
-                          ),
-                        ),
-                        child: const Center(
-                          child: Text(
-                            'Manage Subscription',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-
-class _AppIconCard extends StatelessWidget {
-  final String title;
-  final String iconAsset;
-  final bool isSelected;
-  final bool isLocked;
-  final VoidCallback onTap;
-
-  const _AppIconCard({
-    required this.title,
-    required this.iconAsset,
-    required this.isSelected,
-    this.isLocked = false,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: context.nc.cardSurface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? BrandColors.blue500 : context.nc.divider,
-            width: 2,
-          ),
-          boxShadow: isSelected ? [
-            BoxShadow(
-              color: BrandColors.blue500.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            )
-          ] : null,
-        ),
-        child: Column(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Opacity(
-                opacity: 1.0, // Always opaque for testing
-                child: Image.asset(
-                  iconAsset,
-                  width: 48,
-                  height: 48,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: isSelected ? BrandColors.blue600 : context.nc.textSecondary,
-              ),
-            ),
-          ],
-        ),
+          ]),
+        ],
       ),
     );
   }

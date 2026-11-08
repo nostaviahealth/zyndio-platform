@@ -16,7 +16,7 @@ import '../protocol/protocol_screen.dart';
 ///
 /// Therapies come from `patient_treatments` (no dose by design); the plan,
 /// supplements and goals from the care-team plan; upcoming tests from
-/// [upcomingTestsProvider] (no source yet, so real builds say so). Tapping the
+/// [upcomingTestsProvider] (the next programme scan and labs). Tapping the
 /// plan opens the full plan view.
 class MyPlanScreen extends ConsumerStatefulWidget {
   const MyPlanScreen({super.key});
@@ -169,7 +169,7 @@ class _MyPlanScreenState extends ConsumerState<MyPlanScreen> {
         ZyndioStateCard(
           icon: LucideIcons.testTube,
           title: 'No tests scheduled',
-          body: 'Your next lab panel or scan will appear here once your care team schedules it.',
+          body: 'Your next scan and lab panel will appear here as your programme goes on.',
         ),
       ];
     }

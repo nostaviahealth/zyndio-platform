@@ -217,6 +217,22 @@ List<StoredBodyScan> demoBodyScans() => const [
           (name: 'leg_lean_difference_pct', value: '1.2'),
         ],
       ),
+      // Fictional Day 90 follow-up, so the programme track shows each step.
+      StoredBodyScan(
+        scanDate: '2026-07-09',
+        deviceVendor: 'Demo DEXA',
+        deviceModel: 'Model D',
+        softwareVersion: '1.0',
+        measures: [
+          (name: 'health_score', value: '80'),
+          (name: 'total_mass_lb', value: '180.3'),
+          (name: 'body_fat_pct', value: '25.1'),
+          (name: 'lean_mass_lb', value: '129.4'),
+          (name: 'fat_mass_lb', value: '45.3'),
+          (name: 'vat_area_cm2', value: '98'),
+          (name: 'visceral_fat_mass_lb', value: '1.6'),
+        ],
+      ),
       // Fictional baseline six months earlier, for the before/after cards.
       StoredBodyScan(
         scanDate: '2026-04-08',
@@ -280,9 +296,6 @@ List<Override> demoLoginOverrides() => [
             PatientTherapy(name: 'GLP-1 Therapy · Tirzepatide', startedOn: DateTime(2026, 8, 5), status: 'active'),
             PatientTherapy(name: 'NAD+ Therapy', startedOn: DateTime(2026, 8, 12), status: 'active'),
           ]),
-      upcomingTestsProvider.overrideWithValue([
-        UpcomingTest(title: 'Quarterly Lab Panel', detail: 'Metabolic & hormonal biomarkers', due: DateTime(2027, 1, 15)),
-      ]),
       longevityScoreProvider.overrideWithValue(
         const LongevityScore(score: 84, trendPercent: 12),
       ),

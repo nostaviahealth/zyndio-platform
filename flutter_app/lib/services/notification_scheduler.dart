@@ -4,6 +4,7 @@ import '../models/daily_rhythm.dart';
 import '../models/notification_model.dart';
 import '../data/notification_repository.dart';
 import '../providers/alert_provider.dart';
+import 'milestone_reminders.dart';
 import 'notification_service.dart';
 import 'user_habit_service.dart';
 import 'package:flutter/material.dart';
@@ -103,8 +104,23 @@ class NotificationScheduler {
   // CORE SCHEDULING ENGINE
   // ═══════════════════════════════════════════════════════
 
+  Future<void> _cancelAllExceptMilestoneReminders() async {
+    try {
+      final pending = await _notificationService.pendingNotificationRequests();
+      for (final p in pending) {
+        if (!isMilestoneReminderId(p.id)) {
+          await _notificationService.cancel(p.id);
+        }
+      }
+    } catch (_) {
+      await _notificationService.cancelAllScheduled();
+    }
+  }
+
   Future<void> scheduleForRhythm(DailyRhythm rhythm) async {
-    await _notificationService.cancelAllScheduled();
+    // Clear the day's rhythm reminders but keep the programme's scan-and-labs
+    // milestone reminders (APP-14), which are planned weeks ahead.
+    await _cancelAllExceptMilestoneReminders();
     final now = DateTime.now();
     
     // ── ADAPTIVE EVOLUTION ENGINE: Fetch Habit Profile ──

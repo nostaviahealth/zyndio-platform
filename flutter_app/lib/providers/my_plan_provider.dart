@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/supabase_config.dart';
 import 'patient_provider.dart';
+import 'programme_journey_provider.dart';
 
 /// A therapy from `patient_treatments` (POR-07 treatment context). The table
 /// deliberately has no dose column, so the app never shows one.
@@ -53,6 +54,28 @@ class UpcomingTest {
   final DateTime? due;
 }
 
-/// No scheduling source exists yet, so real builds show none (the Testing
-/// segment says so honestly). Demo builds override it.
-final upcomingTestsProvider = Provider<List<UpcomingTest>>((ref) => const []);
+/// The patient's next programme test, from their records: before the
+/// baseline scan, the baseline DEXASCAN; after it, the next Day 90 / 180 /
+/// 365 scan and lab panel with its date (APP-14). Empty while the records
+/// load, and once the first programme year is complete.
+final upcomingTestsProvider = Provider<List<UpcomingTest>>((ref) {
+  final journey = ref.watch(programmeJourneyProvider);
+  if (journey == null) return const [];
+  if (!journey.hasBaseline) {
+    return const [
+      UpcomingTest(
+        title: 'Baseline DEXASCAN',
+        detail: 'Your first body composition scan',
+      ),
+    ];
+  }
+  final next = journey.nextMilestone;
+  if (next == null) return const [];
+  return [
+    UpcomingTest(
+      title: '${next.label} DEXASCAN and lab panel',
+      detail: 'Follow-up body composition scan and labs',
+      due: next.target,
+    ),
+  ];
+});
