@@ -278,6 +278,7 @@ class _BiomarkersScreenState extends ConsumerState<BiomarkersScreen> {
     // such config field exists today, so it is omitted (no hard-coded partner).
     return ZyndioTabScaffold(
       title: 'Biomarkers',
+      subtitle: 'NAD+ and clinical lab panels.',
       onRefresh: () => ref.refresh(labReportsProvider.future),
       children: reports.when(
         loading: () => const [_BiomarkersLoading()],

@@ -4,6 +4,7 @@ import 'dart:ui' show SemanticsAction;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:zyndio_patient/providers/feature_flags_provider.dart';
@@ -279,7 +280,11 @@ void main() {
           ]);
       expect(find.text('Longevity Score'), findsOneWidget);
       expect(find.text('84'), findsOneWidget);
-      expect(find.text('↑ +12%'), findsOneWidget);
+      expect(find.text('+12%'), findsOneWidget);
+      expect(find.byIcon(LucideIcons.trendingUp), findsOneWidget);
+      // Client brief: the score is clearly labelled as an illustrative summary.
+      expect(find.text('Illustrative summary of your recent data. Not a diagnosis.'),
+          findsOneWidget);
       expect(find.text('Recovery'), findsOneWidget);
     });
   });

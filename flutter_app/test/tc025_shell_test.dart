@@ -102,8 +102,9 @@ Future<void> _pumpShell(
         labReportsProvider.overrideWith((ref) async => const []),
       ],
       child: MaterialApp.router(
-        theme:
-            b == Brightness.light ? BrandTheme.lightTheme : BrandTheme.darkTheme,
+        theme: b == Brightness.light
+            ? BrandTheme.lightTheme
+            : BrandTheme.darkTheme,
         routerConfig: _shellRouter(),
       ),
     ),
@@ -115,28 +116,34 @@ void main() {
   group('appointmentsRedirect (pure rules)', () {
     test('flag off: every appointments location lands on Today', () {
       for (final loc in ['/appointments', '/appointments/doctor/d1']) {
-        expect(appointmentsRedirect(loc, appointmentsEnabled: false), '/', reason: loc);
+        expect(appointmentsRedirect(loc, appointmentsEnabled: false), '/',
+            reason: loc);
       }
     });
     test('flag off: other locations are untouched', () {
       expect(appointmentsRedirect('/care', appointmentsEnabled: false), isNull);
-      expect(appointmentsRedirect('/appointmentsx', appointmentsEnabled: false), isNull);
+      expect(appointmentsRedirect('/appointmentsx', appointmentsEnabled: false),
+          isNull);
     });
     test('flag on: appointments stays reachable', () {
-      expect(appointmentsRedirect('/appointments', appointmentsEnabled: true), isNull);
+      expect(appointmentsRedirect('/appointments', appointmentsEnabled: true),
+          isNull);
     });
   });
 
   group('tc025Redirect (pure rules)', () {
     test('legacy tab paths map to their new homes', () {
-      expect(tc025Redirect('/protocol', patientExtrasEnabled: false), '/my-plan');
-      expect(tc025Redirect('/health_data', patientExtrasEnabled: false), '/biomarkers');
+      expect(
+          tc025Redirect('/protocol', patientExtrasEnabled: false), '/my-plan');
+      expect(tc025Redirect('/health_data', patientExtrasEnabled: false),
+          '/biomarkers');
       expect(tc025Redirect('/wearables', patientExtrasEnabled: false), '/');
     });
 
     test('extras deep links land on Today when the flag is off', () {
       expect(tc025Redirect('/shop', patientExtrasEnabled: false), '/');
-      expect(tc025Redirect('/shop/product/1', patientExtrasEnabled: false), '/');
+      expect(
+          tc025Redirect('/shop/product/1', patientExtrasEnabled: false), '/');
       expect(tc025Redirect('/meditate', patientExtrasEnabled: false), '/');
       expect(tc025Redirect('/cycle', patientExtrasEnabled: false), '/');
     });
@@ -150,7 +157,8 @@ void main() {
     test('unrelated paths are left alone', () {
       expect(tc025Redirect('/', patientExtrasEnabled: false), isNull);
       expect(tc025Redirect('/biomarkers', patientExtrasEnabled: false), isNull);
-      expect(tc025Redirect('/health_data/upload', patientExtrasEnabled: false), isNull);
+      expect(tc025Redirect('/health_data/upload', patientExtrasEnabled: false),
+          isNull);
     });
   });
 
@@ -186,8 +194,7 @@ void main() {
               .isSelected,
           Tristate.isFalse);
       // Tab target height meets the 44pt minimum.
-      expect(
-          tester.getSize(find.bySemanticsLabel('Today, tab 1 of 5')).height,
+      expect(tester.getSize(find.bySemanticsLabel('Today, tab 1 of 5')).height,
           greaterThanOrEqualTo(44));
       handle.dispose();
     });
@@ -210,7 +217,37 @@ void main() {
       handle.dispose();
     });
 
-    testWidgets('store build hides every Appointments entry point', (tester) async {
+    testWidgets('switching tabs at phone width never throws a layout error',
+        (tester) async {
+      // The pill animates between tabs; at phone width a mid-animation
+      // overflow or constraint assertion used to flash an error box.
+      tester.view.physicalSize = const Size(402 * 3, 874 * 3);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      final handle = tester.ensureSemantics();
+      await _pumpShell(tester);
+      for (final label in [
+        'Progress, tab 2 of 5',
+        'Biomarkers, tab 3 of 5',
+        'My Plan, tab 4 of 5',
+        'Care, tab 5 of 5',
+        'Today, tab 1 of 5',
+        'Biomarkers, tab 3 of 5',
+      ]) {
+        await tester.tap(find.bySemanticsLabel(label));
+        // Step through the animation frame by frame.
+        for (var i = 0; i < 20; i++) {
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        await tester.pumpAndSettle();
+        final err = tester.takeException();
+        expect(err, isNull, reason: "after tapping $label");
+      }
+      handle.dispose();
+    });
+
+    testWidgets('store build hides every Appointments entry point',
+        (tester) async {
       await _pumpShell(tester);
       await tester.tap(find.bySemanticsLabel('Progress, tab 2 of 5'));
       await tester.pumpAndSettle();
@@ -221,8 +258,10 @@ void main() {
       expect(find.text('Appointments'), findsNothing);
     });
 
-    testWidgets('with appointmentsEnabled the entry points come back', (tester) async {
-      await _pumpShell(tester, flags: const FeatureFlags(appointmentsEnabled: true));
+    testWidgets('with appointmentsEnabled the entry points come back',
+        (tester) async {
+      await _pumpShell(tester,
+          flags: const FeatureFlags(appointmentsEnabled: true));
       await tester.tap(find.bySemanticsLabel('Progress, tab 2 of 5'));
       await tester.pumpAndSettle();
       expect(find.text('Book my baseline scan'), findsOneWidget);
@@ -231,7 +270,8 @@ void main() {
       expect(find.text('Appointments'), findsOneWidget);
     });
 
-    testWidgets('the signed-in shell asks for notifications once, not again on rebuild',
+    testWidgets(
+        'the signed-in shell asks for notifications once, not again on rebuild',
         (tester) async {
       final fake = _FakeRequester();
       await _pumpShell(tester, requester: fake);
@@ -280,7 +320,8 @@ void main() {
         tester.semantics.tap(find.semantics.byLabel(e.key));
         await tester.pumpAndSettle();
         expect(selected(e.key), isTrue, reason: '${e.key} is now selected');
-        expect(e.value.hitTestable(), findsOneWidget, reason: '${e.key} screen shown');
+        expect(e.value.hitTestable(), findsOneWidget,
+            reason: '${e.key} screen shown');
       }
       handle.dispose();
     });

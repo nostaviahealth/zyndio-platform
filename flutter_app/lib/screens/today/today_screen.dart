@@ -1,7 +1,6 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -96,17 +95,21 @@ class TodayScreen extends ConsumerWidget {
     final showRing = flags.longevityScoreEnabled &&
         longevity != null &&
         state != TodayState.loading;
+    final score = showRing ? longevity : null;
     return ZyndioTabScaffold(
       title: greeting,
-      hero: _TodayHero(
-        greeting: greeting,
-        date: DateFormat('EEEE, d MMMM').format(DateTime.now()),
-        // Z2: ring only with BOTH the flag AND a real score (none in prod yet).
-        score: showRing ? longevity : null,
-      ),
+      subtitle: "Here's your health overview for today.",
+      eyebrow: DateFormat('EEEE, d MMMM').format(DateTime.now()),
       onRefresh: () => ref.read(wearableSyncProvider.notifier).sync(),
-      children:
-          _bodyFor(context, ref, state, sync.value, flags.recoveryScoreEnabled),
+      children: [
+        // Z2: score card only with BOTH the flag AND a real score.
+        if (score != null) ...[
+          _ScoreCard(score: score),
+          const SizedBox(height: 20),
+        ],
+        ..._bodyFor(
+            context, ref, state, sync.value, flags.recoveryScoreEnabled),
+      ],
     );
   }
 
@@ -194,6 +197,7 @@ class TodayScreen extends ConsumerWidget {
     // Q5 (Ava, 3 Nov): one Z11 row below the Insight CTA, outside the metric grid.
     return ZyndioListRow(
       icon: LucideIcons.utensils,
+      tint: ZyndioTint.amber,
       title: 'Food log',
       subtitle: 'Log a meal by describing it, scanning it or speaking.',
       onTap: () => context.pushNamed('lens_history'),
@@ -368,7 +372,12 @@ class _MetricTile extends StatelessWidget {
       child: ExcludeSemantics(
         child: Container(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
-          decoration: zyndioCard(context, radius: 22),
+          decoration: Theme.of(context).brightness == Brightness.dark
+              ? zyndioCard(context, radius: 22)
+              : BoxDecoration(
+                  color: tint.pastel,
+                  borderRadius: BorderRadius.circular(22),
+                ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -442,222 +451,156 @@ class _MetricTile extends StatelessWidget {
   }
 }
 
-/// Today's signature moment: a full-bleed indigo-to-blue gradient with soft
-/// light orbs, the greeting in white, and (only with the flag AND a real
-/// score, TC-025 Z2) the Longevity ring glowing inside it.
-class _TodayHero extends StatelessWidget {
-  const _TodayHero({required this.greeting, required this.date, this.score});
-
-  final String greeting;
-  final String date;
-  final LongevityScore? score;
+/// Longevity Score card (client mockup): the ring with the score, the
+/// quarter's trend beside it, and an explicit "illustrative summary" label
+/// (client brief). Built only with the flag AND a real score (TC-025 Z2).
+class _ScoreCard extends StatelessWidget {
+  const _ScoreCard({required this.score});
+  final LongevityScore score;
 
   @override
   Widget build(BuildContext context) {
-    final top = MediaQuery.paddingOf(context).top;
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    final z = context.z25;
     final s = score;
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      // White status-bar icons over the dark hero.
-      value: SystemUiOverlayStyle.light,
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(36)),
+    final trend = s.trendPercent;
+    return Semantics(
+      container: true,
+      label: [
+        'Longevity score ${s.score} out of 100',
+        if (trend != null)
+          'trending ${trend >= 0 ? 'up' : 'down'} ${trend.abs()} percent ${s.trendPeriod}',
+        'Illustrative summary, not a diagnosis',
+      ].join(', '),
+      child: ExcludeSemantics(
         child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF120D45),
-                Color(0xFF2A1C9A),
-                Color(0xFF3B47DD),
-                Color(0xFF2E6BEA)
-              ],
-              stops: [0.0, 0.38, 0.72, 1.0],
-            ),
-          ),
-          child: Stack(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+          decoration: zyndioCard(context, radius: 26),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Soft light orbs for depth.
-              Positioned(
-                top: -60,
-                right: -40,
-                child: _Orb(
-                    size: 220,
-                    color: const Color(0xFF8B6BFF).withValues(alpha: 0.45)),
-              ),
-              Positioned(
-                bottom: -80,
-                left: -60,
-                child: _Orb(
-                    size: 240,
-                    color: const Color(0xFF22D3EE).withValues(alpha: 0.22)),
-              ),
-              Padding(
-                padding: EdgeInsets.fromLTRB(20, top + 14, 20, 28),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                date.toUpperCase(),
-                                style: TextStyle(
-                                  fontFamily: ZyndioType.family,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 1.3,
-                                  color: Colors.white.withValues(alpha: 0.7),
-                                ),
+              Row(
+                children: [
+                  SizedBox(
+                    width: 138,
+                    height: 138,
+                    child: CustomPaint(
+                      painter: _RingPainter(
+                        fraction: s.score.clamp(0, 100) / 100,
+                        track: z.tileBg,
+                      ),
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '${s.score}',
+                              style: TextStyle(
+                                fontFamily: ZyndioType.family,
+                                fontSize: 44,
+                                height: 1.0,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -1.4,
+                                fontFeatures: ZyndioType.tabular,
+                                color: c.textPrimary,
                               ),
-                              const SizedBox(height: 8),
-                              Semantics(
-                                header: true,
-                                child: Text(
-                                  greeting,
-                                  style: const TextStyle(
-                                    fontFamily: ZyndioType.family,
-                                    fontSize: 30,
-                                    height: 36 / 30,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: -0.8,
-                                    color: Colors.white,
-                                  ),
-                                ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'of 100',
+                              style: TextStyle(
+                                fontFamily: ZyndioType.family,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: c.textTertiary,
                               ),
-                              const SizedBox(height: 6),
-                              Text(
-                                "Here's your health overview for today.",
-                                style: TextStyle(
-                                  fontFamily: ZyndioType.family,
-                                  fontSize: 15,
-                                  color: Colors.white.withValues(alpha: 0.75),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const ZyndioAvatarButton(onDark: true),
-                      ],
-                    ),
-                    if (s != null) ...[
-                      const SizedBox(height: 22),
-                      Semantics(
-                        container: true,
-                        label: [
-                          'Longevity score ${s.score} out of 100',
-                          if (s.trendPercent != null)
-                            'trending ${s.trendPercent! >= 0 ? 'up' : 'down'} ${s.trendPercent!.abs()} percent ${s.trendPeriod}',
-                        ].join(', '),
-                        child: ExcludeSemantics(
-                          child: Row(
-                            children: [
-                              SizedBox(
-                                width: 156,
-                                height: 156,
-                                child: CustomPaint(
-                                  painter: _RingPainter(
-                                    fraction: s.score.clamp(0, 100) / 100,
-                                    track: Colors.white.withValues(alpha: 0.14),
-                                  ),
-                                  child: Center(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          '${s.score}',
-                                          style: const TextStyle(
-                                            fontFamily: ZyndioType.family,
-                                            fontSize: 50,
-                                            height: 1.0,
-                                            fontWeight: FontWeight.w700,
-                                            letterSpacing: -1.5,
-                                            fontFeatures: ZyndioType.tabular,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          'Longevity Score',
-                                          style: TextStyle(
-                                            fontFamily: ZyndioType.family,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.white
-                                                .withValues(alpha: 0.75),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 18),
-                              if (s.trendPercent != null)
-                                Expanded(
-                                  child: Container(
-                                    padding: const EdgeInsets.fromLTRB(
-                                        16, 14, 16, 16),
-                                    decoration: BoxDecoration(
-                                      color:
-                                          Colors.white.withValues(alpha: 0.10),
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(
-                                          color: Colors.white
-                                              .withValues(alpha: 0.16)),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Trending',
-                                            style: TextStyle(
-                                                fontFamily: ZyndioType.family,
-                                                fontSize: 13,
-                                                color: Colors.white
-                                                    .withValues(alpha: 0.7))),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          s.trendPercent! >= 0 ? 'Up' : 'Down',
-                                          style: const TextStyle(
-                                            fontFamily: ZyndioType.family,
-                                            fontSize: 24,
-                                            fontWeight: FontWeight.w700,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 10),
-                                        Text(
-                                          '${s.trendPercent! >= 0 ? '↑' : '↓'} ${s.trendPercent! >= 0 ? '+' : ''}${s.trendPercent}%',
-                                          style: const TextStyle(
-                                            fontFamily: ZyndioType.family,
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.w700,
-                                            fontFeatures: ZyndioType.tabular,
-                                            color: Color(0xFF7DF0C8),
-                                          ),
-                                        ),
-                                        Text(s.trendPeriod,
-                                            style: TextStyle(
-                                                fontFamily: ZyndioType.family,
-                                                fontSize: 13,
-                                                color: Colors.white
-                                                    .withValues(alpha: 0.7))),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ],
-                ),
+                    ),
+                  ),
+                  const SizedBox(width: 18),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Longevity Score',
+                          style: TextStyle(
+                            fontFamily: ZyndioType.family,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.2,
+                            color: c.textPrimary,
+                          ),
+                        ),
+                        if (trend != null) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: c.brandSubtle,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  trend >= 0
+                                      ? LucideIcons.trendingUp
+                                      : LucideIcons.trendingDown,
+                                  size: 15,
+                                  color: c.brandOnSubtle,
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  '${trend >= 0 ? '+' : ''}$trend%',
+                                  style: TextStyle(
+                                    fontFamily: ZyndioType.family,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    fontFeatures: ZyndioType.tabular,
+                                    color: c.brandOnSubtle,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Trending ${trend >= 0 ? 'up' : 'down'} ${s.trendPeriod}',
+                            style: TextStyle(
+                              fontFamily: ZyndioType.family,
+                              fontSize: 14,
+                              height: 20 / 14,
+                              color: c.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Icon(LucideIcons.info, size: 14, color: c.textTertiary),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Illustrative summary of your recent data. Not a diagnosis.',
+                      style: TextStyle(
+                        fontFamily: ZyndioType.family,
+                        fontSize: 12.5,
+                        height: 18 / 12.5,
+                        color: c.textTertiary,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -665,22 +608,6 @@ class _TodayHero extends StatelessWidget {
       ),
     );
   }
-}
-
-class _Orb extends StatelessWidget {
-  const _Orb({required this.size, required this.color});
-  final double size;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: RadialGradient(colors: [color, color.withValues(alpha: 0)]),
-        ),
-      );
 }
 
 class _RingPainter extends CustomPainter {
@@ -693,7 +620,7 @@ class _RingPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const stroke = 14.0;
+    const stroke = 13.0;
     final rect = Rect.fromLTWH(
         stroke / 2, stroke / 2, size.width - stroke, size.height - stroke);
     final base = Paint()
@@ -713,10 +640,10 @@ class _RingPainter extends CustomPainter {
         startAngle: 0,
         endAngle: _sweep + 0.3,
         colors: [
-          Color(0xFF7C8CFF),
-          Color(0xFF38BDF8),
-          Color(0xFF2DD4BF),
-          Color(0xFF86EFAC)
+          Color(0xFF7B5CFA),
+          Color(0xFF4F6BF5),
+          Color(0xFF2E7BEA),
+          Color(0xFF38BDF8)
         ],
         stops: [0.0, 0.35, 0.7, 1.0],
         transform: GradientRotation(_start - 0.3),
@@ -745,15 +672,12 @@ class _InsightCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
-      decoration: zyndioCard(context).copyWith(
-        gradient: Theme.of(context).brightness == Brightness.dark
-            ? null
-            : const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFFF4F1FF), Color(0xFFEEF4FF)],
-              ),
-      ),
+      decoration: Theme.of(context).brightness == Brightness.dark
+          ? zyndioCard(context)
+          : BoxDecoration(
+              color: ZyndioTint.violet.pastel,
+              borderRadius: BorderRadius.circular(24),
+            ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -762,14 +686,16 @@ class _InsightCard extends StatelessWidget {
               const ZyndioIconTile(
                   icon: LucideIcons.brain, tint: ZyndioTint.violet, size: 40),
               const SizedBox(width: 12),
-              Text(
-                'Zyndio AI Insight',
-                style: TextStyle(
-                  fontFamily: ZyndioType.family,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.2,
-                  color: c.textPrimary,
+              Expanded(
+                child: Text(
+                  'Zyndio AI Insight',
+                  style: TextStyle(
+                    fontFamily: ZyndioType.family,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                    color: c.textPrimary,
+                  ),
                 ),
               ),
             ],

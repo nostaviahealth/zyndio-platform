@@ -45,7 +45,7 @@ class _MyPlanScreenState extends ConsumerState<MyPlanScreen> {
 
     return ZyndioTabScaffold(
       title: 'My Plan',
-      subtitle: 'Physician-led therapies and nutrition.',
+      subtitle: 'Physician-approved therapies, supplements and testing.',
       onRefresh: () async {
         ref.invalidate(patientTherapiesProvider);
         await ref.read(protocolProvider.notifier).fetchLibrary();

@@ -135,10 +135,9 @@ class _MainShellState extends ConsumerState<MainShell> {
   }
 }
 
-/// Floating pill tab bar: a deep navy capsule hovering above the content.
-/// The active tab expands into a gradient pill with its label; the others are
-/// icon-only. Every item keeps a >= 48pt target and its "name, tab n of 5"
-/// semantics label.
+/// Floating tab bar: a light frosted bar of quiet icons; the active tab
+/// becomes the client mockup's blue-violet pill with its label. Every
+/// item keeps a >= 48pt target and its "name, tab n of 5" semantics label.
 class _ZyndioTabBar extends StatelessWidget {
   const _ZyndioTabBar({required this.selectedIndex, required this.onTap});
 
@@ -152,31 +151,39 @@ class _ZyndioTabBar extends StatelessWidget {
       top: false,
       minimum: const EdgeInsets.only(bottom: 10),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-        child: Container(
-          height: 64,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(
-            color: dark ? const Color(0xFF1A2136) : const Color(0xFF0E1430),
-            borderRadius: BorderRadius.circular(32),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF0E1430).withValues(alpha: 0.28),
-                blurRadius: 30,
-                offset: const Offset(0, 12),
+        padding: const EdgeInsets.fromLTRB(14, 0, 14, 6),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(40),
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+            child: Container(
+              height: 70,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                color: (dark ? const Color(0xFF1A2136) : Colors.white)
+                    .withValues(alpha: 0.88),
+                borderRadius: BorderRadius.circular(40),
+                border: Border.all(
+                    color: Colors.white.withValues(alpha: dark ? 0.06 : 0.9)),
+                boxShadow: const [
+                  BoxShadow(
+                      color: Color(0x1A0F1438),
+                      blurRadius: 30,
+                      offset: Offset(0, 10)),
+                ],
               ),
-            ],
-          ),
-          child: Row(
-            children: [
-              for (var i = 0; i < _kTabs.length; i++)
-                _TabItem(
-                  spec: _kTabs[i],
-                  index: i,
-                  selected: i == selectedIndex,
-                  onTap: () => onTap(i),
-                ),
-            ],
+              child: Row(
+                children: [
+                  for (var i = 0; i < _kTabs.length; i++)
+                    _TabItem(
+                      spec: _kTabs[i],
+                      index: i,
+                      selected: i == selectedIndex,
+                      onTap: () => onTap(i),
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -199,6 +206,7 @@ class _TabItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
     return Expanded(
       flex: selected ? 13 : 5,
       child: Semantics(
@@ -214,39 +222,52 @@ class _TabItem extends StatelessWidget {
               constraints: const BoxConstraints(minHeight: 48),
               child: Center(
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 260),
+                  duration: const Duration(milliseconds: 240),
                   curve: Curves.easeOutCubic,
-                  height: 46,
-                  padding: EdgeInsets.symmetric(horizontal: selected ? 14 : 0),
+                  height: 52,
                   decoration: BoxDecoration(
                     gradient: selected ? ZyndioGradients.brand : null,
-                    borderRadius: BorderRadius.circular(23),
+                    borderRadius: BorderRadius.circular(26),
+                    boxShadow: selected
+                        ? const [
+                            BoxShadow(
+                                color: Color(0x404A55F0),
+                                blurRadius: 14,
+                                offset: Offset(0, 6)),
+                          ]
+                        : null,
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(spec.icon,
-                          size: 21,
-                          color: selected ? Colors.white : Colors.white.withValues(alpha: 0.62)),
-                      if (selected) ...[
-                        const SizedBox(width: 7),
-                        Flexible(
-                          child: Text(
-                            spec.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.fade,
-                            softWrap: false,
-                            style: const TextStyle(
-                              fontFamily: ZyndioType.family,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
+                  // Padding switches instantly; only colour and shadow animate.
+                  // (Animating it while the slot narrows overflowed the pill.)
+                  child: Padding(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: selected ? 16 : 0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(spec.icon,
+                            size: 22,
+                            color: selected ? Colors.white : c.textTertiary),
+                        if (selected) ...[
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              spec.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.fade,
+                              softWrap: false,
+                              style: TextStyle(
+                                fontFamily: ZyndioType.family,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -294,7 +315,8 @@ class _LensProgressBar extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: const Center(
-                      child: Icon(LucideIcons.scan, size: 18, color: Colors.white),
+                      child:
+                          Icon(LucideIcons.scan, size: 18, color: Colors.white),
                     ),
                   ),
                   const SizedBox(width: 12),
