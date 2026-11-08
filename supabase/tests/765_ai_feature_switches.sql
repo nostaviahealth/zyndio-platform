@@ -78,8 +78,8 @@ values (
 
 select is(
   (select count(*)::int from public.audit_log
-   where action = 'ai_feature_switch_insert'
-     and target_org_id = '00000000-0000-0000-0000-000000009201'
+   where event_type = 'ai_feature_switch_insert'
+     and org_id = '00000000-0000-0000-0000-000000009201'
      and metadata->>'feature' = 'companion'
      and (metadata->>'enabled')::boolean = false),
   1,
@@ -103,8 +103,8 @@ where id = '00000000-0000-0000-0000-000000009210';
 
 select is(
   (select count(*)::int from public.audit_log
-   where action = 'ai_feature_switch_update'
-     and target_org_id = '00000000-0000-0000-0000-000000009201'
+   where event_type = 'ai_feature_switch_update'
+     and org_id = '00000000-0000-0000-0000-000000009201'
      and (metadata->>'enabled')::boolean = true),
   1,
   'updating a switch writes ai_feature_switch_update to audit_log'
@@ -115,8 +115,8 @@ where id = '00000000-0000-0000-0000-000000009210';
 
 select is(
   (select count(*)::int from public.audit_log
-   where action = 'ai_feature_switch_delete'
-     and target_org_id = '00000000-0000-0000-0000-000000009201'
+   where event_type = 'ai_feature_switch_delete'
+     and org_id = '00000000-0000-0000-0000-000000009201'
      and metadata->>'feature' = 'companion'),
   1,
   'deleting a switch writes ai_feature_switch_delete to audit_log'
