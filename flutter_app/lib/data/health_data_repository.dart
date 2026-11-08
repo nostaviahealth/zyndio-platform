@@ -364,9 +364,6 @@ class HealthDataRepository {
             {
               'name': markerName,
               'value': '$value $unit',
-              'range': '--',
-              'status': 'Normal',
-              'insight': 'Manually entered.',
             }
           ],
         },

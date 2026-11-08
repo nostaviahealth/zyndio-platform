@@ -38,7 +38,7 @@
         "date": "{today}",
         "summary": "Entered by the patient.",
         "markers": [
-          { "name": "Vitamin D", "value": "32 ng/mL", "range": "--", "status": "Normal", "insight": "Manually entered." }
+          { "name": "Vitamin D", "value": "32 ng/mL" }
         ]
       }
     }

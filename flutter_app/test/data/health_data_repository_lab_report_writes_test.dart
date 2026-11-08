@@ -232,8 +232,13 @@ void main() {
       final insert = b.labReportWrites.single;
       expect(insert.method, c['method'], reason: 'patients cannot UPDATE lab_reports (RLS), so never PATCH');
       expect(insert.url.path, c['path']);
-      expect(json.decode(insert.body),
-          _fill(c['body'], {'patient_id': _patientId, 'org_id': _orgId, 'today': _today()}));
+      final body = json.decode(insert.body) as Map<String, dynamic>;
+      expect(body, _fill(c['body'], {'patient_id': _patientId, 'org_id': _orgId, 'today': _today()}));
+      final marker = ((body['data'] as Map)['markers'] as List).single as Map;
+      expect(marker.containsKey('status'), isFalse,
+          reason: 'a typed value is not a clinical status');
+      expect(marker.containsKey('range'), isFalse);
+      expect(marker.containsKey('insight'), isFalse);
       expect(printed, isEmpty);
     });
 

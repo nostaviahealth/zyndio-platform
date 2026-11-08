@@ -64,10 +64,7 @@ class _LabReportVerificationScreenState extends ConsumerState<LabReportVerificat
         'name': '',
         'value': '',
         'unit': '',
-        'range': '',
-        'status': 'Normal',
         'category': 'General',
-        'insight': '',
       });
     });
     
