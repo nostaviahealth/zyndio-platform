@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:zyndio_patient/providers/feature_flags_provider.dart';
+import 'package:zyndio_patient/providers/longevity_provider.dart';
 import 'package:zyndio_patient/config/theme.dart';
 import 'package:zyndio_patient/models/patient_profile.dart';
 import 'package:zyndio_patient/providers/intelligence_provider.dart';
@@ -69,6 +72,7 @@ Future<void> _pump(
   String? name = 'Jordan Rivera',
   Brightness b = Brightness.light,
   bool settle = true,
+  List<Override> extra = const [],
 }) async {
   tester.view.physicalSize = const Size(1200, 3200);
   tester.view.devicePixelRatio = 1.0;
@@ -81,6 +85,7 @@ Future<void> _pump(
         wearableSyncProvider.overrideWith(wearable),
         aiInsightsProvider
             .overrideWithValue(const ['Your HRV has been steady this week.']),
+        ...extra,
       ],
       child: MaterialApp.router(
         theme: b == Brightness.light ? BrandTheme.lightTheme : BrandTheme.darkTheme,
@@ -160,7 +165,7 @@ void main() {
 
     // H1 (Ava, PR #30 review): screen-reader activation == finger tap.
     for (final c in const [
-      (label: 'View My Insights →', dest: 'CHAT SCREEN'),
+      (label: 'View My Insights', dest: 'CHAT SCREEN'),
       (
         label: 'Food log, Log a meal by describing it, scanning it or speaking.',
         dest: 'FOOD LOG SCREEN'
@@ -234,6 +239,48 @@ void main() {
           wearable: () => _FakeWearable(WearableSyncState(
               snapshot: _snap(), lastSynced: DateTime(2026, 11, 3, 9, 5))));
       expect(find.text('HRV'), findsOneWidget);
+    });
+  });
+
+
+  group('Longevity ring and Recovery: flag AND real data (TC-025 guardrails)', () {
+    WearableSnapshot snapWithRecovery() => const WearableSnapshot(
+          sleepHours: 7.3, steps: 8421, hrv: 58, hrvBaseline: 58, recoveryScore: 72);
+
+    testWidgets('flags off: no ring and no Recovery even when values exist', (tester) async {
+      await _pump(tester,
+          wearable: () => _FakeWearable(WearableSyncState(snapshot: snapWithRecovery(), lastSynced: DateTime(2026))),
+          extra: [
+            longevityScoreProvider.overrideWithValue(const LongevityScore(score: 84, trendPercent: 12)),
+          ]);
+      expect(find.text('Longevity Score'), findsNothing);
+      expect(find.text('Recovery'), findsNothing);
+    });
+
+    testWidgets('flags on but no score source: still no ring', (tester) async {
+      await _pump(tester,
+          wearable: () => _FakeWearable(WearableSyncState(snapshot: _snap(), lastSynced: DateTime(2026))),
+          extra: [
+            featureFlagsProvider.overrideWithValue(
+                const FeatureFlags(longevityScoreEnabled: true, recoveryScoreEnabled: true)),
+          ]);
+      expect(find.text('Longevity Score'), findsNothing);
+      // _snap() has no recovery value, so no Recovery tile either.
+      expect(find.text('Recovery'), findsNothing);
+    });
+
+    testWidgets('flags on with values: ring, trend and Recovery shown', (tester) async {
+      await _pump(tester,
+          wearable: () => _FakeWearable(WearableSyncState(snapshot: snapWithRecovery(), lastSynced: DateTime(2026))),
+          extra: [
+            featureFlagsProvider.overrideWithValue(
+                const FeatureFlags(longevityScoreEnabled: true, recoveryScoreEnabled: true)),
+            longevityScoreProvider.overrideWithValue(const LongevityScore(score: 84, trendPercent: 12)),
+          ]);
+      expect(find.text('Longevity Score'), findsOneWidget);
+      expect(find.text('84'), findsOneWidget);
+      expect(find.text('↑ +12%'), findsOneWidget);
+      expect(find.text('Recovery'), findsOneWidget);
     });
   });
 }

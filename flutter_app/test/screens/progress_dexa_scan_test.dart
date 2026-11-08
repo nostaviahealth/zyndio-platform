@@ -28,6 +28,13 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
+    // Progress shows the comparison; the full report opens from the CTA.
+    expect(find.text('Total'), findsOneWidget);
+    expect(find.text('Latest Scan'), findsOneWidget);
+    await tester.ensureVisible(find.text('View Full DEXASCAN Report'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('View Full DEXASCAN Report'));
+    await tester.pumpAndSettle();
     expect(find.text('DEXA scan · 2026-10-02'), findsOneWidget);
     expect(find.text('OVERVIEW'), findsOneWidget);
     expect(find.text('MUSCLE'), findsOneWidget);

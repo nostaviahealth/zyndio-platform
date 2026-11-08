@@ -135,6 +135,10 @@ class _MainShellState extends ConsumerState<MainShell> {
   }
 }
 
+/// Floating pill tab bar: a deep navy capsule hovering above the content.
+/// The active tab expands into a gradient pill with its label; the others are
+/// icon-only. Every item keeps a >= 48pt target and its "name, tab n of 5"
+/// semantics label.
 class _ZyndioTabBar extends StatelessWidget {
   const _ZyndioTabBar({required this.selectedIndex, required this.onTap});
 
@@ -143,26 +147,34 @@ class _ZyndioTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = Theme.of(context).extension<ZyndioColors>()!;
-    return Container(
-      decoration: BoxDecoration(
-        color: c.bgSurface,
-        border: Border(top: BorderSide(color: c.borderSubtle)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 49,
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.only(bottom: 10),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+        child: Container(
+          height: 64,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: dark ? const Color(0xFF1A2136) : const Color(0xFF0E1430),
+            borderRadius: BorderRadius.circular(32),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0E1430).withValues(alpha: 0.28),
+                blurRadius: 30,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
           child: Row(
             children: [
               for (var i = 0; i < _kTabs.length; i++)
-                Expanded(
-                  child: _TabItem(
-                    spec: _kTabs[i],
-                    index: i,
-                    selected: i == selectedIndex,
-                    onTap: () => onTap(i),
-                  ),
+                _TabItem(
+                  spec: _kTabs[i],
+                  index: i,
+                  selected: i == selectedIndex,
+                  onTap: () => onTap(i),
                 ),
             ],
           ),
@@ -187,33 +199,57 @@ class _TabItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final z = context.z25;
-    final color = selected ? z.tabActive : z.tabInactive;
-    return Semantics(
-      label: '${spec.label}, tab ${index + 1} of ${_kTabs.length}',
-      selected: selected,
-      button: true,
-      onTap: onTap, // H1: screen-reader activation == finger tap
-      child: ExcludeSemantics(
-        child: InkWell(
-          onTap: onTap,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 78, minHeight: 49),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(spec.icon, size: 24, color: color),
-                const SizedBox(height: 2),
-                Text(
-                  spec.label,
-                  style: TextStyle(
-                    fontFamily: ZyndioType.family,
-                    fontSize: 11,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    color: color,
+    return Expanded(
+      flex: selected ? 13 : 5,
+      child: Semantics(
+        label: '${spec.label}, tab ${index + 1} of ${_kTabs.length}',
+        selected: selected,
+        button: true,
+        onTap: onTap, // H1: screen-reader activation == finger tap
+        child: ExcludeSemantics(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 48),
+              child: Center(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 260),
+                  curve: Curves.easeOutCubic,
+                  height: 46,
+                  padding: EdgeInsets.symmetric(horizontal: selected ? 14 : 0),
+                  decoration: BoxDecoration(
+                    gradient: selected ? ZyndioGradients.brand : null,
+                    borderRadius: BorderRadius.circular(23),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(spec.icon,
+                          size: 21,
+                          color: selected ? Colors.white : Colors.white.withValues(alpha: 0.62)),
+                      if (selected) ...[
+                        const SizedBox(width: 7),
+                        Flexible(
+                          child: Text(
+                            spec.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.fade,
+                            softWrap: false,
+                            style: const TextStyle(
+                              fontFamily: ZyndioType.family,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         ),

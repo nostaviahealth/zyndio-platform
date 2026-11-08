@@ -476,12 +476,7 @@ class _BiomarkerHero extends StatelessWidget {
     // clipped to 38×38 at top/right -6. Same painted position as before.
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
-        color: c.bgSurface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: c.borderSubtle),
-        boxShadow: ZyndioShadow.cardFor(Theme.of(context).brightness),
-      ),
+      decoration: zyndioCard(context, radius: 24),
       child: Stack(
         children: [
           // Data readout: one text alternative for screen readers; the painted
@@ -897,38 +892,46 @@ class _MarkerTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = Theme.of(context).extension<ZyndioColors>()!;
-    final z = context.z25;
     final caption = markerCaption(marker);
     return Semantics(
       container: true,
       label: '${marker.name}, ${marker.value}${marker.unit.isEmpty ? '' : ' ${marker.unit}'}, $caption',
       child: ExcludeSemantics(
         child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: z.tileBg,
-            borderRadius: BorderRadius.circular(16),
-          ),
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+          decoration: zyndioCard(context, radius: 22),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                marker.name,
-                style: TextStyle(
-                  fontFamily: ZyndioType.family,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: c.textPrimary,
-                ),
+              Row(
+                children: [
+                  ZyndioIconTile(icon: _markerIcon(marker.name), tint: _markerTint(marker.name), size: 32),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      marker.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: ZyndioType.family,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: c.textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 12),
               RichText(
                 text: TextSpan(
                   text: marker.value,
                   style: TextStyle(
                     fontFamily: ZyndioType.family,
-                    fontSize: 20,
+                    fontSize: 22,
                     fontWeight: FontWeight.w700,
+                    letterSpacing: -0.3,
+                    fontFeatures: ZyndioType.tabular,
                     color: c.textPrimary,
                   ),
                   children: [
@@ -961,28 +964,40 @@ class _MarkerTile extends StatelessWidget {
   }
 }
 
+/// Icon + colour per marker family (client mockup's coloured marker icons).
+IconData _markerIcon(String name) {
+  final n = name.toLowerCase();
+  if (n.contains('nad') || n.contains('klotho')) return LucideIcons.sparkles;
+  if (n.contains('crp') || n.contains('inflam')) return LucideIcons.flame;
+  if (n.contains('glucose') || n.contains('insulin') || n.contains('a1c')) return LucideIcons.droplet;
+  if (n.contains('ldl') || n.contains('hdl') || n.contains('apob') || n.contains('cholesterol') || n.contains('triglycer')) return LucideIcons.heartPulse;
+  if (n.contains('testosterone') || n.contains('tsh') || n.contains('estradiol') || n.contains('cortisol')) return LucideIcons.atom;
+  if (n.contains('vitamin')) return LucideIcons.sun;
+  return LucideIcons.activity;
+}
+
+ZyndioTint _markerTint(String name) {
+  final n = name.toLowerCase();
+  if (n.contains('nad') || n.contains('klotho') || n.contains('vitamin')) return ZyndioTint.amber;
+  if (n.contains('crp') || n.contains('inflam')) return ZyndioTint.rose;
+  if (n.contains('glucose') || n.contains('insulin') || n.contains('a1c')) return ZyndioTint.violet;
+  if (n.contains('ldl') || n.contains('hdl') || n.contains('apob') || n.contains('cholesterol') || n.contains('triglycer')) return ZyndioTint.blue;
+  if (n.contains('testosterone') || n.contains('tsh') || n.contains('estradiol') || n.contains('cortisol')) return ZyndioTint.teal;
+  return ZyndioTint.indigo;
+}
+
 class _ViewFullReportCta extends StatelessWidget {
   const _ViewFullReportCta({required this.onTap});
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final c = Theme.of(context).extension<ZyndioColors>()!;
     return Semantics(
       button: true,
       label: 'View Full Biomarker Report',
       onTap: onTap, // H1: screen-reader activation == finger tap
       child: ExcludeSemantics(
-        child: OutlinedButton(
-          onPressed: onTap,
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(double.infinity, 48),
-            side: BorderSide(color: context.z25.tabActive, width: 1.5),
-            foregroundColor: c.textPrimary,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          ),
-          child: const Text('View Full Biomarker Report'),
-        ),
+        child: ZyndioGradientButton(label: 'View Full Biomarker Report', onTap: onTap),
       ),
     );
   }

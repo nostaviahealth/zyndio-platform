@@ -407,8 +407,9 @@ class AuthPrimaryButton extends StatelessWidget {
         ),
       );
     }
-    final bg = c.brandPrimary;
-    final fg = c.brandOnPrimary;
+    // Premium pass: primary actions are solid brand navy everywhere.
+    final bg = c.actionSecondary;
+    final fg = c.actionOnSecondary;
     return SizedBox(
       width: double.infinity,
       height: 50,
