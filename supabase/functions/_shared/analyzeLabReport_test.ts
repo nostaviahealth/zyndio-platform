@@ -64,7 +64,10 @@ function harness(backend: Backend, overrides: Partial<AnalyzeLabReportDeps> = {}
     }
     if (u.pathname.startsWith('/storage/v1/object/lab-reports/')) {
       if (backend.downloadFails) return json({ statusCode: '404', error: 'not_found', message: ERROR_TEXT }, 400)
-      return new Response(backend.fileBytes ?? PDF_BYTES, { status: 200, headers: { 'content-type': 'application/pdf' } })
+      const bytes = backend.fileBytes ?? PDF_BYTES
+      const body = new ArrayBuffer(bytes.byteLength)
+      new Uint8Array(body).set(bytes)
+      return new Response(body, { status: 200, headers: { 'content-type': 'application/pdf' } })
     }
     if (u.pathname === '/rest/v1/lab_analyte_loinc') return json([{ analyte_key: 'hba1c', loinc: '4548-4', aliases: ['HbA1c'] }])
     if (u.pathname === '/rest/v1/patients') return json([{ display_name: 'Fictional Patient' }])
