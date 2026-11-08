@@ -32,24 +32,28 @@ class ZyndioTabScaffold extends StatelessWidget {
     super.key,
     required this.title,
     this.subtitle,
+    this.eyebrow,
     required this.children,
     this.onRefresh,
   });
 
   final String title;
   final String? subtitle;
+
+  /// Small spaced capitals above the title (e.g. today's date).
+  final String? eyebrow;
   final List<Widget> children;
   final Future<void> Function()? onRefresh;
 
   @override
   Widget build(BuildContext context) {
     final list = ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
       children: [
         const ZyndioBrandRow(),
-        const SizedBox(height: 6),
-        ZyndioPageHeader(title: title, subtitle: subtitle),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
+        ZyndioPageHeader(title: title, subtitle: subtitle, eyebrow: eyebrow),
+        const SizedBox(height: 24),
         ...children,
       ],
     );
@@ -77,19 +81,19 @@ class ZyndioBrandRow extends ConsumerWidget {
     final profile = ref.watch(patientProfileProvider).value;
     final initials = zyndioInitials(profile?.name);
     return Padding(
-      padding: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.only(top: 6),
       child: Row(
         children: [
-          Image.asset('assets/icons/zyndio-mark.png',
-              height: 26, width: 26, excludeFromSemantics: true),
-          const SizedBox(width: 8),
+          Image.asset('assets/icons/zyndio-mark-tight.png',
+              height: 22, excludeFromSemantics: true),
+          const SizedBox(width: 10),
           Text(
-            'ZYNDIO AI',
+            'Zyndio',
             style: TextStyle(
               fontFamily: ZyndioType.family,
               fontSize: 17,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.6,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.2,
               color: c.textPrimary,
             ),
           ),
@@ -101,29 +105,38 @@ class ZyndioBrandRow extends ConsumerWidget {
             onTap: () => context.pushNamed('settings'), // H1
             child: ExcludeSemantics(
               child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => context.pushNamed('settings'),
-              child: Container(
-                width: 48,
-                height: 48,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: ZyndioGradients.brand,
-                ),
-                child: initials.isEmpty
-                    ? const Icon(LucideIcons.user, size: 22, color: Colors.white)
-                    : Text(
-                        initials,
-                        style: const TextStyle(
-                          fontFamily: ZyndioType.family,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
+                behavior: HitTestBehavior.opaque,
+                onTap: () => context.pushNamed('settings'),
+                // 48pt hit target around a quiet 40pt avatar.
+                child: SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Center(
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: c.bgSurface,
+                        border: Border.all(color: c.borderSubtle),
                       ),
+                      child: initials.isEmpty
+                          ? Icon(LucideIcons.user, size: 18, color: c.textPrimary)
+                          : Text(
+                              initials,
+                              style: TextStyle(
+                                fontFamily: ZyndioType.family,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.3,
+                                color: c.textPrimary,
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
               ),
-            ),
             ),
           ),
         ],
@@ -134,10 +147,11 @@ class ZyndioBrandRow extends ConsumerWidget {
 
 /// Page title + subtitle (specs §1). Title is a header for semantics.
 class ZyndioPageHeader extends StatelessWidget {
-  const ZyndioPageHeader({super.key, required this.title, this.subtitle});
+  const ZyndioPageHeader({super.key, required this.title, this.subtitle, this.eyebrow});
 
   final String title;
   final String? subtitle;
+  final String? eyebrow;
 
   @override
   Widget build(BuildContext context) {
@@ -145,28 +159,42 @@ class ZyndioPageHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (eyebrow != null) ...[
+          Text(
+            eyebrow!.toUpperCase(),
+            style: TextStyle(
+              fontFamily: ZyndioType.family,
+              fontSize: 12,
+              height: 16 / 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.2,
+              color: c.textTertiary,
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
         Semantics(
           header: true,
           child: Text(
             title,
             style: TextStyle(
               fontFamily: ZyndioType.family,
-              fontSize: 26,
-              height: 32 / 26,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.3,
+              fontSize: 30,
+              height: 36 / 30,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.8,
               color: c.textPrimary,
             ),
           ),
         ),
         if (subtitle != null) ...[
-          const SizedBox(height: 2),
+          const SizedBox(height: 6),
           Text(
             subtitle!,
             style: TextStyle(
               fontFamily: ZyndioType.family,
-              fontSize: 14,
-              height: 20 / 14,
+              fontSize: 15,
+              height: 22 / 15,
               fontWeight: FontWeight.w400,
               color: c.textSecondary,
             ),
@@ -177,8 +205,8 @@ class ZyndioPageHeader extends StatelessWidget {
   }
 }
 
-/// Z17 — empty / error card. Centred, 64 icon chip, title + body + optional
-/// outline action (44 hit).
+/// Z17 — empty / error card. Left-aligned: a small icon, title, body and an
+/// optional action (44pt hit). Hairline card, no shadow.
 class ZyndioStateCard extends StatelessWidget {
   const ZyndioStateCard({
     super.key,
@@ -200,41 +228,40 @@ class ZyndioStateCard extends StatelessWidget {
     final c = Theme.of(context).extension<ZyndioColors>()!;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: c.bgSurface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: c.borderSubtle),
-        boxShadow: ZyndioShadow.cardFor(Theme.of(context).brightness),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 64,
-            height: 64,
+            width: 40,
+            height: 40,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: context.z25.tileBg,
-              borderRadius: BorderRadius.circular(16),
+              shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 28, color: c.textSecondary),
+            child: Icon(icon, size: 20, color: c.textPrimary),
           ),
           const SizedBox(height: 16),
           Text(
             title,
-            textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: ZyndioType.family,
-              fontSize: 18,
-              height: 24 / 18,
-              fontWeight: FontWeight.w700,
+              fontSize: 17,
+              height: 24 / 17,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.2,
               color: c.textPrimary,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             body,
-            textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: ZyndioType.family,
               fontSize: 15,
@@ -248,10 +275,16 @@ class ZyndioStateCard extends StatelessWidget {
               onPressed: onAction,
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(0, 44),
-                side: BorderSide(color: context.z25.tabActive, width: 1.5),
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                side: BorderSide(color: c.borderStrong),
                 foregroundColor: c.textPrimary,
+                textStyle: const TextStyle(
+                  fontFamily: ZyndioType.family,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(999)),
               ),
               child: Text(actionLabel!),
             ),
@@ -291,28 +324,28 @@ class ZyndioListRow extends StatelessWidget {
       child: ExcludeSemantics(
         child: Material(
           color: c.bgSurface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
             child: Container(
-              constraints: const BoxConstraints(minHeight: 76),
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+              constraints: const BoxConstraints(minHeight: 68),
+              padding: const EdgeInsets.fromLTRB(16, 12, 14, 12),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: c.borderSubtle),
               ),
               child: Row(
                 children: [
                   Container(
-                    width: 56,
-                    height: 56,
+                    width: 40,
+                    height: 40,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       color: context.z25.tileBg,
-                      borderRadius: BorderRadius.circular(16),
+                      shape: BoxShape.circle,
                     ),
-                    child: Icon(icon, size: 24, color: c.textSecondary),
+                    child: Icon(icon, size: 20, color: c.textPrimary),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -326,7 +359,7 @@ class ZyndioListRow extends StatelessWidget {
                             fontFamily: ZyndioType.family,
                             fontSize: 16,
                             height: 22 / 16,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                             color: c.textPrimary,
                           ),
                         ),

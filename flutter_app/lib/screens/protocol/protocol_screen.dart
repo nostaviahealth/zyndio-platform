@@ -107,7 +107,7 @@ class _ProtocolScreenState extends ConsumerState<ProtocolScreen>
             icon: LucideIcons.clipboardList,
             title: 'No plan yet',
             body:
-                'Your care team has not published a plan. This screen does not fill in a sample plan.',
+                'Your care team will publish your plan here after your first consultation.',
           ),
         ],
       );
@@ -141,36 +141,24 @@ class _ProtocolScreenState extends ConsumerState<ProtocolScreen>
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
-                // ── Page Title — matches Wearables header ──
-                SliverToBoxAdapter(
+                // ── Same brand row + page header as the other tabs ──
+                const SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                    padding: EdgeInsets.fromLTRB(20, 8, 20, 0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Protocol',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w900,
-                            color: context.nc.textPrimary,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Your personalized health protocol',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: context.nc.textTertiary,
-                            fontWeight: FontWeight.w500,
-                          ),
+                        ZyndioBrandRow(),
+                        SizedBox(height: 20),
+                        ZyndioPageHeader(
+                          title: 'My Plan',
+                          subtitle: 'Published by your care team.',
                         ),
                       ],
                     ),
                   ),
                 ),
-  
+
                   // ── Header ──
                   SliverToBoxAdapter(
                     child: Padding(
@@ -393,7 +381,7 @@ class _HeroHeader extends ConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'All Protocols',
+                          'All plans',
                           style: TextStyle(
                             color: context.nc.textTertiary,
                             fontSize: 13,
@@ -421,7 +409,7 @@ class _HeroHeader extends ConsumerWidget {
                 protocol.title,
                 style: TextStyle(
                   fontSize: 22,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w600,
                   color: context.nc.textPrimary,
                   letterSpacing: -0.6,
                   height: 1.2,
@@ -545,18 +533,18 @@ class _HeroHeader extends ConsumerWidget {
               },
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                height: 52,
                 decoration: BoxDecoration(
-                  color: context.nc.textPrimary,
-                  borderRadius: BorderRadius.circular(16),
+                  gradient: ZyndioGradients.brand,
+                  borderRadius: BorderRadius.circular(999),
                 ),
                 alignment: Alignment.center,
-                child: Text(
-                  'Start Protocol',
+                child: const Text(
+                  'Start plan',
                   style: TextStyle(
-                    color: context.nc.scaffoldBg,
+                    color: Colors.white,
                     fontSize: 16,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -566,7 +554,7 @@ class _HeroHeader extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Protocol Progress',
+                  'Plan progress',
                   style: TextStyle(
                     color: context.nc.textSecondary,
                     fontSize: 13,
@@ -1064,7 +1052,7 @@ class _DietView extends StatelessWidget {
                       'Macros',
                       style: TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                         color: context.nc.textPrimary,
                         letterSpacing: -0.3,
                       ),
@@ -1139,7 +1127,7 @@ class _DietView extends StatelessWidget {
                   'Principles',
                   style: TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
                     color: context.nc.textPrimary,
                     letterSpacing: -0.3,
                   ),
@@ -1199,7 +1187,7 @@ class _DietView extends StatelessWidget {
                   'Avoid',
                   style: TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
                     color: Color(0xFFEF4444),
                     letterSpacing: -0.3,
                   ),
@@ -1253,7 +1241,7 @@ class _DietView extends StatelessWidget {
                   'Daily Targets',
                   style: TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
                     color: context.nc.textPrimary,
                     letterSpacing: -0.3,
                   ),
@@ -1555,7 +1543,7 @@ class _DurationPickerSheetState extends State<_DurationPickerSheet> {
             'Set Protocol Duration',
             style: TextStyle(
               fontSize: 20,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w600,
               color: context.nc.textPrimary,
               letterSpacing: -0.5,
             ),
@@ -1626,7 +1614,7 @@ class _DurationPickerSheetState extends State<_DurationPickerSheet> {
                           duration: const Duration(milliseconds: 200),
                           style: TextStyle(
                             fontSize: isSelected ? 20 : 16,
-                            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                             color: isSelected
                                 ? context.nc.textPrimary
                                 : context.nc.textTertiary,

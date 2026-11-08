@@ -111,19 +111,19 @@ class ZyndioColors extends ThemeExtension<ZyndioColors> {
   final Color focusRing;
 
   static const light = ZyndioColors(
-    bgCanvas: Color(0xFFF1F4FC),
+    bgCanvas: Color(0xFFF6F7F9),
     bgSurface: Color(0xFFFFFFFF),
-    bgSunken: Color(0xFFE6ECFA),
-    textPrimary: Color(0xFF030616),
-    textSecondary: Color(0xFF48556A),
-    textTertiary: Color(0xFF56637B),
-    borderSubtle: Color(0xFFDEE5F5),
+    bgSunken: Color(0xFFF0F2F5),
+    textPrimary: Color(0xFF0B1220),
+    textSecondary: Color(0xFF4A5365),
+    textTertiary: Color(0xFF626B7C),
+    borderSubtle: Color(0xFFE6E9EE),
     borderStrong: Color(0xFF7A86A0),
     brandPrimary: Color(0xFF0962C0),
     brandOnPrimary: Color(0xFFFFFFFF),
     brandSubtle: Color(0xFFDDEEFB),
     brandOnSubtle: Color(0xFF0A4FA3),
-    actionSecondary: Color(0xFF030616),
+    actionSecondary: Color(0xFF031943),
     actionOnSecondary: Color(0xFFFFFFFF),
     statusSuccess: Color(0xFF15784A),
     statusSuccessSubtle: Color(0xFFE3F5EC),
@@ -491,27 +491,27 @@ class BrandThemeColors extends ThemeExtension<BrandThemeColors> {
 
   // ── LIGHT MODE ──
   static const light = BrandThemeColors(
-    primary: Color(0xFF3B82F6),          // blue500
-    scaffoldBg: Color(0xFFF8FAFC),       // slate50
+    primary: Color(0xFF0962C0),          // blue500
+    scaffoldBg: Color(0xFFF6F7F9),       // slate50
     cardSurface: Colors.white,
     cardSurfaceElevated: Colors.white,
-    cardBorder: Color(0xFFF1F5F9),       // slate100
-    textPrimary: Color(0xFF0F172A),      // dark
-    textSecondary: Color(0xFF475569),    // slate600
-    textTertiary: Color(0xFF94A3B8),     // slate400
+    cardBorder: Color(0xFFE6E9EE),       // slate100
+    textPrimary: Color(0xFF0B1220),      // dark
+    textSecondary: Color(0xFF4A5365),    // slate600
+    textTertiary: Color(0xFF626B7C),     // slate400
     textOnDark: Colors.white,
-    iconDefault: Color(0xFF475569),      // slate600
-    iconSubtle: Color(0xFF94A3B8),       // slate400
-    divider: Color(0xFFE2E8F0),          // slate200
+    iconDefault: Color(0xFF4A5365),      // slate600
+    iconSubtle: Color(0xFF626B7C),       // slate400
+    divider: Color(0xFFE6E9EE),          // slate200
     navbarBg: Colors.white,
     navbarPillBg: Color(0xFFF2F2F7),
     inputFill: Color(0xFFF8FAFC),        // slate50
-    inputBorder: Color(0xFFE2E8F0),      // slate200
+    inputBorder: Color(0xFFE6E9EE),      // slate200
     shimmerBase: Color(0xFFE2E8F0),
     shimmerHighlight: Color(0xFFF8FAFC),
     glassBg: Color(0xCCFFFFFF),          // white 80%
     glassBorder: Color(0x59FFFFFF),      // white 35%
-    shadowColor: Color(0x14000000),      // black 8%
+    shadowColor: Color(0x0A000000),      // black 4%: hairline cards, barely-there shadow
     leaderboardOwnBorder: Color(0xFF2563EB),  // blue600
     leaderboardYouPillText: Color(0xFF1D4ED8), // blue700
     isDark: false,
@@ -653,19 +653,19 @@ extension BrandThemeX on BuildContext {
 
 /// Brand gradients (identical in light and dark per the tokens file).
 abstract final class ZyndioGradients {
-  /// Primary CTA / Schedule / avatar, 90°. White text ≥ 4.93:1 on every stop.
+  /// Primary CTA / avatar: deep brand navy (from the mark), a barely-there
+  /// depth gradient, no purple. White text ≥ 14:1 on every stop.
   static const LinearGradient brand = LinearGradient(
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
-    colors: [Color(0xFF7444F0), Color(0xFF3D5BF5), Color(0xFF0B6FD6)],
-    stops: [0.0, 0.55, 1.0],
+    colors: [Color(0xFF0B2A5E), Color(0xFF031943)],
   );
 
-  /// Active segment/filter pill. White 14/600 ≥ 5.49:1.
+  /// Active segment/filter pill: solid brand navy. White text ≥ 17:1.
   static const LinearGradient segmentActive = LinearGradient(
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
-    colors: [Color(0xFF7444F0), Color(0xFF6A45F0)],
+    colors: [Color(0xFF031943), Color(0xFF031943)],
   );
 }
 
@@ -758,26 +758,26 @@ class ZyndioTc025Colors extends ThemeExtension<ZyndioTc025Colors> {
   final Color chartPointStroke;
 
   static const light = ZyndioTc025Colors(
-    segmentBg: Color(0xFFEEF0F5),
-    segmentText: Color(0xFF283152),
-    tileBg: Color(0xFFEAF4FF),
-    deltaNeutral: Color(0xFF283152),
+    segmentBg: Color(0xFFF0F2F5),
+    segmentText: Color(0xFF1F2837),
+    tileBg: Color(0xFFF0F2F5),
+    deltaNeutral: Color(0xFF1F2837),
     deltaFavourable: Color(0xFF0E7F48),
     deltaUnfavourable: Color(0xFFB42318),
     badgeActiveBg: Color(0xFFE3F7EC),
     badgeActiveText: Color(0xFF0B6E3D),
-    badgeNeutralBg: Color(0xFFEEF0F5),
-    badgeNeutralText: Color(0xFF3A4463),
-    tabActive: Color(0xFF2C4DFE),
-    tabInactive: Color(0xFF4A5470),
+    badgeNeutralBg: Color(0xFFF0F2F5),
+    badgeNeutralText: Color(0xFF3A4356),
+    tabActive: Color(0xFF031943),
+    tabInactive: Color(0xFF626B7C),
     critText: Color(0xFFB42318),
     critBg: Color(0xFFFEF0EE),
     warnText: Color(0xFF8A4B00),
     warnBg: Color(0xFFFFF4E2),
-    screenBg: Color(0xFFF7F8FC),
-    chartLineStart: Color(0xFF0B6FD6),
-    chartLineEnd: Color(0xFF7444F0),
-    chartPointStroke: Color(0xFF3D5BF5),
+    screenBg: Color(0xFFF6F7F9),
+    chartLineStart: Color(0xFF0962C0),
+    chartLineEnd: Color(0xFF0E839C),
+    chartPointStroke: Color(0xFF0962C0),
   );
 
   static const dark = ZyndioTc025Colors(
@@ -791,7 +791,7 @@ class ZyndioTc025Colors extends ThemeExtension<ZyndioTc025Colors> {
     badgeActiveText: Color(0xFF6EE7A8),
     badgeNeutralBg: Color(0xFF1A2133),
     badgeNeutralText: Color(0xFFD5DBEA),
-    tabActive: Color(0xFF9DB2FF),
+    tabActive: Color(0xFF9CD6F7),
     tabInactive: Color(0xFFA6B0C3),
     critText: Color(0xFFFF9B8F),
     critBg: Color(0xFF2A1414),
@@ -799,8 +799,8 @@ class ZyndioTc025Colors extends ThemeExtension<ZyndioTc025Colors> {
     warnBg: Color(0xFF2A2010),
     screenBg: Color(0xFF070A14),
     chartLineStart: Color(0xFF0B6FD6), // 3.11:1 on band
-    chartLineEnd: Color(0xFF8A66FF), // 3.96:1 on band, 4.75:1 on surface
-    chartPointStroke: Color(0xFF6F86FF), // 4.77:1 on band, 5.72:1 on surface
+    chartLineEnd: Color(0xFF4FB8F2), // 3.96:1 on band, 4.75:1 on surface
+    chartPointStroke: Color(0xFF4FB8F2), // 4.77:1 on band, 5.72:1 on surface
   );
 
   @override

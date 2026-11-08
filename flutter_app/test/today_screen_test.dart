@@ -160,7 +160,7 @@ void main() {
 
     // H1 (Ava, PR #30 review): screen-reader activation == finger tap.
     for (final c in const [
-      (label: 'View My Insights →', dest: 'CHAT SCREEN'),
+      (label: 'View my insights', dest: 'CHAT SCREEN'),
       (
         label: 'Food log, Log a meal by describing it, scanning it or speaking.',
         dest: 'FOOD LOG SCREEN'

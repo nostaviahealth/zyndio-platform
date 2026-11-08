@@ -21,6 +21,9 @@ import '../providers/intelligence_provider.dart';
 import '../providers/lab_reports_provider.dart';
 import '../providers/onboarding_provider.dart';
 import '../providers/patient_provider.dart';
+import '../providers/wearable_sync_provider.dart';
+import '../providers/protocol_provider.dart';
+import '../data/protocol_repository.dart';
 
 const bool _demoLoginDefine = bool.fromEnvironment('DEMO_LOGIN', defaultValue: false);
 
@@ -59,6 +62,71 @@ class _DemoProfileNotifier extends PatientProfileNotifier {
         age: 44,
         subscriptionPlan: 'free',
       );
+}
+
+/// Fictional wearable day so Today shows metrics, not the connect prompt.
+/// Refresh keeps the sample instead of trying a real device sync.
+class _DemoWearableNotifier extends WearableSyncNotifier {
+  @override
+  Future<WearableSyncState> build() async => WearableSyncState(
+        isSyncing: false,
+        lastSynced: DateTime.now().subtract(const Duration(minutes: 12)),
+        snapshot: const WearableSnapshot(
+          sleepHours: 7.4,
+          sleepEfficiency: 91,
+          sleepScore: 84,
+          recoveryScore: 78,
+          hrv: 58,
+          hrvBaseline: 54,
+          rhr: 56,
+          rhrBaseline: 58,
+          steps: 8432,
+          exerciseMinutes: 41,
+          activeEnergy: 512,
+          respiratoryRate: 14.2,
+          bloodOxygen: 97,
+          vo2Max: 44.1,
+          heartRateAvg: 68,
+        ),
+      );
+
+  @override
+  Future<void> sync({DateTime? date}) async {}
+}
+
+/// A fictional care-team plan so My Plan has content in the demo. Built on
+/// the repository's sample plan, retitled for the demo patient's labs.
+ProtocolData demoPlan() {
+  final base = ProtocolData.mock;
+  return ProtocolData(
+    id: 'admin-demo-plan',
+    title: 'Metabolic & heart health',
+    subtitle: '12 weeks · Phase 1 of 2',
+    description: 'Lower LDL and ApoB while keeping HbA1c in range.',
+    currentPhase: base.currentPhase,
+    availablePhases: base.availablePhases,
+    isPremium: false,
+    diet: base.diet,
+    lifestyle: base.lifestyle,
+    fitness: base.fitness,
+    supplements: base.supplements,
+    debugGoal: const {},
+    targetMetrics: const ['LDL Cholesterol', 'ApoB', 'HbA1c'],
+  );
+}
+
+class _DemoProtocolNotifier extends ProtocolNotifier {
+  @override
+  ProtocolState build() {
+    final plan = demoPlan();
+    return ProtocolState(allProtocols: [plan], selectedProtocolId: plan.id);
+  }
+
+  @override
+  Future<void> fetchLibrary() async {}
+
+  @override
+  Future<void> selectProtocol(String id) async {}
 }
 
 LabMarker _m(String name, String value,
@@ -169,4 +237,6 @@ List<Override> demoLoginOverrides() => [
       labReportsProvider.overrideWith((ref) async => demoLabReports()),
       bodyCompositionScansProvider.overrideWith((ref) async => demoBodyScans()),
       aiInsightsProvider.overrideWithValue(demoInsights),
+      wearableSyncProvider.overrideWith(_DemoWearableNotifier.new),
+      protocolProvider.overrideWith(_DemoProtocolNotifier.new),
     ];

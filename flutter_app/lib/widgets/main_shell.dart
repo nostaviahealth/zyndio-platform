@@ -152,7 +152,7 @@ class _ZyndioTabBar extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 49,
+          height: 58,
           child: Row(
             children: [
               for (var i = 0; i < _kTabs.length; i++)
@@ -198,18 +198,30 @@ class _TabItem extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 78, minHeight: 49),
+            constraints: const BoxConstraints(minWidth: 78, minHeight: 56),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(spec.icon, size: 24, color: color),
-                const SizedBox(height: 2),
+                // Slim indicator above the active tab.
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: selected ? 20 : 0,
+                  height: 2,
+                  margin: const EdgeInsets.only(bottom: 7),
+                  decoration: BoxDecoration(
+                    color: z.tabActive,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Icon(spec.icon, size: 22, color: color),
+                const SizedBox(height: 4),
                 Text(
                   spec.label,
                   style: TextStyle(
                     fontFamily: ZyndioType.family,
                     fontSize: 11,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    letterSpacing: 0.1,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                     color: color,
                   ),
                 ),

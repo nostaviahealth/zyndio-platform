@@ -30,17 +30,17 @@ void main() {
   group('TC-025 tokens — exact values per brightness', () {
     test('light tokens match tokens-tc025.additions.json', () {
       const l = ZyndioTc025Colors.light;
-      expect(l.segmentBg, const Color(0xFFEEF0F5));
-      expect(l.segmentText, const Color(0xFF283152));
-      expect(l.tileBg, const Color(0xFFEAF4FF));
-      expect(l.deltaNeutral, const Color(0xFF283152));
+      expect(l.segmentBg, const Color(0xFFF0F2F5));
+      expect(l.segmentText, const Color(0xFF1F2837));
+      expect(l.tileBg, const Color(0xFFF0F2F5));
+      expect(l.deltaNeutral, const Color(0xFF1F2837));
       expect(l.deltaFavourable, const Color(0xFF0E7F48));
       expect(l.deltaUnfavourable, const Color(0xFFB42318));
       expect(l.badgeActiveBg, const Color(0xFFE3F7EC));
       expect(l.badgeActiveText, const Color(0xFF0B6E3D));
-      expect(l.tabActive, const Color(0xFF2C4DFE));
-      expect(l.tabInactive, const Color(0xFF4A5470));
-      expect(l.screenBg, const Color(0xFFF7F8FC));
+      expect(l.tabActive, const Color(0xFF031943));
+      expect(l.tabInactive, const Color(0xFF626B7C));
+      expect(l.screenBg, const Color(0xFFF6F7F9));
     });
 
     test('dark tokens match tokens-tc025.additions.json', () {
@@ -52,15 +52,15 @@ void main() {
       expect(d.deltaFavourable, const Color(0xFF4BD98F));
       expect(d.deltaUnfavourable, const Color(0xFFFF9B8F));
       expect(d.badgeActiveText, const Color(0xFF6EE7A8));
-      expect(d.tabActive, const Color(0xFF9DB2FF));
+      expect(d.tabActive, const Color(0xFF9CD6F7));
       expect(d.screenBg, const Color(0xFF070A14));
     });
 
-    test('brand gradient uses the AA-corrected stops (not Brett\'s cyan)', () {
+    test('brand gradient is the brand navy (premium pass, no purple)', () {
       expect(ZyndioGradients.brand.colors,
-          const [Color(0xFF7444F0), Color(0xFF3D5BF5), Color(0xFF0B6FD6)]);
+          const [Color(0xFF0B2A5E), Color(0xFF031943)]);
       expect(ZyndioGradients.segmentActive.colors,
-          const [Color(0xFF7444F0), Color(0xFF6A45F0)]);
+          const [Color(0xFF031943), Color(0xFF031943)]);
     });
 
     test('both themes register the TC-025 extension', () {
@@ -102,15 +102,15 @@ void main() {
     });
 
     // M2 (Ava, PR #30 review): dark chart marks were < 3:1 on the lab band.
-    test('M2: chart tokens — light unchanged, dark lifted', () {
+    test('M2: chart tokens — brand blue to teal, dark lifted', () {
       const l = ZyndioTc025Colors.light;
-      expect(l.chartLineStart, const Color(0xFF0B6FD6));
-      expect(l.chartLineEnd, const Color(0xFF7444F0));
-      expect(l.chartPointStroke, const Color(0xFF3D5BF5));
+      expect(l.chartLineStart, const Color(0xFF0962C0));
+      expect(l.chartLineEnd, const Color(0xFF0E839C));
+      expect(l.chartPointStroke, const Color(0xFF0962C0));
       const d = ZyndioTc025Colors.dark;
       expect(d.chartLineStart, const Color(0xFF0B6FD6));
-      expect(d.chartLineEnd, const Color(0xFF8A66FF));
-      expect(d.chartPointStroke, const Color(0xFF6F86FF));
+      expect(d.chartLineEnd, const Color(0xFF4FB8F2));
+      expect(d.chartPointStroke, const Color(0xFF4FB8F2));
     });
 
     test('M2: dark chart marks ≥ 3:1 on the lab band and the surface (1.4.11)', () {
@@ -122,9 +122,10 @@ void main() {
         expect(_contrast(mark, surface), greaterThanOrEqualTo(3.0),
             reason: '$mark on surface');
       }
-      // Ava's measured values.
-      expect(_contrast(d.chartPointStroke, d.badgeActiveBg), closeTo(4.77, 0.02));
-      expect(_contrast(d.chartLineEnd, d.badgeActiveBg), closeTo(3.96, 0.02));
+      // Measured for the premium-pass brand blue (was 4.77 / 3.96 for the
+      // purple stops); the >= 3:1 rule above is what must hold.
+      expect(_contrast(d.chartPointStroke, d.badgeActiveBg), closeTo(6.91, 0.02));
+      expect(_contrast(d.chartLineEnd, d.badgeActiveBg), closeTo(6.91, 0.02));
     });
 
     test('sanity: contrast helper gives 21:1 for black on white', () {

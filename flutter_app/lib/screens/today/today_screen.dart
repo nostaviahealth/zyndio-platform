@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -84,6 +85,7 @@ class TodayScreen extends ConsumerWidget {
     // never built and the slot height is 0 (the tiles sit at the top).
 
     return ZyndioTabScaffold(
+      eyebrow: DateFormat('EEEE, d MMMM').format(DateTime.now()),
       title: greeting,
       subtitle: "Here's your health overview for today.",
       onRefresh: () => ref.read(wearableSyncProvider.notifier).sync(),
@@ -164,7 +166,7 @@ class TodayScreen extends ConsumerWidget {
 
   Widget _primaryInsightCta(BuildContext context) {
     return _GradientCta(
-      label: 'View My Insights →',
+      label: 'View my insights',
       onTap: () => context.pushNamed('chat'),
     );
   }
@@ -241,6 +243,19 @@ class _MetricGrid extends StatelessWidget {
             : zyndioDelta(snapshot.hrv!, prev, decimals: 0, unit: 'ms'),
       ));
     }
+    if (snapshot.rhr != null) {
+      final prev = snapshot.rhrBaseline;
+      tiles.add(_MetricTile(
+        icon: LucideIcons.heartPulse,
+        label: 'Resting HR',
+        value: snapshot.rhr!.toString(),
+        unit: 'bpm',
+        // Same 7-day rolling baseline as HRV → an honest, neutral delta.
+        delta: prev == null
+            ? null
+            : zyndioDelta(snapshot.rhr!, prev, decimals: 0, unit: 'bpm'),
+      ));
+    }
     // Recovery intentionally omitted: never derived, no source supplies it.
 
     if (tiles.isEmpty) {
@@ -315,37 +330,42 @@ class _MetricTile extends StatelessWidget {
       container: true,
       child: ExcludeSemantics(
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
           decoration: BoxDecoration(
-            color: z.tileBg,
-            borderRadius: BorderRadius.circular(16),
+            color: c.bgSurface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: c.borderSubtle),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(icon, size: 24, color: c.textSecondary),
-                  const SizedBox(width: 8),
+                  Icon(icon, size: 15, color: c.textTertiary),
+                  const SizedBox(width: 6),
                   Text(
                     label,
                     style: TextStyle(
                       fontFamily: ZyndioType.family,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: c.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.2,
+                      color: c.textTertiary,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 14),
               RichText(
                 text: TextSpan(
                   text: value,
                   style: TextStyle(
                     fontFamily: ZyndioType.family,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 30,
+                    height: 1.0,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.8,
+                    fontFeatures: ZyndioType.tabular,
                     color: c.textPrimary,
                   ),
                   children: [
@@ -353,8 +373,9 @@ class _MetricTile extends StatelessWidget {
                       TextSpan(
                         text: ' $unit',
                         style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          letterSpacing: 0,
+                          fontWeight: FontWeight.w500,
                           color: c.textSecondary,
                         ),
                       ),
@@ -396,53 +417,48 @@ class _InsightCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = Theme.of(context).extension<ZyndioColors>()!;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final accent = dark ? const Color(0xFF4FB8F2) : const Color(0xFF0E7C93);
     final insights = ref.watch(aiInsightsProvider);
     final body = insights.isNotEmpty
         ? insights.first
         : 'Your personalised insights appear here as your data comes in.';
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
       decoration: BoxDecoration(
         color: c.bgSurface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: c.borderSubtle),
-        boxShadow: ZyndioShadow.cardFor(Theme.of(context).brightness),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                width: 36,
-                height: 36,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: ZyndioGradients.brand,
-                ),
-                child: const Icon(LucideIcons.sparkles, size: 18, color: Colors.white),
-              ),
-              const SizedBox(width: 8),
+              Icon(LucideIcons.sparkles, size: 14, color: accent),
+              const SizedBox(width: 6),
               Text(
-                'Zyndio AI Insight',
+                'INSIGHT',
                 style: TextStyle(
                   fontFamily: ZyndioType.family,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: c.textPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.2,
+                  color: accent,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
             body,
             style: TextStyle(
               fontFamily: ZyndioType.family,
-              fontSize: 15,
-              height: 22 / 15,
+              fontSize: 19,
+              height: 27 / 19,
+              fontWeight: FontWeight.w500,
+              letterSpacing: -0.3,
               color: c.textPrimary,
             ),
           ),
@@ -471,13 +487,13 @@ class _GradientCta extends StatelessWidget {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               gradient: ZyndioGradients.brand,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
               label,
               style: const TextStyle(
                 fontFamily: ZyndioType.family,
-                fontSize: 17,
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
               ),
