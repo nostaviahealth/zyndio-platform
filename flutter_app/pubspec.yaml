@@ -78,8 +78,8 @@ dependencies:
   # Native icon switching handled via MethodChannel (no plugin needed)
 
   # In-App Purchases (RevenueCat)
-  purchases_flutter: ^8.2.0
-  purchases_ui_flutter: ^8.2.0
+  purchases_flutter: ^10.19.0
+  purchases_ui_flutter: ^10.19.0
 
   share_plus: ^10.1.2
   animations: ^2.0.11
@@ -103,6 +103,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  config:
+    enable-swift-package-manager: false
   
   assets:
     - assets/images/

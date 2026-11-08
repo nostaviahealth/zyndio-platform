@@ -85,7 +85,8 @@ class RevenueCatService {
       debugPrint('🛒 RevenueCat: Initiating purchase for package: ${package.identifier}');
       debugPrint('🛒 RevenueCat: Product ID: ${package.storeProduct.identifier}');
       
-      final customerInfo = await Purchases.purchasePackage(package);
+      final result = await Purchases.purchase(PurchaseParams.package(package));
+      final customerInfo = result.customerInfo;
       final hasPlus = customerInfo.entitlements.active.containsKey(entitlementPlus);
       
       debugPrint('🛒 RevenueCat: Purchase result received. hasPlus=$hasPlus');

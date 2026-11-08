@@ -24,7 +24,6 @@
 		5093F3FDDF452C55C66826E9 /* Plus20x20@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 6DAF4B761FF688523AE074DE /* Plus20x20@2x.png */; };
 		5D9551B52FA4A6DA0041DA06 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D9551B42FA4A6DA0041DA06 /* WidgetKit.framework */; };
 		5D9551B72FA4A6DA0041DA06 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D9551B62FA4A6DA0041DA06 /* SwiftUI.framework */; };
-		600D0DE14DB2E26C6DDE5392 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 01AFC3C23B68D5B7DE451C5F /* GoogleService-Info.plist */; };
 		64DE6EA3C7B29A5FEF00E7B6 /* Plus60x60@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = EB97575B381274C29E9190A5 /* Plus60x60@3x.png */; };
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
 		7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */; };
@@ -56,7 +55,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		01AFC3C23B68D5B7DE451C5F /* GoogleService-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		0B64CBCF4D16D7C80F883220 /* Plus~ipad.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; path = "Plus~ipad.png"; sourceTree = "<group>"; };
 		14611338D1EF5C6C75657C4D /* PlusIcon-60x60@3x.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; path = "PlusIcon-60x60@3x.png"; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
@@ -261,7 +259,6 @@
 				EB97575B381274C29E9190A5 /* Plus60x60@3x.png */,
 				55069DB45D0319C5D1468DFA /* Plus29x29@3x.png */,
 				6377AD0E75B5DD99B4E41698 /* Plus40x40@2x.png */,
-				01AFC3C23B68D5B7DE451C5F /* GoogleService-Info.plist */,
 				9BD6D36E5F05133740ECD9C2 /* Watch */,
 			);
 			path = Runner;
@@ -448,7 +445,6 @@
 				64DE6EA3C7B29A5FEF00E7B6 /* Plus60x60@3x.png in Resources */,
 				DBF0BEA1BE38325946D509A9 /* Plus29x29@3x.png in Resources */,
 				15CD6F177F2E577ADFC1A85C /* Plus40x40@2x.png in Resources */,
-				600D0DE14DB2E26C6DDE5392 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -667,7 +663,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -941,7 +937,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
@@ -996,7 +992,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;

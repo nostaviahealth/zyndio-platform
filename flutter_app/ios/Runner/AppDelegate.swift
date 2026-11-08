@@ -7,16 +7,27 @@ import FirebaseMessaging
 import UserNotifications
 
 @main
-@objc class AppDelegate: FlutterAppDelegate, MessagingDelegate {
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate, MessagingDelegate {
 
   private let healthStore = HKHealthStore()
+
+  // Dev/CI builds ship without a real GoogleService-Info.plist (see
+  // lib/config/firebase_config.dart). FirebaseApp.configure() aborts the app
+  // without one, so only touch Firebase when the plist has an app ID.
+  private let firebaseConfigured: Bool = {
+    guard let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
+          let plist = NSDictionary(contentsOfFile: path) else { return false }
+    return plist["GOOGLE_APP_ID"] != nil
+  }()
 
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    FirebaseApp.configure()
-    
+    if firebaseConfigured {
+      FirebaseApp.configure()
+    }
+
     if #available(iOS 10.0, *) {
       UNUserNotificationCenter.current().delegate = self
       let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]
@@ -31,7 +42,9 @@ import UserNotifications
     }
 
     application.registerForRemoteNotifications()
-    Messaging.messaging().delegate = self
+    if firebaseConfigured {
+      Messaging.messaging().delegate = self
+    }
 
     // ── Force Facebook SDK initialization BEFORE Flutter ──────────────────
     // SDK v18 ignores Info.plist and reads ATT status directly.
@@ -40,10 +53,16 @@ import UserNotifications
     Settings.shared.isAutoLogAppEventsEnabled = true
     ApplicationDelegate.shared.application(application, didFinishLaunchingWithOptions: launchOptions)
     
-    GeneratedPluginRegistrant.register(with: self)
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
 
-    guard let registrar = self.registrar(forPlugin: "com.zyndio.HealthChannels") else {
-      return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  // With the UIScene life cycle the Flutter engine is created after launch,
+  // so plugins and method channels are registered here, not in didFinishLaunching.
+  func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+
+    guard let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "com.zyndio.HealthChannels") else {
+      return
     }
     let messenger = registrar.messenger()
 
@@ -164,8 +183,6 @@ import UserNotifications
         result(FlutterMethodNotImplemented)
       }
     }
-
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
   // ═══════════════════════════════════════════════════════
@@ -609,7 +626,9 @@ import UserNotifications
   }
   
   override func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-    Messaging.messaging().apnsToken = deviceToken
+    if firebaseConfigured {
+      Messaging.messaging().apnsToken = deviceToken
+    }
     super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
   }
 }
