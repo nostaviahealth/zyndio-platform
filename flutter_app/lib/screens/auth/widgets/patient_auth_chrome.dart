@@ -123,56 +123,56 @@ class PatientAuthShell extends StatelessWidget {
 class AuthWordmark extends StatelessWidget {
   const AuthWordmark({super.key});
 
+  /// Official tagline from the Zyndio brand pack (zyndio-logo-wide.png).
+  static const tagline = 'PHYSICIAN-LED TELEHEALTH CARE';
+
   @override
   Widget build(BuildContext context) {
     final c = zcOf(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+    return Semantics(
+      container: true,
+      label: 'Zyndio, physician-led telehealth care',
+      child: ExcludeSemantics(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              'ZYNDIO',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.w600,
-                fontSize: 26,
-                letterSpacing: 0.06 * 26,
-                color: c.textPrimary,
-              ),
+            Image.asset(
+              'assets/icons/zyndio-mark.png',
+              height: 44,
+              width: 44,
+              excludeFromSemantics: true,
             ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                border: Border.all(
-                    color: c.borderStrong, style: BorderStyle.solid),
-              ),
-              child: Text(
-                'PLACEHOLDER',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.08 * 10,
-                  color: c.textSecondary,
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'ZYNDIO',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 26,
+                    letterSpacing: 0.06 * 26,
+                    color: c.textPrimary,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 2),
+                Text(
+                  tagline,
+                  style: TextStyle(
+                    fontSize: 11,
+                    height: 16 / 11,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.12 * 11,
+                    color: c.brandOnSubtle,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
-        const SizedBox(height: 4),
-        Text(
-          'GLP-1 WEIGHT LOSS CARE',
-          style: TextStyle(
-            fontSize: 11,
-            height: 16 / 11,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0.2 * 11,
-            color: c.textTertiary,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

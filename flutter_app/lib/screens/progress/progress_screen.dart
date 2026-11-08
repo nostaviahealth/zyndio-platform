@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../data/body_composition.dart';
+import '../../data/dexa_measures.dart';
+import '../../config/theme.dart';
 import '../../providers/body_composition_provider.dart';
 import '../../widgets/tc025/tc025_widgets.dart';
 import '../../providers/feature_flags_provider.dart';
@@ -67,19 +69,96 @@ class _ScanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
     final device = scan.deviceLine;
+    final groups = groupDexaMeasures(scan.measures);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: ZyndioStateCard(
-        icon: LucideIcons.activity,
-        title: scan.scanDate.isEmpty ? 'Scan on file' : scan.scanDate,
-        body: [
-          if (device.isNotEmpty) device,
-          if (scan.measures.isEmpty)
-            'No measures were stored with this scan.'
-          else
-            scan.measures.map((m) => '${m.name}: ${m.value}').join('\n'),
-        ].join('\n'),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: c.bgSurface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: c.borderSubtle),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(LucideIcons.activity, size: 20, color: c.brandPrimary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Semantics(
+                    header: true,
+                    child: Text(
+                      scan.scanDate.isEmpty ? 'DEXA scan' : 'DEXA scan · ${scan.scanDate}',
+                      style: TextStyle(
+                        fontFamily: ZyndioType.family,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: c.textPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (device.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(device, style: TextStyle(fontSize: 13, color: c.textTertiary)),
+            ],
+            if (groups.isEmpty) ...[
+              const SizedBox(height: 12),
+              Text('No measures were stored with this scan.',
+                  style: TextStyle(fontSize: 15, color: c.textSecondary)),
+            ],
+            for (final g in groups) ...[
+              const SizedBox(height: 16),
+              Semantics(
+                header: true,
+                child: Text(
+                  g.section.title.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                    color: c.textSecondary,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              for (final r in g.rows)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 5),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(r.label,
+                            style: TextStyle(fontSize: 15, color: c.textSecondary)),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        r.value,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: c.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+            const SizedBox(height: 12),
+            Text(
+              'Values are as reported by the scan provider. Review them with your care team.',
+              style: TextStyle(fontSize: 12, color: c.textTertiary),
+            ),
+          ],
+        ),
       ),
     );
   }

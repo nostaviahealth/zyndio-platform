@@ -1,0 +1,51 @@
+name: Update goldens
+
+# Regenerates the patient-auth screenshot goldens on the same OS and Flutter
+# version as CI (ubuntu-latest, Flutter 3.47.8). Goldens rendered on macOS
+# differ by ~1.7% in font antialiasing and fail in CI, so a deliberate UI
+# change (e.g. new brand mark/colours) must refresh them here.
+#
+# Runs only on pushes to branches named update-goldens/*; it never commits.
+# It uploads the new goldens and screenshots as an artifact for a person to
+# review and commit on their own branch.
+on:
+  push:
+    branches: ['update-goldens/**']
+
+permissions:
+  contents: read
+
+jobs:
+  goldens:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.8'
+          channel: 'stable'
+
+      - name: pub get (packages/platform_wearables)
+        working-directory: packages/platform_wearables
+        run: flutter pub get
+
+      - name: pub get (flutter_app)
+        working-directory: flutter_app
+        run: flutter pub get
+
+      - name: Regenerate auth goldens
+        working-directory: flutter_app
+        run: flutter test --update-goldens test/auth/capture_patient_auth_screenshots_test.dart
+
+      - name: Verify they now pass
+        working-directory: flutter_app
+        run: flutter test test/auth/capture_patient_auth_screenshots_test.dart
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: auth-goldens
+          path: |
+            flutter_app/test/auth/goldens/
+            docs/screenshots/tc-012/
+          retention-days: 7
