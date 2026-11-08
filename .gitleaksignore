@@ -8,3 +8,13 @@
 69559b98a5a26ac0e0fe334d26b4a66f96309dd4:supabase/tests/725_tc021_intelligence_rate_limit.sql:generic-api-key:47
 69559b98a5a26ac0e0fe334d26b4a66f96309dd4:supabase/tests/725_tc021_intelligence_rate_limit.sql:generic-api-key:50
 69559b98a5a26ac0e0fe334d26b4a66f96309dd4:supabase/tests/725_tc021_intelligence_rate_limit.sql:generic-api-key:52
+
+# Verified FALSE POSITIVES (generic-api-key), in already-pushed commits that
+# cannot be rewritten (no force-push). CI scans every branch on origin, so a
+# finding on any branch fails every PR's secrets job. Each entry is scoped to
+# one commit, file and line.
+#  - a SharedPreferences key name ('notification_permission_asked_v1'), not a
+#    secret; reworded in the next store-readiness commit:
+9e58c077275ba04365aa3ce9d06ce9a145823bad:flutter_app/lib/services/notification_permission_prompt.dart:generic-api-key:22
+#  - a fictional pgTAP fixture value ("zpt_fixture_a1") on c2-outcomes-engine:
+ebbed40fca55f1a91088d39ead94c877c02b6cef:supabase/tests/777_c2_outcomes_engine_and_dexa.sql:generic-api-key:126
