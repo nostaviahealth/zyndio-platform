@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'; // Added
 import 'package:fl_chart/fl_chart.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../../config/lab_range_wording.dart';
 import '../../../config/theme.dart';
 import '../../../models/lab_report.dart';
 import '../../../services/azure_openai_service.dart';
@@ -143,7 +144,11 @@ class _BiomarkerCardState extends ConsumerState<BiomarkerCard> {
         ? widget.marker.unit 
         : (widget.marker.range.contains('mg/dL') ? 'mg/dL' : (widget.marker.range.contains('%') ? '%' : ''));
 
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      expanded: isExpanded,
+      onTapHint: isExpanded ? 'collapse' : 'show trend and ranges',
+      child: GestureDetector(
       onTap: () => setState(() => isExpanded = !isExpanded),
       child: Container(
         decoration: DashboardCardStyle.decorationOf(context),
@@ -195,7 +200,11 @@ class _BiomarkerCardState extends ConsumerState<BiomarkerCard> {
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
-                                        widget.marker.displayStatus,
+                                        // APP-06: bounded pill wording; the full
+                                        // caption sits under the pill.
+                                        widget.marker.isOutlier
+                                            ? kOutsideClinicRangeShort.toUpperCase()
+                                            : widget.marker.displayStatus,
                                         style: TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.w700,
@@ -206,6 +215,18 @@ class _BiomarkerCardState extends ConsumerState<BiomarkerCard> {
                                     ],
                                   ),
                                 ),
+                                if (widget.marker.isOutlier) ...[
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    kOutsideClinicRange,
+                                    key: const Key('marker-outside-range-caption'),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: context.nc.textSecondary,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -324,6 +345,7 @@ class _BiomarkerCardState extends ConsumerState<BiomarkerCard> {
             ],
           ),
         ),
+      ),
       );
   }
 
