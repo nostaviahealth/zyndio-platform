@@ -127,6 +127,45 @@ flutter build apk --debug --dart-define-from-file=dart_defines.json
 
 Leave `LAB_AI_EXTRACTION_ENABLED` unset. The lab path must answer unavailable. Set it only on a machine where every report is fictional, and only with a key that is not committed.
 
+## Review status (8 Nov 2026, 11:38 IST)
+
+Clara approved **pull request #35** at `fa7de1b9d236c6a5b0331d5d671045a54af69969`.
+She reported no Medium or High findings. Recorded CI on that head was 8/8, with
+pgTAP 1883, Flutter 737, Deno 118, and integration 101. Those counts are
+Clara's recorded run on **#35**, not a run of this integration branch.
+
+Ava has **not** approved the #35 UI.
+
+Low from that review: `LabReportFileOpener.maxAttempts = 3` still passed tests
+because the assertion read the constant. This branch pins the open path to
+**two attempts** (the first try plus one fresh link) with literal `2`s in
+`flutter_app/test/screens/lab_report_file_open_test.dart`. A third attempt
+fails that test. The assertion was not loosened.
+
+Clara is reviewing **pull request #42** at `2bd25e2190299a81262fbd5df85edda40374a575`.
+Approval of #35 or #42 does **not** approve this integration head. Clara and
+Ava review this branch's pull request on its own SHA. Original branches are
+unchanged.
+
+## Checklist progress on this branch
+
+Done in code, pending a fresh run on this head:
+
+- [x] File open retries exactly twice, and a 3-attempt mutation fails the test.
+- [x] Manual biomarker insert does not store a fixed Normal status, range, or insight.
+- [x] Patient held-report row, result, and file select are server policies (`20261105170000`, pgTAP `778`). Staff review access is unchanged. Allowlists `743` and `747` name the two new helpers.
+- [x] Progress reads stored `body_composition_scans` or shows the empty state. It does not invent a score.
+- [x] My Plan does not fall through to `ProtocolData.mock`.
+- [x] Care says the care-team profile is unavailable and keeps Lab Results and Appointments.
+
+Not done:
+
+- [ ] Fresh pgTAP, Flutter, Deno, and integration runs on this head (toolchains were not all present when this note was written).
+- [ ] Android debug APK for this SHA.
+- [ ] iOS signing. Not claimed.
+- [ ] M8 (direct Auth password update). Still the accepted residual in `docs/RISKS.md`. No hosted GoTrue change was made.
+- [ ] Ava UI pass and Clara review of **this** head.
+
 ## Out of scope for this milestone
 
 Store listing, paid GoTrue leaked-password protection, a live telehealth adapter, a BAA, production DNS, and any real wearable or lab vendor account.
