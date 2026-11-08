@@ -99,11 +99,7 @@ class _ProfileCard extends ConsumerWidget {
           onTap: () => context.pushNamed('settings'),
           child: Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: c.bgSurface,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: c.borderSubtle),
-            ),
+            decoration: zyndioCard(context, radius: 24),
             child: Row(
               children: [
                 Container(

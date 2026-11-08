@@ -105,6 +105,8 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
 }
 
 /// Baseline and latest scan side by side (mockup body figures).
+/// The scan stage: baseline and latest bodies glowing on a deep navy panel
+/// (DEXA imagery reads best on dark), dates in white, an arrow between.
 class _ScanPanels extends StatelessWidget {
   const _ScanPanels({required this.baseline, required this.latest});
   final StoredBodyScan? baseline;
@@ -112,36 +114,28 @@ class _ScanPanels extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = Theme.of(context).extension<ZyndioColors>()!;
-    Widget panel(String title, String date) => Expanded(
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(12, 14, 12, 16),
-            decoration: BoxDecoration(
-              color: context.z25.tileBg,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              children: [
-                Text(title,
-                    style: TextStyle(
-                        fontFamily: ZyndioType.family,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: c.textPrimary)),
-                const SizedBox(height: 2),
-                Text(date,
-                    style: TextStyle(
-                        fontFamily: ZyndioType.family,
-                        fontSize: 12,
-                        color: c.textSecondary)),
-                const SizedBox(height: 10),
-                const SizedBox(
-                  width: 92,
-                  height: 176,
-                  child: CustomPaint(painter: _BodyScanPainter()),
-                ),
-              ],
-            ),
+    Widget figure(String title, String date) => Expanded(
+          child: Column(
+            children: [
+              Text(title,
+                  style: const TextStyle(
+                      fontFamily: ZyndioType.family,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white)),
+              const SizedBox(height: 2),
+              Text(date,
+                  style: TextStyle(
+                      fontFamily: ZyndioType.family,
+                      fontSize: 12,
+                      color: Colors.white.withValues(alpha: 0.65))),
+              const SizedBox(height: 14),
+              const SizedBox(
+                width: 92,
+                height: 176,
+                child: CustomPaint(painter: _BodyScanPainter()),
+              ),
+            ],
           ),
         );
     return Semantics(
@@ -150,29 +144,56 @@ class _ScanPanels extends StatelessWidget {
           ? 'Latest scan ${latest.scanDate}'
           : 'Baseline scan ${baseline!.scanDate}, latest scan ${latest.scanDate}',
       child: ExcludeSemantics(
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (baseline != null) ...[
-                panel('Baseline', baseline!.scanDate),
-                SizedBox(
-                  width: 32,
-                  child: Center(
-                    child: ShaderMask(
-                      shaderCallback: (r) => ZyndioGradients.brand.createShader(r),
-                      child: const Icon(LucideIcons.arrowRight, size: 22, color: Colors.white),
-                    ),
-                  ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(28),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(12, 20, 12, 22),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF151A3E), Color(0xFF0B0F26)],
+              ),
+            ),
+            child: Stack(
+              children: [
+                // Faint scan grid behind the figures.
+                Positioned.fill(child: CustomPaint(painter: _GridPainter())),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (baseline != null) ...[
+                      figure('Baseline', baseline!.scanDate),
+                      Icon(LucideIcons.arrowRight, size: 22, color: Colors.white.withValues(alpha: 0.7)),
+                    ],
+                    figure('Latest Scan', latest.scanDate),
+                  ],
                 ),
               ],
-              panel(baseline == null ? 'Latest Scan' : 'Latest Scan', latest.scanDate),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+class _GridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()
+      ..color = Colors.white.withValues(alpha: 0.05)
+      ..strokeWidth = 1;
+    for (double x = 0; x < size.width; x += 22) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), p);
+    }
+    for (double y = 0; y < size.height; y += 22) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), p);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _CompareGrid extends StatelessWidget {
@@ -219,11 +240,7 @@ class _CompareCard extends StatelessWidget {
       child: ExcludeSemantics(
         child: Container(
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
-          decoration: BoxDecoration(
-            color: c.bgSurface,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: c.borderSubtle),
-          ),
+          decoration: zyndioCard(context, radius: 22),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -316,11 +333,7 @@ class _ScanCard extends StatelessWidget {
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: c.bgSurface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: c.borderSubtle),
-        ),
+        decoration: zyndioCard(context, radius: 22),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

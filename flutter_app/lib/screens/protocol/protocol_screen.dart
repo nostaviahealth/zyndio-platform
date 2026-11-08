@@ -142,17 +142,24 @@ class _ProtocolScreenState extends ConsumerState<ProtocolScreen>
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 // ── Same brand row + page header as the other tabs ──
-                const SliverToBoxAdapter(
+                SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(20, 8, 20, 0),
+                    padding: const EdgeInsets.fromLTRB(8, 4, 20, 0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        ZyndioBrandRow(),
-                        SizedBox(height: 20),
-                        ZyndioPageHeader(
-                          title: 'My Plan',
-                          subtitle: 'Published by your care team.',
+                        if (Navigator.of(context).canPop())
+                          IconButton(
+                            tooltip: 'Back',
+                            icon: const Icon(LucideIcons.arrowLeft),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                        const Padding(
+                          padding: EdgeInsets.only(left: 12, top: 4),
+                          child: ZyndioPageHeader(
+                            title: 'Your plan',
+                            subtitle: 'Published by your care team.',
+                          ),
                         ),
                       ],
                     ),

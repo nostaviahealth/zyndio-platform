@@ -476,12 +476,7 @@ class _BiomarkerHero extends StatelessWidget {
     // clipped to 38×38 at top/right -6. Same painted position as before.
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
-        color: c.bgSurface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: c.borderSubtle),
-        boxShadow: ZyndioShadow.cardFor(Theme.of(context).brightness),
-      ),
+      decoration: zyndioCard(context, radius: 24),
       child: Stack(
         children: [
           // Data readout: one text alternative for screen readers; the painted
@@ -904,11 +899,7 @@ class _MarkerTile extends StatelessWidget {
       child: ExcludeSemantics(
         child: Container(
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
-          decoration: BoxDecoration(
-            color: c.bgSurface,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: c.borderSubtle),
-          ),
+          decoration: zyndioCard(context, radius: 22),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

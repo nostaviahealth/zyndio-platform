@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -33,6 +34,7 @@ class ZyndioTabScaffold extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.eyebrow,
+    this.hero,
     required this.children,
     this.onRefresh,
   });
@@ -42,28 +44,181 @@ class ZyndioTabScaffold extends StatelessWidget {
 
   /// Small spaced capitals above the title (e.g. today's date).
   final String? eyebrow;
+
+  /// Full-bleed header that replaces the title row (Today's gradient hero).
+  /// It draws under the status bar and owns its own safe-area padding.
+  final Widget? hero;
   final List<Widget> children;
   final Future<void> Function()? onRefresh;
 
   @override
   Widget build(BuildContext context) {
+    final top = MediaQuery.paddingOf(context).top;
     final list = ListView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+      padding: EdgeInsets.fromLTRB(0, hero == null ? top + 12 : 0, 0, 120),
       children: [
-        const ZyndioBrandRow(),
-        const SizedBox(height: 20),
-        ZyndioPageHeader(title: title, subtitle: subtitle, eyebrow: eyebrow),
-        const SizedBox(height: 24),
-        ...children,
+        if (hero != null)
+          hero!
+        else
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                    child: ZyndioPageHeader(
+                        title: title, subtitle: subtitle, eyebrow: eyebrow)),
+                const SizedBox(width: 12),
+                const Padding(
+                    padding: EdgeInsets.only(top: 2),
+                    child: ZyndioAvatarButton()),
+              ],
+            ),
+          ),
+        SizedBox(height: hero == null ? 24 : 20),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: children,
+          ),
+        ),
       ],
     );
-    return Container(
-      color: context.z25.screenBg,
-      child: SafeArea(
-        bottom: false,
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      // Light tabs set dark status-bar icons (Today's hero sets light ones).
+      value: hero != null || dark
+          ? SystemUiOverlayStyle.light
+          : SystemUiOverlayStyle.dark,
+      child: Container(
+        color: context.z25.screenBg,
         child: onRefresh == null
             ? list
             : RefreshIndicator(onRefresh: onRefresh!, child: list),
+      ),
+    );
+  }
+}
+
+/// The patient's initials in a gradient ring; opens Profile & settings.
+/// [onDark] draws it for the gradient hero (white ring, translucent fill).
+class ZyndioAvatarButton extends ConsumerWidget {
+  const ZyndioAvatarButton({super.key, this.onDark = false, this.size = 44});
+
+  final bool onDark;
+  final double size;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    final initials =
+        zyndioInitials(ref.watch(patientProfileProvider).value?.name);
+    final fg = onDark ? Colors.white : c.textPrimary;
+    return Semantics(
+      button: true,
+      container: true,
+      label: 'Profile and settings',
+      onTap: () => context.pushNamed('settings'), // H1
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => context.pushNamed('settings'),
+          child: SizedBox(
+            width: size + 4,
+            height: size + 4,
+            child: Center(
+              child: Container(
+                width: size,
+                height: size,
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: onDark ? null : ZyndioGradients.brand,
+                  color: onDark ? Colors.white.withValues(alpha: 0.55) : null,
+                ),
+                child: Container(
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: onDark
+                        ? Colors.white.withValues(alpha: 0.14)
+                        : c.bgSurface,
+                  ),
+                  child: initials.isEmpty
+                      ? Icon(LucideIcons.user, size: size * 0.42, color: fg)
+                      : Text(
+                          initials,
+                          style: TextStyle(
+                            fontFamily: ZyndioType.family,
+                            fontSize: size * 0.34,
+                            fontWeight: FontWeight.w700,
+                            color: fg,
+                          ),
+                        ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The premium card surface: white, generous radius, two soft shadows (a
+/// tight contact shadow and a wide ambient one) and no outline.
+BoxDecoration zyndioCard(BuildContext context,
+    {double radius = 24, Color? color}) {
+  final c = Theme.of(context).extension<ZyndioColors>()!;
+  final dark = Theme.of(context).brightness == Brightness.dark;
+  return BoxDecoration(
+    color: color ?? c.bgSurface,
+    borderRadius: BorderRadius.circular(radius),
+    border: dark ? Border.all(color: c.borderSubtle) : null,
+    boxShadow: dark
+        ? null
+        : const [
+            BoxShadow(
+                color: Color(0x0A0E1430), blurRadius: 2, offset: Offset(0, 1)),
+            BoxShadow(
+                color: Color(0x120E1430),
+                blurRadius: 28,
+                offset: Offset(0, 10)),
+          ],
+  );
+}
+
+/// Quiet section label that gives each tab its rhythm ("TODAY'S VITALS").
+class ZyndioSectionLabel extends StatelessWidget {
+  const ZyndioSectionLabel(this.text, {super.key, this.trailing});
+  final String text;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12, top: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Semantics(
+              header: true,
+              child: Text(
+                text.toUpperCase(),
+                style: TextStyle(
+                  fontFamily: ZyndioType.family,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.3,
+                  color: c.textTertiary,
+                ),
+              ),
+            ),
+          ),
+          if (trailing != null) trailing!,
+        ],
       ),
     );
   }
@@ -129,7 +284,8 @@ class ZyndioBrandRow extends ConsumerWidget {
                             color: c.bgSurface,
                           ),
                           child: initials.isEmpty
-                              ? Icon(LucideIcons.user, size: 20, color: c.textPrimary)
+                              ? Icon(LucideIcons.user,
+                                  size: 20, color: c.textPrimary)
                               : Text(
                                   initials,
                                   style: TextStyle(
@@ -224,7 +380,11 @@ class ZyndioIconTile extends StatelessWidget {
 
 /// Full-width gradient call to action (client mockup: "View My Insights →").
 class ZyndioGradientButton extends StatelessWidget {
-  const ZyndioGradientButton({super.key, required this.label, required this.onTap, this.trailingArrow = true});
+  const ZyndioGradientButton(
+      {super.key,
+      required this.label,
+      required this.onTap,
+      this.trailingArrow = true});
 
   final String label;
   final VoidCallback onTap;
@@ -267,7 +427,8 @@ class ZyndioGradientButton extends StatelessWidget {
                 ),
                 if (trailingArrow) ...[
                   const SizedBox(width: 8),
-                  const Icon(LucideIcons.arrowRight, size: 18, color: Colors.white),
+                  const Icon(LucideIcons.arrowRight,
+                      size: 18, color: Colors.white),
                 ],
               ],
             ),
@@ -316,7 +477,8 @@ class ZyndioSegmentedTabs extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 18),
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      gradient: i == selected ? ZyndioGradients.segmentActive : null,
+                      gradient:
+                          i == selected ? ZyndioGradients.segmentActive : null,
                       color: i == selected ? null : z.segmentBg,
                       borderRadius: BorderRadius.circular(999),
                     ),
@@ -342,7 +504,8 @@ class ZyndioSegmentedTabs extends StatelessWidget {
 
 /// Page title + subtitle (specs §1). Title is a header for semantics.
 class ZyndioPageHeader extends StatelessWidget {
-  const ZyndioPageHeader({super.key, required this.title, this.subtitle, this.eyebrow});
+  const ZyndioPageHeader(
+      {super.key, required this.title, this.subtitle, this.eyebrow});
 
   final String title;
   final String? subtitle;
@@ -374,10 +537,10 @@ class ZyndioPageHeader extends StatelessWidget {
             title,
             style: TextStyle(
               fontFamily: ZyndioType.family,
-              fontSize: 30,
-              height: 36 / 30,
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.8,
+              fontSize: 32,
+              height: 38 / 32,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -1.0,
               color: c.textPrimary,
             ),
           ),
@@ -424,11 +587,7 @@ class ZyndioStateCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: c.bgSurface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: c.borderSubtle),
-      ),
+      decoration: zyndioCard(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -517,76 +676,79 @@ class ZyndioListRow extends StatelessWidget {
     final c = Theme.of(context).extension<ZyndioColors>()!;
     return Semantics(
       button: true,
-      label: [title, if (subtitle != null) subtitle, if (trailingBadge != null) trailingBadge]
-          .join(', '),
+      label: [
+        title,
+        if (subtitle != null) subtitle,
+        if (trailingBadge != null) trailingBadge
+      ].join(', '),
       onTap: onTap, // H1: screen-reader activation == finger tap
       child: ExcludeSemantics(
-        child: Material(
-          color: c.bgSurface,
-          borderRadius: BorderRadius.circular(20),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(20),
-            child: Container(
-              constraints: const BoxConstraints(minHeight: 68),
-              padding: const EdgeInsets.fromLTRB(16, 12, 14, 12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: c.borderSubtle),
-              ),
-              child: Row(
-                children: [
-                  if (tint != null)
-                    ZyndioIconTile(icon: icon, tint: tint!, size: 48)
-                  else
-                    Container(
-                      width: 40,
-                      height: 40,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: context.z25.tileBg,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(icon, size: 20, color: c.textPrimary),
-                    ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          title,
-                          style: TextStyle(
-                            fontFamily: ZyndioType.family,
-                            fontSize: 16,
-                            height: 22 / 16,
-                            fontWeight: FontWeight.w600,
-                            color: c.textPrimary,
-                          ),
+        child: Container(
+          decoration: zyndioCard(context, radius: 22),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(22),
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(22),
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 72),
+                padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+                child: Row(
+                  children: [
+                    if (tint != null)
+                      ZyndioIconTile(icon: icon, tint: tint!, size: 48)
+                    else
+                      Container(
+                        width: 40,
+                        height: 40,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: context.z25.tileBg,
+                          shape: BoxShape.circle,
                         ),
-                        if (subtitle != null) ...[
-                          const SizedBox(height: 2),
+                        child: Icon(icon, size: 20, color: c.textPrimary),
+                      ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
                           Text(
-                            subtitle!,
+                            title,
                             style: TextStyle(
                               fontFamily: ZyndioType.family,
-                              fontSize: 14,
-                              height: 20 / 14,
-                              color: c.textSecondary,
+                              fontSize: 16,
+                              height: 22 / 16,
+                              fontWeight: FontWeight.w600,
+                              color: c.textPrimary,
                             ),
                           ),
+                          if (subtitle != null) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              subtitle!,
+                              style: TextStyle(
+                                fontFamily: ZyndioType.family,
+                                fontSize: 14,
+                                height: 20 / 14,
+                                color: c.textSecondary,
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                  if (trailingBadge != null) ...[
-                    const SizedBox(width: 8),
-                    _NeutralBadge(label: trailingBadge!),
+                    if (trailingBadge != null) ...[
+                      const SizedBox(width: 8),
+                      _NeutralBadge(label: trailingBadge!),
+                    ],
+                    const SizedBox(width: 4),
+                    Icon(LucideIcons.chevronRight,
+                        size: 20, color: c.textTertiary),
                   ],
-                  const SizedBox(width: 4),
-                  Icon(LucideIcons.chevronRight, size: 20, color: c.textTertiary),
-                ],
+                ),
               ),
             ),
           ),

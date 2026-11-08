@@ -226,11 +226,7 @@ class _PlanCard extends StatelessWidget {
     final z = context.z25;
     final card = Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 14, 16),
-      decoration: BoxDecoration(
-        color: c.bgSurface,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: c.borderSubtle),
-      ),
+      decoration: zyndioCard(context, radius: 22),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -375,11 +371,7 @@ class _TargetsCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: c.bgSurface,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: c.borderSubtle),
-      ),
+      decoration: zyndioCard(context, radius: 22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
