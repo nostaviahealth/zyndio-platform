@@ -29,7 +29,7 @@ import '../screens/biomarkers/biomarkers_screen.dart';
 import '../screens/care/care_screen.dart';
 import '../providers/feature_flags_provider.dart';
 
-import '../screens/protocol/protocol_screen.dart';
+import '../screens/my_plan/my_plan_screen.dart';
 import '../screens/protocol/protocols_list_screen.dart';
 import '../screens/intelligence/digital_twin_screen.dart'; // <--- Added Import
 import '../screens/settings/settings_screen.dart';
@@ -295,7 +295,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: '/my-plan',
                 name: 'my_plan',
                 pageBuilder: (context, state) => NoTransitionPage(
-                  child: const ProtocolScreen(),
+                  child: const MyPlanScreen(),
                 ),
               ),
             ],

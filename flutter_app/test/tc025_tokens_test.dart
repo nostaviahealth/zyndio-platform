@@ -32,13 +32,13 @@ void main() {
       const l = ZyndioTc025Colors.light;
       expect(l.segmentBg, const Color(0xFFF0F2F5));
       expect(l.segmentText, const Color(0xFF1F2837));
-      expect(l.tileBg, const Color(0xFFF0F2F5));
+      expect(l.tileBg, const Color(0xFFEEF3FF));
       expect(l.deltaNeutral, const Color(0xFF1F2837));
       expect(l.deltaFavourable, const Color(0xFF0E7F48));
       expect(l.deltaUnfavourable, const Color(0xFFB42318));
       expect(l.badgeActiveBg, const Color(0xFFE3F7EC));
       expect(l.badgeActiveText, const Color(0xFF0B6E3D));
-      expect(l.tabActive, const Color(0xFF031943));
+      expect(l.tabActive, const Color(0xFF2E62E6));
       expect(l.tabInactive, const Color(0xFF626B7C));
       expect(l.screenBg, const Color(0xFFF6F7F9));
     });
@@ -52,15 +52,15 @@ void main() {
       expect(d.deltaFavourable, const Color(0xFF4BD98F));
       expect(d.deltaUnfavourable, const Color(0xFFFF9B8F));
       expect(d.badgeActiveText, const Color(0xFF6EE7A8));
-      expect(d.tabActive, const Color(0xFF9CD6F7));
+      expect(d.tabActive, const Color(0xFF9DB2FF));
       expect(d.screenBg, const Color(0xFF070A14));
     });
 
-    test('brand gradient is the brand navy (premium pass, no purple)', () {
+    test('brand gradient is the client mockup violet-to-blue (AA-tuned)', () {
       expect(ZyndioGradients.brand.colors,
-          const [Color(0xFF0B2A5E), Color(0xFF031943)]);
+          const [Color(0xFF6A4CF5), Color(0xFF2E62E6)]);
       expect(ZyndioGradients.segmentActive.colors,
-          const [Color(0xFF031943), Color(0xFF031943)]);
+          const [Color(0xFF6A4CF5), Color(0xFF2E62E6)]);
     });
 
     test('both themes register the TC-025 extension', () {
@@ -104,13 +104,13 @@ void main() {
     // M2 (Ava, PR #30 review): dark chart marks were < 3:1 on the lab band.
     test('M2: chart tokens — brand blue to teal, dark lifted', () {
       const l = ZyndioTc025Colors.light;
-      expect(l.chartLineStart, const Color(0xFF0962C0));
-      expect(l.chartLineEnd, const Color(0xFF0E839C));
-      expect(l.chartPointStroke, const Color(0xFF0962C0));
+      expect(l.chartLineStart, const Color(0xFF2E62E6));
+      expect(l.chartLineEnd, const Color(0xFF6A4CF5));
+      expect(l.chartPointStroke, const Color(0xFF5B4FF0));
       const d = ZyndioTc025Colors.dark;
       expect(d.chartLineStart, const Color(0xFF0B6FD6));
-      expect(d.chartLineEnd, const Color(0xFF4FB8F2));
-      expect(d.chartPointStroke, const Color(0xFF4FB8F2));
+      expect(d.chartLineEnd, const Color(0xFF8A66FF));
+      expect(d.chartPointStroke, const Color(0xFF6F86FF));
     });
 
     test('M2: dark chart marks ≥ 3:1 on the lab band and the surface (1.4.11)', () {
@@ -124,8 +124,8 @@ void main() {
       }
       // Measured for the premium-pass brand blue (was 4.77 / 3.96 for the
       // purple stops); the >= 3:1 rule above is what must hold.
-      expect(_contrast(d.chartPointStroke, d.badgeActiveBg), closeTo(6.91, 0.02));
-      expect(_contrast(d.chartLineEnd, d.badgeActiveBg), closeTo(6.91, 0.02));
+      expect(_contrast(d.chartPointStroke, d.badgeActiveBg), closeTo(4.77, 0.02));
+      expect(_contrast(d.chartLineEnd, d.badgeActiveBg), closeTo(3.96, 0.02));
     });
 
     test('sanity: contrast helper gives 21:1 for black on white', () {

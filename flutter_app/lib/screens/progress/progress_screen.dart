@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,21 +7,31 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../data/body_composition.dart';
 import '../../data/dexa_measures.dart';
+import '../../data/dexa_compare.dart';
 import '../../config/theme.dart';
 import '../../providers/body_composition_provider.dart';
 import '../../widgets/tc025/tc025_widgets.dart';
 import '../../providers/feature_flags_provider.dart';
 
-/// Progress tab. Shows stored body-composition scans when the patient can
-/// read them. Does not compute a clinical score or a milestone recommendation.
-class ProgressScreen extends ConsumerWidget {
+/// Progress tab (client mockup "Body Composition"): segment pills, baseline vs
+/// latest scan, four change cards per segment, and the full report. Values are
+/// the stored scan measures only; no clinical score or recommendation.
+class ProgressScreen extends ConsumerStatefulWidget {
   const ProgressScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProgressScreen> createState() => _ProgressScreenState();
+}
+
+class _ProgressScreenState extends ConsumerState<ProgressScreen> {
+  int _segment = 0;
+
+  @override
+  Widget build(BuildContext context) {
     final scans = ref.watch(bodyCompositionScansProvider);
     final appointmentsEnabled =
         ref.watch(featureFlagsProvider).appointmentsEnabled;
+    final segments = dexaSegments.keys.toList();
     return ZyndioTabScaffold(
       title: 'Body Composition',
       subtitle: 'DEXASCAN · Measurable results. Real progress.',
@@ -41,22 +53,249 @@ class ProgressScreen extends ConsumerWidget {
             onAction: () => ref.invalidate(bodyCompositionScansProvider),
           ),
         ],
-        data: (rows) => rows.isEmpty
-            ? [
-                ZyndioStateCard(
-                  icon: LucideIcons.activity,
-                  title: 'No DEXASCAN results yet',
-                  body:
-                      'Your body composition will appear here after a scan has been bound to your record.',
-                  // Booking is mock data until Appointments ships (feature flag).
-                  actionLabel:
-                      appointmentsEnabled ? 'Book my baseline scan' : null,
-                  onAction: appointmentsEnabled
-                      ? () => context.pushNamed('appointments')
-                      : null,
+        data: (rows) {
+          if (rows.isEmpty) {
+            return [
+              ZyndioStateCard(
+                icon: LucideIcons.activity,
+                title: 'No DEXASCAN results yet',
+                body:
+                    'Your body composition will appear here after a scan has been bound to your record.',
+                // Booking is mock data until Appointments ships (feature flag).
+                actionLabel:
+                    appointmentsEnabled ? 'Book my baseline scan' : null,
+                onAction: appointmentsEnabled
+                    ? () => context.pushNamed('appointments')
+                    : null,
+              ),
+            ];
+          }
+          final pair = baselineAndLatest(rows);
+          final latest = pair.latest!;
+          final compare = compareSegment(segments[_segment], latest, pair.baseline);
+          return [
+            ZyndioSegmentedTabs(
+              labels: segments,
+              selected: _segment,
+              onSelected: (i) => setState(() => _segment = i),
+            ),
+            const SizedBox(height: 16),
+            _ScanPanels(baseline: pair.baseline, latest: latest),
+            const SizedBox(height: 12),
+            if (compare.isEmpty)
+              ZyndioStateCard(
+                icon: LucideIcons.info,
+                title: 'Not measured in this scan',
+                body: '${segments[_segment]} values weren\'t included in your latest scan.',
+              )
+            else
+              _CompareGrid(rows: compare),
+            const SizedBox(height: 20),
+            ZyndioGradientButton(
+              label: 'View Full DEXASCAN Report',
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => DexaReportPage(scans: rows),
+              )),
+            ),
+          ];
+        },
+      ),
+    );
+  }
+}
+
+/// Baseline and latest scan side by side (mockup body figures).
+class _ScanPanels extends StatelessWidget {
+  const _ScanPanels({required this.baseline, required this.latest});
+  final StoredBodyScan? baseline;
+  final StoredBodyScan latest;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    Widget panel(String title, String date) => Expanded(
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(12, 14, 12, 16),
+            decoration: BoxDecoration(
+              color: context.z25.tileBg,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              children: [
+                Text(title,
+                    style: TextStyle(
+                        fontFamily: ZyndioType.family,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: c.textPrimary)),
+                const SizedBox(height: 2),
+                Text(date,
+                    style: TextStyle(
+                        fontFamily: ZyndioType.family,
+                        fontSize: 12,
+                        color: c.textSecondary)),
+                const SizedBox(height: 10),
+                const SizedBox(
+                  width: 92,
+                  height: 176,
+                  child: CustomPaint(painter: _BodyScanPainter()),
                 ),
-              ]
-            : [for (final scan in rows) _ScanCard(scan: scan)],
+              ],
+            ),
+          ),
+        );
+    return Semantics(
+      container: true,
+      label: baseline == null
+          ? 'Latest scan ${latest.scanDate}'
+          : 'Baseline scan ${baseline!.scanDate}, latest scan ${latest.scanDate}',
+      child: ExcludeSemantics(
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (baseline != null) ...[
+                panel('Baseline', baseline!.scanDate),
+                SizedBox(
+                  width: 32,
+                  child: Center(
+                    child: ShaderMask(
+                      shaderCallback: (r) => ZyndioGradients.brand.createShader(r),
+                      child: const Icon(LucideIcons.arrowRight, size: 22, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ],
+              panel(baseline == null ? 'Latest Scan' : 'Latest Scan', latest.scanDate),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CompareGrid extends StatelessWidget {
+  const _CompareGrid({required this.rows});
+  final List<DexaCompareRow> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final cards = [for (final r in rows) _CompareCard(row: r)];
+    final out = <Widget>[];
+    for (var i = 0; i < cards.length; i += 2) {
+      out.add(IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: cards[i]),
+            const SizedBox(width: 12),
+            Expanded(child: i + 1 < cards.length ? cards[i + 1] : const SizedBox()),
+          ],
+        ),
+      ));
+      if (i + 2 < cards.length) out.add(const SizedBox(height: 12));
+    }
+    return Column(children: out);
+  }
+}
+
+class _CompareCard extends StatelessWidget {
+  const _CompareCard({required this.row});
+  final DexaCompareRow row;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    final z = context.z25;
+    return Semantics(
+      container: true,
+      label: [
+        row.label,
+        if (row.baseline != null) 'baseline ${row.baseline}',
+        'latest ${row.latest}',
+        if (row.change != null) row.change!,
+      ].join(', '),
+      child: ExcludeSemantics(
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+          decoration: BoxDecoration(
+            color: c.bgSurface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: c.borderSubtle),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(row.label,
+                  style: TextStyle(
+                      fontFamily: ZyndioType.family,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: c.textSecondary)),
+              const SizedBox(height: 10),
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.end,
+                spacing: 8,
+                children: [
+                  if (row.baseline != null)
+                    Text(row.baseline!,
+                        style: TextStyle(
+                            fontFamily: ZyndioType.family,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            fontFeatures: ZyndioType.tabular,
+                            color: c.textTertiary)),
+                  ShaderMask(
+                    shaderCallback: (r) => ZyndioGradients.brand.createShader(r),
+                    child: Text(row.latest,
+                        style: const TextStyle(
+                            fontFamily: ZyndioType.family,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.3,
+                            fontFeatures: ZyndioType.tabular,
+                            color: Colors.white)),
+                  ),
+                ],
+              ),
+              if (row.change != null) ...[
+                const SizedBox(height: 8),
+                Text(row.change!,
+                    style: TextStyle(
+                        fontFamily: ZyndioType.family,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        fontFeatures: ZyndioType.tabular,
+                        color: z.deltaNeutral)),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Full DEXASCAN report: every stored measure, newest scan first, in report
+/// sections (dexa_measures.dart).
+class DexaReportPage extends StatelessWidget {
+  const DexaReportPage({super.key, required this.scans});
+  final List<StoredBodyScan> scans;
+
+  @override
+  Widget build(BuildContext context) {
+    final sorted = [...scans]..sort((a, b) => b.scanDate.compareTo(a.scanDate));
+    return Scaffold(
+      backgroundColor: context.z25.screenBg,
+      appBar: AppBar(
+        title: const Text('DEXASCAN Report'),
+        backgroundColor: context.z25.screenBg,
+        surfaceTintColor: Colors.transparent,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+        children: [for (final scan in sorted) _ScanCard(scan: scan)],
       ),
     );
   }
@@ -162,4 +401,80 @@ class _ScanCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A front-view body silhouette with a DEXA-style heat gradient (cool blue at
+/// the extremities, violet to rose through the core), standing in for the
+/// mockup's scan imagery. Decorative only; it does not encode any values.
+class _BodyScanPainter extends CustomPainter {
+  const _BodyScanPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final cx = w / 2;
+    double y(double f) => h * f;
+
+    final body = Path()
+      // Head and neck.
+      ..addOval(Rect.fromCircle(center: Offset(cx, y(0.075)), radius: w * 0.13))
+      ..addRRect(RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset(cx, y(0.155)), width: w * 0.12, height: y(0.05)),
+          const Radius.circular(4)));
+    // Torso: shoulders to waist to hips.
+    body.addPath(
+      Path()
+        ..moveTo(cx - w * 0.30, y(0.19))
+        ..quadraticBezierTo(cx, y(0.165), cx + w * 0.30, y(0.19))
+        ..quadraticBezierTo(cx + w * 0.31, y(0.33), cx + w * 0.20, y(0.47))
+        ..quadraticBezierTo(cx + w * 0.25, y(0.55), cx + w * 0.23, y(0.60))
+        ..lineTo(cx - w * 0.23, y(0.60))
+        ..quadraticBezierTo(cx - w * 0.25, y(0.55), cx - w * 0.20, y(0.47))
+        ..quadraticBezierTo(cx - w * 0.31, y(0.33), cx - w * 0.30, y(0.19))
+        ..close(),
+      Offset.zero,
+    );
+    // Arms (slightly angled out) and legs.
+    void limb(Offset top, Offset bottom, double width) {
+      final dir = bottom - top;
+      final len = dir.distance;
+      // A capsule along +y, rotated so it points from top to bottom.
+      final angle = math.atan2(dir.dy, dir.dx) - math.pi / 2;
+      final m = Matrix4.identity()
+        ..translateByDouble(top.dx, top.dy, 0, 1)
+        ..rotateZ(angle);
+      body.addPath(
+        Path()
+          ..addRRect(RRect.fromRectAndRadius(
+              Rect.fromLTWH(-width / 2, 0, width, len), Radius.circular(width / 2))),
+        Offset.zero,
+        matrix4: m.storage,
+      );
+    }
+
+    limb(Offset(cx - w * 0.29, y(0.20)), Offset(cx - w * 0.42, y(0.58)), w * 0.12);
+    limb(Offset(cx + w * 0.29, y(0.20)), Offset(cx + w * 0.42, y(0.58)), w * 0.12);
+    limb(Offset(cx - w * 0.12, y(0.58)), Offset(cx - w * 0.15, y(0.99)), w * 0.17);
+    limb(Offset(cx + w * 0.12, y(0.58)), Offset(cx + w * 0.15, y(0.99)), w * 0.17);
+
+    final heat = Paint()
+      ..shader = const RadialGradient(
+        center: Alignment(0, -0.05),
+        radius: 0.75,
+        colors: [Color(0xFFFF5C7A), Color(0xFFB05CF0), Color(0xFF5B6CFF), Color(0xFF2E9BEA)],
+        stops: [0.0, 0.35, 0.65, 1.0],
+      ).createShader(Offset.zero & size);
+    // Soft glow behind, then the body.
+    canvas.drawPath(
+      body,
+      Paint()
+        ..color = const Color(0xFF6A4CF5).withValues(alpha: 0.18)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+    );
+    canvas.drawPath(body, heat);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

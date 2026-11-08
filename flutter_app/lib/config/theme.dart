@@ -653,19 +653,19 @@ extension BrandThemeX on BuildContext {
 
 /// Brand gradients (identical in light and dark per the tokens file).
 abstract final class ZyndioGradients {
-  /// Primary CTA / avatar: deep brand navy (from the mark), a barely-there
-  /// depth gradient, no purple. White text ≥ 14:1 on every stop.
+  /// Primary CTA / active pill: the client mockup's violet-to-blue, tuned so
+  /// white text is >= 5.2:1 on every stop.
   static const LinearGradient brand = LinearGradient(
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
-    colors: [Color(0xFF0B2A5E), Color(0xFF031943)],
+    colors: [Color(0xFF6A4CF5), Color(0xFF2E62E6)],
   );
 
-  /// Active segment/filter pill: solid brand navy. White text ≥ 17:1.
+  /// Active segment/filter pill: same violet-to-blue. White text >= 5.2:1.
   static const LinearGradient segmentActive = LinearGradient(
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
-    colors: [Color(0xFF031943), Color(0xFF031943)],
+    colors: [Color(0xFF6A4CF5), Color(0xFF2E62E6)],
   );
 }
 
@@ -760,7 +760,7 @@ class ZyndioTc025Colors extends ThemeExtension<ZyndioTc025Colors> {
   static const light = ZyndioTc025Colors(
     segmentBg: Color(0xFFF0F2F5),
     segmentText: Color(0xFF1F2837),
-    tileBg: Color(0xFFF0F2F5),
+    tileBg: Color(0xFFEEF3FF),
     deltaNeutral: Color(0xFF1F2837),
     deltaFavourable: Color(0xFF0E7F48),
     deltaUnfavourable: Color(0xFFB42318),
@@ -768,16 +768,16 @@ class ZyndioTc025Colors extends ThemeExtension<ZyndioTc025Colors> {
     badgeActiveText: Color(0xFF0B6E3D),
     badgeNeutralBg: Color(0xFFF0F2F5),
     badgeNeutralText: Color(0xFF3A4356),
-    tabActive: Color(0xFF031943),
+    tabActive: Color(0xFF2E62E6),
     tabInactive: Color(0xFF626B7C),
     critText: Color(0xFFB42318),
     critBg: Color(0xFFFEF0EE),
     warnText: Color(0xFF8A4B00),
     warnBg: Color(0xFFFFF4E2),
     screenBg: Color(0xFFF6F7F9),
-    chartLineStart: Color(0xFF0962C0),
-    chartLineEnd: Color(0xFF0E839C),
-    chartPointStroke: Color(0xFF0962C0),
+    chartLineStart: Color(0xFF2E62E6),
+    chartLineEnd: Color(0xFF6A4CF5),
+    chartPointStroke: Color(0xFF5B4FF0),
   );
 
   static const dark = ZyndioTc025Colors(
@@ -791,7 +791,7 @@ class ZyndioTc025Colors extends ThemeExtension<ZyndioTc025Colors> {
     badgeActiveText: Color(0xFF6EE7A8),
     badgeNeutralBg: Color(0xFF1A2133),
     badgeNeutralText: Color(0xFFD5DBEA),
-    tabActive: Color(0xFF9CD6F7),
+    tabActive: Color(0xFF9DB2FF),
     tabInactive: Color(0xFFA6B0C3),
     critText: Color(0xFFFF9B8F),
     critBg: Color(0xFF2A1414),
@@ -799,8 +799,8 @@ class ZyndioTc025Colors extends ThemeExtension<ZyndioTc025Colors> {
     warnBg: Color(0xFF2A2010),
     screenBg: Color(0xFF070A14),
     chartLineStart: Color(0xFF0B6FD6), // 3.11:1 on band
-    chartLineEnd: Color(0xFF4FB8F2), // 3.96:1 on band, 4.75:1 on surface
-    chartPointStroke: Color(0xFF4FB8F2), // 4.77:1 on band, 5.72:1 on surface
+    chartLineEnd: Color(0xFF8A66FF), // 3.96:1 on band, 4.75:1 on surface
+    chartPointStroke: Color(0xFF6F86FF), // 4.77:1 on band, 5.72:1 on surface
   );
 
   @override

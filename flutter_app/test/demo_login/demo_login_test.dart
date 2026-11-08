@@ -63,7 +63,8 @@ void main() {
       expect(labs, hasLength(2));
       expect(labs.first.markers, isNotEmpty);
       final scans = await container.read(bodyCompositionScansProvider.future);
-      expect(scans.single.measures, isNotEmpty);
+      expect(scans, hasLength(2));
+      expect(scans.every((x) => x.measures.isNotEmpty), isTrue);
       expect(container.read(aiInsightsProvider), isNotEmpty);
     });
 

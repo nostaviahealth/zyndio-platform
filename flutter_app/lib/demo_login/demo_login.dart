@@ -23,6 +23,9 @@ import '../providers/onboarding_provider.dart';
 import '../providers/patient_provider.dart';
 import '../providers/wearable_sync_provider.dart';
 import '../providers/protocol_provider.dart';
+import '../providers/feature_flags_provider.dart';
+import '../providers/longevity_provider.dart';
+import '../providers/my_plan_provider.dart';
 import '../data/protocol_repository.dart';
 
 const bool _demoLoginDefine = bool.fromEnvironment('DEMO_LOGIN', defaultValue: false);
@@ -61,6 +64,7 @@ class _DemoProfileNotifier extends PatientProfileNotifier {
         email: 'jordan.rivera@example.test',
         age: 44,
         subscriptionPlan: 'free',
+        createdAt: DateTime(2026, 1, 5),
       );
 }
 
@@ -75,7 +79,7 @@ class _DemoWearableNotifier extends WearableSyncNotifier {
           sleepHours: 7.4,
           sleepEfficiency: 91,
           sleepScore: 84,
-          recoveryScore: 78,
+          recoveryScore: 72,
           hrv: 58,
           hrvBaseline: 54,
           rhr: 56,
@@ -151,6 +155,7 @@ List<LabReport> demoLabReports() => [
         labName: 'Demo Lab',
         markers: [
           _m('Intracellular NAD+', '41', unit: 'µM'),
+          _m('Klotho', '1210', unit: 'pg/mL'),
           _m('HbA1c', '5.3', unit: '%', low: 4.0, high: 5.6),
           _m('Glucose', '91', unit: 'mg/dL', low: 65, high: 99),
           _m('Fasting Insulin', '6.1', unit: 'µIU/mL', low: 2.6, high: 24.9),
@@ -172,6 +177,8 @@ List<LabReport> demoLabReports() => [
         labName: 'Demo Lab',
         markers: [
           _m('Intracellular NAD+', '27', unit: 'µM'),
+          _m('Klotho', '945', unit: 'pg/mL'),
+          _m('hs-CRP', '1.3', unit: 'mg/L', low: 0, high: 3.0),
           _m('HbA1c', '5.6', unit: '%', low: 4.0, high: 5.6),
           _m('Glucose', '98', unit: 'mg/dL', low: 65, high: 99),
           _m('LDL Cholesterol', '151', unit: 'mg/dL', low: 0, high: 129, status: 'High'),
@@ -200,6 +207,7 @@ List<StoredBodyScan> demoBodyScans() => const [
           (name: 'fat_mass_lb', value: '39.5'),
           (name: 'trunk_fat_pct', value: '21.0'),
           (name: 'vat_area_cm2', value: '82'),
+          (name: 'visceral_fat_mass_lb', value: '1.4'),
           (name: 'fat_mass_index_kg_m2', value: '5.7'),
           (name: 'android_gynoid_ratio', value: '0.92'),
           (name: 'bone_t_score', value: '0.4'),
@@ -207,6 +215,29 @@ List<StoredBodyScan> demoBodyScans() => const [
           (name: 'bone_mineral_density_g_cm2', value: '1.214'),
           (name: 'arm_lean_difference_pct', value: '3.1'),
           (name: 'leg_lean_difference_pct', value: '1.2'),
+        ],
+      ),
+      // Fictional baseline six months earlier, for the before/after cards.
+      StoredBodyScan(
+        scanDate: '2026-04-08',
+        deviceVendor: 'Demo DEXA',
+        deviceModel: 'Model D',
+        softwareVersion: '1.0',
+        measures: [
+          (name: 'health_score', value: '76'),
+          (name: 'total_mass_lb', value: '184.9'),
+          (name: 'body_fat_pct', value: '28.4'),
+          (name: 'lean_mass_lb', value: '128.1'),
+          (name: 'almi_kg_m2', value: '8.31'),
+          (name: 'appendicular_lean_mass_lb', value: '57.9'),
+          (name: 'lean_mass_index_kg_m2', value: '18.6'),
+          (name: 'fat_mass_lb', value: '52.5'),
+          (name: 'trunk_fat_pct', value: '27.2'),
+          (name: 'vat_area_cm2', value: '118'),
+          (name: 'visceral_fat_mass_lb', value: '1.8'),
+          (name: 'fat_mass_index_kg_m2', value: '7.6'),
+          (name: 'android_gynoid_ratio', value: '1.04'),
+          (name: 'bone_mineral_density_g_cm2', value: '1.192'),
         ],
       ),
     ];
@@ -239,4 +270,20 @@ List<Override> demoLoginOverrides() => [
       aiInsightsProvider.overrideWithValue(demoInsights),
       wearableSyncProvider.overrideWith(_DemoWearableNotifier.new),
       protocolProvider.overrideWith(_DemoProtocolNotifier.new),
+      // Demo shows the full client design: score ring, Recovery, Appointments.
+      featureFlagsProvider.overrideWithValue(const FeatureFlags(
+        longevityScoreEnabled: true,
+        recoveryScoreEnabled: true,
+        appointmentsEnabled: true,
+      )),
+      patientTherapiesProvider.overrideWith((ref) async => [
+            PatientTherapy(name: 'GLP-1 Therapy · Tirzepatide', startedOn: DateTime(2026, 8, 5), status: 'active'),
+            PatientTherapy(name: 'NAD+ Therapy', startedOn: DateTime(2026, 8, 12), status: 'active'),
+          ]),
+      upcomingTestsProvider.overrideWithValue([
+        UpcomingTest(title: 'Quarterly Lab Panel', detail: 'Metabolic & hormonal biomarkers', due: DateTime(2027, 1, 15)),
+      ]),
+      longevityScoreProvider.overrideWithValue(
+        const LongevityScore(score: 84, trendPercent: 12),
+      ),
     ];

@@ -85,15 +85,15 @@ class ZyndioBrandRow extends ConsumerWidget {
       child: Row(
         children: [
           Image.asset('assets/icons/zyndio-mark-tight.png',
-              height: 22, excludeFromSemantics: true),
+              height: 24, excludeFromSemantics: true),
           const SizedBox(width: 10),
           Text(
-            'Zyndio',
+            'ZYNDIO AI',
             style: TextStyle(
               fontFamily: ZyndioType.family,
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.2,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.4,
               color: c.textPrimary,
             ),
           ),
@@ -107,38 +107,233 @@ class ZyndioBrandRow extends ConsumerWidget {
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => context.pushNamed('settings'),
-                // 48pt hit target around a quiet 40pt avatar.
                 child: SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: Center(
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: c.bgSurface,
-                        border: Border.all(color: c.borderSubtle),
+                  width: 52,
+                  height: 52,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Gradient ring around the avatar (client mockup).
+                      Container(
+                        width: 48,
+                        height: 48,
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: ZyndioGradients.brand,
+                        ),
+                        child: Container(
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: c.bgSurface,
+                          ),
+                          child: initials.isEmpty
+                              ? Icon(LucideIcons.user, size: 20, color: c.textPrimary)
+                              : Text(
+                                  initials,
+                                  style: TextStyle(
+                                    fontFamily: ZyndioType.family,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: c.textPrimary,
+                                  ),
+                                ),
+                        ),
                       ),
-                      child: initials.isEmpty
-                          ? Icon(LucideIcons.user, size: 18, color: c.textPrimary)
-                          : Text(
-                              initials,
-                              style: TextStyle(
-                                fontFamily: ZyndioType.family,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.3,
-                                color: c.textPrimary,
-                              ),
-                            ),
-                    ),
+                      // Online dot.
+                      Positioned(
+                        right: 3,
+                        bottom: 4,
+                        child: Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: const Color(0xFF22C55E),
+                            border: Border.all(color: c.bgSurface, width: 2),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Colour families for gradient icon tiles (client mockup's coloured icons).
+enum ZyndioTint {
+  blue([Color(0xFF4F7CFF), Color(0xFF2E62E6)]),
+  violet([Color(0xFF8B6BFF), Color(0xFF6A4CF5)]),
+  rose([Color(0xFFFF6B8B), Color(0xFFE5486A)]),
+  green([Color(0xFF34D399), Color(0xFF12A36A)]),
+  amber([Color(0xFFFFB547), Color(0xFFF08A1C)]),
+  teal([Color(0xFF38C6E0), Color(0xFF0E94B0)]),
+  indigo([Color(0xFF5B6CFF), Color(0xFF3B3FD8)]);
+
+  const ZyndioTint(this.colors);
+  final List<Color> colors;
+  LinearGradient get gradient => LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: colors,
+      );
+}
+
+/// A gradient rounded-square icon with a soft coloured glow: the app's take on
+/// the mockup's 3D illustrations until real product photography is supplied.
+class ZyndioIconTile extends StatelessWidget {
+  const ZyndioIconTile({
+    super.key,
+    required this.icon,
+    this.tint = ZyndioTint.blue,
+    this.size = 48,
+  });
+
+  final IconData icon;
+  final ZyndioTint tint;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        gradient: tint.gradient,
+        borderRadius: BorderRadius.circular(size * 0.3),
+        boxShadow: [
+          BoxShadow(
+            color: tint.colors.last.withValues(alpha: 0.28),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Icon(icon, size: size * 0.48, color: Colors.white),
+    );
+  }
+}
+
+/// Full-width gradient call to action (client mockup: "View My Insights →").
+class ZyndioGradientButton extends StatelessWidget {
+  const ZyndioGradientButton({super.key, required this.label, required this.onTap, this.trailingArrow = true});
+
+  final String label;
+  final VoidCallback onTap;
+  final bool trailingArrow;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      onTap: onTap,
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            height: 54,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              gradient: ZyndioGradients.brand,
+              borderRadius: BorderRadius.circular(999),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF4F57EE).withValues(alpha: 0.30),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontFamily: ZyndioType.family,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                if (trailingArrow) ...[
+                  const SizedBox(width: 8),
+                  const Icon(LucideIcons.arrowRight, size: 18, color: Colors.white),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Horizontal segment pills at the top of a tab (client mockup): the active
+/// pill is filled with the brand gradient, the rest are soft grey.
+class ZyndioSegmentedTabs extends StatelessWidget {
+  const ZyndioSegmentedTabs({
+    super.key,
+    required this.labels,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<String> labels;
+  final int selected;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final z = context.z25;
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      clipBehavior: Clip.none,
+      child: Row(
+        children: [
+          for (var i = 0; i < labels.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Semantics(
+              button: true,
+              selected: i == selected,
+              label: labels[i],
+              onTap: () => onSelected(i),
+              child: ExcludeSemantics(
+                child: GestureDetector(
+                  onTap: () => onSelected(i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    constraints: const BoxConstraints(minHeight: 40),
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      gradient: i == selected ? ZyndioGradients.segmentActive : null,
+                      color: i == selected ? null : z.segmentBg,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      labels[i],
+                      style: TextStyle(
+                        fontFamily: ZyndioType.family,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: i == selected ? Colors.white : z.segmentText,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -304,6 +499,7 @@ class ZyndioListRow extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.trailingBadge,
+    this.tint,
     required this.onTap,
   });
 
@@ -311,6 +507,9 @@ class ZyndioListRow extends StatelessWidget {
   final String title;
   final String? subtitle;
   final String? trailingBadge;
+
+  /// When set, the icon sits in a gradient tile of this colour (mockup style).
+  final ZyndioTint? tint;
   final VoidCallback onTap;
 
   @override
@@ -337,16 +536,19 @@ class ZyndioListRow extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: context.z25.tileBg,
-                      shape: BoxShape.circle,
+                  if (tint != null)
+                    ZyndioIconTile(icon: icon, tint: tint!, size: 48)
+                  else
+                    Container(
+                      width: 40,
+                      height: 40,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: context.z25.tileBg,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icon, size: 20, color: c.textPrimary),
                     ),
-                    child: Icon(icon, size: 20, color: c.textPrimary),
-                  ),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(

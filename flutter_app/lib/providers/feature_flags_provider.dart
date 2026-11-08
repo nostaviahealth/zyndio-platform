@@ -22,11 +22,16 @@ class FeatureFlags {
     this.patientExtrasEnabled = false,
     this.longevityScoreEnabled = false,
     this.appointmentsEnabled = false,
+    this.recoveryScoreEnabled = false,
   });
 
   final bool patientExtrasEnabled;
   final bool longevityScoreEnabled;
   final bool appointmentsEnabled;
+
+  /// Today's Recovery tile. Off until a validated recovery source exists
+  /// (TC-025 guardrail: never shown from an app-derived composite).
+  final bool recoveryScoreEnabled;
 
   /// Compile-time defaults. Off unless explicitly enabled at build time.
   static const FeatureFlags compileDefaults = FeatureFlags(
@@ -36,18 +41,22 @@ class FeatureFlags {
         bool.fromEnvironment('LONGEVITY_SCORE_ENABLED', defaultValue: false),
     appointmentsEnabled:
         bool.fromEnvironment('APPOINTMENTS_ENABLED', defaultValue: false),
+    recoveryScoreEnabled:
+        bool.fromEnvironment('RECOVERY_SCORE_ENABLED', defaultValue: false),
   );
 
   FeatureFlags copyWith({
     bool? patientExtrasEnabled,
     bool? longevityScoreEnabled,
     bool? appointmentsEnabled,
+    bool? recoveryScoreEnabled,
   }) =>
       FeatureFlags(
         patientExtrasEnabled: patientExtrasEnabled ?? this.patientExtrasEnabled,
         longevityScoreEnabled:
             longevityScoreEnabled ?? this.longevityScoreEnabled,
         appointmentsEnabled: appointmentsEnabled ?? this.appointmentsEnabled,
+        recoveryScoreEnabled: recoveryScoreEnabled ?? this.recoveryScoreEnabled,
       );
 }
 

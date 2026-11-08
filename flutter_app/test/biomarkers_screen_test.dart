@@ -436,13 +436,13 @@ void main() {
         final painter = bar.dotData.getDotPainter(bar.spots.first, 0, bar, 0)
             as FlDotCirclePainter;
         expect(painter.strokeColor, t.chartPointStroke);
-        // Premium pass: brand blue to teal (light), lifted brand blue (dark).
+        // Client mockup: blue to violet (light), lifted violet (dark).
         if (b == Brightness.dark) {
-          expect(painter.strokeColor, const Color(0xFF4FB8F2));
-          expect(bar.gradient!.colors.last, const Color(0xFF4FB8F2));
+          expect(painter.strokeColor, const Color(0xFF6F86FF));
+          expect(bar.gradient!.colors.last, const Color(0xFF8A66FF));
         } else {
-          expect(painter.strokeColor, const Color(0xFF0962C0));
-          expect(bar.gradient!.colors.last, const Color(0xFF0E839C));
+          expect(painter.strokeColor, const Color(0xFF5B4FF0));
+          expect(bar.gradient!.colors.last, const Color(0xFF6A4CF5));
         }
       });
     }

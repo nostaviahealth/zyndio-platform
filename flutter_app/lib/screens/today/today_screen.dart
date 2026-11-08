@@ -10,6 +10,9 @@ import '../../config/theme.dart';
 import '../../providers/intelligence_provider.dart';
 import '../../providers/patient_provider.dart';
 import '../../providers/wearable_sync_provider.dart';
+import '../../providers/feature_flags_provider.dart';
+import '../../providers/longevity_provider.dart';
+import 'dart:math' as math;
 import '../../widgets/tc025/tc025_widgets.dart';
 
 // ── Pure helpers (unit-tested) ──────────────────────────────────────────────
@@ -78,6 +81,8 @@ class TodayScreen extends ConsumerWidget {
     final greeting = todayGreeting(DateTime.now().hour, firstNameOf(profile?.name));
     final sync = ref.watch(wearableSyncProvider);
     final state = classifyToday(sync);
+    final flags = ref.watch(featureFlagsProvider);
+    final longevity = ref.watch(longevityScoreProvider);
 
     // Z2 Longevity ring: NEVER rendered in PR A. It would require BOTH
     // featureFlagsProvider.longevity_score_enabled (default off) AND a backend
@@ -89,7 +94,15 @@ class TodayScreen extends ConsumerWidget {
       title: greeting,
       subtitle: "Here's your health overview for today.",
       onRefresh: () => ref.read(wearableSyncProvider.notifier).sync(),
-      children: _bodyFor(context, ref, state, sync.value),
+      children: [
+        // Z2: ring only with BOTH the flag AND a real score (none in prod yet).
+        if (flags.longevityScoreEnabled && longevity != null &&
+            state != TodayState.loading) ...[
+          _LongevityRing(score: longevity),
+          const SizedBox(height: 16),
+        ],
+        ..._bodyFor(context, ref, state, sync.value, flags.recoveryScoreEnabled),
+      ],
     );
   }
 
@@ -98,6 +111,7 @@ class TodayScreen extends ConsumerWidget {
     WidgetRef ref,
     TodayState state,
     WearableSyncState? syncState,
+    bool recoveryEnabled,
   ) {
     switch (state) {
       case TodayState.loading:
@@ -138,7 +152,7 @@ class TodayScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
           ],
-          _MetricGrid(snapshot: snap),
+          _MetricGrid(snapshot: snap, recoveryEnabled: recoveryEnabled),
           const SizedBox(height: 8),
           _changeCaption(context, syncState.lastSynced),
           const SizedBox(height: 16),
@@ -165,8 +179,8 @@ class TodayScreen extends ConsumerWidget {
   }
 
   Widget _primaryInsightCta(BuildContext context) {
-    return _GradientCta(
-      label: 'View my insights',
+    return ZyndioGradientButton(
+      label: 'View My Insights',
       onTap: () => context.pushNamed('chat'),
     );
   }
@@ -208,8 +222,9 @@ class _ConnectCard extends StatelessWidget {
 /// supplies. **Recovery never appears** — it is never derived (Rev 2). With an
 /// odd count the last tile spans both columns.
 class _MetricGrid extends StatelessWidget {
-  const _MetricGrid({required this.snapshot});
+  const _MetricGrid({required this.snapshot, this.recoveryEnabled = false});
   final WearableSnapshot snapshot;
+  final bool recoveryEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -218,13 +233,25 @@ class _MetricGrid extends StatelessWidget {
     if (snapshot.sleepHours > 0) {
       tiles.add(_MetricTile(
         icon: LucideIcons.moon,
+        tint: ZyndioTint.indigo,
         label: 'Sleep',
         value: _hoursMinutes(snapshot.sleepHours),
+      ));
+    }
+    // Recovery only behind its flag AND with a source value (TC-025 guardrail).
+    if (recoveryEnabled && snapshot.recoveryScore > 0) {
+      tiles.add(_MetricTile(
+        icon: LucideIcons.heart,
+        tint: ZyndioTint.rose,
+        label: 'Recovery',
+        value: '${snapshot.recoveryScore}',
+        unit: '/ 100',
       ));
     }
     if (snapshot.steps > 0) {
       tiles.add(_MetricTile(
         icon: LucideIcons.footprints,
+        tint: ZyndioTint.green,
         label: 'Activity',
         value: _grouped(snapshot.steps),
         unit: 'steps',
@@ -234,6 +261,7 @@ class _MetricGrid extends StatelessWidget {
       final prev = snapshot.hrvBaseline;
       tiles.add(_MetricTile(
         icon: LucideIcons.activity,
+        tint: ZyndioTint.blue,
         label: 'HRV',
         value: snapshot.hrv!.round().toString(),
         unit: 'ms',
@@ -243,10 +271,12 @@ class _MetricGrid extends StatelessWidget {
             : zyndioDelta(snapshot.hrv!, prev, decimals: 0, unit: 'ms'),
       ));
     }
-    if (snapshot.rhr != null) {
+    // Resting HR fills the grid when Recovery isn't shown (keeps it 2x2).
+    if (snapshot.rhr != null && tiles.length.isOdd) {
       final prev = snapshot.rhrBaseline;
       tiles.add(_MetricTile(
         icon: LucideIcons.heartPulse,
+        tint: ZyndioTint.rose,
         label: 'Resting HR',
         value: snapshot.rhr!.toString(),
         unit: 'bpm',
@@ -306,6 +336,7 @@ class _MetricTile extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    this.tint = ZyndioTint.blue,
     this.unit,
     this.delta,
   });
@@ -313,6 +344,7 @@ class _MetricTile extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
+  final ZyndioTint tint;
   final String? unit;
   final ({String text, bool stable})? delta;
 
@@ -330,82 +362,240 @@ class _MetricTile extends StatelessWidget {
       container: true,
       child: ExcludeSemantics(
         child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+          padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
           decoration: BoxDecoration(
-            color: c.bgSurface,
+            color: z.tileBg,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: c.borderSubtle),
           ),
-          child: Column(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Icon(icon, size: 15, color: c.textTertiary),
-                  const SizedBox(width: 6),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontFamily: ZyndioType.family,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.2,
-                      color: c.textTertiary,
-                    ),
-                  ),
-                ],
+              ShaderMask(
+                shaderCallback: (r) => tint.gradient.createShader(r),
+                child: Icon(icon, size: 30, color: Colors.white),
               ),
-              const SizedBox(height: 14),
-              RichText(
-                text: TextSpan(
-                  text: value,
-                  style: TextStyle(
-                    fontFamily: ZyndioType.family,
-                    fontSize: 30,
-                    height: 1.0,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.8,
-                    fontFeatures: ZyndioType.tabular,
-                    color: c.textPrimary,
-                  ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (unit != null)
-                      TextSpan(
-                        text: ' $unit',
-                        style: TextStyle(
-                          fontSize: 14,
-                          letterSpacing: 0,
-                          fontWeight: FontWeight.w500,
-                          color: c.textSecondary,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              if (delta != null) ...[
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    if (delta!.stable)
-                      Icon(LucideIcons.equal, size: 15, color: z.deltaNeutral),
                     Text(
-                      delta!.text,
+                      label,
                       style: TextStyle(
                         fontFamily: ZyndioType.family,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: z.deltaNeutral, // neutral, never red/green
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: c.textSecondary,
                       ),
                     ),
+                    const SizedBox(height: 4),
+                    RichText(
+                      text: TextSpan(
+                        text: value,
+                        style: TextStyle(
+                          fontFamily: ZyndioType.family,
+                          fontSize: 22,
+                          height: 1.1,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.4,
+                          fontFeatures: ZyndioType.tabular,
+                          color: c.textPrimary,
+                        ),
+                        children: [
+                          if (unit != null)
+                            TextSpan(
+                              text: ' $unit',
+                              style: TextStyle(
+                                fontSize: 13,
+                                letterSpacing: 0,
+                                fontWeight: FontWeight.w500,
+                                color: c.textSecondary,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (delta != null) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          if (delta!.stable)
+                            Icon(LucideIcons.equal, size: 14, color: z.deltaNeutral),
+                          Text(
+                            delta!.text,
+                            style: TextStyle(
+                              fontFamily: ZyndioType.family,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: z.deltaNeutral, // neutral, never red/green
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
-              ],
+              ),
             ],
           ),
         ),
       ),
     );
   }
+}
+
+/// Longevity Score ring (client mockup / TC-025 Z2). Only built when the flag
+/// is on and a validated score exists; the arc is a gradient over 270°.
+class _LongevityRing extends StatelessWidget {
+  const _LongevityRing({required this.score});
+  final LongevityScore score;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    final trend = score.trendPercent;
+    return Semantics(
+      container: true,
+      label: [
+        'Longevity score ${score.score} out of 100',
+        if (trend != null) 'trending ${trend >= 0 ? 'up' : 'down'} ${trend.abs()} percent ${score.trendPeriod}',
+      ].join(', '),
+      child: ExcludeSemantics(
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 18, 20, 18),
+          decoration: BoxDecoration(
+            color: c.bgSurface,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: c.borderSubtle),
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 168,
+                height: 168,
+                child: CustomPaint(
+                  painter: _RingPainter(
+                    fraction: (score.score.clamp(0, 100)) / 100,
+                    track: context.z25.tileBg,
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${score.score}',
+                          style: TextStyle(
+                            fontFamily: ZyndioType.family,
+                            fontSize: 52,
+                            height: 1.0,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -1.5,
+                            fontFeatures: ZyndioType.tabular,
+                            color: c.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Longevity Score',
+                          style: TextStyle(
+                            fontFamily: ZyndioType.family,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: c.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: trend == null
+                    ? const SizedBox.shrink()
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Trending',
+                              style: TextStyle(
+                                  fontFamily: ZyndioType.family,
+                                  fontSize: 14,
+                                  color: c.textSecondary)),
+                          const SizedBox(height: 2),
+                          ShaderMask(
+                            shaderCallback: (r) => ZyndioGradients.brand.createShader(r),
+                            child: Text(
+                              trend >= 0 ? 'Up' : 'Down',
+                              style: const TextStyle(
+                                fontFamily: ZyndioType.family,
+                                fontSize: 26,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '${trend >= 0 ? '↑' : '↓'} ${trend >= 0 ? '+' : ''}$trend%',
+                            style: TextStyle(
+                              fontFamily: ZyndioType.family,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              fontFeatures: ZyndioType.tabular,
+                              color: context.z25.deltaNeutral,
+                            ),
+                          ),
+                          Text(score.trendPeriod,
+                              style: TextStyle(
+                                  fontFamily: ZyndioType.family,
+                                  fontSize: 13,
+                                  color: c.textSecondary)),
+                        ],
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RingPainter extends CustomPainter {
+  _RingPainter({required this.fraction, required this.track});
+  final double fraction;
+  final Color track;
+
+  static const _start = math.pi * 0.75; // 135°
+  static const _sweep = math.pi * 1.5; // 270°
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const stroke = 14.0;
+    final rect = Rect.fromLTWH(stroke / 2, stroke / 2, size.width - stroke, size.height - stroke);
+    final base = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
+      ..color = track;
+    canvas.drawArc(rect, _start, _sweep, false, base);
+    final arc = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
+      // Gradient runs 0.._sweep, rotated to the arc's start so it never wraps.
+      ..shader = const SweepGradient(
+        startAngle: 0,
+        endAngle: _sweep,
+        colors: [Color(0xFF6A4CF5), Color(0xFF2E62E6), Color(0xFF14B8A6), Color(0xFF22C55E)],
+        stops: [0.0, 0.35, 0.7, 1.0],
+        transform: GradientRotation(_start),
+      ).createShader(rect);
+    canvas.drawArc(rect, _start, _sweep * fraction, false, arc);
+  }
+
+  @override
+  bool shouldRepaint(covariant _RingPainter old) => old.fraction != fraction || old.track != track;
 }
 
 /// Z3 Insight card. Copy from the existing AI insight providers; no "New" badge
@@ -417,18 +607,16 @@ class _InsightCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = Theme.of(context).extension<ZyndioColors>()!;
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final accent = dark ? const Color(0xFF4FB8F2) : const Color(0xFF0E7C93);
     final insights = ref.watch(aiInsightsProvider);
     final body = insights.isNotEmpty
         ? insights.first
         : 'Your personalised insights appear here as your data comes in.';
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
       decoration: BoxDecoration(
         color: c.bgSurface,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: c.borderSubtle),
       ),
       child: Column(
@@ -436,16 +624,16 @@ class _InsightCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(LucideIcons.sparkles, size: 14, color: accent),
-              const SizedBox(width: 6),
+              const ZyndioIconTile(icon: LucideIcons.brain, tint: ZyndioTint.violet, size: 40),
+              const SizedBox(width: 12),
               Text(
-                'INSIGHT',
+                'Zyndio AI Insight',
                 style: TextStyle(
                   fontFamily: ZyndioType.family,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.2,
-                  color: accent,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
+                  color: c.textPrimary,
                 ),
               ),
             ],
@@ -455,51 +643,12 @@ class _InsightCard extends StatelessWidget {
             body,
             style: TextStyle(
               fontFamily: ZyndioType.family,
-              fontSize: 19,
-              height: 27 / 19,
-              fontWeight: FontWeight.w500,
-              letterSpacing: -0.3,
+              fontSize: 16,
+              height: 24 / 16,
               color: c.textPrimary,
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _GradientCta extends StatelessWidget {
-  const _GradientCta({required this.label, required this.onTap});
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: label,
-      onTap: onTap, // H1: screen-reader activation == finger tap
-      child: ExcludeSemantics(
-        child: GestureDetector(
-          onTap: onTap,
-          child: Container(
-            height: 52,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              gradient: ZyndioGradients.brand,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontFamily: ZyndioType.family,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
