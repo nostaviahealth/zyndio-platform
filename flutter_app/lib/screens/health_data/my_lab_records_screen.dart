@@ -54,7 +54,7 @@ class MyLabRecordsScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, s) => Center(child: Text('Error: $e')),
+        error: (_, __) => const Center(child: Text(labReportsLoadFailedMessage)),
       ),
     );
   }
@@ -97,7 +97,7 @@ class _LabRecordCard extends ConsumerWidget {
             }
           } else {
              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to delete. Please checking your connection or permissions.'), backgroundColor: Colors.red));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(labReportDeleteFailedMessage), backgroundColor: Colors.red));
              }
           }
       }

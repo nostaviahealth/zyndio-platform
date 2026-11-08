@@ -8,7 +8,7 @@ import '../../config/theme.dart';
 import '../../providers/lab_analysis_provider.dart';
 import '../../providers/lab_reports_provider.dart';
 import '../../providers/patient_provider.dart';
-import './lab_report_verification_screen.dart';
+import './lab_report_submitted_screen.dart';
 import '../../models/lab_report.dart';
 import '../../providers/navbar_provider.dart';
 import './widgets/health_widgets.dart'; // Shared Widgets
@@ -531,7 +531,7 @@ class _HealthDataScreenState extends ConsumerState<HealthDataScreen> {
                           ),
                         ),
                       ),
-                      error: (e, s) => Center(child: Text('Error: $e')),
+                      error: (_, __) => const Center(child: Text(labReportsLoadFailedMessage)),
                     ),
               ),
               if (showSampleToggle)
@@ -621,18 +621,10 @@ class _HealthDataScreenState extends ConsumerState<HealthDataScreen> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            if (isDone && state.result != null) {
-              final profile = ref.read(patientProfileProvider).value;
-              if (profile == null) return;
-
+            if (isDone && state.submission != null) {
               Navigator.of(context, rootNavigator: true).push(
                 MaterialPageRoute(
-                  builder: (_) => LabReportVerificationScreen(
-                    filePath: state.pendingFilePath ?? state.result!['title'] ?? '',
-                    fileName: state.pendingFileName ?? state.result!['title'] ?? '',
-                    profileId: profile.id,
-                    extractedData: state.result!,
-                  ),
+                  builder: (_) => LabReportSubmittedScreen(submission: state.submission!),
                 ),
               );
             } else {
@@ -1416,6 +1408,12 @@ class _HealthDataScreenState extends ConsumerState<HealthDataScreen> {
                                   if (mounted) Navigator.pop(context);
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(content: Text('Report deleted successfully.')),
+                                  );
+                                } else if (context.mounted) {
+                                  // TC-039: a failed delete shows an error
+                                  // state (it used to do nothing).
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text(labReportDeleteFailedMessage), backgroundColor: Colors.red),
                                   );
                                 }
                               }

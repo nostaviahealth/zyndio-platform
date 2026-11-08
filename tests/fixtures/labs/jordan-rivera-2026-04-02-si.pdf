@@ -1,0 +1,51 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+5 0 obj
+<< /Length 760 >>
+stream
+BT
+/F1 10 Tf
+12 TL
+50 780 Td
+(Fictional Reference Lab) Tj T*
+(FICTIONAL SAMPLE REPORT - NOT A REAL PATIENT - FOR SOFTWARE TESTING ONLY) Tj T*
+() Tj T*
+(Patient: RIVERA, JORDAN) Tj T*
+(DOB: 03/14/1979) Tj T*
+(Collected: 04/02/2026) Tj T*
+() Tj T*
+(Test                      Result    Units       Reference range) Tj T*
+(Hemoglobin A1c            44        mmol/mol    <39) Tj T*
+(Glucose, Fasting          5.8       mmol/L      3.9-5.5) Tj T*
+(Insulin, Fasting          108.6     pmol/L      15.6-149.4) Tj T*
+(Apolipoprotein B          1.06      g/L         <0.90) Tj T*
+(hs-CRP                    0.38      mg/dL       <0.30) Tj T*
+(Triglycerides             1.90      mmol/L      <1.70) Tj T*
+(Vitamin D, 25-Hydroxy     69.9      nmol/L      75-250) Tj T*
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000309 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1120
+%%EOF

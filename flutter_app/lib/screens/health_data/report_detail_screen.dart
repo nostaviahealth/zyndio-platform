@@ -4,7 +4,11 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../config/theme.dart';
 import '../../models/lab_report.dart';
 import '../../providers/theme_provider.dart';
+import '../../services/lab_report_file_opener.dart';
 import './widgets/health_widgets.dart';
+
+/// TC-039: fixed error text when the report file can't be opened.
+const reportFileOpenFailedMessage = "Couldn't open the report file. Please try again.";
 
 class ReportDetailScreen extends ConsumerStatefulWidget {
   final LabReport report;
@@ -18,6 +22,22 @@ class ReportDetailScreen extends ConsumerStatefulWidget {
 class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
   String _selectedCategory = 'All';
   String _searchQuery = '';
+  bool _openingFile = false;
+
+  /// Opens the report's file with a fresh short-lived signed link (see
+  /// [LabReportFileOpener]); the link itself is never kept or shown.
+  Future<void> _openReportFile(String pdfPath) async {
+    if (_openingFile) return;
+    setState(() => _openingFile = true);
+    final opened = await LabReportFileOpener.open(pdfPath);
+    if (!mounted) return;
+    setState(() => _openingFile = false);
+    if (!opened) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(reportFileOpenFailedMessage), backgroundColor: Colors.red),
+      );
+    }
+  }
 
   /// Dynamic categories derived from the report's own data — no hardcoded list.
   List<String> get _categories {
@@ -125,7 +145,21 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
                                                       bg: const Color(0xFFFEE2E2)
                                                   ),
                                               ],
-                                          )
+                                          ),
+                                          if (widget.report.pdfPath != null) ...[
+                                              const SizedBox(height: 16),
+                                              OutlinedButton.icon(
+                                                  key: const Key('open-report-file'),
+                                                  onPressed: _openingFile ? null : () => _openReportFile(widget.report.pdfPath!),
+                                                  icon: const Icon(LucideIcons.fileText, size: 18),
+                                                  label: const Text('Open report file'),
+                                                  style: OutlinedButton.styleFrom(
+                                                      foregroundColor: BrandColors.dark,
+                                                      side: const BorderSide(color: BrandColors.slate200),
+                                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                                  ),
+                                              ),
+                                          ],
                                       ],
                                   ),
                               ),

@@ -1,11 +1,10 @@
 import 'dart:io';
 import 'dart:math';
-import 'package:flutter/foundation.dart';
+import 'package:crypto/crypto.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 import '../models/lab_report.dart';
-import '../services/azure_openai_service.dart';
-import '../services/pdf_to_image_service.dart';
+import 'lab_submission.dart';
 
 class HealthDataRepository {
   
@@ -54,289 +53,134 @@ class HealthDataRepository {
       });
   }
 
-  /// Analyze a lab report with CHUNKED processing for large PDFs.
-  /// Medical-grade: Uses the new lab-faithful extraction pipeline.
-  static Future<Map<String, dynamic>?> analyzeLabReport({
+  /// APP-05: the patient app's ONE lab path. Files the report, then has the
+  /// server read it (Edge Function analyze-lab-report: AI extractor behind a
+  /// flag, reviewed LOINC table, US units, plausibility, confidence,
+  /// identity check). Nothing is extracted on the device any more.
+  ///
+  ///  1. SHA-256 of the file. If this patient already filed the same file,
+  ///     nothing is uploaded: [LabSubmissionOutcome.duplicate] - unless that
+  ///     report was never read (still `pending`, e.g. the app was killed
+  ///     after filing), in which case it goes straight to step 3.
+  ///  2. Upload into the private bucket and insert the lab_reports row with
+  ///     `file_sha256` (unique per patient, so a race is still refused).
+  ///  3. Ask analyze-lab-report to read it. Whatever it answers, the report
+  ///     stays filed; the outcome says what the patient is told.
+  ///
+  /// Pinned by tests/contracts/patient-lab-report-submit.json. Throws a
+  /// [StateError] with a fixed message when the report could not be filed;
+  /// nothing is printed (no backend text in device logs).
+  static Future<LabSubmission> submitLabReport({
     required String filePath,
     required String fileName,
     required String profileId,
-    Function(String)? onProgress,
-    int chunkSize = 2,
+    void Function()? onUploaded,
   }) async {
+    final client = SupabaseConfig.client;
+    if (client == null) throw StateError('lab report not filed');
+    final file = File(filePath);
+    if (!await file.exists()) throw StateError('lab report not filed');
+    final String hash;
     try {
-      // Delegate to the new medical-grade pipeline
-      return await analyzeLabReportWithProgress(
-        filePath: filePath,
-        fileName: fileName,
-        profileId: profileId,
-        chunkSize: chunkSize,
-        onPdfProgress: (current, total) => onProgress?.call('Converting page $current of $total...'),
-        onChunkProgress: (chunk, total, label) => onProgress?.call(label),
-        onFinalizing: () => onProgress?.call('Finalizing report...'),
-      );
-    } catch (e, stackTrace) {
-      print('HealthDataRepository: Analysis Error: $e');
-      print('Stack Trace: $stackTrace');
-      return null;
+      hash = await fileSha256(file);
+    } catch (_) {
+      throw StateError('lab report not filed');
     }
-  }
 
-  /// Analyze a lab report with granular typed callbacks for each stage.
-  /// Medical-grade: Extracts data exactly as the lab reported it — no preset
-  /// biomarker database, no overridden ranges, no assumed categories.
-  /// 
-  /// Architecture: 2-page chunks × parallel batches of 3 with auto-retry.
-  /// Each chunk stays small enough to avoid Supabase Edge Function timeouts
-  /// while parallelism ensures maximum throughput.
-  static Future<Map<String, dynamic>?> analyzeLabReportWithProgress({
-    required String filePath,
-    required String fileName,
-    required String profileId,
-    void Function(int current, int total)? onPdfProgress,
-    void Function(int chunk, int total, String label)? onChunkProgress,
-    void Function()? onFinalizing,
-    int chunkSize = 2,
-  }) async {
+    final List<Map<String, dynamic>> existing;
+    final String orgId;
+    final String objectPath;
     try {
-      final azureService = AzureOpenAIService();
-      final List<File> images = [];
-
-      // 1. PDF → Images
-      if (filePath.toLowerCase().endsWith('.pdf')) {
-        images.addAll(await PdfToImageService.convertPdfToImages(
-          filePath,
-          onProgress: (current, total) => onPdfProgress?.call(current, total),
-        ));
+      existing = await client
+          .from('lab_reports')
+          .select('id,extraction_status')
+          .eq('patient_id', profileId)
+          .eq('file_sha256', hash);
+      if (existing.isEmpty) {
+        orgId = await _ownOrgId(client, profileId);
+        objectPath = newLabReportObjectPath(profileId, fileName);
+        await client.storage.from(labReportsBucket).upload(
+              objectPath,
+              file,
+              fileOptions: const FileOptions(upsert: false),
+            );
       } else {
-        images.add(File(filePath));
+        orgId = '';
+        objectPath = '';
       }
-
-      if (images.isEmpty) throw Exception('No images to analyze.');
-
-      // 2. Build chunks (2 pages each — small enough to avoid Supabase timeout)
-      final int totalPages = images.length;
-      final int totalChunks = (totalPages / chunkSize).ceil();
-
-      // Accumulate markers across all chunks, preserving categories
-      final List<Map<String, dynamic>> allMarkers = [];
-      String? reportTitle;
-      String? reportDate;
-      String? labName;
-
-      // Build all chunk image lists upfront
-      final List<List<File>> chunkImageLists = [];
-      for (int chunkIdx = 0; chunkIdx < totalChunks; chunkIdx++) {
-        final int start = chunkIdx * chunkSize;
-        final int end = (start + chunkSize).clamp(0, totalPages);
-        chunkImageLists.add(images.sublist(start, end));
-      }
-
-      // 3. Process chunks in parallel batches of 3 (concurrency limit)
-      //    Each chunk = 2 pages → small payload → no Supabase timeout
-      //    3 concurrent requests → fast throughput
-      const int maxConcurrent = 3;
-      final List<Map<String, dynamic>?> allResults = List.filled(totalChunks, null);
-      int completedCount = 0;
-
-      for (int batchStart = 0; batchStart < totalChunks; batchStart += maxConcurrent) {
-        final int batchEnd = (batchStart + maxConcurrent).clamp(0, totalChunks);
-        final batchIndices = List.generate(batchEnd - batchStart, (i) => batchStart + i);
-
-        onChunkProgress?.call(
-          completedCount + 1,
-          totalChunks,
-          'Analyzing pages ${batchStart * chunkSize + 1}–${(batchEnd * chunkSize).clamp(0, totalPages)} of $totalPages...',
-        );
-
-        // Fire batch in parallel — each chunk gets auto-retry on failure
-        final batchFutures = batchIndices.map((idx) => _extractWithRetry(
-          azureService,
-          chunkImageLists[idx],
-          chunkIndex: idx,
-          totalChunks: totalChunks,
-        ));
-
-        final batchResults = await Future.wait(batchFutures);
-
-        for (int i = 0; i < batchResults.length; i++) {
-          allResults[batchIndices[i]] = batchResults[i];
-          completedCount++;
-        }
-      }
-
-      // 4. Merge results from all chunks (in order)
-      for (int i = 0; i < allResults.length; i++) {
-        final rawResults = allResults[i];
-        if (rawResults == null || rawResults.isEmpty) {
-          debugPrint('HealthDataRepository: Chunk ${i + 1} returned no data — skipping');
-          continue;
-        }
-
-        // Capture metadata from first chunk that has it
-        if (reportTitle == null && rawResults['title'] != null && rawResults['title'].toString().isNotEmpty) {
-          reportTitle = rawResults['title'].toString();
-        }
-        if (reportDate == null && rawResults['date'] != null && rawResults['date'].toString().isNotEmpty) {
-          reportDate = rawResults['date'].toString();
-        }
-        if (labName == null && rawResults['labName'] != null && rawResults['labName'].toString().isNotEmpty) {
-          labName = rawResults['labName'].toString();
-        }
-
-        // Process categories
-        final categories = rawResults['categories'] as List<dynamic>?;
-        if (categories != null) {
-          for (final cat in categories) {
-            final categoryName = cat['name']?.toString() ?? 'General';
-            final markers = cat['markers'] as List<dynamic>?;
-            if (markers != null) {
-              for (final marker in markers) {
-                final name = marker['name']?.toString() ?? '';
-                final value = marker['value']?.toString() ?? '--';
-                final unit = marker['unit']?.toString() ?? '';
-                final refRange = marker['referenceRange']?.toString() ?? '--';
-                final status = marker['status']?.toString() ?? 'Normal';
-
-                if (name.isEmpty) continue;
-
-                allMarkers.add({
-                  'name': name,
-                  'value': value,
-                  'unit': unit,
-                  'range': refRange,
-                  'status': status,
-                  'category': categoryName,
-                  'lab_name': labName,
-                  'insight': '',
-                });
-              }
-            }
-          }
-        }
-
-        // Resiliency: Handle flat 'markers' key if AI ignores categories
-        final flatMarkers = rawResults['markers'] as List<dynamic>?;
-        if (flatMarkers != null) {
-          for (final m in flatMarkers) {
-            final name = m['name']?.toString() ?? '';
-            if (name.isEmpty) continue;
-            
-            // Only add if not already added via categories in this same chunk
-            if (!allMarkers.any((existing) => existing['name'].toString().toLowerCase() == name.toLowerCase())) {
-              allMarkers.add({
-                'name': name,
-                'value': m['value']?.toString() ?? '--',
-                'unit': m['unit']?.toString() ?? '',
-                'range': m['referenceRange']?.toString() ?? '--',
-                'status': m['status']?.toString() ?? 'Normal',
-                'category': 'General',
-                'lab_name': labName,
-                'insight': '',
-              });
-            }
-          }
-        }
-
-        // Resiliency: Handle flat 'additionalParameters'
-        if (rawResults['additionalParameters'] != null) {
-          for (var param in rawResults['additionalParameters']) {
-            final name = param['name']?.toString() ?? '';
-            if (name.isEmpty) continue;
-            if (!allMarkers.any((existing) => existing['name'].toString().toLowerCase() == name.toLowerCase())) {
-              allMarkers.add({
-                'name': name,
-                'value': param['value']?.toString() ?? '--',
-                'unit': param['unit']?.toString() ?? '',
-                'range': param['referenceRange']?.toString() ?? '--',
-                'status': 'Normal',
-                'category': 'Other Tests',
-                'lab_name': labName,
-                'insight': '',
-              });
-            }
-          }
-        }
-      }
-
-      if (allMarkers.isEmpty) {
-        throw Exception('Analysis returned no biomarkers. The report might be unreadable or blank. Pages analyzed: $totalPages');
-      }
-
-      // 3. Deduplicate & finalize — keep first occurrence of each biomarker
-      onFinalizing?.call();
-      final Map<String, Map<String, dynamic>> deduped = {};
-      for (final marker in allMarkers) {
-        final key = (marker['name'] as String).toLowerCase().trim();
-        if (!deduped.containsKey(key)) deduped[key] = marker;
-      }
-      final dedupedMarkers = deduped.values.toList();
-
-      return {
-        'title': reportTitle ?? fileName,
-        'date': reportDate ?? DateTime.now().toIso8601String().split('T')[0],
-        'lab_name': labName,
-        'markers': dedupedMarkers,
-        'summary': 'Lab Report Analyzed. ${dedupedMarkers.length} test results extracted across $totalPages pages.',
-      };
-    } catch (e, stackTrace) {
-      debugPrint('HealthDataRepository: WithProgress Error: $e\n$stackTrace');
-      rethrow; // Re-throw so the provider can catch and display the actual error
+    } catch (_) {
+      // Fixed text only: the backend's message never leaves this method.
+      throw StateError('lab report not filed');
     }
-  }
+    if (existing.isNotEmpty) {
+      final id = existing.first['id'] as String;
+      if (existing.first['extraction_status'] == 'pending') {
+        onUploaded?.call();
+        return _analyze(client, id);
+      }
+      return LabSubmission(outcome: LabSubmissionOutcome.duplicate, reportId: id);
+    }
 
-  /// Extracts biomarkers from a chunk of images with automatic retry.
-  /// Returns null on total failure (both attempts) instead of throwing,
-  /// so partial results from other chunks can still be used.
-  static Future<Map<String, dynamic>?> _extractWithRetry(
-    AzureOpenAIService azureService,
-    List<File> chunkImages, {
-    required int chunkIndex,
-    required int totalChunks,
-    int maxAttempts = 2,
-  }) async {
-    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+    String reportId;
+    try {
+      final rows = await client.from('lab_reports').insert({
+        'org_id': orgId,
+        'patient_id': profileId,
+        'report_type': 'patient_upload',
+        // The user's file name is not stored (it can carry personal
+        // details); the server fills in date / lab name once read.
+        'data': {
+          'title': 'Lab report',
+          'date': _localDate(),
+          'summary': 'Uploaded from mobile app.',
+          'markers': const [],
+        },
+        'pdf_path': objectPath,
+        'file_sha256': hash,
+      }).select('id');
+      reportId = rows.single['id'] as String;
+    } catch (e) {
       try {
-        final result = await azureService.extractBiomarkers(chunkImages);
-        debugPrint('HealthDataRepository: Chunk ${chunkIndex + 1}/$totalChunks succeeded on attempt $attempt');
-        return result;
-      } catch (e) {
-        debugPrint('HealthDataRepository: Chunk ${chunkIndex + 1}/$totalChunks attempt $attempt failed: $e');
-        if (attempt < maxAttempts) {
-          // Wait before retry — exponential backoff
-          await Future.delayed(Duration(seconds: 2 * attempt));
-        }
+        await client.storage.from(labReportsBucket).remove([objectPath]);
+      } catch (_) {}
+      if (e is PostgrestException && e.code == '23505') {
+        return const LabSubmission(outcome: LabSubmissionOutcome.duplicate);
       }
+      throw StateError('lab report not filed');
     }
-    // Both attempts failed — return null so other chunks can still contribute
-    debugPrint('HealthDataRepository: Chunk ${chunkIndex + 1}/$totalChunks FAILED after $maxAttempts attempts');
-    return null;
+
+    try {
+      await client.from('patient_accounts').upsert({
+        'patient_id': profileId,
+        'stage': 'lab_processing',
+        'updated_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'patient_id');
+    } catch (_) {}
+
+    onUploaded?.call();
+    return _analyze(client, reportId);
   }
 
-  /// Process, analyze, and upload a lab report (Legacy/Direct wrapper)
-  static Future<bool> analyzeAndUploadLabReport({
-    required String filePath,
-    required String fileName,
-    required String profileId,
-    Function(String)? onProgress,
-  }) async {
-      final extractedData = await analyzeLabReport(
-          filePath: filePath, 
-          fileName: fileName, 
-          profileId: profileId, 
-          onProgress: onProgress
-      );
-      
-      if (extractedData == null) return false;
-
-      // 4. Upload and Save to Supabase
-      onProgress?.call('Uploading to secure health vault...');
-      return await uploadLabReport(
-        filePath: filePath,
-        fileName: fileName,
-        profileId: profileId,
-        extractedData: extractedData,
-      );
+  /// Asks the server to read a filed report. Never throws: the report is
+  /// filed whatever happens here.
+  static Future<LabSubmission> _analyze(SupabaseClient client, String reportId) async {
+    try {
+      final res = await client.functions
+          .invoke(analyzeLabReportFunction, body: {'report_id': reportId});
+      return LabSubmission.fromAnalyzeResponse(reportId, res.status, res.data);
+    } on FunctionException catch (e) {
+      return LabSubmission.fromAnalyzeResponse(reportId, e.status, e.details);
+    } catch (_) {
+      return LabSubmission(
+          outcome: LabSubmissionOutcome.analysisFailed, reportId: reportId);
+    }
   }
+
+  static const analyzeLabReportFunction = 'analyze-lab-report';
+
+  /// Lower-case hex SHA-256 of [file] (the lab_reports.file_sha256 dedupe key).
+  static Future<String> fileSha256(File file) async =>
+      sha256.convert(await file.readAsBytes()).toString();
 
   /// TC-036: private storage bucket for patient-uploaded report files.
   static const labReportsBucket = 'lab-reports';
