@@ -11,6 +11,7 @@ import '../../data/dexa_measures.dart';
 import '../../data/dexa_compare.dart';
 import '../../config/theme.dart';
 import '../../providers/body_composition_provider.dart';
+import '../../widgets/programme_journey_card.dart';
 import '../../widgets/tc025/tc025_widgets.dart';
 import '../../providers/feature_flags_provider.dart';
 
@@ -91,6 +92,9 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
               )
             else
               _CompareGrid(rows: compare),
+            const SizedBox(height: 20),
+            // Baseline, Day 90, 180 and 365 with what has arrived (APP-14).
+            const ProgrammeScheduleCard(),
             const SizedBox(height: 20),
             ZyndioGradientButton(
               label: 'View Full DEXASCAN Report',

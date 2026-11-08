@@ -13,6 +13,7 @@ import '../../providers/wearable_sync_provider.dart';
 import '../../providers/feature_flags_provider.dart';
 import '../../providers/longevity_provider.dart';
 import 'dart:math' as math;
+import '../../widgets/programme_journey_card.dart';
 import '../../widgets/tc025/tc025_widgets.dart';
 
 // ── Pure helpers (unit-tested) ──────────────────────────────────────────────
@@ -107,6 +108,9 @@ class TodayScreen extends ConsumerWidget {
           _ScoreCard(score: score),
           const SizedBox(height: 20),
         ],
+        // Where the patient is in the programme: setup steps, then the
+        // Day 90 / 180 / 365 scan-and-labs milestones (APP-14).
+        const ProgrammeJourneyCard(),
         ..._bodyFor(
             context, ref, state, sync.value, flags.recoveryScoreEnabled),
       ],

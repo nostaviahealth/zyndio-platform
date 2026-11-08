@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:zyndio_patient/data/programme_journey.dart';
 import 'package:zyndio_patient/demo_login/demo_login.dart';
 import 'package:zyndio_patient/providers/auth_provider.dart';
 import 'package:zyndio_patient/providers/body_composition_provider.dart';
@@ -63,8 +64,17 @@ void main() {
       expect(labs, hasLength(2));
       expect(labs.first.markers, isNotEmpty);
       final scans = await container.read(bodyCompositionScansProvider.future);
-      expect(scans, hasLength(2));
+      // Baseline, a Day 90 and a Day 180 follow-up (fictional).
+      expect(scans, hasLength(3));
       expect(scans.every((x) => x.measures.isNotEmpty), isTrue);
+      final journey = buildProgrammeJourney(
+        scanDates: [for (final x in scans) parseCalendarDate(x.scanDate)!],
+        hasLabResults: true,
+        hasCarePlan: true,
+        today: DateTime.utc(2026, 11, 9),
+      );
+      expect(journey.completedMilestones, 2);
+      expect(journey.nextMilestone!.day, 365);
       expect(container.read(aiInsightsProvider), isNotEmpty);
     });
 
