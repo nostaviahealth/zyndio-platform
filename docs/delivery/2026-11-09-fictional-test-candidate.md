@@ -160,8 +160,9 @@ Done in code, pending a fresh run on this head:
 
 Not done:
 
-- [ ] Fresh pgTAP, Flutter, Deno, and integration runs on this head (toolchains were not all present when this note was written).
-- [ ] Android debug APK for this SHA.
+- [x] Fresh `npm test` (436 passed) and `npm run lint` on the admin app, and fresh `flutter test` (854 passed, 37 skipped) with Flutter 3.47.8. See the handover for the SHA. These are local reruns, not the recorded #35 counts.
+- [ ] pgTAP, Deno edge tests, and the vitest integration suite. No Supabase CLI, Docker, or Deno in this environment. Not claimed.
+- [ ] Android debug APK. Flutter is installed; the Android SDK is not. Not claimed.
 - [ ] iOS signing. Not claimed.
 - [ ] M8 (direct Auth password update). Still the accepted residual in `docs/RISKS.md`. No hosted GoTrue change was made.
 - [ ] Ava UI pass and Clara review of **this** head.
