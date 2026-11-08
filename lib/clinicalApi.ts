@@ -28,6 +28,11 @@ const FLAG_KEYS: ReadonlySet<string> = new Set<FlagKey>([
 
 export type LabStatus = 'within_range' | 'outside_range' | 'needs_review' | 'baseline' | 'no_range';
 
+// POR-05: where a result's range came from. 'approved' = the clinic's
+// physician-approved range set (no default-range caveat); 'default' = the
+// general default stored with the result; 'none' = no range at all.
+export type RangeSource = 'approved' | 'default' | 'none';
+
 export type RosterFilter = 'all' | 'flagged' | 'missing_labs' | 'questions_waiting';
 export type RosterSort = 'recent' | 'questions_waiting' | 'name';
 export type TrendPeriod = '3M' | '6M' | '1Y' | 'All';
@@ -76,6 +81,9 @@ export interface LatestResult {
   rangeLow: number | null;
   rangeHigh: number | null;
   takenAt: string | null;
+  // Optional so older fixtures/tests stay valid; absent reads as 'default'.
+  rangeSource?: RangeSource;
+  rangeSetVersion?: number | null;
 }
 
 export interface TrendPoint {
@@ -86,6 +94,7 @@ export interface TrendPoint {
   status: LabStatus;
   rangeLow: number | null;
   rangeHigh: number | null;
+  rangeSource?: RangeSource;
 }
 
 // name / started_on / status / source only - never a dose (there is no dose
@@ -122,17 +131,17 @@ export interface ClinicalApi {
 
 type Raw = Record<string, unknown>;
 
-function num(v: unknown): number | null {
+export function num(v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null;
   const n = typeof v === 'number' ? v : Number(v);
   return Number.isFinite(n) ? n : null;
 }
 
-function str(v: unknown): string | null {
+export function str(v: unknown): string | null {
   return v === null || v === undefined ? null : String(v);
 }
 
-function asStatus(v: unknown): LabStatus {
+export function asStatus(v: unknown): LabStatus {
   const s = String(v);
   switch (s) {
     case 'within_range':
@@ -144,6 +153,10 @@ function asStatus(v: unknown): LabStatus {
     default:
       return 'no_range';
   }
+}
+
+export function asRangeSource(v: unknown): RangeSource {
+  return v === 'approved' || v === 'none' ? v : 'default';
 }
 
 function mapFlags(v: unknown): FlagKey[] {
@@ -178,6 +191,8 @@ function mapLatest(r: Raw): LatestResult {
     rangeLow: num(r.range_low),
     rangeHigh: num(r.range_high),
     takenAt: str(r.taken_at),
+    rangeSource: asRangeSource(r.range_source),
+    rangeSetVersion: num(r.range_set_version),
   };
 }
 
@@ -190,6 +205,7 @@ function mapTrend(r: Raw): TrendPoint {
     status: asStatus(r.status),
     rangeLow: num(r.range_low),
     rangeHigh: num(r.range_high),
+    rangeSource: asRangeSource(r.range_source),
   };
 }
 

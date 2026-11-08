@@ -63,6 +63,32 @@ insert into tc040_allow values
   ('public.revoke_patient_consent(text)',        'authenticated', 'flutter rpc'),
   ('public.my_patient_profile()',                'authenticated', 'flutter rpc'),
   ('public.update_patient_profile(text, date, text, numeric, text)', 'authenticated', 'flutter rpc'),
+  -- Physician portal P0 (POR-03..06, PP-01).
+  -- POR-05 ranges: web rpc (definer, _portal_gate) + invoker helpers of the lab read rpcs.
+  ('public.list_range_sets()',                   'authenticated', 'web rpc'),
+  ('public.get_range_set_items(uuid)',           'authenticated', 'web rpc'),
+  ('public.create_range_set_draft(text)',        'authenticated', 'web rpc'),
+  ('public.upsert_range_set_item(uuid, text, text, text, numeric, numeric, text)', 'authenticated', 'web rpc'),
+  ('public.delete_range_set_item(uuid)',         'authenticated', 'web rpc'),
+  ('public.approve_range_set(uuid)',             'authenticated', 'web rpc'),
+  ('public.discard_range_set_draft(uuid)',       'authenticated', 'web rpc'),
+  ('public.lab_effective_range(uuid, uuid, text, text)', 'authenticated', 'callee of lab read rpcs (invoker, RLS-scoped)'),
+  ('public.lab_effective_status(text, boolean, numeric, boolean, numeric, numeric)', 'authenticated', 'callee of lab read rpcs (immutable)'),
+  -- POR-03 timeline: dispatcher + invoker sources it unions (RLS-scoped).
+  ('public.patient_timeline(uuid, timestamp with time zone, integer)', 'authenticated', 'web rpc'),
+  ('public.timeline_source_labs(uuid)',          'authenticated', 'callee of patient_timeline (invoker)'),
+  ('public.timeline_source_treatment(uuid)',     'authenticated', 'callee of patient_timeline (invoker)'),
+  ('public.timeline_source_program(uuid)',       'authenticated', 'callee of patient_timeline (invoker)'),
+  ('public.timeline_source_visits(uuid)',        'authenticated', 'callee of patient_timeline (invoker)'),
+  -- POR-04 brief / POR-06 export.
+  ('public.record_patient_visit(uuid, date)',    'authenticated', 'web rpc'),
+  ('public.patient_previsit_brief(uuid)',        'authenticated', 'web rpc'),
+  ('public.patient_lab_rows(uuid)',              'authenticated', 'callee of patient_previsit_brief / export_patient_record (invoker)'),
+  ('public.export_patient_record(uuid, text)',   'authenticated', 'web rpc'),
+  -- PP-01 plan and modules.
+  ('public.get_org_plan()',                      'authenticated', 'web rpc'),
+  ('public.list_org_plan_history()',             'authenticated', 'web rpc'),
+  ('public.set_org_plan(text, text[], text)',    'authenticated', 'web rpc'),
   -- create-patient edge function calls it with the CALLER's JWT client.
   ('public.create_patient_record(uuid, text, text)', 'authenticated', 'create-patient edge fn (caller JWT)'),
   -- Called inside SECURITY INVOKER rpcs above, so the caller needs EXECUTE.

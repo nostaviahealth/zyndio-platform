@@ -4,6 +4,7 @@ import PreviewUsersRoles from './PreviewUsersRoles';
 import PreviewPhysicianRoster from './PreviewPhysicianRoster';
 import PreviewPhysicianDetail from './PreviewPhysicianDetail';
 import PreviewShell from './PreviewShell';
+import { PreviewPlanModules, PreviewReferenceRanges } from './PreviewPortalConfig';
 import { PREVIEW_FIXTURE_MARKER } from './previewFixtures';
 
 // /__preview?screen=&state=&mode= - screenshot harness for scripts/
@@ -20,6 +21,8 @@ const SCREENS: Record<string, ScreenDef> = {
   '01-patient-list': { Component: PreviewPhysicianRoster, variant: 'clinical' },
   '02-patient-detail': { Component: PreviewPhysicianDetail, variant: 'clinical' },
   '07-users-roles': { Component: PreviewUsersRoles, variant: 'admin' },
+  '08-reference-ranges': { Component: PreviewReferenceRanges, variant: 'clinical' },
+  '09-plan-modules': { Component: PreviewPlanModules, variant: 'admin' },
 };
 
 const PreviewHarness: React.FC = () => {
