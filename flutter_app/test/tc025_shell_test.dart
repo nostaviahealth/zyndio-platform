@@ -246,6 +246,38 @@ void main() {
       handle.dispose();
     });
 
+    testWidgets('the sliding pill settles exactly under the selected tab',
+        (tester) async {
+      tester.view.physicalSize = const Size(402 * 3, 874 * 3);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      final handle = tester.ensureSemantics();
+      await _pumpShell(tester);
+      final pill = find.byWidgetPredicate((w) =>
+          w is DecoratedBox &&
+          w.decoration is BoxDecoration &&
+          (w.decoration as BoxDecoration).gradient == ZyndioGradients.brand &&
+          (w.decoration as BoxDecoration).borderRadius ==
+              const BorderRadius.all(Radius.circular(26)));
+      for (final label in [
+        'My Plan, tab 4 of 5',
+        'Progress, tab 2 of 5',
+        'Care, tab 5 of 5',
+        'Today, tab 1 of 5',
+      ]) {
+        await tester.tap(find.bySemanticsLabel(label));
+        await tester.pumpAndSettle();
+        final tab = tester.getRect(find.bySemanticsLabel(label));
+        final p = tester.getRect(pill);
+        // The pill sits 4pt inside its tab on each side.
+        expect(p.left, moreOrLessEquals(tab.left + 4, epsilon: 0.5),
+            reason: label);
+        expect(p.width, moreOrLessEquals(tab.width - 8, epsilon: 0.5),
+            reason: label);
+      }
+      handle.dispose();
+    });
+
     testWidgets('store build hides every Appointments entry point',
         (tester) async {
       await _pumpShell(tester);

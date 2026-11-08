@@ -136,13 +136,62 @@ class _MainShellState extends ConsumerState<MainShell> {
 }
 
 /// Floating tab bar: a light frosted bar of quiet icons; the active tab
-/// becomes the client mockup's blue-violet pill with its label. Every
-/// item keeps a >= 48pt target and its "name, tab n of 5" semantics label.
-class _ZyndioTabBar extends StatelessWidget {
+/// becomes the client mockup's blue-violet pill with its label.
+///
+/// Switching is one continuous motion driven by a single animation: the old
+/// tab narrows while the new one widens, the pill travels from the old tab's
+/// shape to the new one's (so it is always locked to a tab), the label
+/// unfolds and fades in, and the icon colours cross-fade. Every item keeps a
+/// >= 48pt target and its "name, tab n of 5" semantics label.
+class _ZyndioTabBar extends StatefulWidget {
   const _ZyndioTabBar({required this.selectedIndex, required this.onTap});
 
   final int selectedIndex;
   final void Function(int) onTap;
+
+  @override
+  State<_ZyndioTabBar> createState() => _ZyndioTabBarState();
+}
+
+class _ZyndioTabBarState extends State<_ZyndioTabBar>
+    with SingleTickerProviderStateMixin {
+  static const _duration = Duration(milliseconds: 420);
+
+  /// Width units: the active tab takes 13, the others 5 each.
+  static const _activeUnits = 13.0;
+  static const _idleUnits = 5.0;
+  static const _pillInset = 4.0;
+
+  late final AnimationController _controller =
+      AnimationController(vsync: this, duration: _duration, value: 1);
+  late final Animation<double> _progress = CurvedAnimation(
+      parent: _controller, curve: Curves.easeInOutCubicEmphasized);
+  late int _from = widget.selectedIndex;
+  late int _to = widget.selectedIndex;
+
+  @override
+  void didUpdateWidget(_ZyndioTabBar old) {
+    super.didUpdateWidget(old);
+    if (widget.selectedIndex != _to) {
+      _from = _to;
+      _to = widget.selectedIndex;
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// How "active" tab [i] is right now, 0..1.
+  double _activeness(int i, double p) {
+    if (_from == _to) return i == _to ? 1 : 0;
+    if (i == _to) return p;
+    if (i == _from) return 1 - p;
+    return 0;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -172,17 +221,66 @@ class _ZyndioTabBar extends StatelessWidget {
                       offset: Offset(0, 10)),
                 ],
               ),
-              child: Row(
-                children: [
-                  for (var i = 0; i < _kTabs.length; i++)
-                    _TabItem(
-                      spec: _kTabs[i],
-                      index: i,
-                      selected: i == selectedIndex,
-                      onTap: () => onTap(i),
-                    ),
-                ],
-              ),
+              child: LayoutBuilder(builder: (context, box) {
+                final n = _kTabs.length;
+                final unit =
+                    box.maxWidth / (_activeUnits + _idleUnits * (n - 1));
+                final idleW = unit * _idleUnits;
+                final extraW = unit * (_activeUnits - _idleUnits);
+                return AnimatedBuilder(
+                  animation: _progress,
+                  builder: (context, _) {
+                    final p = _progress.value;
+                    final t = [for (var i = 0; i < n; i++) _activeness(i, p)];
+                    final widths = [for (final v in t) idleW + extraW * v];
+                    double leftOf(int i) =>
+                        widths.take(i).fold(0.0, (a, b) => a + b);
+                    // The pill travels from the old tab's rect to the new one's.
+                    final pillLeft =
+                        ui.lerpDouble(leftOf(_from), leftOf(_to), p)!;
+                    final pillWidth =
+                        ui.lerpDouble(widths[_from], widths[_to], p)!;
+                    return Stack(
+                      alignment: Alignment.centerLeft,
+                      children: [
+                        Positioned(
+                          // Inset a little so the pill breathes in its slot.
+                          left: pillLeft + _pillInset,
+                          width: pillWidth - _pillInset * 2,
+                          top: 9,
+                          height: 52,
+                          child: const DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: ZyndioGradients.brand,
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(26)),
+                              boxShadow: [
+                                BoxShadow(
+                                    color: Color(0x404A55F0),
+                                    blurRadius: 14,
+                                    offset: Offset(0, 6)),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            for (var i = 0; i < n; i++)
+                              _TabItem(
+                                spec: _kTabs[i],
+                                index: i,
+                                selected: i == widget.selectedIndex,
+                                activeness: t[i],
+                                width: widths[i],
+                                onTap: () => widget.onTap(i),
+                              ),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
+                );
+              }),
             ),
           ),
         ),
@@ -196,80 +294,69 @@ class _TabItem extends StatelessWidget {
     required this.spec,
     required this.index,
     required this.selected,
+    required this.activeness,
+    required this.width,
     required this.onTap,
   });
 
   final _TabSpec spec;
   final int index;
   final bool selected;
+
+  /// 0 = idle icon, 1 = full pill with label; animates in between.
+  final double activeness;
+  final double width;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final c = Theme.of(context).extension<ZyndioColors>()!;
-    return Expanded(
-      flex: selected ? 13 : 5,
-      child: Semantics(
-        label: '${spec.label}, tab ${index + 1} of ${_kTabs.length}',
-        selected: selected,
-        button: true,
-        onTap: onTap, // H1: screen-reader activation == finger tap
-        child: ExcludeSemantics(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onTap,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 48),
-              child: Center(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 240),
-                  curve: Curves.easeOutCubic,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    gradient: selected ? ZyndioGradients.brand : null,
-                    borderRadius: BorderRadius.circular(26),
-                    boxShadow: selected
-                        ? const [
-                            BoxShadow(
-                                color: Color(0x404A55F0),
-                                blurRadius: 14,
-                                offset: Offset(0, 6)),
-                          ]
-                        : null,
-                  ),
-                  // Padding switches instantly; only colour and shadow animate.
-                  // (Animating it while the slot narrows overflowed the pill.)
-                  child: Padding(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: selected ? 16 : 0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(spec.icon,
-                            size: 22,
-                            color: selected ? Colors.white : c.textTertiary),
-                        if (selected) ...[
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: Text(
-                              spec.label,
-                              maxLines: 1,
-                              overflow: TextOverflow.fade,
-                              softWrap: false,
-                              style: TextStyle(
-                                fontFamily: ZyndioType.family,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
+    final t = activeness;
+    return Semantics(
+      label: '${spec.label}, tab ${index + 1} of ${_kTabs.length}',
+      selected: selected,
+      button: true,
+      onTap: onTap, // H1: screen-reader activation == finger tap
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: SizedBox(
+            width: width,
+            height: 52,
+            child: ClipRect(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(spec.icon,
+                      size: 22,
+                      color: Color.lerp(c.textTertiary, Colors.white, t)),
+                  // The label unfolds from zero width and fades in.
+                  Flexible(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      widthFactor: t,
+                      child: Opacity(
+                        opacity: Curves.easeIn.transform(t.clamp(0.0, 1.0)),
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Text(
+                            spec.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.clip,
+                            softWrap: false,
+                            style: const TextStyle(
+                              fontFamily: ZyndioType.family,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
                             ),
                           ),
-                        ],
-                      ],
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
             ),
           ),
