@@ -6,14 +6,14 @@ void main() {
   group('BrandTheme Zyndio tokens', () {
     test('light theme primary colour matches the Zyndio brand token', () {
       final light = BrandTheme.lightTheme;
-      expect(light.colorScheme.primary, const Color(0xFF2C5CF2));
-      expect(light.extension<ZyndioColors>()!.brandPrimary, const Color(0xFF2C5CF2));
+      expect(light.colorScheme.primary, const Color(0xFF0962C0));
+      expect(light.extension<ZyndioColors>()!.brandPrimary, const Color(0xFF0962C0));
     });
 
     test('dark theme primary colour matches the Zyndio dark brand token', () {
       final dark = BrandTheme.darkTheme;
-      expect(dark.colorScheme.primary, const Color(0xFF7C9CFF));
-      expect(dark.extension<ZyndioColors>()!.brandPrimary, const Color(0xFF7C9CFF));
+      expect(dark.colorScheme.primary, const Color(0xFF4FB8F2));
+      expect(dark.extension<ZyndioColors>()!.brandPrimary, const Color(0xFF4FB8F2));
     });
 
     test('both themes keep the legacy BrandThemeColors extension registered', () {

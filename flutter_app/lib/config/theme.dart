@@ -78,11 +78,12 @@ class ZyndioColors extends ThemeExtension<ZyndioColors> {
   final Color borderSubtle;
   /// Input/outline-button borders, unchecked controls (contrast ratio >= 3:1)
   final Color borderStrong;
-  /// PLACEHOLDER brand: primary buttons, links, active tab, selected controls
+  /// Zyndio brand blue (from the official mark, deepened to meet WCAG AA):
+  /// primary buttons, links, active tab, selected controls
   final Color brandPrimary;
   /// Text/icons on brand.primary
   final Color brandOnPrimary;
-  /// PLACEHOLDER brand tint: info banners, brand badge
+  /// Zyndio brand tint: info banners, brand badge
   final Color brandSubtle;
   /// Text on brand.subtle
   final Color brandOnSubtle;
@@ -118,10 +119,10 @@ class ZyndioColors extends ThemeExtension<ZyndioColors> {
     textTertiary: Color(0xFF56637B),
     borderSubtle: Color(0xFFDEE5F5),
     borderStrong: Color(0xFF7A86A0),
-    brandPrimary: Color(0xFF2C5CF2),
+    brandPrimary: Color(0xFF0962C0),
     brandOnPrimary: Color(0xFFFFFFFF),
-    brandSubtle: Color(0xFFDEEAFC),
-    brandOnSubtle: Color(0xFF2346DD),
+    brandSubtle: Color(0xFFDDEEFB),
+    brandOnSubtle: Color(0xFF0A4FA3),
     actionSecondary: Color(0xFF030616),
     actionOnSecondary: Color(0xFFFFFFFF),
     statusSuccess: Color(0xFF15784A),
@@ -130,9 +131,9 @@ class ZyndioColors extends ThemeExtension<ZyndioColors> {
     statusWarningSubtle: Color(0xFFFBEFD8),
     statusCritical: Color(0xFFB42318),
     statusCriticalSubtle: Color(0xFFFCE8E6),
-    chartLine: Color(0xFF2C5CF2),
+    chartLine: Color(0xFF0962C0),
     chartRange: Color(0xFFE3F5EC),
-    focusRing: Color(0xFF2346DD),
+    focusRing: Color(0xFF0A4FA3),
   );
 
   static const dark = ZyndioColors(
@@ -144,10 +145,10 @@ class ZyndioColors extends ThemeExtension<ZyndioColors> {
     textTertiary: Color(0xFF8F9AAF),
     borderSubtle: Color(0xFF222838),
     borderStrong: Color(0xFF6C7690),
-    brandPrimary: Color(0xFF7C9CFF),
-    brandOnPrimary: Color(0xFF030616),
-    brandSubtle: Color(0xFF18224A),
-    brandOnSubtle: Color(0xFFAFC3FF),
+    brandPrimary: Color(0xFF4FB8F2),
+    brandOnPrimary: Color(0xFF031943),
+    brandSubtle: Color(0xFF0E2A4A),
+    brandOnSubtle: Color(0xFF9CD6F7),
     actionSecondary: Color(0xFFF1F4FC),
     actionOnSecondary: Color(0xFF030616),
     statusSuccess: Color(0xFF5FD39A),
@@ -156,9 +157,9 @@ class ZyndioColors extends ThemeExtension<ZyndioColors> {
     statusWarningSubtle: Color(0xFF2F220D),
     statusCritical: Color(0xFFFF8F86),
     statusCriticalSubtle: Color(0xFF3A1614),
-    chartLine: Color(0xFF7C9CFF),
+    chartLine: Color(0xFF4FB8F2),
     chartRange: Color(0xFF0F2A1D),
-    focusRing: Color(0xFFAFC3FF),
+    focusRing: Color(0xFF9CD6F7),
   );
 
   @override
@@ -311,7 +312,7 @@ abstract final class ZyndioBorder {
 abstract final class ZyndioShadow {
   static const List<BoxShadow> card = [
     BoxShadow(color: Color(0x0A030616), offset: Offset(0, 1), blurRadius: 2, spreadRadius: 0),
-    BoxShadow(color: Color(0x142C5CF2), offset: Offset(0, 8), blurRadius: 24, spreadRadius: 0),
+    BoxShadow(color: Color(0x140962C0), offset: Offset(0, 8), blurRadius: 24, spreadRadius: 0),
   ];
   static List<BoxShadow> cardFor(Brightness b) => b == Brightness.light ? card : const [];
 }
