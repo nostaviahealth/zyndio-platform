@@ -20,6 +20,13 @@ class CareScreen extends ConsumerWidget {
       title: 'My Care',
       subtitle: 'Your clinical team, results and resources.',
       children: [
+        const ZyndioStateCard(
+          icon: LucideIcons.heartPulse,
+          title: 'Care team profile unavailable',
+          body:
+              'This build has no care-team roster, phone number, or resource list to show. Lab results and appointments below are the records that exist.',
+        ),
+        const SizedBox(height: 12),
         ZyndioListRow(
           icon: LucideIcons.flaskConical,
           title: 'Lab Results',

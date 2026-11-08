@@ -10,25 +10,32 @@ import '../config/supabase_config.dart';
 
 /// State for the Protocol Library
 class ProtocolState {
-  final List<ProtocolData> allProtocols; // Admin phases + Free Add-ons
+  final List<ProtocolData> allProtocols; // Care-team phases only
   final String? selectedProtocolId;
   final bool isLoading;
+  final bool loadFailed;
 
   const ProtocolState({
     this.allProtocols = const [],
     this.selectedProtocolId,
     this.isLoading = false,
+    this.loadFailed = false,
   });
 
   ProtocolState copyWith({
     List<ProtocolData>? allProtocols,
     String? selectedProtocolId,
     bool? isLoading,
+    bool? loadFailed,
+    bool clearSelection = false,
   }) {
     return ProtocolState(
       allProtocols: allProtocols ?? this.allProtocols,
-      selectedProtocolId: selectedProtocolId ?? this.selectedProtocolId,
+      selectedProtocolId: clearSelection
+          ? null
+          : (selectedProtocolId ?? this.selectedProtocolId),
       isLoading: isLoading ?? this.isLoading,
+      loadFailed: loadFailed ?? this.loadFailed,
     );
   }
 
@@ -95,9 +102,8 @@ class ProtocolNotifier extends Notifier<ProtocolState> {
       
       // Cloud Migration: Move any locally saved protocols to Supabase
       await _migrateLocalProtocolsToCloud(prefs);
-    } catch (e) {
-      print('ProtocolProvider init error: $e');
-      state = state.copyWith(isLoading: false);
+    } catch (_) {
+      state = state.copyWith(isLoading: false, loadFailed: true);
     }
   }
 
@@ -176,17 +182,14 @@ class ProtocolNotifier extends Notifier<ProtocolState> {
                     cloudCustomProtocols.add(_mapSavedJsonToProtocolData(row['protocol_data'] as Map<String, dynamic>));
                 }
             }
-          } catch (e) {
-            print("Error fetching cloud custom protocols: \$e");
+          } catch (_) {
+            // A missing custom-protocol table must not invent a plan.
           }
       }
       _savedCustomProtocols = cloudCustomProtocols;
 
-      // 3. Get hardcoded add-on protocols
-      final addons = ProtocolRepository.addonLibrary;
-
-      // 4. Combine
-      final allProtocols = [...adminProtocols, ...addons, ..._savedCustomProtocols];
+      // Care-team phases only. The in-repo sample library is not a plan.
+      final allProtocols = [...adminProtocols, ..._savedCustomProtocols];
 
       // 5. Auto-select logic
       String? selectedId = state.selectedProtocolId;
@@ -197,26 +200,23 @@ class ProtocolNotifier extends Notifier<ProtocolState> {
           if (!exists) selectedId = null; // Invalid/Old ID
       }
 
-      // Default to first admin protocol if nothing valid selected
       if (selectedId == null && adminProtocols.isNotEmpty) {
         selectedId = adminProtocols.first.id;
-      } else if (selectedId == null && allProtocols.isNotEmpty) {
-        selectedId = allProtocols.first.id;
       }
 
       state = ProtocolState(
         allProtocols: allProtocols,
         selectedProtocolId: selectedId,
         isLoading: false,
+        loadFailed: false,
       );
 
       // Also update the repository's current fetch for legacy compatibility
       if (state.selectedProtocol != null) {
         ProtocolRepository.setCurrentProtocol(state.selectedProtocol!);
       }
-    } catch (e) {
-      print('ProtocolProvider fetch error: $e');
-      state = state.copyWith(isLoading: false);
+    } catch (_) {
+      state = state.copyWith(isLoading: false, loadFailed: true);
     }
   }
 

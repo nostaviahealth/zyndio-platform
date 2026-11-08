@@ -121,10 +121,10 @@ class ProtocolTask {
 // --- REPOSITORY ---
 
 class ProtocolRepository {
-  static List<ProtocolTask> get lifestyle => _currentFetch?.lifestyle ?? ProtocolData.mock.lifestyle;
-  static List<ProtocolTask> get fitness => _currentFetch?.fitness ?? ProtocolData.mock.fitness;
+  static List<ProtocolTask> get lifestyle => _currentFetch?.lifestyle ?? const [];
+  static List<ProtocolTask> get fitness => _currentFetch?.fitness ?? const [];
   static List<ProtocolTask> get dietTasks => []; // Legacy unused
-  static List<ProtocolTask> get supplements => _currentFetch?.supplements ?? ProtocolData.mock.supplements;
+  static List<ProtocolTask> get supplements => _currentFetch?.supplements ?? const [];
 
   static ProtocolData? _currentFetch;
   
@@ -376,47 +376,35 @@ class ProtocolRepository {
   ];
 
   // Fetch logic connecting to Supabase 'health_journeys' and Merging with Active Library
-  static Future<ProtocolData> fetchProtocol({int phaseIndex = 0, String? profileId}) async {
+  static Future<ProtocolData?> fetchProtocol({int phaseIndex = 0, String? profileId}) async {
     try {
-      // 1. Fetch Base Protocol (Supabase)
-      ProtocolData baseProtocol = ProtocolData.mock;
-      
       final client = SupabaseConfig.client;
-      if (client != null) {
-        // Patient identity IS their auth user id - no profiles lookup needed.
-        final String? targetProfileId = profileId ?? client.auth.currentUser?.id;
+      if (client == null) return null;
+      final String? targetProfileId = profileId ?? client.auth.currentUser?.id;
+      if (targetProfileId == null) return null;
 
-        if (targetProfileId != null) {
-          final response = await client
-              .from('health_journeys')
-              .select('*')
-              .eq('profile_id', targetProfileId)
-              .order('created_at', ascending: false)
-              .limit(1)
-              .maybeSingle();
+      final response = await client
+          .from('health_journeys')
+          .select('*')
+          .eq('profile_id', targetProfileId)
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+      if (response == null) return null;
+      final phases = response['phases'] as List? ?? [];
+      if (phases.isEmpty) return null;
 
-          if (response != null) {
-            baseProtocol = _mapJsonToProtocol(response, phaseIndex);
-          }
-        }
-      }
-
-      // 2. Fetch Active Library Protocols
-      final activeLibraryProtocols = addonLibrary.where((p) => _activeProtocolIds.contains(p.id)).toList();
-
-      // 3. Merge
+      final baseProtocol = _mapJsonToProtocol(response, phaseIndex);
+      final activeLibraryProtocols =
+          addonLibrary.where((p) => _activeProtocolIds.contains(p.id)).toList();
       if (activeLibraryProtocols.isEmpty) {
         _currentFetch = baseProtocol;
         return baseProtocol;
       }
-
       return _mergeProtocols(baseProtocol, activeLibraryProtocols);
-
-    } catch (e) {
-      print('Protocol Fetch Error: $e');
+    } catch (_) {
+      return null;
     }
-    _currentFetch = ProtocolData.mock;
-    return ProtocolData.mock;
   }
 
   static ProtocolData _mergeProtocols(ProtocolData base, List<ProtocolData> others) {
