@@ -98,6 +98,8 @@ insert into tc040_allow values
   -- Called inside SECURITY INVOKER rpcs above, so the caller needs EXECUTE.
   ('public.physician_roster_base()',             'authenticated', 'callee of physician_patient_roster / chip_counts (invoker)'),
   ('public.lab_report_held(uuid)',               'authenticated', 'callee of patient_trend / patient_latest_results (invoker)'),
+  ('public.own_lab_report_released(uuid)',       'authenticated', 'RLS: patient lab_results hide identity-held reports'),
+  ('public.own_lab_file_released(text)',         'authenticated', 'RLS: patient storage select/sign hides identity-held files'),
   ('public.write_audit_log(text, uuid, uuid, uuid, jsonb)', 'authenticated', 'callee of open_patient_detail (invoker)');
 
 create temp view tc040_exec as

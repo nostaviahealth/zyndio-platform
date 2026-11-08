@@ -7,11 +7,12 @@
 -- Lab / biomarker read surface (grep of supabase/migrations for
 -- lab|biomarker|marker|result|report|analyte|reading|trend):
 --   * public.lab_reports  - one row per uploaded report (TC-005; data jsonb +
---     identity_hold). Patient self-read policy is patient_id = auth.uid() AND
---     email-confirmed AND linked (tc012). RLS forced; no cross-patient grant.
---   * public.lab_results  - value-level analyte time series, the Biomarkers /
---     trend source (TC-015). Patient self-read policy is patient_id =
---     auth.uid() (tc015 rls). RLS forced; staff path is org+aal2 scoped.
+--     identity_hold). Patient self-read is patient_id = auth.uid() AND
+--     email-confirmed AND linked AND identity_hold = false. RLS forced.
+--   * public.lab_results  - value-level analyte time series (TC-015). Patient
+--     self-read is patient_id = auth.uid() AND own_lab_report_released
+--     (the parent report is theirs and not identity-held). Staff path is
+--     org+aal2 and still includes held rows. RLS forced.
 --   RPCs exposed to authenticated that RETURN lab values:
 --     - public.patient_trend(uuid,text,text)          SECURITY INVOKER
 --     - public.patient_latest_results(uuid)           SECURITY INVOKER
@@ -219,7 +220,12 @@ select is(
      and pr.prosecdef
      and pr.prorettype <> 'pg_catalog.trigger'::regtype
      and (pr.prosrc ~* 'lab_results' or pr.prosrc ~* 'lab_reports')),
-  array['public.flag_lab_report_needs_review', 'public.lab_report_held']::text[],
+  array[
+    'public.flag_lab_report_needs_review',
+    'public.lab_report_held',
+    'public.own_lab_file_released',
+    'public.own_lab_report_released'
+  ]::text[],
   'only the reviewed SECURITY DEFINER lab readers are authenticated-executable'
 );
 
