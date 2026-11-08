@@ -296,8 +296,8 @@ class RhythmNotifier extends Notifier<RhythmState> {
   Future<void> refresh() async {
     state = state.copyWith(rhythm: const AsyncValue.loading(), isAdjusted: false);
     try {
-      ProtocolData? protocol = ref.read(protocolProvider).selectedProtocol;
-      protocol ??= await ProtocolRepository.fetchProtocol(profileId: _profileId);
+      final protocol = ref.read(protocolProvider).selectedProtocol ??
+          await ProtocolRepository.fetchProtocol(profileId: _profileId);
 
       DailyRhythm? newRhythm;
       final blueprintNotifier = ref.read(blueprintProvider.notifier);
@@ -311,8 +311,15 @@ class RhythmNotifier extends Notifier<RhythmState> {
         }
       }
 
-      // ── FALLBACK: No blueprint → generate with AI ──
+      // ── FALLBACK: No blueprint → generate with AI from a published plan ──
       if (newRhythm == null) {
+        final published = protocol;
+        if (published == null) {
+          state = state.copyWith(
+            rhythm: const AsyncValue.error('No plan published', StackTrace.empty),
+          );
+          return;
+        }
         debugPrint('RhythmProvider: No blueprint available, using full generation');
         final yesterdayDate = DateTime.now().subtract(const Duration(days: 1));
         final yesterday = await _getRhythmForDate(yesterdayDate);
@@ -322,10 +329,10 @@ class RhythmNotifier extends Notifier<RhythmState> {
           snapshot = syncState?.snapshot;
         } catch (_) {}
         final progressState = ref.read(protocolProgressProvider);
-        final durationWeeks = progressState.getDurationWeeks(protocol.id);
+        final durationWeeks = progressState.getDurationWeeks(published.id);
         final consistency = ref.read(consistencyProvider);
         final progress = progressState.getProgress(
-          protocol.id,
+          published.id,
           durationWeeks: durationWeeks,
           performanceRate: consistency.weekConsistency,
         );
@@ -333,7 +340,7 @@ class RhythmNotifier extends Notifier<RhythmState> {
         final userContext = await _fetchUserContext();
         final habitProfile = ref.read(userHabitProfileProvider);
         newRhythm = await _aiService.generateDailyRhythm(
-          protocol,
+          published,
           yesterday,
           wearable: snapshot,
           progress: progress,
@@ -344,7 +351,9 @@ class RhythmNotifier extends Notifier<RhythmState> {
       }
 
       if (newRhythm != null) {
-        final finalRhythm = _appendSupplements(newRhythm, protocol);
+        final finalRhythm = protocol == null
+            ? newRhythm
+            : _appendSupplements(newRhythm, protocol);
         final isAlreadyAdjusted = finalRhythm.source == 'optimized';
         
         state = RhythmState(
@@ -393,8 +402,12 @@ class RhythmNotifier extends Notifier<RhythmState> {
     
     state = state.copyWith(isAdjusting: true);
     try {
-      ProtocolData? protocol = ref.read(protocolProvider).selectedProtocol;
-      protocol ??= await ProtocolRepository.fetchProtocol(profileId: _profileId);
+      final protocol = ref.read(protocolProvider).selectedProtocol ??
+          await ProtocolRepository.fetchProtocol(profileId: _profileId);
+      if (protocol == null) {
+        state = state.copyWith(isAdjusting: false);
+        return;
+      }
 
       final blueprintNotifier = ref.read(blueprintProvider.notifier);
       var todayBlueprint = blueprintNotifier.todayBlueprint;

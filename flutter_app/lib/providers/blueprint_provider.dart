@@ -206,8 +206,13 @@ class BlueprintNotifier extends Notifier<BlueprintState> with WidgetsBindingObse
 
       // Get the protocol data for prompting
       final protocolState = ref.read(protocolProvider);
-      ProtocolData? protocol = protocolState.selectedProtocol;
-      protocol ??= await ProtocolRepository.fetchProtocol(profileId: null);
+      final protocol = protocolState.selectedProtocol ??
+          await ProtocolRepository.fetchProtocol(profileId: null);
+      if (protocol == null) {
+        _isLoopRunning = false;
+        state = state.copyWith(syncProgress: 'No plan published');
+        return;
+      }
 
       int currentWeek = blueprint.weeksGenerated + 1;
       List<BlueprintDay> allDays = List.from(blueprint.days);
