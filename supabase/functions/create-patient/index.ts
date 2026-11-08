@@ -11,10 +11,18 @@
 // regardless of what this function believes; requireClinicalStaffActor
 // gates first only to avoid minting an orphan auth user for a caller who
 // was never going to be allowed to use it.
+//
+// APP-01: once the record exists the patient is sent a Zyndio enrolment
+// invite (_shared/patientInvite.ts, the same path the integration API
+// uses). The invite carries no credential: the patient signs in with their
+// email and an emailed one-time code. If only the invite email fails, the
+// patient still exists and can sign in by code, so this answers 200 with
+// invite_sent: false rather than undoing the record.
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2.118.0'
 import { corsHeadersFor, jsonResponse } from '../_shared/cors.ts'
 import { AuthError, requireClinicalStaffActor } from '../_shared/requireOrgAdminActor.ts'
+import { sendPatientInvite } from '../_shared/patientInvite.ts'
 import {
   MAX_EMAIL_LENGTH,
   MAX_MRN_LENGTH,
@@ -37,7 +45,7 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization') ?? ''
-    const { admin } = await requireClinicalStaffActor(req)
+    const { actor, admin } = await requireClinicalStaffActor(req)
 
     if (declaredBodyTooLarge(req, MAX_BODY_BYTES)) {
       return jsonResponse(req, { error: 'payload_too_large' }, 413)
@@ -107,7 +115,15 @@ serve(async (req) => {
       return jsonResponse(req, { error: 'internal_error' }, 500)
     }
 
-    return jsonResponse(req, { status: 'ok', patient_id: created.user.id })
+    let inviteSent = true
+    try {
+      await sendPatientInvite(admin, { patientId: created.user.id, invitedBy: actor.userId, source: 'staff' })
+    } catch (inviteErr) {
+      inviteSent = false
+      console.error('create-patient: patient invite failed', inviteErr instanceof Error ? inviteErr.message : 'unknown')
+    }
+
+    return jsonResponse(req, { status: 'ok', patient_id: created.user.id, invite_sent: inviteSent })
   } catch (err) {
     if (err instanceof AuthError) return jsonResponse(req, { error: err.message }, err.status)
     console.error('create-patient error', err)

@@ -57,6 +57,12 @@ insert into tc040_allow values
   ('public.redeem_clinic_link_code(text)',       'authenticated', 'flutter rpc'),
   ('public.unlink_patient_record()',             'authenticated', 'flutter rpc'),
   ('public.patient_leaderboard_top10()',         'authenticated', 'flutter rpc'),
+  -- APP-02 / APP-04 onboarding gate, consents and profile (flutter rpc).
+  ('public.patient_onboarding_status()',         'authenticated', 'flutter rpc'),
+  ('public.grant_patient_consents(jsonb)',       'authenticated', 'flutter rpc'),
+  ('public.revoke_patient_consent(text)',        'authenticated', 'flutter rpc'),
+  ('public.my_patient_profile()',                'authenticated', 'flutter rpc'),
+  ('public.update_patient_profile(text, date, text, numeric, text)', 'authenticated', 'flutter rpc'),
   -- create-patient edge function calls it with the CALLER's JWT client.
   ('public.create_patient_record(uuid, text, text)', 'authenticated', 'create-patient edge fn (caller JWT)'),
   -- Called inside SECURITY INVOKER rpcs above, so the caller needs EXECUTE.

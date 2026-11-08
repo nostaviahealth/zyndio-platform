@@ -33,6 +33,13 @@ Deno.test('redactSentPayload nulls the token for verify_email and password_reset
   })
 })
 
+Deno.test('redactSentPayload nulls the emailed sign-in code once sent (APP-01)', () => {
+  assertEquals(redactSentPayload('patient_login_code', { email: 'alice@example.test', token: '123456' }), {
+    email: 'alice@example.test',
+    token: null,
+  })
+})
+
 // TC-018 item 6 (L8): sendNotificationStub is the only path that scrubs a
 // token *immediately* (cron is the 15-minute backstop, see the pgTAP scrub
 // test) - it must stamp scrubbed_at in the same update so the cron sweep

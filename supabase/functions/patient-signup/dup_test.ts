@@ -9,7 +9,11 @@ const ANON = Deno.env.get('SUPABASE_ANON_KEY') ?? Deno.env.get('ANON_KEY') ?? ''
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
 const FN_URL = Deno.env.get('SUPABASE_FUNCTIONS_URL') ??
   (SUPABASE_URL ? `${SUPABASE_URL}/functions/v1` : '')
-const LIVE = Boolean(SUPABASE_URL && ANON && SERVICE && FN_URL)
+// APP-01: self-sign-up is off unless the org patient-signup is deployed for
+// (ZYNDIO_DEFAULT_ORG_ID, same value the functions runtime has) turns it on,
+// so the live cases need that org id to switch it on/off around themselves.
+const ORG_ID = Deno.env.get('ZYNDIO_DEFAULT_ORG_ID') ?? ''
+const LIVE = Boolean(SUPABASE_URL && ANON && SERVICE && FN_URL && ORG_ID)
 const PW = 'Correct-Horse-Battery-99!'
 
 function suffix(): string {
@@ -32,6 +36,21 @@ async function countUsersByEmail(email: string): Promise<number> {
   const body = await res.json()
   // find_user_id_by_email returns uuid | null
   return body ? 1 : 0
+}
+
+async function setSelfSignup(enabled: boolean): Promise<void> {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/organizations?id=eq.${ORG_ID}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: SERVICE,
+      Authorization: `Bearer ${SERVICE}`,
+      Prefer: 'return=minimal',
+    },
+    body: JSON.stringify({ patient_self_signup_enabled: enabled }),
+  })
+  assert(res.ok, `could not set patient_self_signup_enabled (${res.status})`)
+  await res.body?.cancel()
 }
 
 async function signup(email: string): Promise<Response> {
@@ -74,8 +93,24 @@ Deno.test('PSU-DUP-04: plus-aliases stay distinct (policy b — TO-07 unique lin
 })
 
 // ---------------------------------------------------------------------------
-// Live Edge: DUP-01 idempotent retry, DUP-02/03 via Edge, DUP-05 concurrent
+// Live Edge: APP-01 closed by default, then (with the org setting on) DUP-01
+// idempotent retry, DUP-02/03 via Edge, DUP-05 concurrent
 // ---------------------------------------------------------------------------
+
+Deno.test({
+  name: 'APP-01 live: with the org setting off, signup is refused and creates no account',
+  ignore: !LIVE,
+  fn: async () => {
+    await setSelfSignup(false)
+    const email = `app01-closed-${suffix()}@example.test`
+    const res = await signup(email)
+    assertEquals(res.status, 403)
+    assertEquals((await res.json()).error, 'signup_disabled')
+    assertEquals(await countUsersByEmail(email), 0)
+    // The remaining live cases exercise signup itself, so turn it on.
+    await setSelfSignup(true)
+  },
+})
 
 Deno.test({
   name: 'PSU-DUP-01: repeated signup same email creates no second auth.users row',
@@ -148,5 +183,14 @@ Deno.test({
     assertEquals(ba.status, 'ok')
     assertEquals(bb.status, 'ok')
     assertEquals(await countUsersByEmail(email), 1)
+  },
+})
+
+// Leave the org as the default (invite only) for anything that runs after.
+Deno.test({
+  name: 'APP-01 live: restore self-sign-up to off',
+  ignore: !LIVE,
+  fn: async () => {
+    await setSelfSignup(false)
   },
 })

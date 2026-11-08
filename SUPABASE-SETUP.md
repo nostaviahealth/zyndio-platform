@@ -140,6 +140,20 @@ Before any environment that issues or redeems link codes goes live:
    for this environment, **or** ensure the telehealth connector `locateForCodeRequest`
    returns `orgId` on a unique match. There is no hard-coded fallback UUID.
 
+   APP-01 reuses the same variable. Patients join only from a care-team invite and sign
+   in with an emailed 6-digit code (`patient-request-login-code` /
+   `patient-verify-login-code`). Open self-sign-up (`patient-signup`) stays refused with
+   `signup_disabled` unless that org turns it on:
+
+   ```sql
+   update public.organizations set patient_self_signup_enabled = true where id = '<org uuid>';
+   ```
+
+   If `ZYNDIO_DEFAULT_ORG_ID` is unset, self-sign-up is closed. Deploy the three new
+   functions (`patient-request-login-code`, `patient-verify-login-code`,
+   `patient-auth-config`) the same way as the other public `patient-*` functions. The app
+   calls them with only the anon key.
+
 3. **Optional — clinic-code breaker (Clara L20):** documented default is **100 failures /
    15 minutes**. Override with GUC if needed:
 

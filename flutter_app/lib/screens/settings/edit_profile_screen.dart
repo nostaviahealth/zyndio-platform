@@ -3,8 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../config/theme.dart';
+import '../../models/clinical_profile.dart';
+import '../../providers/onboarding_provider.dart';
 import '../../providers/patient_provider.dart';
+import '../../widgets/clinical_profile_form.dart';
+import '../onboarding/profile_setup_screen.dart';
 
+/// APP-04: edit the profile collected in onboarding - name, date of birth,
+/// sex at birth, height and units. Saved to the clinic record
+/// (`update_patient_profile`); the app-account name/age (patient_accounts,
+/// shown on Today) is kept in step from the same values.
 class EditProfileScreen extends ConsumerStatefulWidget {
   const EditProfileScreen({super.key});
 
@@ -13,73 +21,43 @@ class EditProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
-  final _formKey = GlobalKey<FormState>();
-  late TextEditingController _nameController;
-  late TextEditingController _ageController;
-  late TextEditingController _bioAgeController;
-  final bool _isLoading = false;
+  bool _saving = false;
 
-  @override
-  void initState() {
-    super.initState();
-    // Initialize with current data
-    final profile = ref.read(patientProfileProvider).value;
-    _nameController = TextEditingController(text: profile?.name ?? '');
-    _ageController = TextEditingController(text: profile?.age?.toString() ?? '');
-    _bioAgeController = TextEditingController(text: profile?.bioAge?.toString() ?? '');
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _ageController.dispose();
-    _bioAgeController.dispose();
-    super.dispose();
-  }
-
-
-  Future<void> _saveProfile() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    // Optimistic Update - No loading spinner
-    // setState(() => _isLoading = true);
-
+  Future<void> _save(ClinicalProfile profile) async {
+    final repo = ref.read(patientOnboardingRepositoryProvider);
+    if (repo == null) return;
+    setState(() => _saving = true);
     try {
-      final notifier = ref.read(patientProfileProvider.notifier);
-      final profile = ref.read(patientProfileProvider).value;
-      if (profile == null) throw Exception("No profile loaded");
-
-      final name = _nameController.text.trim();
-      final ageText = _ageController.text.trim();
-      final age = int.tryParse(ageText);
-      if (age == null) throw Exception("Invalid Age");
-
-      // Use the Notifier to update Local State + Sync to Supabase
-      print("DEBUG: Calling notifier.updateProfile - Name: $name, Age: $age");
-      await notifier.updateProfile(name: name, age: age);
-
-      if (mounted) {
-        // Show Success
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated successfully!')),
-        );
-        context.pop();
+      final saved = await repo.updateProfile(profile);
+      ref.invalidate(clinicalProfileProvider);
+      ref.invalidate(onboardingStatusProvider);
+      // Best effort: the app-account copy only feeds Today's greeting/age.
+      try {
+        await ref.read(patientProfileProvider.notifier).updateProfile(
+              name: saved.displayName,
+              age: saved.dateOfBirth == null ? null : ageOn(saved.dateOfBirth!, DateTime.now()),
+            );
+      } catch (e) {
+        debugPrint('EditProfile: patient_accounts sync failed: $e');
       }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile saved')),
+      );
+      context.pop();
     } catch (e) {
-      print("DEBUG: Error updating profile: $e");
-      if (mounted) {
-        // Even if sync failed, local update succeeded, so we might not want to show error
-        // But let's show it as a warning if needed
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Updated locally (Sync error: $e)')),
-        );
-        context.pop();
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(profileSaveErrorCopy(e))),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final profile = ref.watch(clinicalProfileProvider);
     return Scaffold(
       backgroundColor: context.nc.scaffoldBg,
       appBar: AppBar(
@@ -91,123 +69,33 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           onPressed: () => context.pop(),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildLabel('Full Name'),
-              _buildTextField(
-                controller: _nameController,
-                hint: 'Enter your name',
-                icon: LucideIcons.user,
-                // TC-030 item 3: cap the display name at 80 characters in the UI
-                // (DB patient_accounts_name_len CHECK is the backstop).
-                maxLength: PatientProfileNotifier.maxDisplayNameLength,
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) return 'Name is required';
-                  if (val.trim().runes.length >
-                      PatientProfileNotifier.maxDisplayNameLength) {
-                    return 'Name must be '
-                        '${PatientProfileNotifier.maxDisplayNameLength} '
-                        'characters or fewer';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 24),
-
-              _buildLabel('Chronological Age'),
-              _buildTextField(
-                controller: _ageController,
-                hint: 'e.g., 34',
-                icon: LucideIcons.calendar,
-                isNumber: true,
-                validator: (val) {
-                  if (val == null || val.isEmpty) return 'Required';
-                  if (int.tryParse(val) == null) return 'Must be a number';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Updating this will reflect in your Dashboard Pace of Aging calculation.',
-                style: TextStyle(fontSize: 12, color: BrandColors.slate400),
-              ),
-
-              const SizedBox(height: 40),
-
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _saveProfile,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: context.nc.textPrimary,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                        )
-                      : Text(
-                          'Save Changes',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: context.nc.scaffoldBg),
-                        ),
+      body: profile.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text("We couldn't load your profile.",
+                    style: TextStyle(color: context.nc.textPrimary)),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: () => ref.invalidate(clinicalProfileProvider),
+                  child: const Text('Try again'),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildLabel(String label) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: context.nc.textPrimary,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String hint,
-    required IconData icon,
-    bool isNumber = false,
-    int? maxLength,
-    String? Function(String?)? validator,
-  }) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-      validator: validator,
-      maxLength: maxLength,
-      decoration: InputDecoration(
-        hintText: hint,
-        prefixIcon: Icon(icon, size: 20, color: BrandColors.slate400),
-        filled: true,
-        fillColor: context.nc.cardSurface,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: context.nc.cardBorder),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: context.nc.primary),
+        data: (p) => SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ClinicalProfileForm(
+            initial: p,
+            submitLabel: 'Save changes',
+            saving: _saving,
+            onSubmit: _save,
+          ),
         ),
       ),
     );

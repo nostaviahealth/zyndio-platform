@@ -6,11 +6,23 @@
 // persists a session. Clinic records are never touched - docs/RECORD_MATCHING.md
 // and Ava's copy both say clinic data stays with the clinic; this slice has
 // no linking yet, so there is nothing clinic-side to leave behind anyway.
+//
+// APP-01: invited patients sign in with an emailed code and never set a
+// password, so the re-auth can also be a FRESH sign-in code for the
+// caller's own email (requested via patient-request-login-code). It is
+// redeemed through the same redeem_patient_login_code() as sign-in - same
+// expiry, single use and 5-try lock - and must belong to the caller.
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2.118.0'
 import { corsHeadersFor, jsonResponse } from '../_shared/cors.ts'
 import { AuthError, requireAuthenticatedActor } from '../_shared/requireOrgAdminActor.ts'
 import { writeAuditLog, insertNotification } from '../_shared/auditAndNotify.ts'
+import {
+  LOGIN_CODE_LOCK_SECONDS,
+  LOGIN_CODE_MAX_ATTEMPTS,
+  isLoginCode,
+  parseRedeemResult,
+} from '../_shared/patientLoginCode.ts'
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeadersFor(req) })
@@ -20,7 +32,9 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({}))
     const password = body.password
-    if (typeof password !== 'string' || password.length === 0) {
+    const code = typeof body.code === 'string' ? body.code.trim() : null
+    const hasPassword = typeof password === 'string' && password.length > 0
+    if (!hasPassword && !isLoginCode(code)) {
       return jsonResponse(req, { error: 'invalid_request' }, 400)
     }
 
@@ -30,20 +44,40 @@ serve(async (req) => {
       return jsonResponse(req, { error: 'internal_error' }, 500)
     }
 
-    // Throwaway client: persistSession/autoRefreshToken false so this
-    // never touches the caller's real session or local storage - it only
-    // proves the caller still knows the current password (reauth gate).
-    const reauthClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { auth: { autoRefreshToken: false, persistSession: false } },
-    )
-    const { error: reauthError } = await reauthClient.auth.signInWithPassword({
-      email: userData.user.email,
-      password,
-    })
-    if (reauthError) {
-      return jsonResponse(req, { error: 'reauth_failed' }, 401)
+    if (hasPassword) {
+      // Throwaway client: persistSession/autoRefreshToken false so this
+      // never touches the caller's real session or local storage - it only
+      // proves the caller still knows the current password (reauth gate).
+      const reauthClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { auth: { autoRefreshToken: false, persistSession: false } },
+      )
+      const { error: reauthError } = await reauthClient.auth.signInWithPassword({
+        email: userData.user.email,
+        password,
+      })
+      if (reauthError) {
+        return jsonResponse(req, { error: 'reauth_failed' }, 401)
+      }
+    } else {
+      const { data: redeemData, error: redeemError } = await admin.rpc('redeem_patient_login_code', {
+        p_email: userData.user.email,
+        p_code: code,
+        p_max_attempts: LOGIN_CODE_MAX_ATTEMPTS,
+        p_lock_seconds: LOGIN_CODE_LOCK_SECONDS,
+      })
+      if (redeemError) {
+        console.error('patient-delete-account: redeem failed', { code: redeemError.code })
+        return jsonResponse(req, { error: 'internal_error' }, 500)
+      }
+      const outcome = parseRedeemResult(redeemData)
+      if (outcome.result === 'locked') {
+        return jsonResponse(req, { error: 'locked', retry_after_seconds: outcome.retryAfterSeconds }, 429)
+      }
+      if (outcome.result !== 'ok' || outcome.userId !== userId) {
+        return jsonResponse(req, { error: 'reauth_failed' }, 401)
+      }
     }
 
     await writeAuditLog(admin, {
