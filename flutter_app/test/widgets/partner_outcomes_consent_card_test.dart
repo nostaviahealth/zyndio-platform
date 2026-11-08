@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:zyndio_patient/screens/settings/partner_outcomes_consent_screen.dart';
 import 'package:zyndio_patient/widgets/partner_outcomes_consent_card.dart';
+
+Future<void> _noop({
+  required bool authorized,
+  required String consentVersion,
+  required String consentText,
+}) async {}
 
 void main() {
   Widget buildTestApp(Widget child) {
@@ -10,6 +17,14 @@ void main() {
       ),
     );
   }
+
+  testWidgets('the settings screen shows the partner outcomes authorisation', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: PartnerOutcomesConsentScreen(onUpdateConsent: _noop)),
+    );
+    expect(find.text('Share milestone outcomes with DEXASCAN'), findsOneWidget);
+    expect(find.text('Partner outcomes'), findsOneWidget);
+  });
 
   group('PartnerOutcomesConsentCard (APP-03)', () {
     testWidgets(

@@ -32,6 +32,7 @@ import '../screens/protocol/protocol_screen.dart';
 import '../screens/protocol/protocols_list_screen.dart';
 import '../screens/intelligence/digital_twin_screen.dart'; // <--- Added Import
 import '../screens/settings/settings_screen.dart';
+import '../screens/settings/partner_outcomes_consent_screen.dart';
 import '../screens/settings/legal_screens.dart';
 import '../screens/chat/chat_screen.dart';
 import '../screens/chat/chat_history_screen.dart';
@@ -350,6 +351,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'consent',
             name: 'consent',
             builder: (context, state) => const InformedConsentScreen(),
+          ),
+          GoRoute(
+            path: 'partner_outcomes',
+            name: 'partner_outcomes',
+            builder: (context, state) => const PartnerOutcomesConsentScreen(),
           ),
           GoRoute(
             path: 'help',
