@@ -9,6 +9,7 @@ import '../config/supabase_config.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'notification_permission_prompt.dart' show NotificationPermissionRequester;
 
 /// Background message handler for FCM.
 /// Must be a top-level function.
@@ -34,7 +35,7 @@ const kNotificationTitle = 'Zyndio';
 @visibleForTesting
 const kNotificationBody = 'You have a new update in the Zyndio app.';
 
-class NotificationService {
+class NotificationService implements NotificationPermissionRequester {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
@@ -94,8 +95,9 @@ class NotificationService {
       debugPrint('Could not initialize timezone location, fallback mapping used: $e');
     }
 
-    // 1. Request permissions (iOS/Android 13+)
-    await requestPermissions();
+    // 1. No permission request here: initialize() runs at launch, before the
+    // patient has signed in. The prompt comes once, in context, from
+    // NotificationPermissionPrompt (MainShell) - App Store guideline 4.5.4.
 
     // 2. Configure Local Notifications with Interactive Actions
     const AndroidInitializationSettings initializationSettingsAndroid =
@@ -288,6 +290,7 @@ class NotificationService {
   }
 
   /// Request permissions for notifications
+  @override
   Future<bool> requestPermissions() async {
     // 1. Android Specific: Request POST_NOTIFICATIONS (Android 13+) 
     // and SCHEDULE_EXACT_ALARM (Android 12+) via permission_handler

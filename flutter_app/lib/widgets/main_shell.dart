@@ -8,6 +8,7 @@ import '../config/theme.dart';
 import '../providers/navbar_provider.dart';
 import '../providers/lens_provider.dart';
 import '../services/conversion_service.dart';
+import '../services/notification_permission_prompt.dart';
 
 /// One destination in the 5-tab patient shell.
 class _TabSpec {
@@ -37,6 +38,17 @@ class MainShell extends ConsumerStatefulWidget {
 }
 
 class _MainShellState extends ConsumerState<MainShell> {
+  @override
+  void initState() {
+    super.initState();
+    // The shell only exists for a signed-in patient, so this is the first
+    // in-context moment to ask for notifications (once; see the prompt class).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(notificationPermissionPromptProvider).maybeAskOnce();
+    });
+  }
+
   void _onTapBranch(int index) {
     ref.read(navbarVisibleProvider.notifier).show();
     // Re-tapping the active tab resets its branch to the initial location

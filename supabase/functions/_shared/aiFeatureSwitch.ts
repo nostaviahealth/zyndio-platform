@@ -1,8 +1,12 @@
-// Clause 9.2. Feature identity is the route the request hit, never a field
-// in the JSON body. A missing switch row does not enable a feature: the
-// production default is an open decision, and this candidate fails closed
-// unless an explicit enabled row exists. A lookup error throws so the caller
-// returns 503 and does not call a model.
+// PRD clause 9.2: per-feature AI kill switch (public.ai_feature_switches).
+// The app labels each AI request with the feature it serves; a request with no
+// or an unknown label counts as 'companion', the most sensitive one, so an
+// unlabelled call can't slip past a switched-off companion.
+//
+// A switch row applies to one clinic (org_id) or to every clinic (org_id
+// null); feature '*' covers every AI feature. No row means on. Lookups go
+// through the service-role client and throw on error: callers answer 503 and
+// never call the model when the switch can't be read.
 
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.118.0'
 
@@ -17,34 +21,23 @@ export interface AiFeatureSwitchRow {
   enabled: boolean
 }
 
-const PATH_FEATURES: Record<string, AiFeature> = {
-  companion: 'companion',
-  'food-analysis': 'food_analysis',
-  'lab-extraction': 'lab_extraction',
-  coaching: 'coaching',
-  memory: 'memory',
+export function normaliseAiFeature(value: unknown): AiFeature {
+  return (AI_FEATURES as readonly unknown[]).includes(value) ? value as AiFeature : 'companion'
 }
 
-/** The bare `/intelligence` URL is the companion route. Any other suffix must match a known feature. */
-export function featureFromIntelligencePath(pathname: string): AiFeature | null {
-  const match = pathname.match(/\/intelligence(?:\/([a-z0-9-]+))?\/?$/)
-  if (!match) return null
-  const slug = match[1]
-  if (!slug) return 'companion'
-  return PATH_FEATURES[slug] ?? null
-}
-
+// A clinic's own row wins over the all-clinics row for the same feature; any
+// applicable "off" for the feature or for '*' switches the feature off.
 export function isAiFeatureEnabled(
   rows: AiFeatureSwitchRow[],
   orgId: string | null,
   feature: AiFeature,
 ): boolean {
-  const specific = rows.find((r) => r.org_id === orgId && r.feature === feature)
-    ?? rows.find((r) => r.org_id === null && r.feature === feature)
-  if (!specific || !specific.enabled) return false
-  const wildcard = rows.find((r) => r.org_id === orgId && r.feature === '*')
-    ?? rows.find((r) => r.org_id === null && r.feature === '*')
-  if (wildcard && !wildcard.enabled) return false
+  for (const scope of [feature, '*']) {
+    const own = orgId === null ? undefined : rows.find((r) => r.org_id === orgId && r.feature === scope)
+    const global = rows.find((r) => r.org_id === null && r.feature === scope)
+    const effective = own ?? global
+    if (effective && !effective.enabled) return false
+  }
   return true
 }
 
@@ -64,6 +57,7 @@ export async function loadAiFeatureSwitches(
   return { orgId, rows: (data ?? []) as AiFeatureSwitchRow[] }
 }
 
+// Convenience for the Edge Functions: true when the feature may run.
 export async function aiFeatureAllowed(
   admin: SupabaseClient,
   userId: string,

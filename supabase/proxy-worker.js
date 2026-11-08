@@ -21,10 +21,21 @@ export default {
         destinationUrl.pathname = url.pathname;
         destinationUrl.search = url.search;
 
+        // Never pass the caller's own x-forwarded-for / x-real-ip through:
+        // Edge Functions rate-limit per IP (supabase/functions/_shared/clientIp.ts).
+        // Replace them with the visitor address Cloudflare observed; the
+        // Supabase gateway appends this worker's address after it, so set
+        // TRUSTED_PROXY_HOPS=1 on the project when traffic goes through here.
+        const headers = new Headers(request.headers);
+        headers.delete('x-real-ip');
+        const visitor = request.headers.get('CF-Connecting-IP');
+        if (visitor) headers.set('x-forwarded-for', visitor);
+        else headers.delete('x-forwarded-for');
+
         // Clone the request with the new URL
         const modifiedRequest = new Request(destinationUrl, {
             method: request.method,
-            headers: new Headers(request.headers),
+            headers,
             body: request.body,
             redirect: 'follow'
         });

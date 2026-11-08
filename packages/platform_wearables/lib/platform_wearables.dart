@@ -1,6 +1,7 @@
 library platform_wearables;
 
 export 'src/zyndio_client.dart';
+export 'src/cloud_service.dart' show AccessTokenProvider;
 export 'src/providers.dart';
 export 'src/models/connection.dart';
 export 'src/models/sleep_session.dart';

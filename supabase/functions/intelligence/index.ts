@@ -4,6 +4,8 @@ import { AuthError, requireAuthenticatedActor } from '../_shared/requireOrgAdmin
 import { decideIntelligenceAccess, loadIntelligenceCallerFacts } from '../_shared/intelligenceAccess.ts'
 import { consumeIntelligenceBudget, rateLimitedHeaders } from '../_shared/intelligenceRateLimit.ts'
 import { INVALID_BODY_ERROR, readIntelligenceBody } from '../_shared/intelligenceBody.ts'
+import { AI_FEATURE_DISABLED_ERROR, aiFeatureAllowed, normaliseAiFeature } from '../_shared/aiFeatureSwitch.ts'
+import { buildProviderRequest, providerFailure } from '../_shared/intelligenceProviderRequest.ts'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -17,13 +19,14 @@ const corsHeaders = {
  * secrets and never exposed to the client. Supports both streaming and
  * non-streaming completions.
  * 
- * Expected request body:
+ * Expected request body (validated and rebuilt by
+ * _shared/intelligenceProviderRequest.ts - nothing else is forwarded):
  * {
- *   "messages": [...],           // OpenAI chat messages
+ *   "messages": [...],           // OpenAI chat messages (bounded; images from the user only)
  *   "stream": boolean,           // Whether to stream the response
- *   "max_completion_tokens": number,
- *   "response_format": object,   // Optional (e.g. { "type": "json_object" })
- *   "tools": [...],              // Optional tool definitions
+ *   "max_completion_tokens": number, // capped at 16384
+ *   "response_format": object,   // Optional: { "type": "json_object" | "text" }
+ *   "tools": [...],              // Optional function tool definitions
  *   "tool_choice": string,       // Optional tool choice
  *   "patient_id": string,        // Optional; if given it must be the caller (TC-021 #9)
  * }
@@ -99,21 +102,36 @@ serve(async (req) => {
                 { status: dataAccess.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
         }
-        const {
-            messages,
-            stream = false,
-            max_completion_tokens = 4096,
-            response_format,
-            tools,
-            tool_choice,
-        } = body
-
-        if (!messages || !Array.isArray(messages)) {
+        // PRD clause 9.2: per-feature kill switch, before any provider call.
+        // Unlabelled requests count as 'companion'. Fail closed if unreadable.
+        const feature = normaliseAiFeature(body?.feature)
+        let featureAllowed: boolean
+        try {
+            featureAllowed = await aiFeatureAllowed(actor.admin, actor.userId, feature)
+        } catch (err) {
+            console.error('intelligence: ai switch check failed', err instanceof Error ? err.message : 'unknown')
             return new Response(
-                JSON.stringify({ error: 'messages array is required' }),
+                JSON.stringify({ error: 'ai switch check unavailable' }),
+                { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+        if (!featureAllowed) {
+            return new Response(
+                JSON.stringify({ error: AI_FEATURE_DISABLED_ERROR, feature }),
+                { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+
+        // Allowlist the provider request (model pinned, token ceiling, bounded
+        // messages/images/tools) before spending any budget.
+        const providerRequest = buildProviderRequest(body)
+        if (!providerRequest.ok) {
+            return new Response(
+                JSON.stringify({ error: providerRequest.error }),
                 { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
         }
+        const stream = providerRequest.stream
 
         // TC-021 #12: per-patient budget (hour + day), checked before any
         // provider call. Over budget -> 429 + Retry-After. If the counter
@@ -148,24 +166,6 @@ serve(async (req) => {
 
         const openaiUrl = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
 
-        console.log(`Final Gemini API URL: ${openaiUrl}`)
-
-        // Build the request body for OpenAI
-        const openaiBody: Record<string, unknown> = {
-            model: "gemini-3.5-flash",
-            messages,
-            max_tokens: max_completion_tokens,
-        }
-
-        if (stream) openaiBody.stream = true
-        if (response_format) openaiBody.response_format = response_format
-        if (tools && tools.length > 0) {
-            openaiBody.tools = tools
-            openaiBody.tool_choice = tool_choice ?? "auto"
-        }
-
-        console.log(`Calling Gemini OpenAI API: ${openaiUrl}`)
-
         // Call the Gemini API
         const openaiResponse = await fetch(openaiUrl, {
             method: 'POST',
@@ -173,28 +173,18 @@ serve(async (req) => {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`,
             },
-            body: JSON.stringify(openaiBody),
+            body: JSON.stringify(providerRequest.body),
         })
 
         if (!openaiResponse.ok) {
-            const errorText = await openaiResponse.text()
-            console.error(`OpenAI API Error: ${openaiResponse.status} - ${errorText}`)
-            
-            // Return a more descriptive error to help debugging
-            let errorMessage = `AI service error: ${openaiResponse.status}`;
-            try {
-                const errorJson = JSON.parse(errorText);
-                if (errorJson.error?.message) {
-                    errorMessage = errorJson.error.message;
-                }
-            } catch (e) {
-                // If not JSON, use raw text or generic status
-                if (errorText.length < 100) errorMessage += ` - ${errorText}`;
-            }
-
+            // Log the status only: the provider body can echo patient content.
+            // The caller gets our own code and status, never provider text.
+            await openaiResponse.body?.cancel()
+            console.error(`intelligence: provider error ${openaiResponse.status}`)
+            const failure = providerFailure(openaiResponse.status)
             return new Response(
-                JSON.stringify({ error: errorMessage, details: errorText }),
-                { status: openaiResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                JSON.stringify(failure.body),
+                { status: failure.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
         }
 
@@ -213,17 +203,16 @@ serve(async (req) => {
 
         // --- NON-STREAMING MODE ---
         const data = await openaiResponse.json()
-        console.log(`Azure OpenAI Response Status: ${openaiResponse.status}`)
         return new Response(
             JSON.stringify(data),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
 
     } catch (error) {
-        console.error('Edge Function Error:', error)
+        console.error('intelligence: failed', error instanceof Error ? error.name : 'unknown')
         return new Response(
-            // TC-021 #9: the caught value is `unknown` (TS18046) - narrow it.
-            JSON.stringify({ error: error instanceof Error ? error.message : 'internal error' }),
+            // Never the exception text: it can carry provider or DB detail.
+            JSON.stringify({ error: 'internal error' }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
     }

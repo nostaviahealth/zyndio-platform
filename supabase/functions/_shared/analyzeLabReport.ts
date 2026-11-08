@@ -38,6 +38,7 @@ import {
   type IntelligenceCallerFacts,
 } from './intelligenceAccess.ts'
 import { consumeIntelligenceBudget, rateLimitedHeaders, type IntelligenceBudget } from './intelligenceRateLimit.ts'
+import { AI_FEATURE_DISABLED_ERROR, aiFeatureAllowed } from './aiFeatureSwitch.ts'
 import { MAX_EXTRACT_BYTES, bytesMatchDeclaredType, mimeTypeForPath, type LabExtractor } from './labExtractor.ts'
 import {
   DEFAULT_CONFIDENCE_THRESHOLD,
@@ -69,6 +70,8 @@ export interface AnalyzeLabReportDeps {
   now?: () => Date
   loadCallerFacts?(userId: string): Promise<IntelligenceCallerFacts>
   consumeBudget?(userId: string): Promise<IntelligenceBudget>
+  /** PRD 9.2 kill switch for 'lab_extraction', resolved for the report's patient. */
+  featureAllowed?(patientId: string): Promise<boolean>
 }
 
 type Row = { id: string; patient_id: string; data: unknown; pdf_path: string | null; file_sha256: string | null }
@@ -144,6 +147,20 @@ export async function handleAnalyzeLabReport(req: Request, deps: AnalyzeLabRepor
 
     // Flag off: nothing is sent to a model and nothing is written.
     if (!deps.extractor) return fail('extractor_disabled', 501, 'analysis_unavailable')
+
+    // PRD clause 9.2: per-clinic / per-feature kill switch, before any model
+    // call. Fail closed if the switches cannot be read.
+    let extractionAllowed: boolean
+    try {
+      extractionAllowed = await (deps.featureAllowed ??
+        ((id) => aiFeatureAllowed(deps.db, id, 'lab_extraction')))(row.patient_id)
+    } catch {
+      return fail('ai_switch_check_failed', 503, 'ai_switch_check_unavailable')
+    }
+    if (!extractionAllowed) {
+      deps.log('analyze-lab-report: ai_feature_disabled')
+      return jsonResponse(req, { error: AI_FEATURE_DISABLED_ERROR, feature: 'lab_extraction' }, 503)
+    }
 
     if (patientId !== null) {
       let budget: IntelligenceBudget

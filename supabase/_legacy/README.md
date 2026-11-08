@@ -36,3 +36,5 @@ unmodified, not deleted, since they document prior feature work. The new TC-005 
   depend on any table defined here.
 - Do not resurrect any of these files into `supabase/migrations/`. If a past fix is still needed,
   re-derive it as a proper migration against the new schema.
+
+`rag_memory_schema.sql` is superseded by `supabase/migrations/20261108120000_chat_memories.sql` (patient-only rows, forced RLS, no client inserts, service-role `match_memories`). Do not apply the legacy file.

@@ -11,7 +11,6 @@ import 'config/supabase_config.dart';
 import 'services/revenue_cat_service.dart';
 import 'services/user_habit_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:platform_wearables/platform_wearables.dart';
 late SharedPreferences sharedPrefs;
 
@@ -60,9 +59,11 @@ void main() async {
 
     // Initialize Zyndio Wearables SDK
     try {
+      // No wearables secret in the app: cloud calls carry the signed-in
+      // patient's own session token (read per call) plus the public anon key.
       await Zyndio.init(
-        apiKey: const String.fromEnvironment('WEARABLES_API_KEY'),
-        userId: Supabase.instance.client.auth.currentUser?.id ?? 'unauthenticated',
+        apiKey: SupabaseConfig.anonKey,
+        accessToken: () async => SupabaseConfig.client?.auth.currentSession?.accessToken,
         baseUrl: '${SupabaseConfig.url}/functions/v1'
       );
       debugPrint('✅ Zyndio SDK initialized');

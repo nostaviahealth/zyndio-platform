@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../data/body_composition.dart';
 import '../../providers/body_composition_provider.dart';
 import '../../widgets/tc025/tc025_widgets.dart';
+import '../../providers/feature_flags_provider.dart';
 
 /// Progress tab. Shows stored body-composition scans when the patient can
 /// read them. Does not compute a clinical score or a milestone recommendation.
@@ -15,6 +16,8 @@ class ProgressScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scans = ref.watch(bodyCompositionScansProvider);
+    final appointmentsEnabled =
+        ref.watch(featureFlagsProvider).appointmentsEnabled;
     return ZyndioTabScaffold(
       title: 'Body Composition',
       subtitle: 'DEXASCAN · Measurable results. Real progress.',
@@ -43,8 +46,12 @@ class ProgressScreen extends ConsumerWidget {
                   title: 'No DEXASCAN results yet',
                   body:
                       'Your body composition will appear here after a scan has been bound to your record.',
-                  actionLabel: 'Book my baseline scan',
-                  onAction: () => context.pushNamed('appointments'),
+                  // Booking is mock data until Appointments ships (feature flag).
+                  actionLabel:
+                      appointmentsEnabled ? 'Book my baseline scan' : null,
+                  onAction: appointmentsEnabled
+                      ? () => context.pushNamed('appointments')
+                      : null,
                 ),
               ]
             : [for (final scan in rows) _ScanCard(scan: scan)],

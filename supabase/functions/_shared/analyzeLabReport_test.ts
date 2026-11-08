@@ -88,6 +88,8 @@ function harness(backend: Backend, overrides: Partial<AnalyzeLabReportDeps> = {}
     extractor: { name: 'fictional-extractor', extract: () => Promise.resolve(structuredClone(EXTRACTION)) },
     log: (code) => logs.push(code),
     now: () => new Date('2026-11-04T10:00:00.000Z'),
+    // Kill switch on by default here; the switch itself has its own tests.
+    featureAllowed: () => Promise.resolve(true),
     ...overrides,
   }
   return { seen, logs, deps }
@@ -231,6 +233,39 @@ Deno.test('analyze-lab-report: files over 14MB are rejected before extraction', 
   const r = await call(h.deps)
   assertEquals(r.status, 422)
   assertEquals(r.json, { error: 'file_too_large' })
+  assertEquals(extracted, false)
+})
+
+Deno.test('analyze-lab-report: lab_extraction kill switch off -> 503, model never called, nothing written', async () => {
+  let extracted = false
+  let askedFor = ''
+  const h = harness(
+    { row: ROW },
+    {
+      extractor: { name: 'x', extract: () => { extracted = true; return Promise.resolve(EXTRACTION) } },
+      featureAllowed: (id) => { askedFor = id; return Promise.resolve(false) },
+    },
+  )
+  const r = await call(h.deps)
+  assertEquals(r.status, 503)
+  assertEquals(r.json, { error: 'ai_feature_disabled', feature: 'lab_extraction' })
+  assertEquals(askedFor, PATIENT_ID)
+  assertEquals(extracted, false)
+  assertEquals(h.seen.filter((s) => s.method !== 'GET').length, 0)
+})
+
+Deno.test('analyze-lab-report: kill switch unreadable -> 503 fail closed, model never called', async () => {
+  let extracted = false
+  const h = harness(
+    { row: ROW },
+    {
+      extractor: { name: 'x', extract: () => { extracted = true; return Promise.resolve(EXTRACTION) } },
+      featureAllowed: () => Promise.reject(new Error('db down')),
+    },
+  )
+  const r = await call(h.deps)
+  assertEquals(r.status, 503)
+  assertEquals(r.json, { error: 'ai_switch_check_unavailable' })
   assertEquals(extracted, false)
 })
 

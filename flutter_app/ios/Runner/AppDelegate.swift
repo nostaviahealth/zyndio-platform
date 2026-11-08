@@ -27,19 +27,11 @@ import UserNotifications
       FirebaseApp.configure()
     }
 
-    if #available(iOS 10.0, *) {
-      UNUserNotificationCenter.current().delegate = self
-      let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]
-      UNUserNotificationCenter.current().requestAuthorization(
-        options: authOptions,
-        completionHandler: { _, _ in }
-      )
-    } else {
-      let settings: UIUserNotificationSettings =
-        UIUserNotificationSettings(types: [.alert, .badge, .sound], categories: nil)
-      application.registerUserNotificationSettings(settings)
-    }
-
+    // No permission prompt at launch: the app asks once the patient is signed
+    // in and inside the app (NotificationPermissionPrompt, from MainShell).
+    // Setting the delegate and registering for remote notifications do not
+    // prompt; alerts simply stay off until the patient allows them.
+    UNUserNotificationCenter.current().delegate = self
     application.registerForRemoteNotifications()
     if firebaseConfigured {
       Messaging.messaging().delegate = self
