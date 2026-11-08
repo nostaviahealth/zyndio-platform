@@ -18,7 +18,7 @@ class FoodLog {
   factory FoodLog.fromJson(Map<String, dynamic> json) {
     return FoodLog(
       id: json['id'] as String,
-      userId: json['user_id'] as String,
+      userId: json['patient_id'] as String,
       imagePath: json['image_path'] as String?,
       analysis: json['analysis_json'] as Map<String, dynamic>? ?? {},
       loggedAt: DateTime.parse(json['logged_at'] as String),

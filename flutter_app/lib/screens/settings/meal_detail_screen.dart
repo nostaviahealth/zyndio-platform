@@ -5,7 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/theme.dart';
-import '../../config/supabase_config.dart';
+import '../../data/food_images.dart';
 import '../../models/food_log.dart';
 import '../../models/food_analysis.dart';
 import '../../utils/share_canvas_util.dart';
@@ -27,13 +27,6 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
   bool _isSharing = false;
   bool _isDeleting = false;
   final GlobalKey _shareKey = GlobalKey();
-
-  String _getPublicUrl(String path) {
-    if (path.startsWith('http')) return path;
-    final client = SupabaseConfig.client;
-    if (client == null) return '';
-    return client.storage.from('food-images').getPublicUrl(path);
-  }
 
   Future<void> _shareAsStory(FoodAnalysis data) async {
     HapticFeedback.mediumImpact();
@@ -110,7 +103,7 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
   Widget build(BuildContext context) {
     final data = FoodAnalysis.fromJson(widget.log.analysis);
     final hasImage = widget.log.imagePath != null && widget.log.imagePath!.isNotEmpty;
-    final imageUrl = hasImage ? _getPublicUrl(widget.log.imagePath!) : '';
+    final imageUrl = hasImage ? ref.watch(foodImageUrlProvider(widget.log.imagePath!)).value ?? '' : '';
 
     return Scaffold(
       backgroundColor: Colors.black,

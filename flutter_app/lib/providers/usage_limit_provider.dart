@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/supabase_config.dart';
 import 'purchase_provider.dart';
-import '../services/analytics_service.dart';
 
 // ─── Limits ─────────────────────────────────────────────────────────────────
 const int kLensScansPerDay = 3;
@@ -110,9 +109,6 @@ class UsageLimitNotifier extends Notifier<UsageLimitState> {
         'event_type': eventType,
         'created_at': DateTime.now().toUtc().toIso8601String(),
       });
-
-      // Log to Firebase Analytics (new)
-      await AnalyticsService().logFeatureUse(eventType);
     } catch (e) {
       // Silent fail — don't block UX
     }

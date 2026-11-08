@@ -25,6 +25,7 @@ import '../services/agent_service.dart';
 import '../services/agent_tools.dart';
 import '../services/memory_service.dart';
 import '../services/correlation_engine.dart';
+import '../services/companion_boundaries.dart';
 import '../services/food_context_service.dart';
 import 'purchase_provider.dart';
 import 'usage_limit_provider.dart';
@@ -559,20 +560,19 @@ class ChatNotifier extends Notifier<ChatState> {
   Future<void> sendMessage(String text, {String? imagePath, bool isVoiceMode = false}) async {
     if (text.trim().isEmpty) return;
 
-    // --- EMERGENCY INTERCEPTION LAYER ---
-    final emergencyRegex = RegExp(
-      r'\b(chest pain|heart attack|suicide|kill myself|stroke|cant breathe|cannot breathe|bleeding out|emergency|911|102|112)\b', 
-      caseSensitive: false
-    );
-    
-    if (emergencyRegex.hasMatch(text)) {
+    // --- CLINICAL BOUNDARY LAYER (APP-09) ---
+    // Emergencies and clinical questions never reach the AI: they go to the
+    // care team as escalations (see companion_boundaries.dart).
+    final route = routeCompanionMessage(text);
+    if (route != CompanionRoute.companion) {
       final userMsg = ChatMessage(text: text, isUser: true, timestamp: DateTime.now());
-      final emergencyMsg = ChatMessage(
-        text: "🚨 MEDICAL EMERGENCY DETECTED. Zyndio is an AI wellness assistant, not a medical device. Please contact emergency services (102/112 in India, 911 in US) or go to the nearest hospital immediately.",
-        isUser: false,
-        timestamp: DateTime.now(),
-      );
-      state = state.copyWith(messages: [...state.messages, userMsg, emergencyMsg]);
+      state = state.copyWith(messages: [...state.messages, userMsg]);
+      final filed = await fileCompanionEscalation(route, text);
+      final reply = route == CompanionRoute.emergency
+          ? emergencyGuidance(text)
+          : (filed ? careTeamHandoffReply : careTeamHandoffFailedReply);
+      final replyMsg = ChatMessage(text: reply, isUser: false, timestamp: DateTime.now());
+      state = state.copyWith(messages: [...state.messages, replyMsg]);
       return;
     }
     // ------------------------------------

@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../config/theme.dart';
 import '../../config/supabase_config.dart';
+import '../../data/food_images.dart';
 import '../../models/food_log.dart';
 import '../../widgets/app_card.dart';
 
@@ -20,7 +21,7 @@ final foodLogsProvider = FutureProvider.autoDispose<List<FoodLog>>((ref) async {
   final response = await client
       .from('food_logs')
       .select()
-      .eq('user_id', userId)
+      .eq('patient_id', userId)
       .order('logged_at', ascending: false);
 
   return (response as List).map((e) => FoodLog.fromJson(e)).toList();
@@ -146,14 +147,20 @@ class LensHistoryScreen extends ConsumerWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10),
                     child: log.imagePath != null && log.imagePath!.isNotEmpty
-                        ? Image.network(
-                            _getPublicUrl(log.imagePath!),
-                            width: 68,
-                            height: 68,
-                            fit: BoxFit.cover,
-                            cacheWidth: 136,
-                            cacheHeight: 136,
-                            errorBuilder: (c, e, s) => _imagePlaceholder(),
+                        ? Consumer(
+                            builder: (context, ref, _) {
+                              final url = ref.watch(foodImageUrlProvider(log.imagePath!)).value ?? '';
+                              if (url.isEmpty) return _imagePlaceholder();
+                              return Image.network(
+                                url,
+                                width: 68,
+                                height: 68,
+                                fit: BoxFit.cover,
+                                cacheWidth: 136,
+                                cacheHeight: 136,
+                                errorBuilder: (c, e, s) => _imagePlaceholder(),
+                              );
+                            },
                           )
                         : _imagePlaceholder(),
                   ),
@@ -233,12 +240,6 @@ class LensHistoryScreen extends ConsumerWidget {
     );
   }
 
-  String _getPublicUrl(String path) {
-    if (path.startsWith('http')) return path;
-    final client = SupabaseConfig.client;
-    if (client == null) return '';
-    return client.storage.from('food-images').getPublicUrl(path);
-  }
 
   String _extractFoodName(Map<String, dynamic> json) {
     // Try common keys

@@ -41,7 +41,7 @@ class MealRepository {
   }
 
   static Future<void> logFood(String profileId, Map<String, dynamic> foodData) async {
-    // food_logs table expects user_id and an 'analysis' JSONB column
+    // food_logs: patient_id + analysis_json (org_id is set by the database)
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) throw Exception("User not authenticated.");
 
@@ -58,7 +58,7 @@ class MealRepository {
     };
 
     await Supabase.instance.client.from('food_logs').insert({
-      'user_id': user.id,
+      'patient_id': user.id,
       'logged_at': DateTime.now().toUtc().toIso8601String(),
       'analysis_json': analysisPayload,
     });
