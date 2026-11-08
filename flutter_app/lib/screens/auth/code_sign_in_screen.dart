@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../demo/widgets/code_input.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/mask_email.dart';
+import '../../demo_login/demo_login.dart';
 import 'widgets/patient_auth_chrome.dart';
 
 final RegExp _emailShape = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
@@ -195,6 +196,14 @@ class _CodeSignInScreenState extends ConsumerState<CodeSignInScreen> {
             message:
                 'New to Zyndio? Accounts are created by your care team when you enroll. Ask them to send you an invite.',
           ),
+          if (kDemoLoginEnabled) ...[
+            const SizedBox(height: 16),
+            AuthSecondaryButton(
+              key: const Key('demo-login'),
+              label: 'Explore the demo (sample data)',
+              onPressed: () => ref.read(demoSessionProvider.notifier).start(),
+            ),
+          ],
           if (selfSignup) ...[
             const SizedBox(height: 16),
             AuthSecondaryButton(

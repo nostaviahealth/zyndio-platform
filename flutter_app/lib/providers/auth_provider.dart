@@ -7,6 +7,7 @@ import '../services/revenue_cat_service.dart';
 import '../services/notification_service.dart';
 import '../main.dart';
 import '../demo/demo_build_flag.dart';
+import '../demo_login/demo_login.dart';
 
 /// True only in the offline demo build (`--dart-define=DEMO_BUILD=true`).
 ///
@@ -183,6 +184,12 @@ class AuthNotifier extends Notifier<AsyncValue<void>> {
 
   /// Sign out
   Future<void> signOut() async {
+    // Demo builds: leaving the demo session is the whole sign-out.
+    if (kDemoLoginEnabled && ref.read(demoSessionProvider)) {
+      ref.read(demoSessionProvider.notifier).end();
+      state = const AsyncValue.data(null);
+      return;
+    }
     if (!_isInitialized) {
       state = const AsyncValue.data(null);
       return;

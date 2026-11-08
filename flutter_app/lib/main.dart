@@ -12,6 +12,7 @@ import 'services/revenue_cat_service.dart';
 import 'services/user_habit_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:platform_wearables/platform_wearables.dart';
+import 'demo_login/demo_login.dart';
 late SharedPreferences sharedPrefs;
 
 void main() async {
@@ -113,6 +114,8 @@ void main() async {
         overrides: [
           // Pass initialization state to providers
           supabaseInitializedProvider.overrideWithValue(supabaseInitialized),
+          // Demo builds only (DEMO_LOGIN=true, never release): fictional data.
+          if (kDemoLoginEnabled) ...demoLoginOverrides(),
         ],
         child: const BrandHealthApp(),
       ),
