@@ -195,6 +195,7 @@ import UserNotifications
       .stepCount,
       .heartRate,
       .activeEnergyBurned,
+      .appleExerciseTime,
       .basalEnergyBurned,
       .distanceWalkingRunning,
       .flightsClimbed,

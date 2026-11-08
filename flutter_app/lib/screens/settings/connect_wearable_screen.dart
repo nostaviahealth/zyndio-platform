@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/theme.dart';
 import '../../data/health_repository.dart';
+import '../../services/wearable_daily/wearable_daily_sync.dart';
 
 class ConnectWearableScreen extends StatefulWidget {
   const ConnectWearableScreen({super.key});
@@ -77,13 +79,15 @@ class _ConnectWearableScreenState extends State<ConnectWearableScreen> {
       bool success = await _healthRepository.requestUnifiedPermissions();
       if (success) {
           await _healthRepository.setLinked(true);
+          // APP-07: upload to the clinic - 90-day backfill, in the background.
+          unawaited(WearableDailySync.instance.onConnected());
       }
       
       if (mounted) {
         setState(() {
             _isAuthorized = success;
             if (success) {
-              _statusMessage = 'Successfully connected to Health Store!';
+              _statusMessage = 'Connected. Importing your last 90 days of health data in the background.';
             } else if (Platform.isAndroid) {
               _statusMessage = 'Health permissions were not granted. Please tap Connect again and allow all requested permissions. On Samsung devices, make sure Health Connect is syncing with Samsung Health.';
               _showHealthConnectHint = true;

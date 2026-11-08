@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../config/theme.dart';
 import '../../data/health_repository.dart';
+import '../../services/wearable_daily/wearable_daily_sync.dart';
 
 class ConnectAppsScreen extends ConsumerStatefulWidget {
   const ConnectAppsScreen({super.key});
@@ -45,11 +48,13 @@ class _ConnectAppsScreenState extends ConsumerState<ConnectAppsScreen> {
       if (mounted) {
         if (granted) {
           await repo.setLinked(true);
+          // APP-07: upload to the clinic - 90-day backfill, in the background.
+          unawaited(WearableDailySync.instance.onConnected());
           setState(() {
             _isGoogleFitConnected = true;
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Successfully connected and synced all data!')),
+            const SnackBar(content: Text('Connected. Importing your last 90 days of health data in the background.')),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
