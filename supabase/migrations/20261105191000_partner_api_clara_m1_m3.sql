@@ -124,7 +124,7 @@ begin
    where c.patient_id = v_link.patient_id
      and c.org_id = v_link.org_id
      and c.consent_type = 'data_sharing'
-   order by c.updated_at desc, c.created_at desc
+   order by c.updated_at desc, c.created_at desc, c.granted desc
    limit 1;
   if coalesce(v_sharing, false) is not true then
     return jsonb_build_object(

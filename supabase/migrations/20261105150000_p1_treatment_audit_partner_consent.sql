@@ -50,22 +50,6 @@ create policy partner_outcome_authorisations_staff_select
     and public.current_role() in ('physician', 'care_coordinator', 'read_only')
   );
 
--- The current partner_disclosure document is the APP-03 statement. The
--- setter stores that version and a hash of that body. A client cannot
--- substitute a different sentence. Synthetic wording only; not a legal policy.
-insert into public.consent_documents
-  (consent_type, version, document, title, summary, body, required, is_placeholder)
-values (
-  'partner_disclosure',
-  'v1.0',
-  'zyndio_partner_disclosure',
-  'Share clinician-reviewed outcomes with DEXASCAN',
-  'Synthetic APP-03 statement for the fictional test candidate. Not a legal policy.',
-  'I authorise Zyndio to share my clinician-reviewed milestone outcomes with DEXASCAN.',
-  false,
-  false
-);
-
 -- Patient-callable RPC to grant or revoke DEXASCAN outcome sharing.
 -- Records grant/revocation timestamp, SHA-256 of consent text, audit_log row,
 -- and enqueues a consent.updated event in public.notification_outbox.

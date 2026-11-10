@@ -250,9 +250,9 @@ select set_config('request.jwt.claims', '', true);
 update public.patients set display_name = 'Fictional Patient A1' where id = '00000000-0000-0000-0000-0000000a1001';
 update public.patient_profiles set data = '{"note":"fictional"}' where id = '00000000-0000-0000-0000-0000000a2001';
 update public.lab_reports set report_type = 'basic_panel' where id = '00000000-0000-0000-0000-0000000a3001';
--- The withdrawn row stays withdrawn. A later grant is a new row.
-insert into public.consents (org_id, patient_id, consent_type, granted)
-values ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', 'data_sharing', true);
+delete from public.consents where id = '00000000-0000-0000-0000-0000000a4001';
+insert into public.consents (id, org_id, patient_id, consent_type, granted)
+values ('00000000-0000-0000-0000-0000000a4001', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a1001', 'data_sharing', true);
 
 -- ---------------------------------------------------------------------------
 -- read_only_a: select-only on clinical tables, no writes anywhere.
@@ -352,6 +352,14 @@ select is((select report_type from public.lab_reports where id = '00000000-0000-
 update public.lab_reports set report_type = 'tampered' where id = '00000000-0000-0000-0000-0000000f0011';
 select is((select report_type from public.lab_reports where id = '00000000-0000-0000-0000-0000000f0011'), 'self_upload',
   'patient_a1 x lab_reports x update: denied, 0 rows (immutable once uploaded)');
+
+reset role;
+select set_config('request.jwt.claims', '', true);
+delete from public.consents
+ where patient_id = '00000000-0000-0000-0000-0000000a1001'
+   and consent_type = 'health_data'
+   and version = 'synthetic-fixture';
+select tests.authenticate_as('00000000-0000-0000-0000-0000000a1001', 'aal2');
 
 select is((select count(*) from public.consents)::int, 1, 'patient_a1 x consents x select: allowed (own row)');
 insert into public.consents (id, org_id, patient_id, consent_type, granted)

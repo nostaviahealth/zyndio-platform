@@ -346,6 +346,8 @@ select throws_ok(
 -- ---------------------------------------------------------------------------
 -- 5. Immutability of delivered outcome records (corrections must use version + 1)
 -- ---------------------------------------------------------------------------
+reset role;
+select set_config('request.jwt.claims', '', true);
 update public.outcome_records set state = 'delivered' where record_id = 'rec_a1_d180_v1';
 
 select throws_ok(

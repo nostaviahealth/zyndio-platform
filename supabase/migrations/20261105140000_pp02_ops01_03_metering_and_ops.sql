@@ -629,6 +629,7 @@ begin
   select u.email into v_email from auth.users u where u.id = p_patient_id;
 
   if to_regclass('storage.objects') is not null then
+    perform set_config('storage.allow_delete_query', 'true', true);
     delete from storage.objects o
      where o.name like p_patient_id::text || '/%';
     get diagnostics v_deleted_files = row_count;

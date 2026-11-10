@@ -16,6 +16,31 @@ export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
 
+        // R-AUTH-M8: Block direct GoTrue password updates so callers cannot
+        // bypass the password blocklist and audit log in /functions/v1/change-password.
+        if (
+            (request.method === 'PUT' || request.method === 'PATCH') &&
+            url.pathname.replace(/\/+$/, '') === '/auth/v1/user'
+        ) {
+            try {
+                const bodyClone = await request.clone().json();
+                if (bodyClone && typeof bodyClone === 'object' && 'password' in bodyClone) {
+                    return new Response(
+                        JSON.stringify({
+                            error: 'direct_password_update_disabled',
+                            message: 'Direct password updates are disabled. Use /functions/v1/change-password.',
+                        }),
+                        {
+                            status: 403,
+                            headers: { 'Content-Type': 'application/json' },
+                        },
+                    );
+                }
+            } catch (_) {
+                // Non-JSON body; let GoTrue validate/reject normally.
+            }
+        }
+
         // Construct the destination URL
         const destinationUrl = new URL(SUPABASE_URL);
         destinationUrl.pathname = url.pathname;

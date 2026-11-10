@@ -13,6 +13,46 @@
 -- The timeline keyset cursor is (occurred_at, source, ref_id), not the
 -- timestamp alone.
 
+create or replace function public.enforce_last_admin()
+returns trigger
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  remaining_admins int;
+begin
+  if TG_OP = 'DELETE' then
+    if not exists (select 1 from public.organizations o where o.id = OLD.org_id) then
+      return OLD;
+    end if;
+    if OLD.role = 'org_admin' and OLD.status = 'active' then
+      select count(*) into remaining_admins
+        from public.org_members
+        where org_id = OLD.org_id and role = 'org_admin' and status = 'active' and user_id <> OLD.user_id;
+      if remaining_admins = 0 then
+        raise exception 'cannot remove the last active org admin' using errcode = 'P0001';
+      end if;
+    end if;
+    return OLD;
+  elsif TG_OP = 'UPDATE' then
+    if OLD.role = 'org_admin' and OLD.status = 'active'
+       and (NEW.role <> 'org_admin' or NEW.status <> 'active') then
+      select count(*) into remaining_admins
+        from public.org_members
+        where org_id = OLD.org_id and role = 'org_admin' and status = 'active' and user_id <> OLD.user_id;
+      if remaining_admins = 0 then
+        raise exception 'cannot demote or deactivate the last active org admin' using errcode = 'P0001';
+      end if;
+    end if;
+    return NEW;
+  end if;
+  return null;
+end;
+$$;
+
+revoke all on function public.enforce_last_admin() from public, anon, authenticated;
+
 create or replace function public._enforce_lab_range_set_lifecycle()
 returns trigger
 language plpgsql

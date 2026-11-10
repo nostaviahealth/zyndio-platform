@@ -71,11 +71,7 @@ class CareScreen extends ConsumerWidget {
           title: 'Secure Clinical Portal',
           subtitle: 'Message your care team and share records securely.',
           trailingBadge: 'Coming soon',
-          onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text(
-                    'Your clinic will share secure portal access here soon.')),
-          ),
+          onTap: () => _showPortalSheet(context),
         ),
         const SizedBox(height: 12),
         ZyndioListRow(
@@ -84,13 +80,149 @@ class CareScreen extends ConsumerWidget {
           title: 'Resources',
           subtitle: 'Guides and educational content.',
           trailingBadge: 'Coming soon',
-          onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Resources are coming soon.')),
-          ),
+          onTap: () => _showResourcesSheet(context),
         ),
       ],
     );
   }
+}
+
+void _showPortalSheet(BuildContext context) {
+  final c = Theme.of(context).extension<ZyndioColors>()!;
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: c.bgSurface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (sheetCtx) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Secure Clinical Portal',
+              style: TextStyle(
+                fontFamily: ZyndioType.family,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: c.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Direct clinician messaging will appear here once your clinic activates portal messaging. You can already link your clinic record, upload lab reports, and manage outcome sharing below.',
+              style: TextStyle(
+                fontFamily: ZyndioType.family,
+                fontSize: 14,
+                color: c.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(LucideIcons.link, color: c.textPrimary),
+              title: Text('Link clinic record',
+                  style: TextStyle(
+                      fontFamily: ZyndioType.family,
+                      fontWeight: FontWeight.w600,
+                      color: c.textPrimary)),
+              trailing: Icon(LucideIcons.chevronRight, color: c.textTertiary),
+              onTap: () {
+                Navigator.of(sheetCtx).pop();
+                context.push('/link-record');
+              },
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(LucideIcons.share2, color: c.textPrimary),
+              title: Text('Partner outcomes sharing',
+                  style: TextStyle(
+                      fontFamily: ZyndioType.family,
+                      fontWeight: FontWeight.w600,
+                      color: c.textPrimary)),
+              trailing: Icon(LucideIcons.chevronRight, color: c.textTertiary),
+              onTap: () {
+                Navigator.of(sheetCtx).pop();
+                context.push('/settings/partner_outcomes');
+              },
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+void _showResourcesSheet(BuildContext context) {
+  final c = Theme.of(context).extension<ZyndioColors>()!;
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: c.bgSurface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (sheetCtx) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Resources & Support',
+              style: TextStyle(
+                fontFamily: ZyndioType.family,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: c.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Clinic-authored educational guides will appear here as your programme progresses. In the meantime, browse the Help Centre or ask the AI Companion.',
+              style: TextStyle(
+                fontFamily: ZyndioType.family,
+                fontSize: 14,
+                color: c.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(LucideIcons.lifeBuoy, color: c.textPrimary),
+              title: Text('Help Centre',
+                  style: TextStyle(
+                      fontFamily: ZyndioType.family,
+                      fontWeight: FontWeight.w600,
+                      color: c.textPrimary)),
+              trailing: Icon(LucideIcons.chevronRight, color: c.textTertiary),
+              onTap: () {
+                Navigator.of(sheetCtx).pop();
+                context.push('/settings/help');
+              },
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(LucideIcons.messageSquare, color: c.textPrimary),
+              title: Text('Ask AI Companion',
+                  style: TextStyle(
+                      fontFamily: ZyndioType.family,
+                      fontWeight: FontWeight.w600,
+                      color: c.textPrimary)),
+              trailing: Icon(LucideIcons.chevronRight, color: c.textTertiary),
+              onTap: () {
+                Navigator.of(sheetCtx).pop();
+                context.push('/chat');
+              },
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _ProfileCard extends ConsumerWidget {

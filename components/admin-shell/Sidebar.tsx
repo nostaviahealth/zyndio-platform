@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Users, ClipboardList, LogOut, Plug, ScrollText, ShieldCheck } from 'lucide-react';
+import { Users, ClipboardList, LogOut, Plug, ScrollText, ShieldCheck, CheckCircle2, FileQuestion } from 'lucide-react';
 import { usePortalAuth } from '../../contexts/PortalAuthContext';
 import { FOCUS_RING_ON_SUNKEN_CLASS } from '../ui/focusRing';
 // Physician portal P0 nav icons (own import so parallel nav changes don't collide).
@@ -79,10 +79,22 @@ const Sidebar: React.FC = () => {
             Plan and modules
           </NavLink>
         ) : (
-          <NavLink to="/admin/ranges" className={navItemClass} end>
-            <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-            Reference ranges
-          </NavLink>
+          <>
+            <NavLink to="/admin/ranges" className={navItemClass} end>
+              <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+              Reference ranges
+            </NavLink>
+            <NavLink to="/admin/outcomes" className={navItemClass} end>
+              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+              Outcomes review
+            </NavLink>
+            {(role === 'physician' || role === 'care_coordinator') && (
+              <NavLink to="/admin/unmatched-scans" className={navItemClass} end>
+                <FileQuestion className="h-4 w-4" aria-hidden="true" />
+                Unmatched scans
+              </NavLink>
+            )}
+          </>
         )}
       </div>
 

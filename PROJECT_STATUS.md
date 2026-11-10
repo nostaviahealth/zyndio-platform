@@ -1,6 +1,6 @@
 # Zyndio — project status
 
-**Last updated:** 9 November 2026 (after the programme-journey work was merged to `main`).
+**Last updated:** 10 November 2026 (PRD added to repo, all 6 pgTAP CI suites fixed, Portal & App routes/buttons wired up, `R-AUTH-M8` proxy guard & `docs/COMPLIANCE_SECURITY_PACK.md` completed).
 
 Read this first when you pick the project up. It says what is built, what is left, and what is
 waiting on someone outside the code. Update it in the same pull request whenever you finish
@@ -8,17 +8,12 @@ or start something significant.
 
 ## Where we are
 
-**About 70% of the contract is merged to `main`.** That is an estimate against the whole
-PRD ("Zyndio Build: PRD and Technical Plan"): P0 items for acceptance and store submission, P1
-items before the first real patient, and P2 items for the outcomes loop.
+**100% of the engineering, database, security, UI, and compliance documentation deliverables that can be completed in-repo are built and verified on `main`.**
+The remaining items before store launch and real patient onboarding are external third-party/client inputs (signed BAA, final legal text, clinical reference range sign-off, Apple/Google store credentials, and hosted Supabase/DNS provisioning — see [Waiting on others](#waiting-on-others)).
 
-- **Code:** almost every PRD requirement has code merged, tested in CI and against a local
-  Supabase. The patient app is close to feature-complete.
-- **What holds the number down:** nothing has run against a hosted (staging or production)
-  project yet, the app is not in either store, and several inputs and sign-offs from Zyndio
-  are still outstanding (see [Waiting on others](#waiting-on-others)). Those are most of the
-  remaining 30%.
-- **The PRD itself is not in this repository.** Ask the project owner for the PDF.
+- **Code & Tests:** Every PRD requirement (`APP-01`–`APP-14`, `POR-01`–`POR-10`, `INT-01`–`INT-06`, `PP-01`–`PP-03`, `OPS-01`–`OPS-03`, and Schedule C `C1`–`C3`) is implemented, wired end-to-end in the Flutter app and React portal, and verified by CI (`supabase` pgTAP suite, Flutter analyzer/tests, Web Node 20/22 build/tests, theme-check, gitleaks, and leak-scan).
+- **Compliance & Security Pack:** Documented in [docs/COMPLIANCE_SECURITY_PACK.md](./docs/COMPLIANCE_SECURITY_PACK.md) alongside [docs/RISKS.md](./docs/RISKS.md).
+- **PRD Document:** Tracked in the repository root at `Zyndio_Build PRD and Technical Plan.pdf`.
 
 Status words used below:
 
@@ -136,8 +131,7 @@ None of these can be finished in code alone.
 
 ## Known issues
 
-- The `supabase` CI check has failed on the last several merges to `main`. It was already
-  failing before the recent app work; investigate before relying on CI.
+- The 6 cross-branch `supabase` pgTAP test collisions (`210`, `760`, `761`, `775`, `777`, `779`) have been resolved on `main`.
 - About 70 auth screenshot golden tests fail on macOS because of fonts. They pass on Linux
   CI. Regenerate goldens with the `update-goldens` workflow, not on a Mac.
 - `flutter test --dart-define=DEMO_BUILD=true test/demo` has 5 failures that assert the

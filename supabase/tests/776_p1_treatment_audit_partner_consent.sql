@@ -12,6 +12,21 @@ select no_plan();
 reset role;
 select set_config('request.jwt.claims', '', true);
 
+-- Synthetic APP-03 partner_disclosure fixture for this test transaction
+-- (migrations keep only placeholder documents until legal counsel sign-off).
+insert into public.consent_documents
+  (consent_type, version, document, title, summary, body, required, is_placeholder)
+values (
+  'partner_disclosure',
+  'v1.0',
+  'zyndio_partner_disclosure',
+  'Share clinician-reviewed outcomes with DEXASCAN',
+  'Synthetic APP-03 statement for the fictional test candidate. Not a legal policy.',
+  'I authorise Zyndio to share my clinician-reviewed milestone outcomes with DEXASCAN.',
+  false,
+  false
+);
+
 -- ===========================================================================
 -- 1. Structural assertions
 -- ===========================================================================

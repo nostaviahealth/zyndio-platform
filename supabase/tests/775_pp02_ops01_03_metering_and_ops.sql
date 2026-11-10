@@ -29,6 +29,10 @@ insert into public.lab_reports (id, org_id, patient_id, report_type, data) value
 insert into public.consents (id, org_id, patient_id, consent_type, granted) values
   ('00000000-0000-0000-0000-00000077a402', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000a6002', 'hipaa_release', true);
 
+-- Clear meter rows and audit entries created by fixture lab_reports inserts above and in 000_fixtures.sql
+delete from public.usage_months;
+delete from public.audit_log where event_type = 'patient_monthly_activity_recorded';
+
 -- ===========================================================================
 -- 1. PP-02: Active Patients Metering & Schedule B Overage Calculation
 -- ===========================================================================

@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase configuration
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+// Supabase configuration (falls back to local Supabase stack default if env vars are not set)
+const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() || 'http://127.0.0.1:54321';
+const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim() || 'local-anon-key-not-configured';
 
 // Initialize Supabase client
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {

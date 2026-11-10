@@ -60,9 +60,6 @@ import ToxicityDetail from './pages/panels/ToxicityDetail';
 // `npm run build` bundle entirely. See tests/preview-harness.test.ts.
 const LazyPreviewHarness = __PREVIEW_BUILD__ ? React.lazy(() => import('./pages/preview/PreviewHarness')) : null;
 
-// Placeholder for missing pages
-const Profile = () => <div className="p-8">Profile Page Coming Soon</div>;
-
 const App: React.FC = () => {
   return (
     <ErrorBoundary>
@@ -268,7 +265,7 @@ const App: React.FC = () => {
                   <Route path="tools" element={<Tools />} />
                   <Route path="settings" element={<Settings />} />
                   <Route path="chat" element={<Chat />} />
-                  <Route path="profile" element={<Profile />} />
+                  <Route path="profile" element={<Settings />} />
                   {/* Legacy questionnaire + lab-test: only behind
                       VITE_FEATURE_LEGACY_PATIENT_SCREENS (off by default). */}
                   {legacyPortalScreenRoutes()}
