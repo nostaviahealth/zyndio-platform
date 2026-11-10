@@ -567,14 +567,14 @@ declare
   v_email text;
   v_scrubbed boolean := false;
 begin
-  perform set_config('app.ops_deletion', 'on', true);
-
   if exists (
     select 1 from public.patient_legal_holds h
     where h.patient_id = p_patient_id and h.org_id = p_org_id
   ) then
     raise exception 'patient_under_legal_hold' using errcode = 'P0001';
   end if;
+
+  perform set_config('app.ops_deletion', 'on', true);
 
   delete from public.lab_reports r
    where r.org_id = p_org_id and r.patient_id = p_patient_id;
@@ -651,6 +651,9 @@ begin
          or not exists (
            select 1 from storage.objects o where o.name like p_patient_id::text || '/%'
          ));
+
+  perform set_config('app.ops_deletion', '', true);
+  perform set_config('storage.allow_delete_query', 'false', true);
 
   return pg_catalog.jsonb_build_object(
     'deleted_lab_reports', v_deleted_lab_reports,
