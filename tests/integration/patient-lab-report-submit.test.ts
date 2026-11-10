@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import contract from '../contracts/patient-lab-report-submit.json';
 import { integrationEnvReady, SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY } from './setup';
-import { callFn, createUser, deleteUser, restAdmin, signIn, uniqueSuffix } from './helpers';
+import { callFn, createUser, deleteUser, restAdmin, seedPatientHealthDataConsent, signIn, uniqueSuffix } from './helpers';
 
 type Values = Record<string, string>;
 function fill<T>(v: T, values: Values): T {
@@ -44,6 +44,7 @@ async function seedLinkedPatient(orgId: string, label: string) {
     }),
   });
   expect(l.status, await l.clone().text()).toBe(201);
+  await seedPatientHealthDataConsent(orgId, user.userId);
   return user;
 }
 

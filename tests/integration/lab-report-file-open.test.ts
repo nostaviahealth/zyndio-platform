@@ -10,7 +10,7 @@
 // Fictional data only.
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { integrationEnvReady, SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY } from './setup';
-import { createUser, decodeJwtPayload, deleteUser, restAdmin, signIn, uniqueSuffix } from './helpers';
+import { createUser, decodeJwtPayload, deleteUser, restAdmin, seedPatientHealthDataConsent, signIn, uniqueSuffix } from './helpers';
 
 const LINK_LIFETIME_SECONDS = 300; // HealthDataRepository.labReportLinkLifetime
 
@@ -48,6 +48,7 @@ async function seedLinkedPatient(orgId: string, label: string) {
     }),
   });
   expect(l.status, await l.clone().text()).toBe(201);
+  await seedPatientHealthDataConsent(orgId, user.userId);
   const session = await signIn(user.email, user.password);
   return { ...user, token: session.access_token! };
 }

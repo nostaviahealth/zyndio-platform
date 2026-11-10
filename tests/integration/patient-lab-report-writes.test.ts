@@ -15,7 +15,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import contract from '../contracts/patient-lab-report-writes.json';
 import { integrationEnvReady, SUPABASE_URL, SUPABASE_ANON_KEY } from './setup';
-import { createUser, deleteUser, restAdmin, signIn, uniqueSuffix } from './helpers';
+import { createUser, deleteUser, restAdmin, seedPatientHealthDataConsent, signIn, uniqueSuffix } from './helpers';
 
 type Values = Record<string, string>;
 function fill<T>(v: T, values: Values): T {
@@ -64,6 +64,7 @@ async function seedLinkedPatient(orgId: string, label: string) {
     }),
   });
   expect(l.status, await l.clone().text()).toBe(201);
+  await seedPatientHealthDataConsent(orgId, user.userId);
   return user;
 }
 

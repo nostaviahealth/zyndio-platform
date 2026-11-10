@@ -200,6 +200,34 @@ export async function seedSelfSignupPatient(userId: string) {
   await restAdmin('patient_self_signups', { method: 'POST', body: JSON.stringify({ user_id: userId }) });
 }
 
+export async function seedPatientHealthDataConsent(orgId: string, patientId: string) {
+  await restAdmin('consent_documents?on_conflict=consent_type,version', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=ignore-duplicates,return=representation' },
+    body: JSON.stringify({
+      consent_type: 'health_data',
+      version: 'synthetic-fixture',
+      document: 'synthetic_health_data_fixture',
+      title: 'Synthetic fixture',
+      summary: 'SYNTHETIC FIXTURE - not a legally approved document',
+      body: 'SYNTHETIC FIXTURE - not a legally approved document. Not for patient use.',
+      required: true,
+      is_placeholder: false,
+    }),
+  });
+  await restAdmin('consents', {
+    method: 'POST',
+    body: JSON.stringify({
+      org_id: orgId,
+      patient_id: patientId,
+      consent_type: 'health_data',
+      document: 'synthetic_health_data_fixture',
+      version: 'synthetic-fixture',
+      granted: true,
+    }),
+  });
+}
+
 export async function auditRows(eventType: string, targetUserId: string) {
   const res = await restAdmin(`audit_log?event_type=eq.${eventType}&target_user_id=eq.${targetUserId}`);
   return (await res.json()) as unknown[];
