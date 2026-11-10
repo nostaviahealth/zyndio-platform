@@ -1,0 +1,151 @@
+name: Build Mobile Release (Play Store & App Store)
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_android:
+        description: 'Build Android (AAB for Play Store + APK)'
+        required: true
+        type: boolean
+        default: true
+      build_ios:
+        description: 'Build iOS Archive (for App Store / TestFlight)'
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    if: ${{ github.event.inputs.build_android == 'true' || github.event_name != 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter 3.47.8
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.8'
+          channel: 'stable'
+
+      - name: Pub get (packages/platform_wearables)
+        working-directory: packages/platform_wearables
+        run: flutter pub get
+
+      - name: Pub get (flutter_app)
+        working-directory: flutter_app
+        run: flutter pub get
+
+      - name: Create production dart_defines.json
+        working-directory: flutter_app
+        run: |
+          cat <<'EOF' > dart_defines.json
+          {
+            "SUPABASE_URL": "https://ubliebvxufkasxilxuxl.supabase.co",
+            "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVibGllYnZ4dWZrYXN4aWx4dXhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQyOTY3MTIsImV4cCI6MjEwOTg3MjcxMn0.6ml5YTYqYlJDT_O_peck6MzvDReSU_shNy35knDhuho",
+            "SHOPIFY_STOREFRONT_TOKEN": "example-shopify-token-000000000000000",
+            "REVENUECAT_IOS_KEY": "example-revenuecat-ios-key-00000000000",
+            "REVENUECAT_ANDROID_KEY": "example-revenuecat-android-key-0000000"
+          }
+          EOF
+
+      - name: Set up keystore if provided in secrets
+        working-directory: flutter_app/android
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_KEY_ALIAS: ${{ secrets.KEYSTORE_KEY_ALIAS }}
+          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
+          KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > upload-keystore.jks
+            cat <<EOF > key.properties
+            storePassword=$KEYSTORE_STORE_PASSWORD
+            keyPassword=$KEYSTORE_KEY_PASSWORD
+            keyAlias=$KEYSTORE_KEY_ALIAS
+            storeFile=upload-keystore.jks
+          EOF
+            echo "Release keystore configured."
+          else
+            echo "No ANDROID_KEYSTORE_BASE64 secret found; building unsigned/debug-signed bundle."
+          fi
+
+      - name: Build Google Play Android App Bundle (AAB)
+        working-directory: flutter_app
+        run: flutter build appbundle --release --dart-define-from-file=dart_defines.json
+
+      - name: Build Android APK (for direct device install / testing)
+        working-directory: flutter_app
+        run: flutter build apk --release --dart-define-from-file=dart_defines.json
+
+      - name: Upload Google Play Store Bundle (AAB)
+        uses: actions/upload-artifact@v4
+        with:
+          name: zyndio-playstore-bundle-aab
+          path: flutter_app/build/app/outputs/bundle/release/app-release.aab
+          retention-days: 14
+
+      - name: Upload Android APK (Direct Install)
+        uses: actions/upload-artifact@v4
+        with:
+          name: zyndio-android-apk
+          path: flutter_app/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14
+
+  build-ios:
+    if: ${{ github.event.inputs.build_ios == 'true' || github.event_name != 'workflow_dispatch' }}
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter 3.47.8
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.8'
+          channel: 'stable'
+
+      - name: Pub get (packages/platform_wearables)
+        working-directory: packages/platform_wearables
+        run: flutter pub get
+
+      - name: Pub get (flutter_app)
+        working-directory: flutter_app
+        run: flutter pub get
+
+      - name: Create production dart_defines.json
+        working-directory: flutter_app
+        run: |
+          cat <<'EOF' > dart_defines.json
+          {
+            "SUPABASE_URL": "https://ubliebvxufkasxilxuxl.supabase.co",
+            "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVibGllYnZ4dWZrYXN4aWx4dXhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQyOTY3MTIsImV4cCI6MjEwOTg3MjcxMn0.6ml5YTYqYlJDT_O_peck6MzvDReSU_shNy35knDhuho",
+            "SHOPIFY_STOREFRONT_TOKEN": "example-shopify-token-000000000000000",
+            "REVENUECAT_IOS_KEY": "example-revenuecat-ios-key-00000000000",
+            "REVENUECAT_ANDROID_KEY": "example-revenuecat-android-key-0000000"
+          }
+          EOF
+
+      - name: Install CocoaPods
+        working-directory: flutter_app/ios
+        run: pod install
+
+      - name: Build iOS Archive (no-codesign)
+        working-directory: flutter_app
+        run: flutter build ipa --no-codesign --dart-define-from-file=dart_defines.json
+
+      - name: Upload iOS Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: zyndio-ios-archive
+          path: flutter_app/build/ios/archive/Runner.xcarchive
+          retention-days: 14
