@@ -490,6 +490,7 @@ select is(
   'approved_unsent',
   'OPS-03: approval records approved_unsent and does not send'
 );
+reset role;
 select is(
   (select payload ->> 'sent' from public.notification_outbox
     where type = 'security_incident_72h_notice'
@@ -497,7 +498,6 @@ select is(
   'false',
   'OPS-03: the outbox row remains unsent after approval'
 );
-reset role;
 update public.security_incidents
   set notify_deadline_at = pg_catalog.now() - interval '1 minute'
   where id = (select (inc ->> 'id')::uuid from ops03_incident);
