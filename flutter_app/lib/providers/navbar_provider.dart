@@ -6,7 +6,13 @@ class NavbarVisibleNotifier extends Notifier<bool> {
   @override
   bool build() => true;
 
-  void hide() => state = false;
-  void show() => state = true;
-  void setVisible(bool visible) => state = visible;
+  // Screens toggle the tab bar from dispose()/microtasks; after the provider
+  // container itself is gone (app teardown, hot restart) that's a no-op
+  // rather than an UnmountedRefException.
+  void hide() => setVisible(false);
+  void show() => setVisible(true);
+  void setVisible(bool visible) {
+    if (!ref.mounted) return;
+    state = visible;
+  }
 }

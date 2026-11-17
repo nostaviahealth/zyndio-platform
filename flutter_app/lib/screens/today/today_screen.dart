@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -492,33 +491,39 @@ class _ScoreCard extends StatelessWidget {
                         fraction: s.score.clamp(0, 100) / 100,
                         track: z.tileBg,
                       ),
-                      child: Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '${s.score}',
-                              style: TextStyle(
-                                fontFamily: ZyndioType.family,
-                                fontSize: 44,
-                                height: 1.0,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: -1.4,
-                                fontFeatures: ZyndioType.tabular,
-                                color: c.textPrimary,
+                      child: Padding(
+                        // Keep the number inside the ring's inner edge and
+                        // scale it down for large accessibility text.
+                        padding: const EdgeInsets.all(20),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '${s.score}',
+                                style: TextStyle(
+                                  fontFamily: ZyndioType.family,
+                                  fontSize: 44,
+                                  height: 1.0,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -1.4,
+                                  fontFeatures: ZyndioType.tabular,
+                                  color: c.textPrimary,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'of 100',
-                              style: TextStyle(
-                                fontFamily: ZyndioType.family,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: c.textTertiary,
+                              const SizedBox(height: 4),
+                              Text(
+                                'of 100',
+                                style: TextStyle(
+                                  fontFamily: ZyndioType.family,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: c.textTertiary,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -540,35 +545,39 @@ class _ScoreCard extends StatelessWidget {
                         ),
                         if (trend != null) ...[
                           const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: c.brandSubtle,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  trend >= 0
-                                      ? LucideIcons.trendingUp
-                                      : LucideIcons.trendingDown,
-                                  size: 15,
-                                  color: c.brandOnSubtle,
-                                ),
-                                const SizedBox(width: 5),
-                                Text(
-                                  '${trend >= 0 ? '+' : ''}$trend%',
-                                  style: TextStyle(
-                                    fontFamily: ZyndioType.family,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    fontFeatures: ZyndioType.tabular,
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: c.brandSubtle,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    trend >= 0
+                                        ? LucideIcons.trendingUp
+                                        : LucideIcons.trendingDown,
+                                    size: 15,
                                     color: c.brandOnSubtle,
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    '${trend >= 0 ? '+' : ''}$trend%',
+                                    style: TextStyle(
+                                      fontFamily: ZyndioType.family,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      fontFeatures: ZyndioType.tabular,
+                                      color: c.brandOnSubtle,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                           const SizedBox(height: 6),

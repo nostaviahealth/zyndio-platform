@@ -135,9 +135,18 @@ class _LinkRecordScreenState extends ConsumerState<LinkRecordScreen> {
     return Scaffold(
       backgroundColor: c.bgCanvas,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          child: _body(c),
+        // Each step lays out to the screen height (Spacers keep the buttons
+        // at the bottom); on a small phone or with large text it scrolls
+        // instead of overflowing.
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                  minHeight: (constraints.maxHeight - 32).clamp(0, double.infinity)),
+              child: IntrinsicHeight(child: _body(c)),
+            ),
+          ),
         ),
       ),
     );

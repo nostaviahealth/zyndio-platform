@@ -36,7 +36,8 @@ class ChatScreen extends ConsumerStatefulWidget {
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStateMixin {
+class _ChatScreenState extends ConsumerState<ChatScreen>
+    with TickerProviderStateMixin {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
   final _imagePicker = ImagePicker();
@@ -46,9 +47,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStat
   int _initialMessageCount = 0;
   final Set<int> _animatedIndices = {};
 
+  // Captured while mounted: dispose() must not touch `ref` (Riverpod throws
+  // "Using ref when a widget is unmounted"), but the tab bar still has to
+  // come back after the companion closes.
+  late final NavbarVisibleNotifier _navbar =
+      ref.read(navbarVisibleProvider.notifier);
+
   @override
   void initState() {
     super.initState();
+    _navbar; // resolve now, while `ref` is safe to use
     if (widget.initialMessage != null && widget.initialMessage!.isNotEmpty) {
       Future.microtask(() {
         ref.read(chatProvider.notifier).startNewSession();
@@ -82,14 +90,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStat
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
-    Future.microtask(() {
-      ref.read(navbarVisibleProvider.notifier).show();
-    });
+    final navbar = _navbar;
+    Future.microtask(navbar.show);
     super.dispose();
   }
 
   Future<void> _pickImage() async {
-    final picked = await _imagePicker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    final picked = await _imagePicker.pickImage(
+        source: ImageSource.gallery, imageQuality: 85);
     if (picked != null && mounted) {
       setState(() => _selectedImage = File(picked.path));
     }
@@ -107,9 +115,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStat
 
     HapticFeedback.mediumImpact();
     ref.read(chatProvider.notifier).sendMessage(
-      text.isEmpty ? 'Please analyze this image in context of my health data.' : text,
-      imagePath: _selectedImage?.path,
-    );
+          text.isEmpty
+              ? 'Please analyze this image in context of my health data.'
+              : text,
+          imagePath: _selectedImage?.path,
+        );
     _messageController.clear();
     setState(() => _selectedImage = null);
     FocusScope.of(context).unfocus();
@@ -120,7 +130,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStat
 
     final position = _scrollController.position;
     final double pixelsFromBottom = position.maxScrollExtent - position.pixels;
-    
+
     if (force || pixelsFromBottom < 100) {
       if (isStreaming) {
         _scrollController.jumpTo(position.maxScrollExtent);
@@ -141,11 +151,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStat
     final isLoading = chatState.isLoading;
 
     ref.listen(chatProvider, (previous, next) {
-      final bool newMsgAdded = next.messages.length > (previous?.messages.length ?? 0);
-      final bool contentUpdating = next.isLoading && 
-          previous != null && 
-          next.messages.isNotEmpty && 
-          previous.messages.isNotEmpty && 
+      final bool newMsgAdded =
+          next.messages.length > (previous?.messages.length ?? 0);
+      final bool contentUpdating = next.isLoading &&
+          previous != null &&
+          next.messages.isNotEmpty &&
+          previous.messages.isNotEmpty &&
           next.messages.last.text != previous.messages.last.text;
 
       if (newMsgAdded) {
@@ -155,8 +166,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStat
       }
 
       // 🚀 High-conversion placement: record success and trigger paywall if threshold reached
-      final bool responseFinished = previous != null && previous.isLoading && !next.isLoading;
-      if (responseFinished && next.messages.isNotEmpty && !next.messages.last.isUser) {
+      final bool responseFinished =
+          previous != null && previous.isLoading && !next.isLoading;
+      if (responseFinished &&
+          next.messages.isNotEmpty &&
+          !next.messages.last.isUser) {
         ref.read(conversionServiceProvider).recordAhaMoment(context);
       }
     });
@@ -206,7 +220,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStat
                           value: 'new_chat',
                           child: Row(
                             children: [
-                              Icon(LucideIcons.plus, size: 18, color: c.textPrimary),
+                              Icon(LucideIcons.plus,
+                                  size: 18, color: c.textPrimary),
                               const SizedBox(width: 12),
                               Text(
                                 'New Chat',
@@ -224,7 +239,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStat
                           value: 'history',
                           child: Row(
                             children: [
-                              Icon(LucideIcons.history, size: 18, color: c.textPrimary),
+                              Icon(LucideIcons.history,
+                                  size: 18, color: c.textPrimary),
                               const SizedBox(width: 12),
                               Text(
                                 'History',
@@ -245,7 +261,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStat
                         height: 44,
                         alignment: Alignment.center,
                         decoration: zyndioCard(context, radius: 22),
-                        child: Icon(LucideIcons.moreHorizontal, size: 22, color: c.textPrimary),
+                        child: Icon(LucideIcons.moreHorizontal,
+                            size: 22, color: c.textPrimary),
                       ),
                     ),
                   ),
@@ -259,25 +276,36 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStat
                     itemCount: messages.length + (isLoading ? 1 : 0),
                     itemBuilder: (context, index) {
                       if (index == messages.length) {
-                        final lastUserMessage = messages.lastWhere((m) => m.isUser, orElse: () => ChatMessage(text: '', isUser: true));
-                        return _LoadingBubble(promptContext: lastUserMessage.text);
+                        final lastUserMessage = messages.lastWhere(
+                            (m) => m.isUser,
+                            orElse: () => ChatMessage(text: '', isUser: true));
+                        return _LoadingBubble(
+                            promptContext: lastUserMessage.text);
                       }
                       final message = messages[index];
                       final bool isLastMessage = index == messages.length - 1;
                       final bool isNewMessage = index >= _initialMessageCount;
-                      final bool shouldAnimate = isLastMessage && !isLoading && isNewMessage;
+                      final bool shouldAnimate =
+                          isLastMessage && !isLoading && isNewMessage;
 
                       return _MessageBubble(
                         message: message,
                         messageIndex: index,
-                        shouldAnimate: shouldAnimate && !_animatedIndices.contains(index),
+                        shouldAnimate:
+                            shouldAnimate && !_animatedIndices.contains(index),
                         scrollController: _scrollController,
-                        onAnimationComplete: shouldAnimate ? () {
-                          _animatedIndices.add(index);
-                        } : null,
-                        onSaveProtocol: message.attachment is HealthProtocol ? (protocol) async {
-                          await ref.read(protocolProvider.notifier).saveGeneratedProtocol(protocol);
-                        } : null,
+                        onAnimationComplete: shouldAnimate
+                            ? () {
+                                _animatedIndices.add(index);
+                              }
+                            : null,
+                        onSaveProtocol: message.attachment is HealthProtocol
+                            ? (protocol) async {
+                                await ref
+                                    .read(protocolProvider.notifier)
+                                    .saveGeneratedProtocol(protocol);
+                              }
+                            : null,
                       );
                     },
                   ),
@@ -286,24 +314,33 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStat
                 // --- Regenerate Button ---
                 if (!isLoading && messages.isNotEmpty && !messages.last.isUser)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
                     child: GestureDetector(
                       onTap: () {
                         HapticFeedback.lightImpact();
-                        ref.read(chatProvider.notifier).regenerateLastResponse();
+                        ref
+                            .read(chatProvider.notifier)
+                            .regenerateLastResponse();
                       },
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(LucideIcons.refreshCw, size: 13, color: c.textTertiary),
+                          Icon(LucideIcons.refreshCw,
+                              size: 13, color: c.textTertiary),
                           const SizedBox(width: 6),
-                          Text(
-                            'Regenerate response',
-                            style: TextStyle(
-                              fontFamily: ZyndioType.family,
-                              fontSize: 13,
-                              color: c.textTertiary,
-                              fontWeight: FontWeight.w500,
+                          Flexible(
+                            child: Text(
+                              'Regenerate response',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: ZyndioType.family,
+                                fontSize: 13,
+                                color: c.textTertiary,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ],
@@ -321,23 +358,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStat
                       ValueListenableBuilder<TextEditingValue>(
                         valueListenable: _messageController,
                         builder: (context, value, _) {
-                          if (value.text.isNotEmpty || chatState.messages.isNotEmpty || chatState.isLoading) {
+                          if (value.text.isNotEmpty ||
+                              chatState.messages.isNotEmpty ||
+                              chatState.isLoading) {
                             return const SizedBox.shrink();
                           }
                           final suggestions = ref.watch(suggestionProvider);
-                          if (suggestions.isEmpty) return const SizedBox.shrink();
+                          if (suggestions.isEmpty)
+                            return const SizedBox.shrink();
                           return SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             padding: const EdgeInsets.only(bottom: 12),
                             child: Row(
-                              children: suggestions.map((s) => _GlassSuggestionChip(
-                                label: s.label,
-                                icon: s.icon,
-                                onTap: () {
-                                  _messageController.text = s.prompt;
-                                  _sendMessage();
-                                },
-                              )).toList(),
+                              children: suggestions
+                                  .map((s) => _GlassSuggestionChip(
+                                        label: s.label,
+                                        icon: s.icon,
+                                        onTap: () {
+                                          _messageController.text = s.prompt;
+                                          _sendMessage();
+                                        },
+                                      ))
+                                  .toList(),
                             ),
                           );
                         },
@@ -354,25 +396,34 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStat
                           children: [
                             if (_selectedImage != null)
                               Padding(
-                                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                                padding:
+                                    const EdgeInsets.fromLTRB(16, 16, 16, 0),
                                 child: Row(
                                   children: [
                                     Stack(
                                       clipBehavior: Clip.none,
                                       children: [
                                         ClipRRect(
-                                          borderRadius: BorderRadius.circular(12),
-                                          child: Image.file(_selectedImage!, height: 60, width: 60, fit: BoxFit.cover),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          child: Image.file(_selectedImage!,
+                                              height: 60,
+                                              width: 60,
+                                              fit: BoxFit.cover),
                                         ),
                                         Positioned(
                                           top: -6,
                                           right: -6,
                                           child: GestureDetector(
-                                            onTap: () => setState(() => _selectedImage = null),
+                                            onTap: () => setState(
+                                                () => _selectedImage = null),
                                             child: Container(
                                               padding: const EdgeInsets.all(4),
-                                              decoration: BoxDecoration(color: c.textPrimary, shape: BoxShape.circle),
-                                              child: Icon(LucideIcons.x, size: 10, color: c.bgSurface),
+                                              decoration: BoxDecoration(
+                                                  color: c.textPrimary,
+                                                  shape: BoxShape.circle),
+                                              child: Icon(LucideIcons.x,
+                                                  size: 10, color: c.bgSurface),
                                             ),
                                           ),
                                         ),
@@ -381,7 +432,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStat
                                   ],
                                 ),
                               ),
-
                             TextField(
                               controller: _messageController,
                               minLines: 1,
@@ -400,7 +450,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStat
                                   color: c.textTertiary,
                                   fontSize: 16,
                                 ),
-                                contentPadding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+                                contentPadding:
+                                    const EdgeInsets.fromLTRB(20, 18, 20, 10),
                                 fillColor: Colors.transparent,
                                 filled: false,
                                 border: InputBorder.none,
@@ -430,28 +481,36 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStat
                                   const Spacer(),
                                   Consumer(
                                     builder: (context, ref, _) {
-                                      final isLoading = ref.watch(chatProvider).isLoading;
+                                      final isLoading =
+                                          ref.watch(chatProvider).isLoading;
                                       return GestureDetector(
                                         onTap: () {
                                           HapticFeedback.mediumImpact();
                                           if (isLoading) {
-                                            ref.read(chatProvider.notifier).cancelCurrentRequest();
+                                            ref
+                                                .read(chatProvider.notifier)
+                                                .cancelCurrentRequest();
                                           } else {
                                             _sendMessage();
                                           }
                                         },
                                         child: AnimatedContainer(
-                                          duration: const Duration(milliseconds: 200),
+                                          duration:
+                                              const Duration(milliseconds: 200),
                                           height: 44,
                                           width: 44,
                                           decoration: BoxDecoration(
-                                            gradient: isLoading ? null : ZyndioGradients.brand,
-                                            color: isLoading ? c.bgSunken : null,
+                                            gradient: isLoading
+                                                ? null
+                                                : ZyndioGradients.brand,
+                                            color:
+                                                isLoading ? c.bgSunken : null,
                                             shape: BoxShape.circle,
                                             boxShadow: [
                                               if (!isLoading)
                                                 BoxShadow(
-                                                  color: c.brandPrimary.withValues(alpha: 0.28),
+                                                  color: c.brandPrimary
+                                                      .withValues(alpha: 0.28),
                                                   blurRadius: 12,
                                                   offset: const Offset(0, 4),
                                                 ),
@@ -464,10 +523,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStat
                                                     height: 14,
                                                     decoration: BoxDecoration(
                                                       color: c.textPrimary,
-                                                      borderRadius: BorderRadius.circular(3),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              3),
                                                     ),
                                                   )
-                                                : const Icon(LucideIcons.arrowUp, size: 20, color: Colors.white),
+                                                : const Icon(
+                                                    LucideIcons.arrowUp,
+                                                    size: 20,
+                                                    color: Colors.white),
                                           ),
                                         ),
                                       );
@@ -502,7 +566,7 @@ class _MessageBubble extends ConsumerWidget {
   const _MessageBubble({
     required this.message,
     required this.messageIndex,
-    this.shouldAnimate = false, 
+    this.shouldAnimate = false,
     this.scrollController,
     this.onAnimationComplete,
     this.onSaveProtocol,
@@ -512,126 +576,135 @@ class _MessageBubble extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isUser = message.isUser;
     final chatState = ref.watch(chatProvider);
-    final isGenerating = chatState.isLoading && messageIndex == chatState.messages.length - 1;
-    
+    final isGenerating =
+        chatState.isLoading && messageIndex == chatState.messages.length - 1;
+
     if (isUser) {
-        // --- USER MESSAGE (brand gradient bubble) ---
-        return Padding(
+      // --- USER MESSAGE (brand gradient bubble) ---
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 20),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.75,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              decoration: const BoxDecoration(
+                gradient: ZyndioGradients.brand,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(6),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Image thumbnail (vision input)
+                  if (message.imagePath != null) ...[
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.file(
+                        File(message.imagePath!),
+                        height: 160,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    if (message.text.isNotEmpty) const SizedBox(height: 10),
+                  ],
+                  if (message.text.isNotEmpty)
+                    Text(
+                      message.text,
+                      style: const TextStyle(
+                        fontFamily: ZyndioType.family,
+                        fontSize: 16,
+                        color: Colors.white,
+                        height: 1.5,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // --- AI MESSAGE (text in card bubbles; rich cards sit on the canvas) ---
+      return RepaintBoundary(
+        child: Padding(
           padding: const EdgeInsets.only(bottom: 20),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.75,
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                decoration: const BoxDecoration(
-                  gradient: ZyndioGradients.brand,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(20),
-                    bottomLeft: Radius.circular(20),
-                    bottomRight: Radius.circular(6),
+              // Text Content
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Builder(
+                    builder: (context) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ...message.blocks.map((block) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: _buildBlock(
+                                  context, block, shouldAnimate, ref),
+                            );
+                          }),
+
+                          // Reaction row (thumbs up / down)
+                          if (!shouldAnimate &&
+                              !isGenerating &&
+                              message.blocks.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 0, bottom: 8),
+                              child: Row(
+                                children: [
+                                  _ReactionButton(
+                                    icon: LucideIcons.thumbsUp,
+                                    isActive: message.reaction == 'up',
+                                    onTap: () {
+                                      HapticFeedback.lightImpact();
+                                      ref
+                                          .read(chatProvider.notifier)
+                                          .reactToMessage(messageIndex, 'up');
+                                    },
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _ReactionButton(
+                                    icon: LucideIcons.thumbsDown,
+                                    isActive: message.reaction == 'down',
+                                    onTap: () {
+                                      HapticFeedback.lightImpact();
+                                      ref
+                                          .read(chatProvider.notifier)
+                                          .reactToMessage(messageIndex, 'down');
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      );
+                    },
                   ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Image thumbnail (vision input)
-                    if (message.imagePath != null) ...[
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.file(
-                          File(message.imagePath!),
-                          height: 160,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                      if (message.text.isNotEmpty) const SizedBox(height: 10),
-                    ],
-                    if (message.text.isNotEmpty)
-                      Text(
-                        message.text,
-                        style: const TextStyle(
-                          fontFamily: ZyndioType.family,
-                          fontSize: 16,
-                          color: Colors.white,
-                          height: 1.5,
-                        ),
-                      ),
-                  ],
                 ),
               ),
             ],
           ),
-        );
-    } else {
-        // --- AI MESSAGE (text in card bubbles; rich cards sit on the canvas) ---
-        return RepaintBoundary(
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 20),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Text Content
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Builder(
-                      builder: (context) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ...message.blocks.map((block) {
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: _buildBlock(context, block, shouldAnimate, ref),
-                              );
-                            }),
-                            
-                            // Reaction row (thumbs up / down)
-                            if (!shouldAnimate && !isGenerating && message.blocks.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 0, bottom: 8),
-                                child: Row(
-                                  children: [
-                                    _ReactionButton(
-                                      icon: LucideIcons.thumbsUp,
-                                      isActive: message.reaction == 'up',
-                                      onTap: () {
-                                        HapticFeedback.lightImpact();
-                                        ref.read(chatProvider.notifier).reactToMessage(messageIndex, 'up');
-                                      },
-                                    ),
-                                    const SizedBox(width: 8),
-                                    _ReactionButton(
-                                      icon: LucideIcons.thumbsDown,
-                                      isActive: message.reaction == 'down',
-                                      onTap: () {
-                                        HapticFeedback.lightImpact();
-                                        ref.read(chatProvider.notifier).reactToMessage(messageIndex, 'down');
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
+        ),
+      );
     }
   }
 
-  Widget _buildBlock(BuildContext context, MessageBlock block, bool shouldAnimate, WidgetRef ref) {
+  Widget _buildBlock(BuildContext context, MessageBlock block,
+      bool shouldAnimate, WidgetRef ref) {
     final c = Theme.of(context).extension<ZyndioColors>()!;
     if (block is TextBlock) {
       return Container(
@@ -697,16 +770,15 @@ class _MessageBubble extends ConsumerWidget {
               fontSize: 15,
             ),
             blockquoteDecoration: BoxDecoration(
-              border: Border(left: BorderSide(width: 3, color: c.borderSubtle))
-            ),
+                border:
+                    Border(left: BorderSide(width: 3, color: c.borderSubtle))),
             code: TextStyle(
-              backgroundColor: c.bgSunken,
-              color: c.textPrimary,
-              fontSize: 14,
-              fontFamily: 'JetBrainsMono',
-              fontWeight: FontWeight.w500,
-              letterSpacing: -0.3
-            ),
+                backgroundColor: c.bgSunken,
+                color: c.textPrimary,
+                fontSize: 14,
+                fontFamily: 'JetBrainsMono',
+                fontWeight: FontWeight.w500,
+                letterSpacing: -0.3),
             codeblockDecoration: BoxDecoration(
               color: c.bgSunken,
               borderRadius: BorderRadius.circular(12),
@@ -735,10 +807,13 @@ class _MessageBubble extends ConsumerWidget {
               protocol: block.protocol,
               onClose: () => Navigator.pop(canvasContext),
               onSave: () async {
-                await ref.read(protocolProvider.notifier).saveGeneratedProtocol(block.protocol);
+                await ref
+                    .read(protocolProvider.notifier)
+                    .saveGeneratedProtocol(block.protocol);
                 if (canvasContext.mounted) {
-                  Navigator.pop(canvasContext); 
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Saved as New Protocol")));
+                  Navigator.pop(canvasContext);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Saved as New Protocol")));
                 }
               },
             ),
@@ -760,17 +835,22 @@ class _MessageBubble extends ConsumerWidget {
                 final profile = ref.read(patientProfileProvider).value;
                 if (profile != null) {
                   try {
-                    await MealRepository.saveGeneratedPlan(profile.id, block.mealPlan);
+                    await MealRepository.saveGeneratedPlan(
+                        profile.id, block.mealPlan);
                     if (canvasContext.mounted) {
                       Navigator.pop(canvasContext);
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Meal plan saved to Your Weekly Menu")),
+                        const SnackBar(
+                            content:
+                                Text("Meal plan saved to Your Weekly Menu")),
                       );
                     }
                   } catch (e) {
                     if (canvasContext.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("Error saving: $e"), backgroundColor: c.statusCritical),
+                        SnackBar(
+                            content: Text("Error saving: $e"),
+                            backgroundColor: c.statusCritical),
                       );
                     }
                   }
@@ -783,7 +863,7 @@ class _MessageBubble extends ConsumerWidget {
     } else if (block is CtaBlock) {
       return ChatCtaStrip(actions: block.actions);
     }
-    
+
     return const SizedBox.shrink();
   }
 }
@@ -794,11 +874,17 @@ class _DataCard extends StatelessWidget {
 
   Widget _getStatusIcon(ZyndioColors c, String status) {
     final lowerStatus = status.toLowerCase();
-    if (lowerStatus.contains('good') || lowerStatus.contains('excellent') || lowerStatus.contains('optimal')) {
+    if (lowerStatus.contains('good') ||
+        lowerStatus.contains('excellent') ||
+        lowerStatus.contains('optimal')) {
       return Icon(LucideIcons.checkCircle2, color: c.statusSuccess, size: 16);
-    } else if (lowerStatus.contains('warning') || lowerStatus.contains('elevated') || lowerStatus.contains('low')) {
+    } else if (lowerStatus.contains('warning') ||
+        lowerStatus.contains('elevated') ||
+        lowerStatus.contains('low')) {
       return Icon(LucideIcons.alertCircle, color: c.statusWarning, size: 16);
-    } else if (lowerStatus.contains('alert') || lowerStatus.contains('high') || lowerStatus.contains('danger')) {
+    } else if (lowerStatus.contains('alert') ||
+        lowerStatus.contains('high') ||
+        lowerStatus.contains('danger')) {
       return Icon(LucideIcons.alertTriangle, color: c.statusCritical, size: 16);
     }
     return Icon(LucideIcons.info, color: c.textTertiary, size: 16);
@@ -834,7 +920,7 @@ class _DataCard extends StatelessWidget {
                 ),
               ),
             ),
-          
+
           if (block.title.isNotEmpty)
             Divider(height: 1, thickness: 1, color: c.borderSubtle),
 
@@ -842,18 +928,22 @@ class _DataCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Table(
-              columnWidths: hasVisual ? const {
-                0: FlexColumnWidth(1.4), // Label + Status
-                1: FlexColumnWidth(0.8), // Value
-                2: FlexColumnWidth(0.8), // Visual (Graph/Trend)
-              } : const {
-                0: FlexColumnWidth(1.0),
-                1: FlexColumnWidth(1.0),
-              },
+              columnWidths: hasVisual
+                  ? const {
+                      0: FlexColumnWidth(1.4), // Label + Status
+                      1: FlexColumnWidth(0.8), // Value
+                      2: FlexColumnWidth(0.8), // Visual (Graph/Trend)
+                    }
+                  : const {
+                      0: FlexColumnWidth(1.0),
+                      1: FlexColumnWidth(1.0),
+                    },
               defaultVerticalAlignment: TableCellVerticalAlignment.middle,
               children: block.rows.map((row) {
-                final List<dynamic>? history = row['history'] is List ? (row['history'] as List) : null;
-                final double? trend = double.tryParse(row['trend']?.toString() ?? '');
+                final List<dynamic>? history =
+                    row['history'] is List ? (row['history'] as List) : null;
+                final double? trend =
+                    double.tryParse(row['trend']?.toString() ?? '');
 
                 return TableRow(
                   children: [
@@ -899,10 +989,11 @@ class _DataCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    
+
                     // Col 2: Value
                     Padding(
-                      padding: EdgeInsets.fromLTRB(4, 10, hasVisual ? 4 : 20, 10),
+                      padding:
+                          EdgeInsets.fromLTRB(4, 10, hasVisual ? 4 : 20, 10),
                       child: Text(
                         row['value']?.toString() ?? '',
                         textAlign: hasVisual ? TextAlign.left : TextAlign.right,
@@ -926,7 +1017,12 @@ class _DataCard extends StatelessWidget {
                               ? SizedBox(
                                   height: 24,
                                   width: 80,
-                                  child: _InlineSparkline(data: history.map((e) => double.tryParse(e.toString()) ?? 0.0).toList()),
+                                  child: _InlineSparkline(
+                                      data: history
+                                          .map((e) =>
+                                              double.tryParse(e.toString()) ??
+                                              0.0)
+                                          .toList()),
                                 )
                               : (trend != null)
                                   ? _MiniTrendBar(trend: trend)
@@ -946,7 +1042,8 @@ class _DataCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: BoxDecoration(
                 color: c.bgSunken,
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(22)),
+                borderRadius:
+                    const BorderRadius.vertical(bottom: Radius.circular(22)),
                 border: Border(top: BorderSide(color: c.borderSubtle)),
               ),
               child: Row(
@@ -982,10 +1079,14 @@ class _MetricCard extends StatelessWidget {
   /// (foreground, subtle background) for the status.
   (Color, Color) _getStatusColors(ZyndioColors c, String? status) {
     switch (status?.toLowerCase()) {
-      case 'optimal': return (c.statusSuccess, c.statusSuccessSubtle);
-      case 'warning': return (c.statusWarning, c.statusWarningSubtle);
-      case 'alert': return (c.statusCritical, c.statusCriticalSubtle);
-      default: return (c.brandPrimary, c.brandSubtle);
+      case 'optimal':
+        return (c.statusSuccess, c.statusSuccessSubtle);
+      case 'warning':
+        return (c.statusWarning, c.statusWarningSubtle);
+      case 'alert':
+        return (c.statusCritical, c.statusCriticalSubtle);
+      default:
+        return (c.brandPrimary, c.brandSubtle);
     }
   }
 
@@ -993,7 +1094,7 @@ class _MetricCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = Theme.of(context).extension<ZyndioColors>()!;
     final (statusColor, statusBg) = _getStatusColors(c, block.status);
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(20),
@@ -1020,7 +1121,8 @@ class _MetricCard extends StatelessWidget {
                     if (block.status != null) ...[
                       const SizedBox(height: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
                           color: statusBg,
                           borderRadius: BorderRadius.circular(999),
@@ -1123,7 +1225,7 @@ class _InlineSparkline extends StatelessWidget {
     if (data.length < 2) return const SizedBox.shrink();
     final c = Theme.of(context).extension<ZyndioColors>()!;
     final lineColor = color ?? c.brandPrimary;
-    
+
     final spots = <FlSpot>[];
     for (int i = 0; i < data.length; i++) {
       spots.add(FlSpot(i.toDouble(), data[i]));
@@ -1143,7 +1245,8 @@ class _InlineSparkline extends StatelessWidget {
             barWidth: showDots ? 2.5 : 1.5,
             dotData: FlDotData(
               show: showDots,
-              getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
+              getDotPainter: (spot, percent, barData, index) =>
+                  FlDotCirclePainter(
                 radius: 3,
                 color: c.bgSurface,
                 strokeWidth: 2,
@@ -1152,16 +1255,16 @@ class _InlineSparkline extends StatelessWidget {
             ),
             belowBarData: BarAreaData(
               show: true,
-              gradient: showGradient 
-                ? LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      lineColor.withValues(alpha: 0.2),
-                      lineColor.withValues(alpha: 0.0),
-                    ],
-                  )
-                : null,
+              gradient: showGradient
+                  ? LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        lineColor.withValues(alpha: 0.2),
+                        lineColor.withValues(alpha: 0.0),
+                      ],
+                    )
+                  : null,
               color: showGradient ? null : lineColor.withValues(alpha: 0.1),
             ),
           ),
@@ -1209,7 +1312,8 @@ class _ReactionButton extends StatelessWidget {
   final bool isActive;
   final VoidCallback onTap;
 
-  const _ReactionButton({required this.icon, required this.isActive, required this.onTap});
+  const _ReactionButton(
+      {required this.icon, required this.isActive, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -1233,11 +1337,9 @@ class _ReactionButton extends StatelessWidget {
   }
 }
 
-
-
 class _LoadingBubble extends StatefulWidget {
   final String promptContext;
-  
+
   const _LoadingBubble({required this.promptContext});
 
   @override
@@ -1246,7 +1348,7 @@ class _LoadingBubble extends StatefulWidget {
 
 class _LoadingBubbleState extends State<_LoadingBubble> {
   late final List<String> _phrases;
-  
+
   int _currentIndex = 0;
   Timer? _timer;
 
@@ -1254,7 +1356,7 @@ class _LoadingBubbleState extends State<_LoadingBubble> {
   void initState() {
     super.initState();
     _phrases = _generatePhrases(widget.promptContext);
-    
+
     _timer = Timer.periodic(const Duration(milliseconds: 2500), (timer) {
       if (mounted) {
         setState(() {
@@ -1267,11 +1369,13 @@ class _LoadingBubbleState extends State<_LoadingBubble> {
       }
     });
   }
-  
+
   List<String> _generatePhrases(String prompt) {
     final lowerPrompt = prompt.toLowerCase();
-    
-    if (lowerPrompt.contains('protocol') || lowerPrompt.contains('plan') || lowerPrompt.contains('routine')) {
+
+    if (lowerPrompt.contains('protocol') ||
+        lowerPrompt.contains('plan') ||
+        lowerPrompt.contains('routine')) {
       return [
         "Analyzing health profile...",
         "Evaluating biomedical variables...",
@@ -1279,8 +1383,11 @@ class _LoadingBubbleState extends State<_LoadingBubble> {
         "Synthesizing protocol...",
       ];
     }
-    
-    if (lowerPrompt.contains('simulate') || lowerPrompt.contains('twin') || lowerPrompt.contains('predict') || lowerPrompt.contains('impact')) {
+
+    if (lowerPrompt.contains('simulate') ||
+        lowerPrompt.contains('twin') ||
+        lowerPrompt.contains('predict') ||
+        lowerPrompt.contains('impact')) {
       return [
         "Initializing digital twin...",
         "Running metabolic permutations...",
@@ -1288,7 +1395,7 @@ class _LoadingBubbleState extends State<_LoadingBubble> {
         "Finalizing simulation...",
       ];
     }
-    
+
     return [
       "Analyzing context...",
       "Querying wellness intelligence...",
@@ -1317,8 +1424,10 @@ class _LoadingBubbleState extends State<_LoadingBubble> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 SizedBox(
-                  width: 14, height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: c.brandPrimary),
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: c.brandPrimary),
                 ),
                 const SizedBox(width: 12),
                 AnimatedSwitcher(
@@ -1345,12 +1454,12 @@ class _LoadingBubbleState extends State<_LoadingBubble> {
 
 // Extension to easily blur containers
 extension BlurExtension on Widget {
-   Widget blur(double sigma) {
-     return ImageFiltered(
-       imageFilter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-       child: this,
-     );
-   }
+  Widget blur(double sigma) {
+    return ImageFiltered(
+      imageFilter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+      child: this,
+    );
+  }
 }
 
 class _GlassSuggestionChip extends StatelessWidget {
@@ -1390,7 +1499,6 @@ class _GlassSuggestionChip extends StatelessWidget {
     );
   }
 }
-
 
 class _ProtocolCard extends StatelessWidget {
   final HealthProtocol protocol;
@@ -1437,8 +1545,8 @@ class _ProtocolCard extends StatelessWidget {
                             protocol.title,
                             style: TextStyle(
                               fontFamily: ZyndioType.family,
-                              fontWeight: FontWeight.w700, 
-                              fontSize: 16, 
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
                               color: c.textPrimary,
                               letterSpacing: -0.2,
                             ),
@@ -1450,7 +1558,7 @@ class _ProtocolCard extends StatelessWidget {
                                 "Protocol Document",
                                 style: TextStyle(
                                   fontFamily: ZyndioType.family,
-                                  fontSize: 13, 
+                                  fontSize: 13,
                                   fontWeight: FontWeight.w500,
                                   color: c.textSecondary,
                                 ),
@@ -1469,7 +1577,7 @@ class _ProtocolCard extends StatelessWidget {
                                 "AI Generated",
                                 style: TextStyle(
                                   fontFamily: ZyndioType.family,
-                                  fontSize: 13, 
+                                  fontSize: 13,
                                   fontWeight: FontWeight.w500,
                                   color: c.statusSuccess,
                                 ),
@@ -1479,7 +1587,8 @@ class _ProtocolCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Icon(LucideIcons.chevronRight, color: c.textTertiary, size: 20),
+                    Icon(LucideIcons.chevronRight,
+                        color: c.textTertiary, size: 20),
                   ],
                 ),
               ),
@@ -1558,7 +1667,6 @@ class _MealPlanCard extends StatelessWidget {
     );
   }
 }
-
 
 class _GrokActionButton extends StatelessWidget {
   final IconData icon;

@@ -48,7 +48,9 @@ import '../screens/settings/export_health_data_screen.dart'; // Export Health Da
 import '../screens/settings/leagues_screen.dart'; // <--- Added Import
 import '../screens/lens/lens_screen.dart';
 import '../screens/notifications/notification_screen.dart';
-import '../screens/common/coming_soon_screen.dart'; // <--- Added Import
+import '../screens/common/coming_soon_screen.dart';
+import '../models/food_log.dart';
+import '../screens/settings/meal_detail_screen.dart';
 import '../screens/common/service_unavailable_screen.dart';
 import '../main.dart' show supabaseInitializedProvider;
 import '../screens/settings/timeline_history_screen.dart';
@@ -426,6 +428,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/food-log',
         name: 'lens_history',
         builder: (context, state) => const LensHistoryScreen(),
+      ),
+      // Food log → tap a meal. Needs the FoodLog as `extra`; a deep link or
+      // restored route without it goes back to the log instead of crashing.
+      GoRoute(
+        path: '/meal-detail',
+        name: 'meal_detail',
+        redirect: (context, state) =>
+            state.extra is FoodLog ? null : '/food-log',
+        builder: (context, state) =>
+            MealDetailScreen(log: state.extra! as FoodLog),
       ),
       GoRoute(
         path: '/notifications',

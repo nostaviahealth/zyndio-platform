@@ -1461,21 +1461,27 @@ class _SummaryCard extends StatelessWidget {
                     fraction: total == 0 ? 0 : inRange / total,
                     track: z.tileBg,
                   ),
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '$inRange',
-                          style: ZyndioType.numericHero.copyWith(
-                              fontSize: 38, height: 1.1, color: c.textPrimary),
-                        ),
-                        Text(
-                          'of $total',
-                          style: ZyndioType.footnote
-                              .copyWith(color: c.textSecondary),
-                        ),
-                      ],
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '$inRange',
+                            style: ZyndioType.numericHero.copyWith(
+                                fontSize: 38,
+                                height: 1.1,
+                                color: c.textPrimary),
+                          ),
+                          Text(
+                            'of $total',
+                            style: ZyndioType.footnote
+                                .copyWith(color: c.textSecondary),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
