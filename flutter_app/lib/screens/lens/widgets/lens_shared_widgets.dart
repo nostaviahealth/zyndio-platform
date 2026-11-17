@@ -3,30 +3,118 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../config/theme.dart';
 import '../../../models/food_analysis.dart';
+import '../../../widgets/tc025/tc025_widgets.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Utilities
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Score colour without a [BuildContext] (kept for API compatibility). Uses
+/// the shared tint families, which read on both light and dark surfaces.
+/// Widgets with a context use [_scoreColor] (semantic status tokens) instead.
 Color getScoreColor(int score) {
-  if (score >= 80) return BrandColors.emerald500;
-  if (score >= 50) return BrandColors.amber500;
-  return BrandColors.red500;
+  if (score >= 80) return ZyndioTint.green.colors.last;
+  if (score >= 50) return ZyndioTint.amber.colors.last;
+  return ZyndioTint.rose.colors.last;
 }
 
-Color _impactColor(String impact) {
+Color _scoreColor(ZyndioColors c, int score) {
+  if (score >= 80) return c.statusSuccess;
+  if (score >= 50) return c.statusWarning;
+  return c.statusCritical;
+}
+
+Color _impactColor(ZyndioColors c, String impact) {
   switch (impact.toLowerCase()) {
-    case 'positive': return BrandColors.emerald500;
-    case 'negative': return BrandColors.red500;
-    default: return BrandColors.amber500;
+    case 'positive':
+      return c.statusSuccess;
+    case 'negative':
+      return c.statusCritical;
+    default:
+      return c.statusWarning;
+  }
+}
+
+ZyndioPillTone _impactTone(String impact) {
+  switch (impact.toLowerCase()) {
+    case 'positive':
+      return ZyndioPillTone.success;
+    case 'negative':
+      return ZyndioPillTone.critical;
+    default:
+      return ZyndioPillTone.warning;
   }
 }
 
 IconData _impactIcon(String impact) {
   switch (impact.toLowerCase()) {
-    case 'positive': return LucideIcons.trendingUp;
-    case 'negative': return LucideIcons.trendingDown;
-    default: return LucideIcons.minus;
+    case 'positive':
+      return LucideIcons.trendingUp;
+    case 'negative':
+      return LucideIcons.trendingDown;
+    default:
+      return LucideIcons.minus;
+  }
+}
+
+TextStyle _style(
+  double size,
+  Color color, {
+  FontWeight weight = FontWeight.w400,
+  double? height,
+  double? letterSpacing,
+  FontStyle? fontStyle,
+}) =>
+    TextStyle(
+      fontFamily: ZyndioType.family,
+      fontSize: size,
+      fontWeight: weight,
+      height: height,
+      letterSpacing: letterSpacing,
+      fontStyle: fontStyle,
+      color: color,
+    );
+
+/// Thin rounded progress track used by every Lens meter.
+class _Meter extends StatelessWidget {
+  const _Meter({required this.value, required this.color, this.height = 6});
+  final double value;
+  final Color color;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: LinearProgressIndicator(
+        value: value.clamp(0.0, 1.0),
+        backgroundColor: context.zc.bgSunken,
+        valueColor: AlwaysStoppedAnimation<Color>(color),
+        minHeight: height,
+      ),
+    );
+  }
+}
+
+/// Small round icon badge on a soft tint of [color].
+class _IconBadge extends StatelessWidget {
+  const _IconBadge({required this.icon, required this.color, this.size = 30});
+  final IconData icon;
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, color: color, size: size * 0.5),
+    );
   }
 }
 
@@ -41,21 +129,23 @@ class LensSectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.zc;
     return Align(
       alignment: Alignment.centerLeft,
       child: Row(
         children: [
           if (icon != null) ...[
-            Icon(icon, color: Colors.white38, size: 14),
+            Icon(icon, color: c.textTertiary, size: 14),
             const SizedBox(width: 8),
           ],
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.5,
+          Expanded(
+            child: Semantics(
+              header: true,
+              child: Text(
+                title,
+                style: _style(12, c.textTertiary,
+                    weight: FontWeight.w700, letterSpacing: 1.3),
+              ),
             ),
           ),
         ],
@@ -86,7 +176,7 @@ class _LensScoreRingState extends State<LensScoreRing> with SingleTickerProvider
   void initState() {
     super.initState();
     _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500));
-    
+
     _ringAnimation = Tween<double>(begin: 0.0, end: widget.score / 100.0).animate(
       CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic),
     );
@@ -122,40 +212,47 @@ class _LensScoreRingState extends State<LensScoreRing> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
-    final scoreColor = getScoreColor(widget.score);
+    final c = context.zc;
+    final scoreColor = _scoreColor(c, widget.score);
     return AnimatedBuilder(
       animation: _ctrl,
-      builder: (ctx, _) => Stack(
-        alignment: Alignment.center,
-        children: [
-          SizedBox(
-            width: 130,
-            height: 130,
-            child: CustomPaint(
+      builder: (ctx, _) => SizedBox(
+        width: 130,
+        height: 130,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            CustomPaint(
               painter: _GlowRingPainter(
                 value: _ringAnimation.value,
                 color: scoreColor,
+                track: c.bgSunken,
               ),
             ),
-          ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                "${_scoreAnimation.value}",
-                style: TextStyle(
-                  fontSize: 42,
-                  fontWeight: FontWeight.bold,
-                  color: widget.textColor ?? scoreColor,
+            // FittedBox keeps the number inside the ring at any text size.
+            Padding(
+              padding: const EdgeInsets.all(26),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      "${_scoreAnimation.value}",
+                      style: _style(42, widget.textColor ?? scoreColor,
+                              weight: FontWeight.w700, height: 1.1)
+                          .copyWith(fontFeatures: ZyndioType.tabular),
+                    ),
+                    Text(
+                      "/ 100",
+                      style: _style(12, c.textTertiary),
+                    ),
+                  ],
                 ),
               ),
-              Text(
-                "/ 100",
-                style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12),
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -164,7 +261,8 @@ class _LensScoreRingState extends State<LensScoreRing> with SingleTickerProvider
 class _GlowRingPainter extends CustomPainter {
   final double value;
   final Color color;
-  _GlowRingPainter({required this.value, required this.color});
+  final Color track;
+  _GlowRingPainter({required this.value, required this.color, required this.track});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -174,7 +272,7 @@ class _GlowRingPainter extends CustomPainter {
 
     // Background ring
     final bgPaint = Paint()
-      ..color = Colors.white.withOpacity(0.08)
+      ..color = track
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
@@ -182,7 +280,7 @@ class _GlowRingPainter extends CustomPainter {
 
     // Glow layer
     final glowPaint = Paint()
-      ..color = color.withOpacity(0.25)
+      ..color = color.withValues(alpha: 0.22)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth + 8
       ..strokeCap = StrokeCap.round
@@ -211,7 +309,8 @@ class _GlowRingPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_GlowRingPainter old) => old.value != value;
+  bool shouldRepaint(_GlowRingPainter old) =>
+      old.value != value || old.color != color || old.track != track;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -261,31 +360,36 @@ class _LensMacroBarState extends State<LensMacroBar> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
-    final textColor = widget.textColor ?? Colors.white;
+    final c = context.zc;
+    final labelColor = widget.textColor?.withValues(alpha: 0.8) ?? c.textSecondary;
+    final valueColor = widget.textColor ?? c.textPrimary;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(widget.label, style: TextStyle(color: textColor.withOpacity(0.8), fontSize: 13)),
-              Text("${widget.amount}g", style: TextStyle(color: textColor, fontSize: 13, fontWeight: FontWeight.bold)),
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(widget.label, style: _style(14, labelColor)),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                "${widget.amount}g",
+                style: _style(14, valueColor, weight: FontWeight.w700),
+              ),
             ],
           ),
           const SizedBox(height: 6),
           AnimatedBuilder(
             animation: _animation,
-            builder: (_, __) => ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: _animation.value,
-                backgroundColor: Colors.white.withOpacity(0.08),
-                color: widget.color,
-                minHeight: 6,
-              ),
-            ),
+            builder: (_, __) => _Meter(value: _animation.value, color: widget.color),
           ),
         ],
       ),
@@ -303,29 +407,18 @@ class LensBioImpactCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _impactColor(item.impact);
+    final c = context.zc;
+    final color = _impactColor(c, item.impact);
     final icon = _impactIcon(item.impact);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(0.2)),
-      ),
+      decoration: zyndioCard(context, radius: 18),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            margin: const EdgeInsets.only(top: 2), // Align icon with first line of text
-            padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 14),
-          ),
+          _IconBadge(icon: icon, color: color),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -334,31 +427,18 @@ class LensBioImpactCard extends StatelessWidget {
                 if (item.category.isNotEmpty) ...[
                   Text(
                     item.category.toUpperCase(),
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.0,
-                    ),
+                    style: _style(11, color, weight: FontWeight.w700, letterSpacing: 1.0),
                   ),
                   const SizedBox(height: 4),
                 ],
                 Text(
                   item.title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: _style(15, c.textPrimary, weight: FontWeight.w600, height: 20 / 15),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   item.description,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.55),
-                    fontSize: 12,
-                    height: 1.5,
-                  ),
+                  style: _style(13, c.textSecondary, height: 1.45),
                 ),
               ],
             ),
@@ -377,50 +457,46 @@ class LensToxinItem extends StatelessWidget {
   final Toxin toxin;
   const LensToxinItem({super.key, required this.toxin});
 
-  Color _severityColor(String severity) {
+  ZyndioPillTone _severityTone(String severity) {
     switch (severity.toLowerCase()) {
-      case 'high': return BrandColors.red500;
-      case 'medium': return BrandColors.orange500;
-      default: return BrandColors.amber500;
+      case 'high':
+        return ZyndioPillTone.critical;
+      case 'medium':
+        return ZyndioPillTone.warning;
+      default:
+        return ZyndioPillTone.neutral;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final color = _severityColor(toxin.severity);
+    final c = context.zc;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.07),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.25)),
-      ),
-      child: Row(
+      padding: const EdgeInsets.all(14),
+      decoration: zyndioCard(context, radius: 16),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              toxin.severity.toUpperCase(),
-              style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  toxin.name,
+                  style: _style(14, c.textPrimary, weight: FontWeight.w600),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: ZyndioPill(
+                  toxin.severity.toUpperCase(),
+                  tone: _severityTone(toxin.severity),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(toxin.name, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13)),
-                const SizedBox(height: 2),
-                Text(toxin.details, style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 11, height: 1.4)),
-              ],
-            ),
-          ),
+          const SizedBox(height: 4),
+          Text(toxin.details, style: _style(13, c.textSecondary, height: 1.4)),
         ],
       ),
     );
@@ -437,40 +513,34 @@ class LensMetabolicCard extends StatelessWidget {
   final Color? textColor;
 
   const LensMetabolicCard({
-    super.key, 
-    required this.label, 
+    super.key,
+    required this.label,
     required this.value,
     this.textColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    final effectiveColor = textColor ?? Colors.white;
+    final c = context.zc;
+    final custom = textColor;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: effectiveColor.withOpacity(0.06),
+        color: custom?.withValues(alpha: 0.06) ?? c.bgSunken,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: effectiveColor.withOpacity(0.1)),
+        border: custom == null ? null : Border.all(color: custom.withValues(alpha: 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label, 
-            style: TextStyle(
-              color: effectiveColor.withOpacity(0.45), 
-              fontSize: 11,
-            ),
+            label,
+            style: _style(12, custom?.withValues(alpha: 0.55) ?? c.textTertiary),
           ),
           const SizedBox(height: 4),
           Text(
-            value, 
-            style: TextStyle(
-              color: effectiveColor, 
-              fontSize: 15, 
-              fontWeight: FontWeight.bold,
-            ),
+            value,
+            style: _style(15, custom ?? c.textPrimary, weight: FontWeight.w700),
           ),
         ],
       ),
@@ -487,85 +557,56 @@ class LensUPFCard extends StatelessWidget {
   final UPFAnalysis upf;
   const LensUPFCard({super.key, required this.upf});
 
-  Color _levelColor() {
+  (Color, ZyndioPillTone) _level(ZyndioColors c) {
     switch (upf.score) {
-      case <= 2: return BrandColors.emerald500;
-      case <= 5: return BrandColors.amber500;
-      default: return BrandColors.red500;
+      case <= 2:
+        return (c.statusSuccess, ZyndioPillTone.success);
+      case <= 5:
+        return (c.statusWarning, ZyndioPillTone.warning);
+      default:
+        return (c.statusCritical, ZyndioPillTone.critical);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     if (upf.level == 'Unknown') return const SizedBox.shrink();
-    final color = _levelColor();
+    final c = context.zc;
+    final (color, tone) = _level(c);
     final barValue = (upf.score / 10.0).clamp(0.0, 1.0);
 
-    return Container(
+    return ZyndioCard(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.25)),
-      ),
+      radius: 20,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(LucideIcons.testTube2, color: color, size: 14),
-                  const SizedBox(width: 8),
-                  Text("Processing Level", style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
-                ],
+              Icon(LucideIcons.testTube2, color: color, size: 16),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text("Processing Level", style: _style(14, c.textSecondary)),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  upf.level,
-                  style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
-                ),
-              ),
+              const SizedBox(width: 8),
+              Flexible(child: ZyndioPill(upf.level, tone: tone)),
             ],
           ),
           const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: barValue,
-              backgroundColor: Colors.white.withOpacity(0.08),
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-              minHeight: 6,
-            ),
-          ),
+          _Meter(value: barValue, color: color),
           const SizedBox(height: 10),
           Text(
             upf.verdict,
-            style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12, height: 1.4),
+            style: _style(13, c.textSecondary, height: 1.4),
           ),
           if (upf.additives.isNotEmpty) ...[
             const SizedBox(height: 10),
             Wrap(
               spacing: 6,
               runSpacing: 6,
-              children: upf.additives.map((additive) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: BrandColors.red500.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: BrandColors.red500.withOpacity(0.2)),
-                ),
-                child: Text(
-                  additive,
-                  style: const TextStyle(color: BrandColors.red500, fontSize: 10, fontWeight: FontWeight.w500),
-                ),
-              )).toList(),
+              children: upf.additives
+                  .map((additive) => ZyndioPill(additive, tone: ZyndioPillTone.critical))
+                  .toList(),
             ),
           ],
         ],
@@ -579,87 +620,85 @@ class LensCircadianCard extends StatelessWidget {
   final CircadianMatch circadian;
   const LensCircadianCard({super.key, required this.circadian});
 
-  Color _matchColor() {
+  Color _matchColor(ZyndioColors c) {
     switch (circadian.match.toLowerCase()) {
-      case 'excellent': return BrandColors.emerald500;
-      case 'good': return const Color(0xFF22D3EE);
-      case 'fair': return BrandColors.amber500;
-      default: return BrandColors.red500;
+      case 'excellent':
+        return c.statusSuccess;
+      case 'good':
+        return c.brandPrimary;
+      case 'fair':
+        return c.statusWarning;
+      default:
+        return c.statusCritical;
     }
   }
 
   IconData _timeIcon() {
     switch (circadian.mealTime.toLowerCase()) {
-      case 'morning': return LucideIcons.sunrise;
-      case 'afternoon': return LucideIcons.sun;
-      case 'evening': return LucideIcons.sunset;
-      default: return LucideIcons.moon;
+      case 'morning':
+        return LucideIcons.sunrise;
+      case 'afternoon':
+        return LucideIcons.sun;
+      case 'evening':
+        return LucideIcons.sunset;
+      default:
+        return LucideIcons.moon;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     if (circadian.match == 'Unknown') return const SizedBox.shrink();
-    final color = _matchColor();
+    final c = context.zc;
+    final color = _matchColor(c);
 
-    return Container(
+    return ZyndioCard(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF1E1B4B).withOpacity(0.6),
-            color.withOpacity(0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
+      radius: 20,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(_timeIcon(), color: color, size: 16),
-              const SizedBox(width: 8),
-              Text(
-                "${circadian.mealTime} • Circadian Match",
-                style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13),
+              _IconBadge(icon: _timeIcon(), color: color),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  "${circadian.mealTime} • Circadian Match",
+                  style: _style(14, c.textSecondary),
+                ),
               ),
-              const Spacer(),
-              Text(
-                "${circadian.matchScore}%",
-                style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  "${circadian.matchScore}%",
+                  textAlign: TextAlign.end,
+                  style: _style(17, color, weight: FontWeight.w700),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: circadian.matchScore / 100,
-              backgroundColor: Colors.white.withOpacity(0.08),
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-              minHeight: 5,
-            ),
-          ),
+          const SizedBox(height: 12),
+          _Meter(value: circadian.matchScore / 100, color: color, height: 5),
           const SizedBox(height: 10),
           Text(
             circadian.reason,
-            style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12, height: 1.4),
+            style: _style(13, c.textSecondary, height: 1.4),
           ),
           if (circadian.recommendation.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(LucideIcons.lightbulb, color: BrandColors.amber500, size: 13),
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Icon(LucideIcons.lightbulb, color: c.statusWarning, size: 14),
+                ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     circadian.recommendation,
-                    style: TextStyle(color: BrandColors.amber500.withOpacity(0.9), fontSize: 11, height: 1.4),
+                    style: _style(13, c.textPrimary, height: 1.4),
                   ),
                 ),
               ],
@@ -679,84 +718,56 @@ class LensBioHackCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (bioHack.tip.isEmpty) return const SizedBox.shrink();
+    final c = context.zc;
 
-    return Container(
+    return ZyndioCard(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF059669).withOpacity(0.12),
-            const Color(0xFF065F46).withOpacity(0.08),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: BrandColors.emerald500.withOpacity(0.35)),
-      ),
+      radius: 20,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(7),
-                decoration: BoxDecoration(
-                  color: BrandColors.emerald500.withOpacity(0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(LucideIcons.zap, color: BrandColors.emerald500, size: 14),
-              ),
+              const ZyndioIconTile(icon: LucideIcons.zap, tint: ZyndioTint.green, size: 34),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text(
                   "BIO-HACK THIS MEAL",
-                  style: TextStyle(
-                    color: BrandColors.emerald500,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                  ),
+                  style: _style(12, c.statusSuccess,
+                      weight: FontWeight.w700, letterSpacing: 1.2),
                 ),
               ),
-              if (bioHack.potencyPercent > 0)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: BrandColors.emerald500.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
+              if (bioHack.potencyPercent > 0) ...[
+                const SizedBox(width: 8),
+                Flexible(
+                  child: ZyndioPill(
                     "+${bioHack.potencyPercent}%",
-                    style: const TextStyle(
-                      color: BrandColors.emerald500,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    tone: ZyndioPillTone.success,
                   ),
                 ),
+              ],
             ],
           ),
           const SizedBox(height: 12),
           Text(
             bioHack.tip,
-            style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600, height: 1.4),
+            style: _style(16, c.textPrimary, weight: FontWeight.w600, height: 1.4),
           ),
           const SizedBox(height: 8),
           Text(
             bioHack.mechanism,
-            style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12, height: 1.4),
+            style: _style(13, c.textSecondary, height: 1.4),
           ),
           if (bioHack.timing.isNotEmpty) ...[
             const SizedBox(height: 10),
             Row(
               children: [
-                Icon(LucideIcons.clock, color: Colors.white.withOpacity(0.4), size: 12),
+                Icon(LucideIcons.clock, color: c.textTertiary, size: 13),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     bioHack.timing,
-                    style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11, fontStyle: FontStyle.italic),
+                    style: _style(12, c.textTertiary, fontStyle: FontStyle.italic),
                   ),
                 ),
               ],
@@ -794,25 +805,16 @@ class _HormoneRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _impactColor(hormone.impact);
+    final c = context.zc;
+    final color = _impactColor(c, hormone.impact);
 
     return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.04),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
-      ),
+      padding: const EdgeInsets.all(14),
+      decoration: zyndioCard(context, radius: 16),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 14),
-          ),
+          _IconBadge(icon: icon, color: color, size: 32),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -820,21 +822,15 @@ class _HormoneRow extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(
-                      hormone.name,
-                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
+                    Expanded(
                       child: Text(
-                        hormone.response,
-                        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+                        hormone.name,
+                        style: _style(14, c.textPrimary, weight: FontWeight.w600),
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: ZyndioPill(hormone.response, tone: _impactTone(hormone.impact)),
                     ),
                   ],
                 ),
@@ -842,7 +838,7 @@ class _HormoneRow extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     hormone.detail,
-                    style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11, height: 1.4),
+                    style: _style(13, c.textSecondary, height: 1.4),
                   ),
                 ],
               ],
@@ -863,51 +859,42 @@ class LensBioavailabilityCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (bioavailability.absorptionScore == 0 && bioavailability.tips.isEmpty) return const SizedBox.shrink();
 
+    final c = context.zc;
     final score = bioavailability.absorptionScore;
-    final color = getScoreColor(score);
+    final color = _scoreColor(c, score);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Absorption score bar
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.04),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: zyndioCard(context, radius: 16),
           child: Row(
             children: [
-              Icon(LucideIcons.microscope, color: color, size: 16),
+              Icon(LucideIcons.microscope, color: color, size: 18),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          "Nutrient Absorption",
-                          style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
+                        Expanded(
+                          child: Text(
+                            "Nutrient Absorption",
+                            style: _style(13, c.textSecondary),
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         Text(
                           "$score%",
-                          style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.bold),
+                          style: _style(14, color, weight: FontWeight.w700),
                         ),
                       ],
                     ),
                     const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: score / 100,
-                        backgroundColor: Colors.white.withOpacity(0.08),
-                        valueColor: AlwaysStoppedAnimation<Color>(color),
-                        minHeight: 5,
-                      ),
-                    ),
+                    _Meter(value: score / 100, color: color, height: 5),
                   ],
                 ),
               ),
@@ -929,26 +916,18 @@ class _BioavailabilityTipRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = tip.impact == 'positive' ? BrandColors.emerald500 : BrandColors.red500;
+    final c = context.zc;
+    final color = tip.impact == 'positive' ? c.statusSuccess : c.statusCritical;
     final icon = tip.impact == 'positive' ? LucideIcons.plus : LucideIcons.minus;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.2)),
-      ),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(14),
+      decoration: zyndioCard(context, radius: 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            margin: const EdgeInsets.only(top: 1),
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(color: color.withOpacity(0.15), shape: BoxShape.circle),
-            child: Icon(icon, color: color, size: 10),
-          ),
+          _IconBadge(icon: icon, color: color, size: 24),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -956,30 +935,22 @@ class _BioavailabilityTipRow extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Flexible(
+                    Expanded(
                       child: Text(
                         tip.title,
-                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                        style: _style(14, c.textPrimary, weight: FontWeight.w600),
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.07),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        tip.type,
-                        style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9),
-                      ),
-                    ),
+                    if (tip.type.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Flexible(child: ZyndioPill(tip.type)),
+                    ],
                   ],
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 Text(
                   tip.description,
-                  style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11, height: 1.4),
+                  style: _style(13, c.textSecondary, height: 1.4),
                 ),
               ],
             ),
@@ -995,62 +966,45 @@ class LensLongevityCard extends StatelessWidget {
   final LongevityImpact longevity;
   const LensLongevityCard({super.key, required this.longevity});
 
-  Color _effectColor(String effect) {
+  Color _effectColor(ZyndioColors c, String effect) {
     final e = effect.toLowerCase();
-    if (e.contains('activating') || e.contains('anti') || e.contains('inhibiting')) return BrandColors.emerald500;
-    if (e.contains('suppressing') || e.contains('pro')) return BrandColors.red500;
-    return Colors.white38;
+    if (e.contains('activating') || e.contains('anti') || e.contains('inhibiting')) return c.statusSuccess;
+    if (e.contains('suppressing') || e.contains('pro')) return c.statusCritical;
+    return c.textSecondary;
   }
 
   @override
   Widget build(BuildContext context) {
     if (longevity.longevityScore == 0) return const SizedBox.shrink();
 
+    final c = context.zc;
     final credit = longevity.longevityCredit;
-    final creditColor = credit >= 0 ? BrandColors.emerald500 : BrandColors.red500;
+    final creditColor = credit >= 0 ? c.statusSuccess : c.statusCritical;
     final creditPrefix = credit >= 0 ? "+" : "";
 
-    return Container(
+    return ZyndioCard(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF4F46E5).withOpacity(0.12),
-            const Color(0xFF7C3AED).withOpacity(0.06),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.3)),
-      ),
+      radius: 20,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(7),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF6366F1).withOpacity(0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(LucideIcons.dna, color: Color(0xFF818CF8), size: 14),
-              ),
+              const ZyndioIconTile(icon: LucideIcons.dna, tint: ZyndioTint.indigo, size: 34),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   "Longevity Score",
-                  style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13),
+                  style: _style(14, c.textSecondary),
                 ),
               ),
-              Text(
-                "$creditPrefix$credit pts",
-                style: TextStyle(
-                  color: creditColor,
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  "$creditPrefix$credit pts",
+                  textAlign: TextAlign.end,
+                  style: _style(16, creditColor, weight: FontWeight.w700),
                 ),
               ),
             ],
@@ -1058,25 +1012,22 @@ class LensLongevityCard extends StatelessWidget {
           const SizedBox(height: 12),
 
           // Score bar
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: longevity.longevityScore / 100,
-              backgroundColor: Colors.white.withOpacity(0.08),
-              color: const Color(0xFF6366F1),
-              minHeight: 5,
-            ),
+          _Meter(
+            value: longevity.longevityScore / 100,
+            color: ZyndioTint.indigo.colors.last,
+            height: 5,
           ),
           const SizedBox(height: 12),
 
           // Three pathway chips
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _PathwayChip(label: "Sirtuin", value: longevity.sirtuinEffect, color: _effectColor(longevity.sirtuinEffect)),
+              _PathwayChip(label: "Sirtuin", value: longevity.sirtuinEffect, color: _effectColor(c, longevity.sirtuinEffect)),
               const SizedBox(width: 6),
-              _PathwayChip(label: "mTOR", value: longevity.mTorEffect, color: _effectColor(longevity.mTorEffect)),
+              _PathwayChip(label: "mTOR", value: longevity.mTorEffect, color: _effectColor(c, longevity.mTorEffect)),
               const SizedBox(width: 6),
-              _PathwayChip(label: "Inflam.", value: longevity.inflammationEffect.split('-').first, color: _effectColor(longevity.inflammationEffect)),
+              _PathwayChip(label: "Inflam.", value: longevity.inflammationEffect.split('-').first, color: _effectColor(c, longevity.inflammationEffect)),
             ],
           ),
           const SizedBox(height: 12),
@@ -1084,7 +1035,7 @@ class LensLongevityCard extends StatelessWidget {
           // Summary
           Text(
             longevity.longevitySummary,
-            style: TextStyle(color: Colors.white.withOpacity(0.65), fontSize: 12, height: 1.5),
+            style: _style(13, c.textSecondary, height: 1.5),
           ),
         ],
       ),
@@ -1100,21 +1051,27 @@ class _PathwayChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.zc;
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.25)),
+          color: c.bgSunken,
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
           children: [
-            Text(label, style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9)),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: _style(11, c.textTertiary),
+            ),
             const SizedBox(height: 2),
             Text(
               value,
-              style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+              maxLines: 1,
+              style: _style(12, color, weight: FontWeight.w700),
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
             ),
@@ -1192,39 +1149,40 @@ class _LensMetabolicCurveWidgetState extends State<LensMetabolicCurveWidget>
 
   @override
   Widget build(BuildContext context) {
+    final c = context.zc;
     final curveType = widget.energyCurve.toLowerCase();
     Color lineColor;
+    ZyndioPillTone tone;
     String label;
 
     if (curveType.contains('spike')) {
-      lineColor = BrandColors.red500;
+      lineColor = c.statusCritical;
+      tone = ZyndioPillTone.critical;
       label = "Glucose Spike";
     } else if (curveType.contains('sustained')) {
-      lineColor = BrandColors.emerald500;
+      lineColor = c.statusSuccess;
+      tone = ZyndioPillTone.success;
       label = "Sustained Energy";
     } else {
-      lineColor = BrandColors.amber500;
+      lineColor = c.statusWarning;
+      tone = ZyndioPillTone.warning;
       label = "Energy Crash";
     }
 
+    final axis = _style(11, c.textTertiary);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              "6-Hour Energy Simulation",
-              style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 11),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: lineColor.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(6),
+            Expanded(
+              child: Text(
+                "6-Hour Energy Simulation",
+                style: _style(13, c.textSecondary),
               ),
-              child: Text(label, style: TextStyle(color: lineColor, fontSize: 10, fontWeight: FontWeight.bold)),
             ),
+            const SizedBox(width: 8),
+            Flexible(child: ZyndioPill(label, tone: tone)),
           ],
         ),
         const SizedBox(height: 10),
@@ -1247,9 +1205,9 @@ class _LensMetabolicCurveWidgetState extends State<LensMetabolicCurveWidget>
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text("Now", style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 9)),
-            Text("3h", style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 9)),
-            Text("+6h", style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 9)),
+            Text("Now", style: axis),
+            Text("3h", style: axis),
+            Text("+6h", style: axis),
           ],
         ),
       ],
@@ -1278,7 +1236,7 @@ class _MetabolicCurvePainter extends CustomPainter {
 
     // Glow line
     final glowPaint = Paint()
-      ..color = lineColor.withOpacity(0.2)
+      ..color = lineColor.withValues(alpha: 0.2)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 8
       ..strokeCap = StrokeCap.round
@@ -1305,7 +1263,7 @@ class _MetabolicCurvePainter extends CustomPainter {
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [lineColor.withOpacity(0.2), lineColor.withOpacity(0.0)],
+        colors: [lineColor.withValues(alpha: 0.2), lineColor.withValues(alpha: 0.0)],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
     canvas.drawPath(fillPath, fillPaint);
@@ -1325,14 +1283,15 @@ class _MetabolicCurvePainter extends CustomPainter {
     final last = points.last;
     final dotPaint = Paint()..color = lineColor;
     final dotGlowPaint = Paint()
-      ..color = lineColor.withOpacity(0.3)
+      ..color = lineColor.withValues(alpha: 0.3)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
     canvas.drawCircle(last, 6, dotGlowPaint);
     canvas.drawCircle(last, 4, dotPaint);
   }
 
   @override
-  bool shouldRepaint(_MetabolicCurvePainter old) => old.progress != progress;
+  bool shouldRepaint(_MetabolicCurvePainter old) =>
+      old.progress != progress || old.lineColor != lineColor;
 }
 
 /// Wearable Bio-Data Integration Banner
@@ -1353,56 +1312,41 @@ class LensBioDataBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool hasRealData = recoveryScore > 0 || stressScore > 0 || sleepHours > 0;
     if (!hasRealData) return const SizedBox.shrink();
+    final c = context.zc;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF0EA5E9).withOpacity(0.12),
-            const Color(0xFF6366F1).withOpacity(0.06),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF0EA5E9).withOpacity(0.3)),
-      ),
+    return ZyndioCard(
+      padding: const EdgeInsets.all(16),
+      radius: 20,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(LucideIcons.watch, color: Color(0xFF38BDF8), size: 13),
+              Icon(LucideIcons.watch, color: c.brandPrimary, size: 14),
               const SizedBox(width: 7),
-              Text(
-                "PERSONALIZED FOR YOU TODAY",
-                style: TextStyle(
-                  color: const Color(0xFF38BDF8).withOpacity(0.9),
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.8,
+              Expanded(
+                child: Text(
+                  "PERSONALIZED FOR YOU TODAY",
+                  style: _style(11, c.brandPrimary,
+                      weight: FontWeight.w700, letterSpacing: 0.8),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 10),
-          Row(
+          // Wrap, not Row: four chips never overflow a narrow phone.
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
               if (recoveryScore > 0)
-                _BioChip(label: "Recovery", value: "$recoveryScore%", color: _recoveryColor(recoveryScore)),
-              if (stressScore > 0) ...[
-                const SizedBox(width: 8),
-                _BioChip(label: "Stress", value: "$stressScore/100", color: _stressColor(stressScore)),
-              ],
-              if (sleepHours > 0) ...[
-                const SizedBox(width: 8),
-                _BioChip(label: "Sleep", value: "${sleepHours.toStringAsFixed(1)}h", color: const Color(0xFF818CF8)),
-              ],
-              if (hrv != null) ...[
-                const SizedBox(width: 8),
-                _BioChip(label: "HRV", value: "${hrv!.round()}", color: BrandColors.emerald500),
-              ],
+                _BioChip(label: "Recovery", value: "$recoveryScore%", color: _recoveryColor(c, recoveryScore)),
+              if (stressScore > 0)
+                _BioChip(label: "Stress", value: "$stressScore/100", color: _stressColor(c, stressScore)),
+              if (sleepHours > 0)
+                _BioChip(label: "Sleep", value: "${sleepHours.toStringAsFixed(1)}h", color: ZyndioTint.indigo.colors.last),
+              if (hrv != null)
+                _BioChip(label: "HRV", value: "${hrv!.round()}", color: c.statusSuccess),
             ],
           ),
         ],
@@ -1410,16 +1354,16 @@ class LensBioDataBanner extends StatelessWidget {
     );
   }
 
-  Color _recoveryColor(int score) {
-    if (score >= 70) return BrandColors.emerald500;
-    if (score >= 40) return BrandColors.amber500;
-    return BrandColors.red500;
+  Color _recoveryColor(ZyndioColors c, int score) {
+    if (score >= 70) return c.statusSuccess;
+    if (score >= 40) return c.statusWarning;
+    return c.statusCritical;
   }
 
-  Color _stressColor(int score) {
-    if (score >= 60) return BrandColors.red500;
-    if (score >= 35) return BrandColors.amber500;
-    return BrandColors.emerald500;
+  Color _stressColor(ZyndioColors c, int score) {
+    if (score >= 60) return c.statusCritical;
+    if (score >= 35) return c.statusWarning;
+    return c.statusSuccess;
   }
 }
 
@@ -1431,17 +1375,18 @@ class _BioChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.zc;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.25)),
+        color: c.bgSunken,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(value, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold)),
-          Text(label, style: TextStyle(color: color.withOpacity(0.6), fontSize: 9)),
+          Text(value, style: _style(13, color, weight: FontWeight.w700)),
+          Text(label, style: _style(11, c.textTertiary)),
         ],
       ),
     );
@@ -1497,92 +1442,71 @@ class _LensDigitalTwinState extends State<LensDigitalTwin> with SingleTickerProv
     final gut = find('gut') ?? find('microbiome');
     final metabolic = find('hormonal') ?? find('insulin');
 
+    final violet = ZyndioTint.violet.colors.last;
+    final amber = ZyndioTint.amber.colors.last;
+    final teal = ZyndioTint.teal.colors.last;
+
     // Build nodes list for the row layout
     final nodes = <_NodeData>[];
-    if (brain != null) nodes.add(_NodeData('Neural', brain.impact, LucideIcons.brain, const Color(0xFFA855F7)));
-    if (metabolic != null) nodes.add(_NodeData('Metabolic', metabolic.impact, LucideIcons.heartPulse, const Color(0xFFF59E0B)));
-    if (gut != null) nodes.add(_NodeData('Gut', gut.impact, LucideIcons.leaf, const Color(0xFF22D3EE)));
+    if (brain != null) nodes.add(_NodeData('Neural', brain.impact, LucideIcons.brain, violet));
+    if (metabolic != null) nodes.add(_NodeData('Metabolic', metabolic.impact, LucideIcons.heartPulse, amber));
+    if (gut != null) nodes.add(_NodeData('Gut', gut.impact, LucideIcons.leaf, teal));
 
     if (nodes.isEmpty) return const SizedBox.shrink();
+    final c = context.zc;
+
+    Widget blob(double size, Color color, double alpha) => Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: RadialGradient(colors: [
+              color.withValues(alpha: alpha * _pulseAnim.value),
+              color.withValues(alpha: 0),
+            ]),
+          ),
+        );
 
     return AnimatedBuilder(
       animation: _pulseAnim,
       builder: (context, child) {
         return Container(
           width: double.infinity,
+          clipBehavior: Clip.antiAlias,
           padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0A0A0F),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withOpacity(0.06)),
-          ),
+          decoration: zyndioCard(context, radius: 24),
           child: Stack(
             children: [
               // ── Aurora Blobs (Siri-style) ─────────────────────────────
-              Positioned(
-                top: -20, right: -10,
-                child: Container(
-                  width: 100, height: 100,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(colors: [
-                      const Color(0xFFF59E0B).withOpacity(0.08 * _pulseAnim.value),
-                      Colors.transparent,
-                    ]),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: -15, left: -10,
-                child: Container(
-                  width: 90, height: 90,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(colors: [
-                      const Color(0xFFA855F7).withOpacity(0.07 * _pulseAnim.value),
-                      Colors.transparent,
-                    ]),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 20, left: 30,
-                child: Container(
-                  width: 70, height: 70,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(colors: [
-                      const Color(0xFF22D3EE).withOpacity(0.06 * _pulseAnim.value),
-                      Colors.transparent,
-                    ]),
-                  ),
-                ),
-              ),
+              Positioned(top: -20, right: -10, child: blob(100, amber, 0.10)),
+              Positioned(bottom: -15, left: -10, child: blob(90, violet, 0.09)),
+              Positioned(top: 20, left: 30, child: blob(70, teal, 0.08)),
 
               // ── Main Content ─────────────────────────────────────────
               Column(
                 children: [
                   Text(
                     "SYSTEMIC BIO-RESPONSE",
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.25),
-                      fontSize: 10,
-                      letterSpacing: 2.0,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    textAlign: TextAlign.center,
+                    style: _style(11, c.textTertiary,
+                        weight: FontWeight.w700, letterSpacing: 2.0),
                   ),
                   const SizedBox(height: 20),
 
                   // ── Node Row ──────────────────────────────────────────
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: nodes.map((n) => _HoloNode(
-                      label: n.label,
-                      impact: n.impact,
-                      icon: n.icon,
-                      baseColor: n.baseColor,
-                      pulseValue: _pulseAnim.value,
-                    )).toList(),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: nodes
+                        .map((n) => Expanded(
+                              child: _HoloNode(
+                                label: n.label,
+                                impact: n.impact,
+                                icon: n.icon,
+                                baseColor: n.baseColor,
+                                pulseValue: _pulseAnim.value,
+                              ),
+                            ))
+                        .toList(),
                   ),
 
                   const SizedBox(height: 16),
@@ -1594,10 +1518,10 @@ class _LensDigitalTwinState extends State<LensDigitalTwin> with SingleTickerProv
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          Colors.transparent,
-                          const Color(0xFF22D3EE).withOpacity(0.15 * _pulseAnim.value),
-                          const Color(0xFFA855F7).withOpacity(0.12 * _pulseAnim.value),
-                          Colors.transparent,
+                          teal.withValues(alpha: 0),
+                          teal.withValues(alpha: 0.3 * _pulseAnim.value),
+                          violet.withValues(alpha: 0.25 * _pulseAnim.value),
+                          violet.withValues(alpha: 0),
                         ],
                       ),
                     ),
@@ -1605,12 +1529,9 @@ class _LensDigitalTwinState extends State<LensDigitalTwin> with SingleTickerProv
                   const SizedBox(height: 10),
                   Text(
                     "Predictive signal transduction analysis",
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.18),
-                      fontSize: 9,
-                      fontStyle: FontStyle.italic,
-                      letterSpacing: 0.5,
-                    ),
+                    textAlign: TextAlign.center,
+                    style: _style(11, c.textTertiary,
+                        fontStyle: FontStyle.italic, letterSpacing: 0.5),
                   ),
                 ],
               ),
@@ -1647,7 +1568,8 @@ class _HoloNode extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final impactColor = _impactColor(impact);
+    final c = context.zc;
+    final impactColor = _impactColor(c, impact);
     // Mix: base glow color with the impact status color
     final glowColor = Color.lerp(baseColor, impactColor, 0.5)!;
 
@@ -1656,13 +1578,14 @@ class _HoloNode extends StatelessWidget {
       children: [
         // Outer glow ring
         Container(
-          width: 56, height: 56,
+          width: 56,
+          height: 56,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: glowColor.withOpacity(0.2 + 0.15 * pulseValue), width: 1.5),
+            border: Border.all(color: glowColor.withValues(alpha: 0.2 + 0.15 * pulseValue), width: 1.5),
             boxShadow: [
               BoxShadow(
-                color: glowColor.withOpacity(0.12 * pulseValue),
+                color: glowColor.withValues(alpha: 0.12 * pulseValue),
                 blurRadius: 16,
                 spreadRadius: 2,
               ),
@@ -1671,45 +1594,38 @@ class _HoloNode extends StatelessWidget {
           child: Center(
             // Inner icon circle
             child: Container(
-              width: 38, height: 38,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: glowColor.withOpacity(0.1),
-                border: Border.all(color: glowColor.withOpacity(0.15), width: 1),
+                color: glowColor.withValues(alpha: 0.12),
               ),
-              child: Icon(icon, color: glowColor.withOpacity(0.7 + 0.3 * pulseValue), size: 18),
+              child: Icon(icon, color: glowColor, size: 18),
             ),
           ),
         ),
         const SizedBox(height: 8),
-        // Glassmorphic label
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.04),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: Colors.white.withOpacity(0.06)),
+            color: c.bgSunken,
+            borderRadius: BorderRadius.circular(999),
           ),
           child: Text(
             label,
-            style: TextStyle(
-              color: glowColor.withOpacity(0.8),
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.5,
-            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: _style(11, c.textSecondary, weight: FontWeight.w700, letterSpacing: 0.5),
           ),
         ),
         const SizedBox(height: 4),
         // Impact status dot
         Container(
-          width: 6, height: 6,
+          width: 6,
+          height: 6,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: impactColor,
-            boxShadow: [
-              BoxShadow(color: impactColor.withOpacity(0.4), blurRadius: 4),
-            ],
           ),
         ),
       ],
@@ -1735,6 +1651,7 @@ class _LensIntelligenceInsightState extends State<LensIntelligenceInsight> {
   @override
   Widget build(BuildContext context) {
     if (widget.insight.isEmpty) return const SizedBox.shrink();
+    final c = context.zc;
 
     return GestureDetector(
       onTap: () => setState(() => _isExpanded = !_isExpanded),
@@ -1742,38 +1659,26 @@ class _LensIntelligenceInsightState extends State<LensIntelligenceInsight> {
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
         width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF0A0A0F),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-          boxShadow: [
-            BoxShadow(
-              color: BrandColors.emerald500.withValues(alpha: 0.03),
-              blurRadius: 20,
-              spreadRadius: 2,
-            ),
-          ],
-        ),
+        padding: const EdgeInsets.all(18),
+        decoration: zyndioCard(context, radius: 22),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  "INTELLIGENCE INSIGHT",
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.3),
-                    fontSize: 9,
-                    letterSpacing: 2.0,
-                    fontWeight: FontWeight.w800,
+                const ZyndioIconTile(glyph: ZyndioGlyph.sparkle, tint: ZyndioTint.violet, size: 30),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "INTELLIGENCE INSIGHT",
+                    style: _style(12, c.textTertiary,
+                        weight: FontWeight.w700, letterSpacing: 1.3),
                   ),
                 ),
                 Icon(
                   _isExpanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
-                  color: Colors.white.withValues(alpha: 0.2),
-                  size: 14,
+                  color: c.textTertiary,
+                  size: 18,
                 ),
               ],
             ),
@@ -1781,20 +1686,59 @@ class _LensIntelligenceInsightState extends State<LensIntelligenceInsight> {
             AnimatedSize(
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeInOut,
+              alignment: Alignment.topLeft,
               child: Text(
                 widget.insight,
                 maxLines: _isExpanded ? null : 2,
                 overflow: _isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  height: 1.5,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: _style(15, c.textPrimary, weight: FontWeight.w500, height: 1.5),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Toxin Radar header
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// "TOXIN RADAR · n threats" banner above the toxin list.
+class LensToxinRadarHeader extends StatelessWidget {
+  const LensToxinRadarHeader({super.key, required this.count});
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.zc;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: c.statusCriticalSubtle,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Icon(LucideIcons.shieldAlert, color: c.statusCritical, size: 16),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              "TOXIN RADAR",
+              style: _style(12, c.statusCritical,
+                  weight: FontWeight.w700, letterSpacing: 1.2),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              "$count threats",
+              textAlign: TextAlign.end,
+              style: _style(13, c.statusCritical),
+            ),
+          ),
+        ],
       ),
     );
   }
