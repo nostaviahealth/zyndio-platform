@@ -58,6 +58,13 @@ opens from the avatar on every tab.
   "to discuss" card, report rows). The non-Zyndio panels (gut, genetic, biological age, heavy
   metals, toxins) were removed. Icon tiles use Zyndio's own hand-drawn glyph set
   (`zyndio_glyphs.dart`) in glossy squircle tiles instead of stock icons.
+- Robustness gate (17 Nov 2026): `test/robustness/all_screens_render_test.dart` builds every
+  screen a patient can reach (41 screens, demo data, no backend) on a 320×568 and a 402×874
+  phone, light and dark, at 1.0–2.0× text, scrolls each to the end and fails on any exception or
+  overflow. It found and the branch fixed: overflows on 20+ screens, a Chat crash on close, a
+  web crash on Today (`dart:io Platform`, now `PlatformInfo`), the Food log → meal "Coming soon"
+  dead link, and a crash on a dead deep link. A real-looking phone number in Help centre and the
+  Terms text was replaced with a fictional one.
 - Demo login (`--dart-define=DEMO_LOGIN=true`, debug builds only) with fictional data on every
   tab, including a baseline, Day 90 and Day 180 scan.
 - Longevity score ring and Recovery tile only appear with their feature flag **and** a real
