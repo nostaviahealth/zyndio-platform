@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../config/theme.dart';
+import 'tc025/tc025_widgets.dart';
+
 class MacroGauge extends StatelessWidget {
   final double protein;
   final double carbs;
@@ -18,6 +21,8 @@ class MacroGauge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.zc;
+
     // Calorie calculation
     final pCal = protein * 4;
     final cCal = carbs * 4;
@@ -37,30 +42,48 @@ class MacroGauge extends StatelessWidget {
         if (showCalories)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.end,
+            // Wrap: the label and the total sit on one line when they fit and
+            // stack on a narrow phone or with large accessibility text.
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.end,
+              spacing: 12,
+              runSpacing: 4,
               children: [
                 Text(
                   "METABOLIC POWER",
-                   style: TextStyle(
-                     fontSize: 10, 
-                     fontWeight: FontWeight.w900, 
-                     color: Colors.white.withValues(alpha: 0.5),
-                     letterSpacing: 1.2,
-                   )
+                  style: TextStyle(
+                    fontFamily: ZyndioType.family,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.3,
+                    color: c.textTertiary,
+                  ),
                 ),
-                RichText(
-                  text: TextSpan(
-                    style: const TextStyle(color: Colors.white, fontFamily: 'SF Pro Display'),
+                Text.rich(
+                  TextSpan(
+                    style: TextStyle(
+                      fontFamily: ZyndioType.family,
+                      color: c.textPrimary,
+                    ),
                     children: [
                       TextSpan(
                         text: totalCal.round().toString(),
-                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -1),
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.5,
+                          fontFeatures: ZyndioType.tabular,
+                        ),
                       ),
                       TextSpan(
                         text: " KCAL",
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white.withValues(alpha: 0.5)),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.6,
+                          color: c.textTertiary,
+                        ),
                       ),
                     ],
                   ),
@@ -68,24 +91,24 @@ class MacroGauge extends StatelessWidget {
               ],
             ),
           ),
-        
+
         // The Linear Bar
         Container(
           height: height,
           width: double.infinity,
           decoration: BoxDecoration(
-            color: const Color(0xFFF1F5F9),
+            color: context.z25.segmentBg,
             borderRadius: BorderRadius.circular(height / 2),
           ),
           clipBehavior: Clip.antiAlias,
           child: Row(
             children: [
               if (pPerc > 0)
-                _buildSegment(pPerc, const Color(0xFF10B981), "Protein"),
+                _buildSegment(pPerc, ZyndioTint.green.colors.last, "Protein"),
               if (cPerc > 0)
-                _buildSegment(cPerc, const Color(0xFF3B82F6), "Carbs"),
+                _buildSegment(cPerc, ZyndioTint.blue.colors.last, "Carbs"),
               if (fPerc > 0)
-                _buildSegment(fPerc, const Color(0xFFF59E0B), "Fats"),
+                _buildSegment(fPerc, ZyndioTint.amber.colors.last, "Fats"),
             ],
           ),
         ),
@@ -95,7 +118,8 @@ class MacroGauge extends StatelessWidget {
 
   Widget _buildSegment(double percent, Color color, String label) {
     return Expanded(
-      flex: (percent * 1000).round(),
+      // Never 0: a zero-flex child would be laid out unbounded and throw.
+      flex: (percent * 1000).round().clamp(1, 1000),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 0.5),
         decoration: BoxDecoration(

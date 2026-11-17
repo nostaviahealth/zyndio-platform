@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import '../config/theme.dart';
+import 'tc025/tc025_widgets.dart';
+
+/// Shimmer colours from the Zyndio tokens (light and dark).
+Color _base(BuildContext context) => context.zc.borderSubtle;
+Color _highlight(BuildContext context) => context.zc.bgSunken;
 
 /// Enhanced Skeleton card widget with better gradients and structure
 class SkeletonCard extends StatelessWidget {
@@ -20,16 +25,16 @@ class SkeletonCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
-      baseColor: context.nc.shimmerBase,
-      highlightColor: context.nc.shimmerHighlight,
+      baseColor: _base(context),
+      highlightColor: _highlight(context),
       period: const Duration(milliseconds: 1500),
       child: Container(
         height: height,
         width: width ?? double.infinity,
         decoration: BoxDecoration(
-          color: context.nc.shimmerBase,
+          color: _base(context),
           borderRadius: borderRadius ?? BorderRadius.circular(24),
-          border: Border.all(color: context.nc.cardBorder, width: 1),
+          border: Border.all(color: context.zc.borderSubtle, width: 1),
         ),
         child: child,
       ),
@@ -46,13 +51,13 @@ class SkeletonCircle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
-      baseColor: context.nc.shimmerBase,
-      highlightColor: context.nc.shimmerHighlight,
+      baseColor: _base(context),
+      highlightColor: _highlight(context),
       child: Container(
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: context.nc.shimmerBase,
+          color: _base(context),
           shape: BoxShape.circle,
         ),
       ),
@@ -76,13 +81,13 @@ class SkeletonLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
-      baseColor: context.nc.shimmerBase,
-      highlightColor: context.nc.shimmerHighlight,
+      baseColor: _base(context),
+      highlightColor: _highlight(context),
       child: Container(
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: context.nc.shimmerBase,
+          color: _base(context),
           borderRadius: BorderRadius.circular(borderRadius),
         ),
       ),
@@ -99,11 +104,7 @@ class SkeletonTaskRow extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: context.nc.cardSurface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: context.nc.cardBorder),
-      ),
+      decoration: zyndioCard(context, radius: 16),
       child: Row(
         children: [
           const SkeletonCard(height: 24, width: 24, borderRadius: BorderRadius.all(Radius.circular(8))),
@@ -135,17 +136,7 @@ class SkeletonCategoryCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: context.nc.cardSurface,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: context.nc.shadowColor,
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+      decoration: zyndioCard(context, radius: 20),
       child: Row(
         children: [
           const SkeletonCircle(size: 48),
