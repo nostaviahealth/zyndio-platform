@@ -1,4 +1,3 @@
-import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -14,6 +13,7 @@ import '../../providers/feature_flags_provider.dart';
 import '../../providers/longevity_provider.dart';
 import '../../widgets/programme_journey_card.dart';
 import '../../widgets/tc025/tc025_widgets.dart';
+import '../../utils/platform_info.dart';
 
 // ── Pure helpers (unit-tested) ──────────────────────────────────────────────
 
@@ -70,7 +70,7 @@ TodayState classifyToday(AsyncValue<WearableSyncState> sync) {
 
 /// Connected-source display name (names only connected sources, specs §3.1).
 String connectedSourceName() =>
-    Platform.isIOS ? 'Apple Health' : 'Health Connect';
+    PlatformInfo.isIOS ? 'Apple Health' : 'Health Connect';
 
 // ── Screen ──────────────────────────────────────────────────────────────────
 

@@ -1,9 +1,9 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'dashboard_card_style.dart';
 import '../../../../config/theme.dart';
 import '../../../services/vo2_max_service.dart';
+import '../../../utils/platform_info.dart';
 
 /// VO2 Max (Cardio Fitness) card styled like the Stress & Energy card.
 /// Shows 3 stat columns: Current VO2 Max, Fitness Level, Percentile.
@@ -72,7 +72,7 @@ class Vo2MaxCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            hasData ? 'Last updated at $timeStr' : (Platform.isIOS ? 'Waiting for Apple Watch data' : 'Waiting for wearable data'),
+            hasData ? 'Last updated at $timeStr' : (PlatformInfo.isIOS ? 'Waiting for Apple Watch data' : 'Waiting for wearable data'),
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,

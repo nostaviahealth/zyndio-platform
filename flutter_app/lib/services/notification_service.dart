@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -10,6 +9,7 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'notification_permission_prompt.dart' show NotificationPermissionRequester;
+import '../utils/platform_info.dart';
 
 /// Background message handler for FCM.
 /// Must be a top-level function.
@@ -175,7 +175,7 @@ class NotificationService implements NotificationPermissionRequester {
     }
 
     // Programmatically create required Android Notification Channels
-    if (Platform.isAndroid) {
+    if (PlatformInfo.isAndroid) {
       final androidPlugin = _localNotifications
           .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
       if (androidPlugin != null) {
@@ -294,7 +294,7 @@ class NotificationService implements NotificationPermissionRequester {
   Future<bool> requestPermissions() async {
     // 1. Android Specific: Request POST_NOTIFICATIONS (Android 13+) 
     // and SCHEDULE_EXACT_ALARM (Android 12+) via permission_handler
-    if (Platform.isAndroid) {
+    if (PlatformInfo.isAndroid) {
       await Permission.notification.request();
       if (await Permission.scheduleExactAlarm.isDenied) {
         await Permission.scheduleExactAlarm.request();

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -7,6 +6,7 @@ import '../../config/theme.dart';
 import '../../data/health_repository.dart';
 import '../../services/wearable_daily/wearable_daily_sync.dart';
 import '../../widgets/tc025/tc025_widgets.dart';
+import '../../utils/platform_info.dart';
 
 class ConnectWearableScreen extends StatefulWidget {
   const ConnectWearableScreen({super.key});
@@ -54,7 +54,7 @@ class _ConnectWearableScreenState extends State<ConnectWearableScreen> {
 
     try {
       // On Android, check if Health Connect is installed first
-      if (Platform.isAndroid) {
+      if (PlatformInfo.isAndroid) {
         final hcStatus = await _healthRepository.getHealthConnectStatus();
         if (hcStatus == 'not_installed') {
           if (mounted) {
@@ -89,7 +89,7 @@ class _ConnectWearableScreenState extends State<ConnectWearableScreen> {
             _isAuthorized = success;
             if (success) {
               _statusMessage = 'Connected. Importing your last 90 days of health data in the background.';
-            } else if (Platform.isAndroid) {
+            } else if (PlatformInfo.isAndroid) {
               _statusMessage = 'Health permissions were not granted. Please tap Connect again and allow all requested permissions. On Samsung devices, make sure Health Connect is syncing with Samsung Health.';
               _showHealthConnectHint = true;
             } else {
@@ -188,7 +188,7 @@ class _ConnectWearableScreenState extends State<ConnectWearableScreen> {
                       ),
                     ),
                   // Health Connect install/update button for Android
-                  if (_showHealthConnectHint && Platform.isAndroid)
+                  if (_showHealthConnectHint && PlatformInfo.isAndroid)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: ZyndioOutlineButton(

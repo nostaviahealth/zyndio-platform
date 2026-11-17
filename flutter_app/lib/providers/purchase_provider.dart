@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
@@ -9,6 +8,7 @@ import '../services/branding_service.dart';
 import 'patient_provider.dart';
 import 'auth_provider.dart';
 import '../models/patient_profile.dart';
+import '../utils/platform_info.dart';
 
 class PurchaseState {
   final bool isPlus;
@@ -228,7 +228,7 @@ class PurchaseNotifier extends Notifier<PurchaseState> with WidgetsBindingObserv
         // --- DEVICE CACHE CHECK (Android Only) ---
         // sometimes RevenueCat's servers get out of sync with Google Play. If the subscription
         // is active on the DEVICE, syncPurchases() will push it to the server and fix it.
-        if (Platform.isAndroid && !state.isLoading) {
+        if (PlatformInfo.isAndroid && !state.isLoading) {
            debugPrint('🛡️ PurchaseNotifier: Android local validation fallback triggered');
            try {
              await Purchases.syncPurchases();

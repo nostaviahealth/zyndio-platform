@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -8,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/temperature_service.dart';
 import '../services/health_intelligence_service.dart';
+import '../utils/platform_info.dart';
 
 class HealthRepository {
   final Health _health = Health();
@@ -31,7 +31,7 @@ class HealthRepository {
   /// On Samsung devices, SLEEP_IN_BED can return corrupted data
   /// that silently crashes subsequent Health Connect queries.
   static List<HealthDataType> get _sleepTypes {
-    if (Platform.isAndroid) {
+    if (PlatformInfo.isAndroid) {
       return [
         HealthDataType.SLEEP_SESSION,
         HealthDataType.SLEEP_ASLEEP,
@@ -55,7 +55,7 @@ class HealthRepository {
   /// Define the basic data types (Supported on most devices/emulators)
   /// These are critical metrics that must be requested reliably.
   static List<HealthDataType> get _basicTypes {
-    if (Platform.isAndroid) {
+    if (PlatformInfo.isAndroid) {
       return [
         HealthDataType.STEPS,
         HealthDataType.HEART_RATE,
@@ -90,7 +90,7 @@ class HealthRepository {
 
   /// Define advanced data types (Platform specific to prevent permission request crashes)
   static List<HealthDataType> get _advancedTypes {
-    if (Platform.isAndroid) {
+    if (PlatformInfo.isAndroid) {
       return [
         HealthDataType.BASAL_ENERGY_BURNED,
         // Removed: BLOOD_GLUCOSE, BLOOD_PRESSURE, BODY_FAT, DISTANCE, NUTRITION, WEIGHT, etc.
@@ -130,7 +130,7 @@ class HealthRepository {
   /// Strategy: Try all types → basic types → core-only types (steps + HR + sleep).
   Future<bool> requestPermissions() async {
     // 1. Fire Activity Recognition (non-blocking, don't gate health on it)
-    if (Platform.isAndroid) {
+    if (PlatformInfo.isAndroid) {
       Permission.activityRecognition.request(); // don't await, let it pop over/after
     }
 
@@ -198,7 +198,7 @@ class HealthRepository {
   /// in a single authorization sheet via the unified native channel.
   /// On Android this is a no-op (returns true).
   static Future<bool> requestAllNativePermissions() async {
-    if (!Platform.isIOS) return true;
+    if (!PlatformInfo.isIOS) return true;
     try {
       const channel = MethodChannel('com.zyndio/permissions');
       final permissionsResult = await channel.invokeMethod<bool>('requestAllNativePermissions');
@@ -222,7 +222,7 @@ class HealthRepository {
       // On iOS, we bypass the health plugin's internal request and use our 
       // single unified native channel (which includes VO2 Max, HRR, etc.).
       // This prevents the "double sheet" hang.
-      if (Platform.isIOS) {
+      if (PlatformInfo.isIOS) {
         return await requestAllNativePermissions()
             .timeout(const Duration(seconds: 30), onTimeout: () => false);
       }
@@ -261,7 +261,7 @@ class HealthRepository {
   /// Attempts to request READ access for almost every single data type
   /// supported by Health Connect / Apple Health.
   Future<bool> requestExtensivePermissions() async {
-    if (Platform.isAndroid) {
+    if (PlatformInfo.isAndroid) {
       await Permission.activityRecognition.request();
       // Do not return false if Activity Recognition is denied,
       // allow the core Health Connect permissions to be requested anyway.
@@ -296,7 +296,7 @@ class HealthRepository {
   /// Check Health Connect availability on Android.
   /// Returns: 'installed', 'not_installed', 'needs_update', or 'unsupported'
   Future<String> getHealthConnectStatus() async {
-    if (!Platform.isAndroid) return 'installed'; // Apple Health is always available
+    if (!PlatformInfo.isAndroid) return 'installed'; // Apple Health is always available
     try {
       final status = await _health.getHealthConnectSdkStatus();
       switch (status) {
@@ -388,7 +388,7 @@ class HealthRepository {
       
       // Only try SLEEP_IN_BED on iOS — it's safe there.
       // On Android (especially Samsung), this causes HC crashes.
-      if (Platform.isIOS) {
+      if (PlatformInfo.isIOS) {
         try {
           final inBedData = await _health.getHealthDataFromTypes(
             startTime: start,
@@ -583,7 +583,7 @@ class HealthRepository {
     // EXERCISE_TIME is iOS-only (Apple Activity Rings).
     // On Android, we skip it entirely and go straight to WORKOUT data.
     int exerciseMinutes = 0;
-    if (Platform.isIOS) {
+    if (PlatformInfo.isIOS) {
       try {
         final exerciseData = await _health.getHealthDataFromTypes(
           startTime: startTime,
@@ -984,7 +984,7 @@ class HealthRepository {
         );
         
         // Only try SLEEP_IN_BED on iOS — causes crashes on Samsung Android
-        if (Platform.isIOS) {
+        if (PlatformInfo.isIOS) {
           try {
             final inBedData = await _health.getHealthDataFromTypes(
               startTime: sleepStart,
@@ -1196,7 +1196,7 @@ class HealthRepository {
   /// Skin/Wrist Temperature history — daily average
   Future<List<Map<String, dynamic>>> getSkinTempHistory({int days = 30, DateTime? endTime}) async {
     try {
-      if (Platform.isIOS) {
+      if (PlatformInfo.isIOS) {
         // Permission already requested upfront in the dashboard
         final history = await TemperatureService.getTemperatureHistory(days: days, endTime: endTime);
         
