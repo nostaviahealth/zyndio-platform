@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../config/theme.dart';
+import '../../widgets/tc025/tc025_widgets.dart';
 
 /// Shown when the app could not set up its connection to the Zyndio backend
 /// (missing build configuration or a failed Supabase initialisation).
@@ -13,34 +15,30 @@ class ServiceUnavailableScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: context.nc.scaffoldBg,
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(LucideIcons.cloudOff, size: 48, color: context.nc.textSecondary),
-                const SizedBox(height: 24),
-                Text(
-                  "Zyndio can't connect right now",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w600,
-                    color: context.nc.textPrimary,
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      child: Scaffold(
+        backgroundColor: context.z25.screenBg,
+        body: SafeArea(
+          child: LayoutBuilder(
+            // Centred when it fits; scrolls with large text on small phones.
+            builder: (context, constraints) => SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight:
+                      (constraints.maxHeight - 48).clamp(0, double.infinity),
+                ),
+                child: const Center(
+                  child: ZyndioStateCard(
+                    icon: LucideIcons.cloudOff,
+                    title: "Zyndio can't connect right now",
+                    body: 'Close the app and open it again. If this keeps '
+                        'happening, contact your clinic.',
                   ),
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  'Close the app and open it again. If this keeps happening, '
-                  'contact your clinic.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, color: context.nc.textSecondary),
-                ),
-              ],
+              ),
             ),
           ),
         ),

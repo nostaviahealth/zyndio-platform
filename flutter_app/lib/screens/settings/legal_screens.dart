@@ -1,22 +1,120 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 import '../../config/theme.dart';
+import '../../widgets/tc025/tc025_widgets.dart';
+
+/// Long-form legal copy shown on the shared pushed-screen chrome: the text
+/// sits in one card inside a scrolling list, so it never overflows on a small
+/// phone or with large accessibility text.
+class _LegalDocumentScreen extends StatelessWidget {
+  const _LegalDocumentScreen({required this.title, required this.text});
+
+  final String title;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return ZyndioDetailScaffold(
+      title: title,
+      children: [
+        ZyndioCard(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
+          child: _LegalText(text),
+        ),
+      ],
+    );
+  }
+}
+
+/// Renders [text] verbatim, styling numbered all-caps lines ("1. SCOPE") as
+/// section headings and a leading "Last Updated" line as a caption.
+class _LegalText extends StatelessWidget {
+  const _LegalText(this.text);
+
+  final String text;
+
+  static final RegExp _heading = RegExp(r"^\d+\.\s+[A-Z][A-Z0-9 &()’'/,-]*$");
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.zc;
+    final bodyStyle = TextStyle(
+      fontFamily: ZyndioType.family,
+      fontSize: 15,
+      height: 1.6,
+      color: c.textSecondary,
+    );
+    final headingStyle = TextStyle(
+      fontFamily: ZyndioType.family,
+      fontSize: 15,
+      height: 22 / 15,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.2,
+      color: c.textPrimary,
+    );
+    final captionStyle = TextStyle(
+      fontFamily: ZyndioType.family,
+      fontSize: 13,
+      height: 18 / 13,
+      fontWeight: FontWeight.w600,
+      color: c.textTertiary,
+    );
+
+    final blocks = <Widget>[];
+    final paragraph = <String>[];
+    void flush() {
+      if (paragraph.isEmpty) return;
+      blocks.add(Text(paragraph.join('\n'), style: bodyStyle));
+      paragraph.clear();
+    }
+
+    final lines = text.split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      if (line.trim().isEmpty) {
+        flush();
+        continue;
+      }
+      if (i == 0 && line.startsWith('Last Updated')) {
+        blocks.add(Text(line, style: captionStyle));
+        continue;
+      }
+      if (i == 0 || _heading.hasMatch(line.trim())) {
+        flush();
+        blocks.add(Padding(
+          padding: EdgeInsets.only(top: blocks.isEmpty ? 0 : 10),
+          child: Semantics(
+            header: true,
+            child: Text(line, style: headingStyle),
+          ),
+        ));
+        continue;
+      }
+      paragraph.add(line);
+    }
+    flush();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < blocks.length; i++) ...[
+          if (i > 0) const SizedBox(height: 8),
+          blocks[i],
+        ],
+      ],
+    );
+  }
+}
 
 class PrivacyPolicyScreen extends StatelessWidget {
   const PrivacyPolicyScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Privacy Policy'),
-        backgroundColor: context.nc.scaffoldBg,
-        foregroundColor: BrandColors.dark,
-        elevation: 0,
-      ),
-      backgroundColor: context.nc.scaffoldBg,
-      body: const SingleChildScrollView(
-        padding: EdgeInsets.all(24),
-        child: Text(
+    return const _LegalDocumentScreen(
+      title: 'Privacy Policy',
+      text:
           '''Last Updated: February 7, 2026
 
 1. INTRODUCTION AND SCOPE
@@ -74,9 +172,6 @@ Services not intended for under 18.
 
 10. CONTACT US
 Email: support@zyndio.example''',
-          style: TextStyle(fontSize: 14, height: 1.6, color: BrandColors.slate700),
-        ),
-      ),
     );
   }
 }
@@ -86,17 +181,9 @@ class TermsOfServiceScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Terms of Use (EULA)'),
-        backgroundColor: context.nc.scaffoldBg,
-        foregroundColor: BrandColors.dark,
-        elevation: 0,
-      ),
-      backgroundColor: context.nc.scaffoldBg,
-      body: const SingleChildScrollView(
-        padding: EdgeInsets.all(24),
-        child: Text(
+    return const _LegalDocumentScreen(
+      title: 'Terms of Use (EULA)',
+      text:
           '''Last Updated: February 7, 2026
 
 1. ACCEPTANCE OF TERMS
@@ -128,16 +215,13 @@ Laws of India. Dispute resolution via arbitration in Lucknow, Uttar Pradesh.
 
 10. CONTACT
 Email: support@zyndio.example
-Phone: +91-9598320559
+Phone: +1 555 0100
 11. AUTO-RENEWING SUBSCRIPTIONS (APPLE EULA)
 • Acknowledgment: You acknowledge that these Terms are between you and Zyndio only, and not with Apple. Zyndio is solely responsible for the App and its content.
 • Subscription Terms: By subscribing to Zyndio Plus, you agree to an auto-renewing subscription. Payment will be charged to your iTunes Account at confirmation of purchase.
 • Renewal: The subscription automatically renews unless auto-renew is turned off at least 24 hours before the end of the current period. Your account will be charged the current price for renewal within 24 hours prior to the end of the current period.
 • Management: You can manage or turn off auto-renewal in your Apple ID Account Settings at any time after purchase.
 • Free Trial: If a free trial is offered, any unused portion will be forfeited when you purchase a subscription.''',
-          style: TextStyle(fontSize: 14, height: 1.6, color: BrandColors.slate700),
-        ),
-      ),
     );
   }
 }
@@ -147,17 +231,9 @@ class RefundPolicyScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Refund Policy'),
-        backgroundColor: context.nc.scaffoldBg,
-        foregroundColor: BrandColors.dark,
-        elevation: 0,
-      ),
-      backgroundColor: context.nc.scaffoldBg,
-      body: const SingleChildScrollView(
-        padding: EdgeInsets.all(24),
-        child: Text(
+    return const _LegalDocumentScreen(
+      title: 'Refund Policy',
+      text:
           '''Last Updated: February 7, 2026
 
 1. SUBSCRIPTIONS
@@ -182,9 +258,6 @@ Refunds processed via PhonePe within 7-10 business days.
 
 6. DISPUTES
 Contact support@zyndio.example; resolved within 14 days per Indian law.''',
-          style: TextStyle(fontSize: 14, height: 1.6, color: BrandColors.slate700),
-        ),
-      ),
     );
   }
 }
@@ -194,17 +267,9 @@ class InformedConsentScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Informed Consent'),
-        backgroundColor: context.nc.scaffoldBg,
-        foregroundColor: BrandColors.dark,
-        elevation: 0,
-      ),
-      backgroundColor: context.nc.scaffoldBg,
-      body: const SingleChildScrollView(
-        padding: EdgeInsets.all(24),
-        child: Text(
+    return const _LegalDocumentScreen(
+      title: 'Informed Consent',
+      text:
           '''Wellness & AI Consent
 
 1. DATA COLLECTION
@@ -221,9 +286,6 @@ I acknowledge that I am using this app for wellness optimization and not for acu
 
 5. STORAGE
 I consent to my data being stored securely on cloud infrastructure for longitudinal tracking.''',
-          style: TextStyle(fontSize: 14, height: 1.6, color: BrandColors.slate700),
-        ),
-      ),
     );
   }
 }
@@ -233,49 +295,135 @@ class HelpCenterScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Help Center'),
-        backgroundColor: context.nc.scaffoldBg,
-        foregroundColor: BrandColors.dark,
-        elevation: 0,
-      ),
-      backgroundColor: context.nc.scaffoldBg,
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            const Text(
-              'How can we help you?',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'For technical support, account questions, or data requests, please contact our support team.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: BrandColors.slate600),
-            ),
-            const SizedBox(height: 32),
-            ListTile(
-              leading: const Icon(Icons.email, color: BrandColors.blue500),
-              title: const Text('Email Support'),
-              subtitle: const Text('support@zyndio.example'),
-              onTap: () {},
-            ),
-            ListTile(
-              leading: const Icon(Icons.phone, color: BrandColors.blue500),
-              title: const Text('Phone Support'),
-              subtitle: const Text('+91-9598320559'),
-              onTap: () {},
-            ),
-            const ListTile(
-              leading: Icon(Icons.access_time, color: BrandColors.blue500),
-              title: Text('Response Time'),
-              subtitle: Text('Usually within 24 hours'),
-            ),
-          ],
+    final c = context.zc;
+    return ZyndioDetailScaffold(
+      title: 'Help Center',
+      children: [
+        ZyndioCard(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const ZyndioIconTile(
+                  icon: LucideIcons.lifeBuoy, tint: ZyndioTint.blue, size: 48),
+              const SizedBox(height: 16),
+              Semantics(
+                header: true,
+                child: Text(
+                  'How can we help you?',
+                  style: ZyndioType.title3.copyWith(color: c.textPrimary),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'For technical support, account questions, or data requests, please contact our support team.',
+                style: TextStyle(
+                  fontFamily: ZyndioType.family,
+                  fontSize: 15,
+                  height: 22 / 15,
+                  color: c.textSecondary,
+                ),
+              ),
+            ],
+          ),
         ),
+        const SizedBox(height: 16),
+        ZyndioCard(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Column(
+            children: [
+              _HelpRow(
+                icon: LucideIcons.mail,
+                tint: ZyndioTint.blue,
+                title: 'Email Support',
+                subtitle: 'support@zyndio.example',
+                onTap: () {},
+              ),
+              Divider(height: 1, indent: 76, color: c.borderSubtle),
+              _HelpRow(
+                icon: LucideIcons.phone,
+                tint: ZyndioTint.green,
+                title: 'Phone Support',
+                // Fictional placeholder number (no real contact data).
+                subtitle: '+1 555 0100',
+                onTap: () {},
+              ),
+              Divider(height: 1, indent: 76, color: c.borderSubtle),
+              const _HelpRow(
+                icon: LucideIcons.clock,
+                tint: ZyndioTint.violet,
+                title: 'Response Time',
+                subtitle: 'Usually within 24 hours',
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// One contact line in the Help Center card: gradient icon tile, title and
+/// detail. Tappable rows keep a 44pt+ target; the detail text wraps freely.
+class _HelpRow extends StatelessWidget {
+  const _HelpRow({
+    required this.icon,
+    required this.tint,
+    required this.title,
+    required this.subtitle,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final ZyndioTint tint;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.zc;
+    final row = Container(
+      constraints: const BoxConstraints(minHeight: 64),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          ZyndioIconTile(icon: icon, tint: tint, size: 44),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontFamily: ZyndioType.family,
+                    fontSize: 16,
+                    height: 22 / 16,
+                    fontWeight: FontWeight.w600,
+                    color: c.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontFamily: ZyndioType.family,
+                    fontSize: 14,
+                    height: 20 / 14,
+                    color: c.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
+    );
+    if (onTap == null) return row;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(onTap: onTap, child: row),
     );
   }
 }
@@ -285,17 +433,9 @@ class SubscriptionDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Subscription Details'),
-        backgroundColor: context.nc.scaffoldBg,
-        foregroundColor: BrandColors.dark,
-        elevation: 0,
-      ),
-      backgroundColor: context.nc.scaffoldBg,
-      body: const SingleChildScrollView(
-        padding: EdgeInsets.all(24),
-        child: Text(
+    return const _LegalDocumentScreen(
+      title: 'Subscription Details',
+      text:
           '''Subscription Terms & Details:
 
 • Payment will be charged to your iTunes Account at confirmation of purchase.
@@ -307,9 +447,6 @@ class SubscriptionDetailsScreen extends StatelessWidget {
 • Subscriptions may be managed by the user and auto-renewal may be turned off by going to the user's Account Settings after purchase.
 
 • Any unused portion of a free trial period, if offered, will be forfeited when the user purchases a subscription to that publication, where applicable.''',
-          style: TextStyle(fontSize: 14, height: 1.6, color: BrandColors.dark),
-        ),
-      ),
     );
   }
 }
