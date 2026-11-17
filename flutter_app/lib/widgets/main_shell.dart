@@ -98,7 +98,7 @@ class _MainShellState extends ConsumerState<MainShell> {
           SnackBar(
             content:
                 Text(next.errorMessage ?? 'Analysis failed. Please try again.'),
-            backgroundColor: BrandColors.red500,
+            backgroundColor: context.zc.statusCritical,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -217,6 +217,7 @@ class _ZyndioTabBarState extends State<_ZyndioTabBar>
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
+    final c = context.zc;
     return SafeArea(
       top: false,
       minimum: const EdgeInsets.only(bottom: 10),
@@ -230,16 +231,21 @@ class _ZyndioTabBarState extends State<_ZyndioTabBar>
               height: 70,
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
-                color: (dark ? const Color(0xFF1A2136) : Colors.white)
-                    .withValues(alpha: 0.88),
+                // Same surface as the app's cards: white in light, the dark
+                // surface token with a hairline in dark.
+                color: c.bgSurface.withValues(alpha: 0.88),
                 borderRadius: BorderRadius.circular(40),
                 border: Border.all(
-                    color: Colors.white.withValues(alpha: dark ? 0.06 : 0.9)),
-                boxShadow: const [
+                    color: dark
+                        ? c.borderSubtle
+                        : c.bgSurface.withValues(alpha: 0.9)),
+                boxShadow: [
                   BoxShadow(
-                      color: Color(0x1A0F1438),
+                      color: dark
+                          ? Colors.black.withValues(alpha: 0.35)
+                          : c.textPrimary.withValues(alpha: 0.10),
                       blurRadius: 30,
-                      offset: Offset(0, 10)),
+                      offset: const Offset(0, 10)),
                 ],
               ),
               child: LayoutBuilder(builder: (context, box) {
@@ -270,16 +276,17 @@ class _ZyndioTabBarState extends State<_ZyndioTabBar>
                           width: pillWidth - _pillInset * 2,
                           top: 9,
                           height: 52,
-                          child: const DecoratedBox(
+                          child: DecoratedBox(
                             decoration: BoxDecoration(
                               gradient: ZyndioGradients.brand,
                               borderRadius:
-                                  BorderRadius.all(Radius.circular(26)),
+                                  const BorderRadius.all(Radius.circular(26)),
                               boxShadow: [
                                 BoxShadow(
-                                    color: Color(0x404A55F0),
+                                    color: ZyndioGradients.brand.colors.last
+                                        .withValues(alpha: 0.25),
                                     blurRadius: 14,
-                                    offset: Offset(0, 6)),
+                                    offset: const Offset(0, 6)),
                               ],
                             ),
                           ),
@@ -331,7 +338,7 @@ class _TabItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = Theme.of(context).extension<ZyndioColors>()!;
+    final inactive = context.z25.tabInactive;
     final t = activeness;
     return Semantics(
       label: '${spec.label}, tab ${index + 1} of ${_kTabs.length}',
@@ -351,7 +358,7 @@ class _TabItem extends StatelessWidget {
                 children: [
                   Icon(spec.icon,
                       size: 22,
-                      color: Color.lerp(c.textTertiary, Colors.white, t)),
+                      color: Color.lerp(inactive, Colors.white, t)),
                   // The label unfolds from zero width and fades in.
                   Flexible(
                     child: Align(
@@ -396,6 +403,8 @@ class _LensProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.zc;
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: BackdropFilter(
@@ -403,12 +412,13 @@ class _LensProgressBar extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B).withValues(alpha: 0.85),
+            color: c.bgSurface.withValues(alpha: 0.92),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.15),
+              color: dark ? c.borderSubtle : c.bgSurface,
               width: 1.5,
             ),
+            boxShadow: ZyndioShadow.cardFor(Theme.of(context).brightness),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -419,12 +429,12 @@ class _LensProgressBar extends StatelessWidget {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.1),
+                      color: context.z25.tileBg,
                       shape: BoxShape.circle,
                     ),
-                    child: const Center(
-                      child:
-                          Icon(LucideIcons.scan, size: 18, color: Colors.white),
+                    child: Center(
+                      child: Icon(LucideIcons.scan,
+                          size: 18, color: c.brandPrimary),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -434,8 +444,11 @@ class _LensProgressBar extends StatelessWidget {
                       children: [
                         Text(
                           state.statusMessage,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: ZyndioType.family,
+                            color: c.textPrimary,
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                             letterSpacing: -0.3,
@@ -444,8 +457,11 @@ class _LensProgressBar extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           'Zyndio Intelligence Scan',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.5),
+                            fontFamily: ZyndioType.family,
+                            color: c.textSecondary,
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
                           ),
@@ -453,13 +469,15 @@ class _LensProgressBar extends StatelessWidget {
                       ],
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Text(
                     '${(state.progress * 100).toInt()}%',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      fontFamily: ZyndioType.family,
+                      color: c.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w900,
-                      fontFeatures: [ui.FontFeature.tabularFigures()],
+                      fontFeatures: ZyndioType.tabular,
                     ),
                   ),
                 ],
@@ -469,8 +487,8 @@ class _LensProgressBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(6),
                 child: LinearProgressIndicator(
                   value: state.progress,
-                  backgroundColor: Colors.white.withValues(alpha: 0.1),
-                  color: const Color(0xFF10B981),
+                  backgroundColor: c.bgSunken,
+                  color: c.statusSuccess,
                   minHeight: 6,
                 ),
               ),

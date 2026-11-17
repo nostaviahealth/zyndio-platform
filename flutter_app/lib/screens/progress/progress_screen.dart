@@ -123,14 +123,15 @@ class _ScanPanels extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = Theme.of(context).extension<ZyndioColors>()!;
+    final c = context.zc;
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final titleColor = dark ? Colors.white : c.textPrimary;
-    final dateColor = dark ? Colors.white.withValues(alpha: 0.65) : c.textSecondary;
+    final titleColor = c.textPrimary;
+    final dateColor = c.textSecondary;
     Widget figure(String title, String date) => Expanded(
           child: Column(
             children: [
               Text(title,
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                       fontFamily: ZyndioType.family,
                       fontSize: 14,
@@ -138,6 +139,7 @@ class _ScanPanels extends StatelessWidget {
                       color: titleColor)),
               const SizedBox(height: 2),
               Text(_pretty(date),
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                       fontFamily: ZyndioType.family,
                       fontSize: 12.5,
@@ -162,24 +164,33 @@ class _ScanPanels extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.fromLTRB(12, 20, 12, 22),
             decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(28),
+              // Hairline in dark, like every other card surface.
+              border: dark ? Border.all(color: c.borderSubtle) : null,
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: dark
-                    ? const [Color(0xFF151A3E), Color(0xFF0B0F26)]
-                    : const [Color(0xFFF1EDFF), Color(0xFFE6F1FF)],
+                    ? [context.z25.tileBg, c.bgSunken]
+                    : [ZyndioTint.violet.pastel, ZyndioTint.blue.pastel],
               ),
             ),
             child: Stack(
               children: [
                 // Faint scan grid behind the figures.
-                Positioned.fill(child: CustomPaint(painter: _GridPainter(dark: dark))),
+                Positioned.fill(
+                    child: CustomPaint(
+                        painter: _GridPainter(
+                            line: dark
+                                ? c.textPrimary.withValues(alpha: 0.05)
+                                : ZyndioTint.indigo.colors.first
+                                    .withValues(alpha: 0.07)))),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     if (baseline != null) ...[
                       figure('Baseline', baseline!.scanDate),
-                      Icon(LucideIcons.arrowRight, size: 22, color: dark ? Colors.white.withValues(alpha: 0.7) : c.textTertiary),
+                      Icon(LucideIcons.arrowRight, size: 22, color: c.textTertiary),
                     ],
                     figure('Latest Scan', latest.scanDate),
                   ],
@@ -194,13 +205,13 @@ class _ScanPanels extends StatelessWidget {
 }
 
 class _GridPainter extends CustomPainter {
-  const _GridPainter({required this.dark});
-  final bool dark;
+  const _GridPainter({required this.line});
+  final Color line;
 
   @override
   void paint(Canvas canvas, Size size) {
     final p = Paint()
-      ..color = dark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFF4F57EE).withValues(alpha: 0.07)
+      ..color = line
       ..strokeWidth = 1;
     for (double x = 0; x < size.width; x += 22) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), p);
@@ -211,7 +222,7 @@ class _GridPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _GridPainter old) => old.dark != dark;
+  bool shouldRepaint(covariant _GridPainter old) => old.line != line;
 }
 
 class _CompareGrid extends StatelessWidget {
@@ -245,7 +256,7 @@ class _CompareCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = Theme.of(context).extension<ZyndioColors>()!;
+    final c = context.zc;
     final z = context.z25;
     return Semantics(
       container: true,
@@ -321,17 +332,9 @@ class DexaReportPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sorted = [...scans]..sort((a, b) => b.scanDate.compareTo(a.scanDate));
-    return Scaffold(
-      backgroundColor: context.z25.screenBg,
-      appBar: AppBar(
-        title: const Text('DEXASCAN Report'),
-        backgroundColor: context.z25.screenBg,
-        surfaceTintColor: Colors.transparent,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
-        children: [for (final scan in sorted) _ScanCard(scan: scan)],
-      ),
+    return ZyndioDetailScaffold(
+      title: 'DEXASCAN Report',
+      children: [for (final scan in sorted) _ScanCard(scan: scan)],
     );
   }
 }
@@ -343,7 +346,7 @@ class _ScanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = Theme.of(context).extension<ZyndioColors>()!;
+    final c = context.zc;
     final device = scan.deviceLine;
     final groups = groupDexaMeasures(scan.measures);
     return Padding(
@@ -377,12 +380,19 @@ class _ScanCard extends StatelessWidget {
             ),
             if (device.isNotEmpty) ...[
               const SizedBox(height: 4),
-              Text(device, style: TextStyle(fontSize: 13, color: c.textTertiary)),
+              Text(device,
+                  style: TextStyle(
+                      fontFamily: ZyndioType.family,
+                      fontSize: 13,
+                      color: c.textTertiary)),
             ],
             if (groups.isEmpty) ...[
               const SizedBox(height: 12),
               Text('No measures were stored with this scan.',
-                  style: TextStyle(fontSize: 15, color: c.textSecondary)),
+                  style: TextStyle(
+                      fontFamily: ZyndioType.family,
+                      fontSize: 15,
+                      color: c.textSecondary)),
             ],
             for (final g in groups) ...[
               const SizedBox(height: 16),
@@ -391,6 +401,7 @@ class _ScanCard extends StatelessWidget {
                 child: Text(
                   g.section.title.toUpperCase(),
                   style: TextStyle(
+                    fontFamily: ZyndioType.family,
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.8,
@@ -406,16 +417,28 @@ class _ScanCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
+                        flex: 3,
                         child: Text(r.label,
-                            style: TextStyle(fontSize: 15, color: c.textSecondary)),
+                            style: TextStyle(
+                                fontFamily: ZyndioType.family,
+                                fontSize: 15,
+                                color: c.textSecondary)),
                       ),
                       const SizedBox(width: 12),
-                      Text(
-                        r.value,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: c.textPrimary,
+                      // Flexible: a long value wraps under large text instead
+                      // of pushing the row past the card edge.
+                      Flexible(
+                        flex: 2,
+                        child: Text(
+                          r.value,
+                          textAlign: TextAlign.end,
+                          style: TextStyle(
+                            fontFamily: ZyndioType.family,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            fontFeatures: ZyndioType.tabular,
+                            color: c.textPrimary,
+                          ),
                         ),
                       ),
                     ],
@@ -425,7 +448,10 @@ class _ScanCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'Values are as reported by the scan provider. Review them with your care team.',
-              style: TextStyle(fontSize: 12, color: c.textTertiary),
+              style: TextStyle(
+                  fontFamily: ZyndioType.family,
+                  fontSize: 12,
+                  color: c.textTertiary),
             ),
           ],
         ),
@@ -490,17 +516,22 @@ class _BodyScanPainter extends CustomPainter {
     limb(Offset(cx + w * 0.12, y(0.58)), Offset(cx + w * 0.15, y(0.99)), w * 0.17);
 
     final heat = Paint()
-      ..shader = const RadialGradient(
-        center: Alignment(0, -0.05),
+      ..shader = RadialGradient(
+        center: const Alignment(0, -0.05),
         radius: 0.75,
-        colors: [Color(0xFFFF5C7A), Color(0xFFB05CF0), Color(0xFF5B6CFF), Color(0xFF2E9BEA)],
-        stops: [0.0, 0.35, 0.65, 1.0],
+        colors: [
+          ZyndioTint.rose.colors.first,
+          ZyndioTint.violet.colors.first,
+          ZyndioTint.indigo.colors.first,
+          ZyndioTint.teal.colors.first,
+        ],
+        stops: const [0.0, 0.35, 0.65, 1.0],
       ).createShader(Offset.zero & size);
     // Soft glow behind, then the body.
     canvas.drawPath(
       body,
       Paint()
-        ..color = const Color(0xFF6A4CF5).withValues(alpha: 0.18)
+        ..color = ZyndioTint.violet.colors.last.withValues(alpha: 0.18)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
     );
     canvas.drawPath(body, heat);
