@@ -19,7 +19,6 @@ import '../screens/onboarding/consent_screen.dart';
 import '../screens/onboarding/profile_setup_screen.dart';
 import '../providers/onboarding_provider.dart';
 
-import '../screens/health_data/health_data_screen.dart';
 
 import '../screens/health_data/lab_report_upload_screen.dart';
 
@@ -321,36 +320,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'upload_report',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const LabReportUploadScreen(),
-      ),
-      GoRoute(
-        path: '/health_data/gut-microbiome',
-        name: 'gut_microbiome_panel',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const HealthDataScreen(reportType: 'Gut Microbiome'),
-      ),
-      GoRoute(
-        path: '/health_data/genetic',
-        name: 'genetic_panel',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const HealthDataScreen(reportType: 'Genetic'),
-      ),
-      GoRoute(
-        path: '/health_data/biological-age',
-        name: 'biological_age_panel',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const HealthDataScreen(reportType: 'Biological Age'),
-      ),
-      GoRoute(
-        path: '/health_data/heavy-metals',
-        name: 'heavy_metals_panel',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const HealthDataScreen(reportType: 'Heavy Metals'),
-      ),
-      GoRoute(
-        path: '/health_data/toxicity',
-        name: 'toxicity_panel',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const HealthDataScreen(reportType: 'Toxicity'),
       ),
       GoRoute(
         path: '/settings',

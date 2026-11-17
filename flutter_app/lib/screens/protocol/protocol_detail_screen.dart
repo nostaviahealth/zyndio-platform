@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../config/theme.dart';
 import '../../data/protocol_repository.dart';
 import '../../providers/protocol_provider.dart';
+import '../../widgets/tc025/tc025_widgets.dart';
 
 class ProtocolDetailScreen extends ConsumerWidget {
   final ProtocolData protocol;
@@ -22,329 +22,170 @@ class ProtocolDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final protocolState = ref.watch(protocolProvider);
     final isActive = protocolState.selectedProtocolId == protocol.id;
+    final c = Theme.of(context).extension<ZyndioColors>()!;
 
-    return Scaffold(
-      backgroundColor: context.nc.scaffoldBg,
-      appBar: AppBar(
-        backgroundColor: context.nc.scaffoldBg,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(LucideIcons.arrowLeft, color: Colors.white),
-          onPressed: () => context.pop(),
-        ),
-        centerTitle: true,
-        title: const Text(
-          'Protocol Details',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w800,
-            fontSize: 18,
-            letterSpacing: -0.5,
-          ),
-        ),
-      ),
-      body: Stack(
-        children: [
-          // ── Siri-style Background Glows ──
-          Positioned(
-            top: -100,
-            right: -100,
-            child: Container(
-              width: 300,
-              height: 300,
+    return ZyndioDetailScaffold(
+      title: 'Protocol Details',
+      onBack: () => context.pop(),
+      // Bottom Activate Button
+      bottomBar: isActive
+          ? Container(
+              width: double.infinity,
+              height: 54,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    BrandColors.indigo900.withOpacity(0.3),
-                    Colors.transparent,
-                  ],
-                ),
+                color: c.statusSuccessSubtle,
+                borderRadius: BorderRadius.circular(999),
               ),
-            ),
-          ),
-          Positioned(
-            bottom: 100,
-            left: -50,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    BrandColors.emerald500.withOpacity(0.15),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 120, 20, 100),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Header Section ──
-                Center(
-                  child: Column(
-                    children: [
-                      _GlassPill(
-                        text: isAdvanced ? 'ADVANCED PROTOCOL' : 'MINI PROTOCOL',
-                        color: isAdvanced ? BrandColors.emerald500 : Colors.white70,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(LucideIcons.check, color: c.statusSuccess, size: 20),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      'Actively Personalized',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: ZyndioType.family,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: c.statusSuccess,
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        protocol.title,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          letterSpacing: -1.0,
-                          height: 1.1,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        protocol.subtitle.toUpperCase(),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white.withOpacity(0.5),
-                          letterSpacing: 2.0,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 40),
-
-                // ── Description ──
-                const _SectionLabel(label: 'The Blueprint'),
-                const SizedBox(height: 12),
-                _GlassCard(
-                  child: Text(
-                    protocol.description.isNotEmpty
-                        ? protocol.description
-                        : 'A highly optimized regimen focusing on ${protocol.title.toLowerCase()} through precise habits.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      height: 1.6,
-                      color: Colors.white.withOpacity(0.8),
-                      fontWeight: FontWeight.w400,
                     ),
-                  ),
-                ),
-
-                // ── Target Metrics ──
-                if (protocol.targetMetrics.isNotEmpty) ...[
-                  const SizedBox(height: 32),
-                  const _SectionLabel(label: 'Optimization Goals'),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: protocol.targetMetrics.map((metric) {
-                      return _GlassPill(
-                        text: metric,
-                        color: Colors.white,
-                        fontSize: 11,
-                      );
-                    }).toList(),
                   ),
                 ],
+              ),
+            )
+          : ZyndioGradientButton(
+              label: 'Activate Protocol',
+              trailingArrow: false,
+              onTap: () {
+                HapticFeedback.lightImpact();
+                ref.read(protocolProvider.notifier).selectProtocol(protocol.id);
+                context.pop();
+              },
+            ),
+      children: [
+        // ── Header Section ──
+        ZyndioCard(
+          radius: 24,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ZyndioPill(
+                isAdvanced ? 'ADVANCED PROTOCOL' : 'MINI PROTOCOL',
+                tone: isAdvanced ? ZyndioPillTone.success : ZyndioPillTone.brand,
+              ),
+              const SizedBox(height: 14),
+              Text(
+                protocol.title,
+                style: ZyndioType.title1.copyWith(color: c.textPrimary),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                protocol.subtitle.toUpperCase(),
+                style: TextStyle(
+                  fontFamily: ZyndioType.family,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: c.textTertiary,
+                  letterSpacing: 1.3,
+                ),
+              ),
+            ],
+          ),
+        ),
 
-                // ── What's Included ──
-                const SizedBox(height: 32),
-                const _SectionLabel(label: 'Protocol Pillars'),
-                const SizedBox(height: 12),
-                _ExpandableSection(
-                  title: 'Lifestyle Habits',
-                  items: protocol.lifestyle.map((t) => _TaskPreview(title: t.title, detail: t.detail)).toList(),
-                ),
-                _ExpandableSection(
-                  title: 'Dietary Directives',
-                  items: protocol.diet.features.map((f) => _TaskPreview(title: f, detail: '')).toList(),
-                ),
-                _ExpandableSection(
-                  title: 'Fitness Breakdown',
-                  items: protocol.fitness.map((t) => _TaskPreview(title: t.title, detail: t.detail)).toList(),
-                ),
-                _ExpandableSection(
-                  title: 'Key Supplementation',
-                  items: protocol.supplements.map((t) => _TaskPreview(title: t.title, detail: t.detail)).toList(),
-                ),
+        const SizedBox(height: 28),
 
-                const SizedBox(height: 40),
-                
-                // ── Health Disclaimer ──
-                _GlassCard(
-                  child: Column(
-                    children: [
-                      const Text(
-                        'HEALTH DISCLAIMER',
-                        style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.0),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Consult a physician before starting any intense protocol, especially if you have a history of heart disease.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+        // ── Description ──
+        const ZyndioSectionLabel('The Blueprint'),
+        ZyndioCard(
+          child: Text(
+            protocol.description.isNotEmpty
+                ? protocol.description
+                : 'A highly optimized regimen focusing on ${protocol.title.toLowerCase()} through precise habits.',
+            style: TextStyle(
+              fontFamily: ZyndioType.family,
+              fontSize: 15,
+              height: 22 / 15,
+              color: c.textSecondary,
             ),
           ),
+        ),
+
+        // ── Target Metrics ──
+        if (protocol.targetMetrics.isNotEmpty) ...[
+          const SizedBox(height: 28),
+          const ZyndioSectionLabel('Optimization Goals'),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: protocol.targetMetrics.map((metric) {
+              return ZyndioPill(metric);
+            }).toList(),
+          ),
         ],
-      ),
-      
-      // Bottom Activate Button
-      bottomNavigationBar: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            color: BrandColors.dark.withOpacity(0.8),
-            padding: EdgeInsets.fromLTRB(20, 10, 20, 20 + MediaQuery.of(context).padding.bottom),
-            child: isActive
-                ? Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    decoration: BoxDecoration(
-                      color: BrandColors.emerald500.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: BrandColors.emerald500.withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(LucideIcons.check, color: BrandColors.emerald500, size: 20),
-                        SizedBox(width: 8),
-                        Text(
-                          'Actively Personalized',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: BrandColors.emerald500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : GestureDetector(
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      ref.read(protocolProvider.notifier).selectProtocol(protocol.id);
-                      context.pop();
-                    },
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [BrandColors.emerald500, Color(0xFF0D9488)],
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: BrandColors.emerald500.withOpacity(0.3),
-                            blurRadius: 15,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: const Text(
-                        'Activate Protocol',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-          ),
+
+        // ── What's Included ──
+        const SizedBox(height: 28),
+        const ZyndioSectionLabel('Protocol Pillars'),
+        _ExpandableSection(
+          title: 'Lifestyle Habits',
+          items: protocol.lifestyle.map((t) => _TaskPreview(title: t.title, detail: t.detail)).toList(),
         ),
-      ),
-    );
-  }
-}
+        _ExpandableSection(
+          title: 'Dietary Directives',
+          items: protocol.diet.features.map((f) => _TaskPreview(title: f, detail: '')).toList(),
+        ),
+        _ExpandableSection(
+          title: 'Fitness Breakdown',
+          items: protocol.fitness.map((t) => _TaskPreview(title: t.title, detail: t.detail)).toList(),
+        ),
+        _ExpandableSection(
+          title: 'Key Supplementation',
+          items: protocol.supplements.map((t) => _TaskPreview(title: t.title, detail: t.detail)).toList(),
+        ),
 
-// ── ELEGANT GLASS UTILITIES ──
+        const SizedBox(height: 28),
 
-class _SectionLabel extends StatelessWidget {
-  final String label;
-  const _SectionLabel({required this.label});
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label.toUpperCase(),
-      style: TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w900,
-        color: Colors.white.withOpacity(0.4),
-        letterSpacing: 1.5,
-      ),
-    );
-  }
-}
-
-class _GlassCard extends StatelessWidget {
-  final Widget child;
-  final EdgeInsets? padding;
-  const _GlassCard({required this.child, this.padding});
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-        child: Container(
-          padding: padding ?? const EdgeInsets.all(20),
+        // ── Health Disclaimer ──
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.04),
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
-            borderRadius: BorderRadius.circular(24),
+            color: c.bgSunken,
+            borderRadius: BorderRadius.circular(22),
           ),
-          child: child,
+          child: Column(
+            children: [
+              Text(
+                'HEALTH DISCLAIMER',
+                style: TextStyle(
+                  fontFamily: ZyndioType.family,
+                  color: c.textTertiary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.3,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Consult a physician before starting any intense protocol, especially if you have a history of heart disease.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: ZyndioType.family,
+                  color: c.textSecondary,
+                  fontSize: 13,
+                  height: 18 / 13,
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-    );
-  }
-}
+      ],
 
-class _GlassPill extends StatelessWidget {
-  final String text;
-  final Color color;
-  final double fontSize;
-  const _GlassPill({required this.text, this.color = Colors.white, this.fontSize = 10});
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(100),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            border: Border.all(color: color.withOpacity(0.2)),
-            borderRadius: BorderRadius.circular(100),
-          ),
-          child: Text(
-            text,
-            style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w900, color: color, letterSpacing: 0.5),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -367,45 +208,38 @@ class _ExpandableSectionState extends State<_ExpandableSection> {
 
   @override
   Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: _GlassCard(
-        padding: EdgeInsets.zero,
+      child: Container(
+        decoration: zyndioCard(context, radius: 22),
         child: Column(
           children: [
             GestureDetector(
               onTap: () => setState(() => _isExpanded = !_isExpanded),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
                 color: Colors.transparent,
                 child: Row(
                   children: [
                     Expanded(
                       child: Text(
                         widget.title,
-                        style: const TextStyle(
-                          fontSize: 15,
+                        style: TextStyle(
+                          fontFamily: ZyndioType.family,
+                          fontSize: 16,
+                          height: 22 / 16,
                           fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                          color: c.textPrimary,
                         ),
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        '${widget.items.length}',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white.withOpacity(0.5)),
-                      ),
-                    ),
+                    ZyndioPill('${widget.items.length}'),
                     const SizedBox(width: 12),
                     Icon(
                       _isExpanded ? LucideIcons.minus : LucideIcons.plus,
-                      color: Colors.white38,
-                      size: 14,
+                      color: c.textTertiary,
+                      size: 18,
                     ),
                   ],
                 ),
@@ -413,29 +247,39 @@ class _ExpandableSectionState extends State<_ExpandableSection> {
             ),
             if (_isExpanded)
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
                 child: Column(
                   children: widget.items.map((item) {
                     return Container(
                       width: double.infinity,
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.03),
-                        borderRadius: BorderRadius.circular(12),
+                        color: c.bgSunken,
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             item.title,
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+                            style: TextStyle(
+                              fontFamily: ZyndioType.family,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: c.textPrimary,
+                            ),
                           ),
                           if (item.detail.isNotEmpty) ...[
                             const SizedBox(height: 4),
                             Text(
                               item.detail,
-                              style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.5)),
+                              style: TextStyle(
+                                fontFamily: ZyndioType.family,
+                                fontSize: 13,
+                                height: 18 / 13,
+                                color: c.textSecondary,
+                              ),
                             ),
                           ],
                         ],

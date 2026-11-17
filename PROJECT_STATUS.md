@@ -32,7 +32,7 @@ opens from the avatar on every tab.
 
 | ID | Requirement | Status | Notes |
 |---|---|---|---|
-| APP-01 | Sign-in from an enrolment invite (magic link or one-time code); no open self-sign-up unless switched on | Done | Email code sign-in; self-sign-up behind a server flag (off). |
+| APP-01 | Sign-in from an enrolment invite (magic link or one-time code); no open self-sign-up unless switched on | Built, not live | Email code sign-in; self-sign-up behind a server flag (off). The code email is sent over SMTP (port 465) once the `SMTP_*` secrets are set on the hosted project, see [SUPABASE-SETUP.md](./SUPABASE-SETUP.md#deploy-checklist--patient-sign-in-emails-tc-006). **Until then no code is emailed and real patients cannot sign in.** |
 | APP-02 | Consent and onboarding: terms, privacy notice, consent text, each stored with version and timestamp | Done, text is placeholder | Versioned consents table. **Final legal text from Zyndio is still needed** (screens say "placeholder text"). |
 | APP-03 | Separate, revocable authorisation to share outcomes with the body composition partner | Done | Settings → Privacy and sharing → Partner outcomes sharing. Revoking stops future deliveries. |
 | APP-04 | Profile: name, date of birth, sex at birth, height, units | Done | Onboarding profile step and Edit profile. |
@@ -51,6 +51,13 @@ opens from the avatar on every tab.
 
 - Client-mockup visual design (Nov 2026): brand row, Longevity score card, pastel tiles,
   sliding tab bar.
+- One design system on every patient screen (17 Nov 2026). The screens opened from the tabs
+  were still styled like the white-label base app (dark navy lab upload, black/green Health
+  Data). They now use the shared kit in `widgets/tc025/` (`ZyndioDetailScaffold`, back header,
+  cards, pills, gradient buttons). Lab results was redesigned to match Today (ring summary,
+  "to discuss" card, report rows). The non-Zyndio panels (gut, genetic, biological age, heavy
+  metals, toxins) were removed. Icon tiles use Zyndio's own hand-drawn glyph set
+  (`zyndio_glyphs.dart`) in glossy squircle tiles instead of stock icons.
 - Demo login (`--dart-define=DEMO_LOGIN=true`, debug builds only) with fictional data on every
   tab, including a baseline, Day 90 and Day 180 scan.
 - Longevity score ring and Recovery tile only appear with their feature flag **and** a real
@@ -114,6 +121,8 @@ None of these can be finished in code alone.
 **Accounts and hosting**
 - A hosted Supabase project (staging, then production in a US region) with its URL and keys.
 - Apple Developer account (iOS `DEVELOPMENT_TEAM` is empty) and Google Play account.
+- SMTP login for a mailbox on Zyndio's domain that supports port 465, for the sign-in code
+  emails (APP-01).
 - Firebase / APNs for push, a valid RevenueCat key (the current one is rejected), DNS for
   `platform.zyndio.com`.
 

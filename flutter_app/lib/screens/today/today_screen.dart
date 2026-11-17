@@ -12,7 +12,6 @@ import '../../providers/patient_provider.dart';
 import '../../providers/wearable_sync_provider.dart';
 import '../../providers/feature_flags_provider.dart';
 import '../../providers/longevity_provider.dart';
-import 'dart:math' as math;
 import '../../widgets/programme_journey_card.dart';
 import '../../widgets/tc025/tc025_widgets.dart';
 
@@ -489,7 +488,7 @@ class _ScoreCard extends StatelessWidget {
                     width: 138,
                     height: 138,
                     child: CustomPaint(
-                      painter: _RingPainter(
+                      painter: ZyndioRingPainter(
                         fraction: s.score.clamp(0, 100) / 100,
                         track: z.tileBg,
                       ),
@@ -612,52 +611,6 @@ class _ScoreCard extends StatelessWidget {
       ),
     );
   }
-}
-
-class _RingPainter extends CustomPainter {
-  _RingPainter({required this.fraction, required this.track});
-  final double fraction;
-  final Color track;
-
-  static const _start = math.pi * 0.75; // 135°
-  static const _sweep = math.pi * 1.5; // 270°
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const stroke = 13.0;
-    final rect = Rect.fromLTWH(
-        stroke / 2, stroke / 2, size.width - stroke, size.height - stroke);
-    final base = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
-      ..strokeCap = StrokeCap.round
-      ..color = track;
-    canvas.drawArc(rect, _start, _sweep, false, base);
-    final arc = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
-      ..strokeCap = StrokeCap.round
-      // Gradient runs 0.._sweep, rotated to the arc's start so it never wraps.
-      ..shader = const SweepGradient(
-        // Offset a little before the arc start so the round start cap samples
-        // the first colour instead of wrapping to the last.
-        startAngle: 0,
-        endAngle: _sweep + 0.3,
-        colors: [
-          Color(0xFF7B5CFA),
-          Color(0xFF4F6BF5),
-          Color(0xFF2E7BEA),
-          Color(0xFF38BDF8)
-        ],
-        stops: [0.0, 0.35, 0.7, 1.0],
-        transform: GradientRotation(_start - 0.3),
-      ).createShader(rect);
-    canvas.drawArc(rect, _start, _sweep * fraction, false, arc);
-  }
-
-  @override
-  bool shouldRepaint(covariant _RingPainter old) =>
-      old.fraction != fraction || old.track != track;
 }
 
 /// Z3 Insight card. Copy from the existing AI insight providers; no "New" badge
