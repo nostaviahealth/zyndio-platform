@@ -829,13 +829,19 @@ class ZyndioPill extends StatelessWidget {
             Icon(icon, size: 13, color: fg),
             const SizedBox(width: 4),
           ],
-          Text(
-            label,
-            style: TextStyle(
-              fontFamily: ZyndioType.family,
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              color: fg,
+          // Flexible + ellipsis: a long status shrinks instead of
+          // overflowing a narrow row or large accessibility text.
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: ZyndioType.family,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: fg,
+              ),
             ),
           ),
         ],
@@ -1147,7 +1153,13 @@ class ZyndioListRow extends StatelessWidget {
                     ),
                     if (trailingBadge != null) ...[
                       const SizedBox(width: 8),
-                      _NeutralBadge(label: trailingBadge!),
+                      // Capped so the title column always keeps most of the
+                      // row, even with large text on a small phone.
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                            maxWidth: MediaQuery.sizeOf(context).width * 0.3),
+                        child: _NeutralBadge(label: trailingBadge!),
+                      ),
                     ],
                     const SizedBox(width: 4),
                     Icon(LucideIcons.chevronRight,
@@ -1177,6 +1189,8 @@ class _NeutralBadge extends StatelessWidget {
       ),
       child: Text(
         label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           fontFamily: ZyndioType.family,
           fontSize: 13,
