@@ -1,5 +1,3 @@
-import 'dart:io' show Platform;
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,9 +10,9 @@ import '../../providers/patient_provider.dart';
 import '../../providers/wearable_sync_provider.dart';
 import '../../providers/feature_flags_provider.dart';
 import '../../providers/longevity_provider.dart';
-import 'dart:math' as math;
 import '../../widgets/programme_journey_card.dart';
 import '../../widgets/tc025/tc025_widgets.dart';
+import '../../utils/platform_info.dart';
 
 // ── Pure helpers (unit-tested) ──────────────────────────────────────────────
 
@@ -71,7 +69,7 @@ TodayState classifyToday(AsyncValue<WearableSyncState> sync) {
 
 /// Connected-source display name (names only connected sources, specs §3.1).
 String connectedSourceName() =>
-    Platform.isIOS ? 'Apple Health' : 'Health Connect';
+    PlatformInfo.isIOS ? 'Apple Health' : 'Health Connect';
 
 // ── Screen ──────────────────────────────────────────────────────────────────
 
@@ -489,37 +487,43 @@ class _ScoreCard extends StatelessWidget {
                     width: 138,
                     height: 138,
                     child: CustomPaint(
-                      painter: _RingPainter(
+                      painter: ZyndioRingPainter(
                         fraction: s.score.clamp(0, 100) / 100,
                         track: z.tileBg,
                       ),
-                      child: Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '${s.score}',
-                              style: TextStyle(
-                                fontFamily: ZyndioType.family,
-                                fontSize: 44,
-                                height: 1.0,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: -1.4,
-                                fontFeatures: ZyndioType.tabular,
-                                color: c.textPrimary,
+                      child: Padding(
+                        // Keep the number inside the ring's inner edge and
+                        // scale it down for large accessibility text.
+                        padding: const EdgeInsets.all(20),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '${s.score}',
+                                style: TextStyle(
+                                  fontFamily: ZyndioType.family,
+                                  fontSize: 44,
+                                  height: 1.0,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -1.4,
+                                  fontFeatures: ZyndioType.tabular,
+                                  color: c.textPrimary,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'of 100',
-                              style: TextStyle(
-                                fontFamily: ZyndioType.family,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: c.textTertiary,
+                              const SizedBox(height: 4),
+                              Text(
+                                'of 100',
+                                style: TextStyle(
+                                  fontFamily: ZyndioType.family,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: c.textTertiary,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -541,35 +545,39 @@ class _ScoreCard extends StatelessWidget {
                         ),
                         if (trend != null) ...[
                           const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: c.brandSubtle,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  trend >= 0
-                                      ? LucideIcons.trendingUp
-                                      : LucideIcons.trendingDown,
-                                  size: 15,
-                                  color: c.brandOnSubtle,
-                                ),
-                                const SizedBox(width: 5),
-                                Text(
-                                  '${trend >= 0 ? '+' : ''}$trend%',
-                                  style: TextStyle(
-                                    fontFamily: ZyndioType.family,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    fontFeatures: ZyndioType.tabular,
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: c.brandSubtle,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    trend >= 0
+                                        ? LucideIcons.trendingUp
+                                        : LucideIcons.trendingDown,
+                                    size: 15,
                                     color: c.brandOnSubtle,
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    '${trend >= 0 ? '+' : ''}$trend%',
+                                    style: TextStyle(
+                                      fontFamily: ZyndioType.family,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      fontFeatures: ZyndioType.tabular,
+                                      color: c.brandOnSubtle,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                           const SizedBox(height: 6),
@@ -612,52 +620,6 @@ class _ScoreCard extends StatelessWidget {
       ),
     );
   }
-}
-
-class _RingPainter extends CustomPainter {
-  _RingPainter({required this.fraction, required this.track});
-  final double fraction;
-  final Color track;
-
-  static const _start = math.pi * 0.75; // 135°
-  static const _sweep = math.pi * 1.5; // 270°
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const stroke = 13.0;
-    final rect = Rect.fromLTWH(
-        stroke / 2, stroke / 2, size.width - stroke, size.height - stroke);
-    final base = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
-      ..strokeCap = StrokeCap.round
-      ..color = track;
-    canvas.drawArc(rect, _start, _sweep, false, base);
-    final arc = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
-      ..strokeCap = StrokeCap.round
-      // Gradient runs 0.._sweep, rotated to the arc's start so it never wraps.
-      ..shader = const SweepGradient(
-        // Offset a little before the arc start so the round start cap samples
-        // the first colour instead of wrapping to the last.
-        startAngle: 0,
-        endAngle: _sweep + 0.3,
-        colors: [
-          Color(0xFF7B5CFA),
-          Color(0xFF4F6BF5),
-          Color(0xFF2E7BEA),
-          Color(0xFF38BDF8)
-        ],
-        stops: [0.0, 0.35, 0.7, 1.0],
-        transform: GradientRotation(_start - 0.3),
-      ).createShader(rect);
-    canvas.drawArc(rect, _start, _sweep * fraction, false, arc);
-  }
-
-  @override
-  bool shouldRepaint(covariant _RingPainter old) =>
-      old.fraction != fraction || old.track != track;
 }
 
 /// Z3 Insight card. Copy from the existing AI insight providers; no "New" badge

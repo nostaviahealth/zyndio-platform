@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../config/supabase_config.dart';
 import '../../widgets/partner_outcomes_consent_card.dart';
+import '../../widgets/tc025/tc025_widgets.dart';
 
 /// APP-03 screen. The server checks the current document, version, and that
 /// the caller is the patient. This screen does not decide the hash.
@@ -58,20 +59,17 @@ class _PartnerOutcomesConsentScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Partner outcomes')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          PartnerOutcomesConsentCard(
-            initialAuthorized: _authorized,
-            consentVersion: _consentVersion,
-            updatedAt: _updatedAt,
-            onUpdateConsent:
-                widget.onUpdateConsent ?? _persistPartnerOutcomeAuthorisation,
-          ),
-        ],
-      ),
+    return ZyndioDetailScaffold(
+      title: 'Partner outcomes',
+      children: [
+        PartnerOutcomesConsentCard(
+          initialAuthorized: _authorized,
+          consentVersion: _consentVersion,
+          updatedAt: _updatedAt,
+          onUpdateConsent:
+              widget.onUpdateConsent ?? _persistPartnerOutcomeAuthorisation,
+        ),
+      ],
     );
   }
 }

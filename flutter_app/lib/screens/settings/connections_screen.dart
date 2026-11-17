@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../config/theme.dart';
 import '../../services/wearable_daily/device_health_connector.dart';
+import '../../widgets/tc025/tc025_widgets.dart';
 
 /// APP-07: Apple Health (iOS) / Health Connect (Android) connect on the
 /// device and then upload daily data to wearable_daily. Cloud wearables
@@ -49,108 +51,117 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: context.nc.scaffoldBg,
-      appBar: AppBar(
-        title: Text('Connections', style: TextStyle(color: context.nc.textPrimary)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: IconThemeData(color: context.nc.textPrimary),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Wearable Integrations',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w900,
-                color: context.nc.textPrimary,
-                letterSpacing: -0.5,
+    final c = context.zc;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      // A transparent bar reads as "dark" to Flutter, which would switch to
+      // white status bar icons over this light page (and keep them on the
+      // page underneath after going back). Match the theme instead.
+      value: dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      child: ZyndioDetailScaffold(
+        title: 'Connections',
+        children: [
+          Text(
+            'Wearable Integrations',
+            style: ZyndioType.title2.copyWith(color: c.textPrimary),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Connect your devices to sync your health and sleep data automatically.',
+            style: TextStyle(
+              fontFamily: ZyndioType.family,
+              fontSize: 15,
+              height: 22 / 15,
+              color: c.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 24),
+          _buildConnectionButton(
+            context,
+            key: const Key('connect-health-store'),
+            title: 'Connect $_storeName',
+            icon: LucideIcons.activity,
+            onPressed: _connectHealthStore,
+          ),
+          const SizedBox(height: 12),
+          _buildConnectionButton(
+            context,
+            key: const Key('connect-whoop'),
+            title: 'WHOOP (not available yet)',
+            icon: LucideIcons.watch,
+            onPressed: null,
+          ),
+          if (_isConnecting)
+            Padding(
+              padding: const EdgeInsets.only(top: 32.0),
+              child: Center(
+                child: CircularProgressIndicator(color: c.brandPrimary),
               ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              'Connect your devices to sync your health and sleep data automatically.',
-              style: TextStyle(
-                fontSize: 16,
-                color: context.nc.textTertiary,
-              ),
-            ),
-            const SizedBox(height: 48),
-            _buildConnectionButton(
-              key: const Key('connect-health-store'),
-              title: 'Connect $_storeName',
-              icon: LucideIcons.activity,
-              color: const Color(0xFFEF4444),
-              onPressed: _connectHealthStore,
-            ),
-            const SizedBox(height: 16),
-            _buildConnectionButton(
-              key: const Key('connect-whoop'),
-              title: 'WHOOP (not available yet)',
-              icon: LucideIcons.watch,
-              color: Colors.white, // Whoop color scheme mostly dark, use white icon for contrast
-              onPressed: null,
-            ),
-            if (_isConnecting)
-              const Padding(
-                padding: EdgeInsets.only(top: 32.0),
-                child: Center(
-                  child: CircularProgressIndicator(color: BrandColors.emerald500),
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildConnectionButton({
+  Widget _buildConnectionButton(
+    BuildContext context, {
     Key? key,
     required String title,
     required IconData icon,
-    required Color color,
     required VoidCallback? onPressed,
   }) {
+    final c = context.zc;
+    final enabled = !_isConnecting && onPressed != null;
+    final fg = enabled ? c.textPrimary : c.textTertiary;
+    final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(22));
     return SizedBox(
       key: key,
       width: double.infinity,
-      height: 64,
-      child: ElevatedButton(
-        onPressed: _isConnecting ? null : onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: context.nc.cardSurface,
-          foregroundColor: context.nc.textPrimary,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: context.nc.cardBorder),
+      height: 72,
+      child: DecoratedBox(
+        decoration: zyndioCard(context, radius: 22),
+        child: ElevatedButton(
+          onPressed: _isConnecting ? null : onPressed,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            disabledBackgroundColor: Colors.transparent,
+            foregroundColor: c.textPrimary,
+            disabledForegroundColor: c.textTertiary,
+            shadowColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+            shape: shape,
           ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: context.nc.isDark ? color.withOpacity(0.2) : color,
-                borderRadius: BorderRadius.circular(8),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: context.z25.tileBg,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 20, color: enabled ? c.brandPrimary : c.textTertiary),
               ),
-              child: Icon(icon, color: context.nc.isDark ? color : Colors.white),
-            ),
-            const SizedBox(width: 16),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  title,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: ZyndioType.family,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: fg,
+                  ),
+                ),
               ),
-            ),
-            const Spacer(),
-            const Icon(LucideIcons.chevronRight, color: BrandColors.slate500),
-          ],
+              const SizedBox(width: 4),
+              Icon(LucideIcons.chevronRight, size: 20, color: c.textTertiary),
+            ],
+          ),
         ),
       ),
     );

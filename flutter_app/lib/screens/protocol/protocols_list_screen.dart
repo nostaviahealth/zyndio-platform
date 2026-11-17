@@ -4,9 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../config/theme.dart';
 import '../../data/protocol_repository.dart';
-import '../wearables/widgets/dashboard_card_style.dart';
 import '../../providers/protocol_provider.dart';
 import '../../providers/patient_provider.dart';
+import '../../widgets/tc025/tc025_widgets.dart';
 import 'protocol_detail_screen.dart';
 
 class ProtocolsListScreen extends ConsumerStatefulWidget {
@@ -41,167 +41,141 @@ class _ProtocolsListScreenState extends ConsumerState<ProtocolsListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.zc;
     final protocolState = ref.watch(protocolProvider);
     final advancedProtocols = protocolState.adminProtocols;
     final miniProtocols = protocolState.addonProtocols.where((p) => !p.isPremium && !p.id.startsWith('custom-')).toList();
     final customProtocols = protocolState.addonProtocols.where((p) => p.id.startsWith('custom-')).toList();
     final userPlan = ref.watch(patientProfileProvider).value?.subscriptionPlan ?? 'free';
 
-    return Scaffold(
-      backgroundColor: context.nc.scaffoldBg,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: Icon(LucideIcons.arrowLeft, color: context.nc.textPrimary),
-          onPressed: () => context.pop(),
-        ),
-        title: Text(
-          'Protocol Library',
-          style: TextStyle(
-            color: context.nc.textPrimary, 
-            fontWeight: FontWeight.w800, 
-            fontSize: 18,
-            letterSpacing: -0.5,
-          ),
-        ),
-      ),
-      body: protocolState.isLoading
-          ? Center(child: CircularProgressIndicator(color: context.nc.textPrimary))
-          : SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Advanced Protocols",
-                    style: TextStyle(
-                      fontSize: 16, 
-                      fontWeight: FontWeight.w700, 
-                      color: context.nc.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "Personalized by your physician",
-                    style: TextStyle(fontSize: 13, color: context.nc.textSecondary),
-                  ),
-                  const SizedBox(height: 16),
-
-                  if (advancedProtocols.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: DashboardCardStyle.decorationOf(context),
-                      child: Row(
-                        children: [
-                          Icon(LucideIcons.info, color: context.nc.textSecondary, size: 18),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              "No protocol yet. Complete onboarding.",
-                              style: TextStyle(color: context.nc.textSecondary, fontSize: 13),
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    ...advancedProtocols.map((protocol) {
-                      final isActive = protocolState.selectedProtocolId == protocol.id;
-                      return _ProtocolCard(
-                        protocol: protocol,
-                        isActive: isActive,
-                        isAdvanced: true,
-                        isLocked: false,
-                        onSelect: () => _openProtocolDetail(protocol, true, userPlan),
-                      );
-                    }),
-
-                  const SizedBox(height: 32),
-
-                  // CUSTOM AI PROTOCOLS Section
-                  if (customProtocols.isNotEmpty) ...[
-                    Row(
-                      children: [
-                        Text(
-                          "Custom AI Protocols",
-                          style: TextStyle(
-                            fontSize: 16, 
-                            fontWeight: FontWeight.w700, 
-                            color: context.nc.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF6366F1).withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.3)),
-                          ),
-                          child: const Text(
-                            'AI',
-                            style: TextStyle(
-                              fontSize: 10, 
-                              fontWeight: FontWeight.w900, 
-                              color: Color(0xFF818CF8),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      "Generated from your Intelligence chats",
-                      style: TextStyle(fontSize: 13, color: context.nc.textSecondary),
-                    ),
-                    const SizedBox(height: 16),
-
-                    ...customProtocols.map((protocol) {
-                      final isActive = protocolState.selectedProtocolId == protocol.id;
-                      return _ProtocolCard(
-                        protocol: protocol,
-                        isActive: isActive,
-                        isAdvanced: false,
-                        isLocked: false,
-                        onSelect: () => _openProtocolDetail(protocol, false, userPlan),
-                      );
-                    }),
-                    const SizedBox(height: 32),
-                  ],
-
-                  // MINI PROTOCOLS Section
-                  Text(
-                    "Mini Protocols",
-                    style: TextStyle(
-                      fontSize: 16, 
-                      fontWeight: FontWeight.w700, 
-                      color: context.nc.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "Simple routines for specific goals",
-                    style: TextStyle(fontSize: 13, color: context.nc.textSecondary),
-                  ),
-                  const SizedBox(height: 16),
-
-                  ...miniProtocols.map((protocol) {
-                    final isActive = protocolState.selectedProtocolId == protocol.id;
-                    return _ProtocolCard(
-                      protocol: protocol,
-                      isActive: isActive,
-                      isAdvanced: false,
-                      isLocked: false,
-                      onSelect: () => _openProtocolDetail(protocol, false, userPlan),
-                    );
-                  }),
-
-                  const SizedBox(height: 80),
-                ],
+    return ZyndioDetailScaffold(
+      title: 'Protocol Library',
+      onBack: () => context.pop(),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 80),
+      children: protocolState.isLoading
+          ? [
+              Padding(
+                padding: const EdgeInsets.only(top: 80),
+                child: Center(child: CircularProgressIndicator(color: c.brandPrimary)),
               ),
-            ),
+            ]
+          : [
+              const _SectionHeader(
+                title: "Advanced Protocols",
+                subtitle: "Personalized by your physician",
+              ),
+
+              if (advancedProtocols.isEmpty)
+                ZyndioCard(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Icon(LucideIcons.info, color: c.textSecondary, size: 18),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          "No protocol yet. Complete onboarding.",
+                          style: ZyndioType.subhead.copyWith(color: c.textSecondary),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                ...advancedProtocols.map((protocol) {
+                  final isActive = protocolState.selectedProtocolId == protocol.id;
+                  return _ProtocolCard(
+                    protocol: protocol,
+                    isActive: isActive,
+                    isAdvanced: true,
+                    isLocked: false,
+                    onSelect: () => _openProtocolDetail(protocol, true, userPlan),
+                  );
+                }),
+
+              const SizedBox(height: 28),
+
+              // CUSTOM AI PROTOCOLS Section
+              if (customProtocols.isNotEmpty) ...[
+                const _SectionHeader(
+                  title: "Custom AI Protocols",
+                  subtitle: "Generated from your Intelligence chats",
+                  badge: ZyndioPill('AI', tone: ZyndioPillTone.brand),
+                ),
+
+                ...customProtocols.map((protocol) {
+                  final isActive = protocolState.selectedProtocolId == protocol.id;
+                  return _ProtocolCard(
+                    protocol: protocol,
+                    isActive: isActive,
+                    isAdvanced: false,
+                    isLocked: false,
+                    onSelect: () => _openProtocolDetail(protocol, false, userPlan),
+                  );
+                }),
+                const SizedBox(height: 28),
+              ],
+
+              // MINI PROTOCOLS Section
+              const _SectionHeader(
+                title: "Mini Protocols",
+                subtitle: "Simple routines for specific goals",
+              ),
+
+              ...miniProtocols.map((protocol) {
+                final isActive = protocolState.selectedProtocolId == protocol.id;
+                return _ProtocolCard(
+                  protocol: protocol,
+                  isActive: isActive,
+                  isAdvanced: false,
+                  isLocked: false,
+                  onSelect: () => _openProtocolDetail(protocol, false, userPlan),
+                );
+              }),
+            ],
+    );
+  }
+}
+
+/// Section title + one-line explainer, with an optional pill beside the title.
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title, required this.subtitle, this.badge});
+
+  final String title;
+  final String subtitle;
+  final Widget? badge;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.zc;
+    final heading = Text(
+      title,
+      style: ZyndioType.headline.copyWith(color: c.textPrimary),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Semantics(
+            header: true,
+            child: badge == null
+                ? heading
+                : Row(
+                    children: [
+                      Flexible(child: heading),
+                      const SizedBox(width: 8),
+                      badge!,
+                    ],
+                  ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: ZyndioType.footnote.copyWith(color: c.textSecondary),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -223,41 +197,51 @@ class _ProtocolCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.zc;
+    final isCustom = protocol.id.startsWith('custom-');
+    final (IconData icon, ZyndioTint tint) = isAdvanced
+        ? (LucideIcons.clipboardList, ZyndioTint.violet)
+        : isCustom
+            ? (LucideIcons.sparkles, ZyndioTint.indigo)
+            : (LucideIcons.listChecks, ZyndioTint.green);
+    final base = zyndioCard(context, radius: 22);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: GestureDetector(
         onTap: onSelect,
         child: Container(
           padding: const EdgeInsets.all(16),
-          decoration: DashboardCardStyle.decorationOf(context).copyWith(
-            border: isActive 
-                ? Border.all(color: BrandColors.emerald500, width: 2)
-                : null,
-          ),
+          decoration: isActive
+              ? base.copyWith(
+                  border: Border.all(color: c.statusSuccess, width: 2))
+              : base,
           child: Row(
             children: [
+              ZyndioIconTile(icon: icon, tint: tint, size: 44),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       protocol.title,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: isLocked ? context.nc.textTertiary : context.nc.textPrimary,
+                      style: ZyndioType.callout.copyWith(
+                        height: 22 / 16,
+                        fontWeight: FontWeight.w600,
+                        color: isLocked ? c.textTertiary : c.textPrimary,
                       ),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
                       protocol.subtitle.toUpperCase(),
                       style: TextStyle(
-                        fontSize: 11, 
+                        fontFamily: ZyndioType.family,
+                        fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: context.nc.textSecondary,
-                        letterSpacing: 0.5,
+                        color: c.textTertiary,
+                        letterSpacing: 0.8,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -267,28 +251,15 @@ class _ProtocolCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               if (isLocked)
-                Icon(LucideIcons.lock, color: context.nc.textTertiary, size: 18)
+                Icon(LucideIcons.lock, color: c.textTertiary, size: 18)
               else if (isActive)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: BrandColors.emerald500,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: BrandColors.emerald500.withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: const Text(
-                    'Active',
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white),
-                  ),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                      maxWidth: MediaQuery.sizeOf(context).width * 0.3),
+                  child: const ZyndioPill('Active', tone: ZyndioPillTone.success),
                 )
               else
-                Icon(LucideIcons.chevronRight, color: context.nc.textTertiary, size: 20),
+                Icon(LucideIcons.chevronRight, color: c.textTertiary, size: 20),
             ],
           ),
         ),
@@ -296,4 +267,3 @@ class _ProtocolCard extends StatelessWidget {
     );
   }
 }
-

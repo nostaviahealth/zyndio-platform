@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'dart:ui';
 import 'dart:io';
 import 'dart:async';
@@ -27,6 +26,7 @@ import '../../services/conversion_service.dart';
 import 'simulation_card.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../config/theme.dart';
+import '../../widgets/tc025/tc025_widgets.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final String? initialMessage;
@@ -36,7 +36,8 @@ class ChatScreen extends ConsumerStatefulWidget {
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStateMixin {
+class _ChatScreenState extends ConsumerState<ChatScreen>
+    with TickerProviderStateMixin {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
   final _imagePicker = ImagePicker();
@@ -46,9 +47,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStat
   int _initialMessageCount = 0;
   final Set<int> _animatedIndices = {};
 
+  // Captured while mounted: dispose() must not touch `ref` (Riverpod throws
+  // "Using ref when a widget is unmounted"), but the tab bar still has to
+  // come back after the companion closes.
+  late final NavbarVisibleNotifier _navbar =
+      ref.read(navbarVisibleProvider.notifier);
+
   @override
   void initState() {
     super.initState();
+    _navbar; // resolve now, while `ref` is safe to use
     if (widget.initialMessage != null && widget.initialMessage!.isNotEmpty) {
       Future.microtask(() {
         ref.read(chatProvider.notifier).startNewSession();
@@ -82,14 +90,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStat
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
-    Future.microtask(() {
-      ref.read(navbarVisibleProvider.notifier).show();
-    });
+    final navbar = _navbar;
+    Future.microtask(navbar.show);
     super.dispose();
   }
 
   Future<void> _pickImage() async {
-    final picked = await _imagePicker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    final picked = await _imagePicker.pickImage(
+        source: ImageSource.gallery, imageQuality: 85);
     if (picked != null && mounted) {
       setState(() => _selectedImage = File(picked.path));
     }
@@ -107,9 +115,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStat
 
     HapticFeedback.mediumImpact();
     ref.read(chatProvider.notifier).sendMessage(
-      text.isEmpty ? 'Please analyze this image in context of my health data.' : text,
-      imagePath: _selectedImage?.path,
-    );
+          text.isEmpty
+              ? 'Please analyze this image in context of my health data.'
+              : text,
+          imagePath: _selectedImage?.path,
+        );
     _messageController.clear();
     setState(() => _selectedImage = null);
     FocusScope.of(context).unfocus();
@@ -120,7 +130,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStat
 
     final position = _scrollController.position;
     final double pixelsFromBottom = position.maxScrollExtent - position.pixels;
-    
+
     if (force || pixelsFromBottom < 100) {
       if (isStreaming) {
         _scrollController.jumpTo(position.maxScrollExtent);
@@ -141,11 +151,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStat
     final isLoading = chatState.isLoading;
 
     ref.listen(chatProvider, (previous, next) {
-      final bool newMsgAdded = next.messages.length > (previous?.messages.length ?? 0);
-      final bool contentUpdating = next.isLoading && 
-          previous != null && 
-          next.messages.isNotEmpty && 
-          previous.messages.isNotEmpty && 
+      final bool newMsgAdded =
+          next.messages.length > (previous?.messages.length ?? 0);
+      final bool contentUpdating = next.isLoading &&
+          previous != null &&
+          next.messages.isNotEmpty &&
+          previous.messages.isNotEmpty &&
           next.messages.last.text != previous.messages.last.text;
 
       if (newMsgAdded) {
@@ -155,456 +166,395 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with TickerProviderStat
       }
 
       // 🚀 High-conversion placement: record success and trigger paywall if threshold reached
-      final bool responseFinished = previous != null && previous.isLoading && !next.isLoading;
-      if (responseFinished && next.messages.isNotEmpty && !next.messages.last.isUser) {
+      final bool responseFinished =
+          previous != null && previous.isLoading && !next.isLoading;
+      if (responseFinished &&
+          next.messages.isNotEmpty &&
+          !next.messages.last.isUser) {
         ref.read(conversionServiceProvider).recordAhaMoment(context);
       }
     });
+
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    final dark = Theme.of(context).brightness == Brightness.dark;
 
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (didPop, result) {
         ref.read(navbarVisibleProvider.notifier).show();
       },
-      child: Scaffold(
-        backgroundColor: context.nc.scaffoldBg,
-        body: Stack(
-          children: [
-            // 1. Solid Base Layer
-            Positioned.fill(
-              child: Container(color: context.nc.scaffoldBg),
-            ),
-            
-            // 2. Ambient Multi-Gradient Aurora (High Intelligence Aesthetic)
-            if (context.nc.isDark) ...[
-              // Top Right Glow (Indigo)
-              Positioned(
-                top: -150,
-                right: -120,
-                child: Container(
-                  width: 600,
-                  height: 600,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        const Color(0xFF4F46E5).withValues(alpha: 0.35),
-                        const Color(0xFF4F46E5).withValues(alpha: 0),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              // Center Left Glow (Purple/Rose)
-              Positioned(
-                top: 150,
-                left: -180,
-                child: Container(
-                  width: 550,
-                  height: 550,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        const Color(0xFFA855F7).withValues(alpha: 0.25),
-                        const Color(0xFFA855F7).withValues(alpha: 0),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              // Bottom Right Glow (Amber)
-              Positioned(
-                bottom: -200,
-                right: -120,
-                child: Container(
-                  width: 600,
-                  height: 600,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        const Color(0xFFF59E0B).withValues(alpha: 0.2),
-                        const Color(0xFFF59E0B).withValues(alpha: 0),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              // Bottom Left Glow (Emerald)
-              Positioned(
-                bottom: 50,
-                left: -150,
-                child: Container(
-                  width: 500,
-                  height: 500,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        const Color(0xFF10B981).withValues(alpha: 0.15),
-                        const Color(0xFF10B981).withValues(alpha: 0),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ] else 
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        const Color(0xFFF8FAFC),
-                        Colors.white,
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-            SafeArea(
-              child: Column(
-                children: [
-                  // --- Header ---
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: GestureDetector(
-                            onTap: () {
-                              ref.read(navbarVisibleProvider.notifier).show();
-                              context.pop();
-                            },
-                            behavior: HitTestBehavior.opaque,
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Icon(LucideIcons.arrowLeft, size: 24, color: context.nc.textPrimary),
-                            ),
-                          ),
-                        ),
-                        Text(
-                          'Zyndio AI',
-                          style: GoogleFonts.outfit(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: context.nc.textPrimary,
-                          ),
-                        ),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: PopupMenuButton<String>(
-                            icon: Icon(LucideIcons.moreHorizontal, size: 24, color: context.nc.textPrimary),
-                            onSelected: (value) {
-                              if (value == 'new_chat') {
-                                ref.read(chatProvider.notifier).startNewSession();
-                              } else if (value == 'history') {
-                                context.pushNamed('chat_history');
-                              }
-                            },
-                            itemBuilder: (context) => [
-                              const PopupMenuItem(
-                                value: 'new_chat',
-                                child: Row(
-                                  children: [
-                                    Icon(LucideIcons.plus, size: 18),
-                                    SizedBox(width: 12),
-                                    Text('New Chat'),
-                                  ],
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+        child: Scaffold(
+          backgroundColor: context.z25.screenBg,
+          body: SafeArea(
+            child: Column(
+              children: [
+                // --- Header ---
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                  child: ZyndioBackHeader(
+                    title: 'Zyndio AI',
+                    onBack: () {
+                      ref.read(navbarVisibleProvider.notifier).show();
+                      context.pop();
+                    },
+                    trailing: PopupMenuButton<String>(
+                      color: c.bgSurface,
+                      surfaceTintColor: Colors.transparent,
+                      elevation: 6,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(color: c.borderSubtle),
+                      ),
+                      offset: const Offset(0, 52),
+                      onSelected: (value) {
+                        if (value == 'new_chat') {
+                          ref.read(chatProvider.notifier).startNewSession();
+                        } else if (value == 'history') {
+                          context.pushNamed('chat_history');
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: 'new_chat',
+                          child: Row(
+                            children: [
+                              Icon(LucideIcons.plus,
+                                  size: 18, color: c.textPrimary),
+                              const SizedBox(width: 12),
+                              Text(
+                                'New Chat',
+                                style: TextStyle(
+                                  fontFamily: ZyndioType.family,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  color: c.textPrimary,
                                 ),
                               ),
-                              const PopupMenuItem(
-                                value: 'history',
-                                child: Row(
-                                  children: [
-                                    Icon(LucideIcons.history, size: 18),
-                                    SizedBox(width: 12),
-                                    Text('History'),
-                                  ],
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'history',
+                          child: Row(
+                            children: [
+                              Icon(LucideIcons.history,
+                                  size: 18, color: c.textPrimary),
+                              const SizedBox(width: 12),
+                              Text(
+                                'History',
+                                style: TextStyle(
+                                  fontFamily: ZyndioType.family,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  color: c.textPrimary,
                                 ),
                               ),
                             ],
                           ),
                         ),
                       ],
+                      // Drawn like ZyndioCircleButton so it matches the back button.
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        alignment: Alignment.center,
+                        decoration: zyndioCard(context, radius: 22),
+                        child: Icon(LucideIcons.moreHorizontal,
+                            size: 22, color: c.textPrimary),
+                      ),
                     ),
                   ),
+                ),
 
-                  // --- Message List ---
-                  Expanded(
-                    child: ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      itemCount: messages.length + (isLoading ? 1 : 0),
-                      itemBuilder: (context, index) {
-                        if (index == messages.length) {
-                          final lastUserMessage = messages.lastWhere((m) => m.isUser, orElse: () => ChatMessage(text: '', isUser: true));
-                          return _LoadingBubble(promptContext: lastUserMessage.text);
-                        }
-                        final message = messages[index];
-                        final bool isLastMessage = index == messages.length - 1;
-                        final bool isNewMessage = index >= _initialMessageCount;
-                        final bool shouldAnimate = isLastMessage && !isLoading && isNewMessage;
+                // --- Message List ---
+                Expanded(
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+                    itemCount: messages.length + (isLoading ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index == messages.length) {
+                        final lastUserMessage = messages.lastWhere(
+                            (m) => m.isUser,
+                            orElse: () => ChatMessage(text: '', isUser: true));
+                        return _LoadingBubble(
+                            promptContext: lastUserMessage.text);
+                      }
+                      final message = messages[index];
+                      final bool isLastMessage = index == messages.length - 1;
+                      final bool isNewMessage = index >= _initialMessageCount;
+                      final bool shouldAnimate =
+                          isLastMessage && !isLoading && isNewMessage;
 
-                        return _MessageBubble(
-                          message: message,
-                          messageIndex: index,
-                          shouldAnimate: shouldAnimate && !_animatedIndices.contains(index),
-                          scrollController: _scrollController,
-                          onAnimationComplete: shouldAnimate ? () {
-                            _animatedIndices.add(index);
-                          } : null,
-                          onSaveProtocol: message.attachment is HealthProtocol ? (protocol) async {
-                            await ref.read(protocolProvider.notifier).saveGeneratedProtocol(protocol);
-                          } : null,
-                        );
+                      return _MessageBubble(
+                        message: message,
+                        messageIndex: index,
+                        shouldAnimate:
+                            shouldAnimate && !_animatedIndices.contains(index),
+                        scrollController: _scrollController,
+                        onAnimationComplete: shouldAnimate
+                            ? () {
+                                _animatedIndices.add(index);
+                              }
+                            : null,
+                        onSaveProtocol: message.attachment is HealthProtocol
+                            ? (protocol) async {
+                                await ref
+                                    .read(protocolProvider.notifier)
+                                    .saveGeneratedProtocol(protocol);
+                              }
+                            : null,
+                      );
+                    },
+                  ),
+                ),
+
+                // --- Regenerate Button ---
+                if (!isLoading && messages.isNotEmpty && !messages.last.isUser)
+                  Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                    child: GestureDetector(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        ref
+                            .read(chatProvider.notifier)
+                            .regenerateLastResponse();
                       },
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(LucideIcons.refreshCw,
+                              size: 13, color: c.textTertiary),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              'Regenerate response',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: ZyndioType.family,
+                                fontSize: 13,
+                                color: c.textTertiary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
 
-                  // --- Regenerate Button ---
-                  if (!isLoading && messages.isNotEmpty && !messages.last.isUser)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      child: GestureDetector(
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          ref.read(chatProvider.notifier).regenerateLastResponse();
+                // --- Input Area ---
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Suggestions
+                      ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: _messageController,
+                        builder: (context, value, _) {
+                          if (value.text.isNotEmpty ||
+                              chatState.messages.isNotEmpty ||
+                              chatState.isLoading) {
+                            return const SizedBox.shrink();
+                          }
+                          final suggestions = ref.watch(suggestionProvider);
+                          if (suggestions.isEmpty)
+                            return const SizedBox.shrink();
+                          return SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Row(
+                              children: suggestions
+                                  .map((s) => _GlassSuggestionChip(
+                                        label: s.label,
+                                        icon: s.icon,
+                                        onTap: () {
+                                          _messageController.text = s.prompt;
+                                          _sendMessage();
+                                        },
+                                      ))
+                                  .toList(),
+                            ),
+                          );
                         },
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                      ),
+
+                      // Input bar: surface pill with a hairline outline.
+                      Container(
+                        width: double.infinity,
+                        decoration: zyndioCard(context, radius: 28).copyWith(
+                          border: Border.all(color: c.borderSubtle),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(LucideIcons.refreshCw, size: 13, color: context.nc.textSecondary.withValues(alpha: 0.5)),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Regenerate response',
+                            if (_selectedImage != null)
+                              Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                                child: Row(
+                                  children: [
+                                    Stack(
+                                      clipBehavior: Clip.none,
+                                      children: [
+                                        ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          child: Image.file(_selectedImage!,
+                                              height: 60,
+                                              width: 60,
+                                              fit: BoxFit.cover),
+                                        ),
+                                        Positioned(
+                                          top: -6,
+                                          right: -6,
+                                          child: GestureDetector(
+                                            onTap: () => setState(
+                                                () => _selectedImage = null),
+                                            child: Container(
+                                              padding: const EdgeInsets.all(4),
+                                              decoration: BoxDecoration(
+                                                  color: c.textPrimary,
+                                                  shape: BoxShape.circle),
+                                              child: Icon(LucideIcons.x,
+                                                  size: 10, color: c.bgSurface),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            TextField(
+                              controller: _messageController,
+                              minLines: 1,
+                              maxLines: 8,
                               style: TextStyle(
-                                fontSize: 12,
-                                color: context.nc.textSecondary.withValues(alpha: 0.5),
-                                fontWeight: FontWeight.w500,
+                                fontFamily: ZyndioType.family,
+                                fontSize: 16,
+                                color: c.textPrimary,
+                                height: 1.5,
+                              ),
+                              cursorColor: c.brandPrimary,
+                              decoration: InputDecoration(
+                                hintText: 'Ask anything',
+                                hintStyle: TextStyle(
+                                  fontFamily: ZyndioType.family,
+                                  color: c.textTertiary,
+                                  fontSize: 16,
+                                ),
+                                contentPadding:
+                                    const EdgeInsets.fromLTRB(20, 18, 20, 10),
+                                fillColor: Colors.transparent,
+                                filled: false,
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                errorBorder: InputBorder.none,
+                                disabledBorder: InputBorder.none,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  _GrokActionButton(
+                                    icon: LucideIcons.paperclip,
+                                    onTap: _pickImage,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  /* _GrokActionButton(
+                                    icon: LucideIcons.mic,
+                                    onTap: () {
+                                      HapticFeedback.mediumImpact();
+                                      AdvancedVoiceOverlay.show(context);
+                                    },
+                                  ), */
+                                  const Spacer(),
+                                  Consumer(
+                                    builder: (context, ref, _) {
+                                      final isLoading =
+                                          ref.watch(chatProvider).isLoading;
+                                      return GestureDetector(
+                                        onTap: () {
+                                          HapticFeedback.mediumImpact();
+                                          if (isLoading) {
+                                            ref
+                                                .read(chatProvider.notifier)
+                                                .cancelCurrentRequest();
+                                          } else {
+                                            _sendMessage();
+                                          }
+                                        },
+                                        child: AnimatedContainer(
+                                          duration:
+                                              const Duration(milliseconds: 200),
+                                          height: 44,
+                                          width: 44,
+                                          decoration: BoxDecoration(
+                                            gradient: isLoading
+                                                ? null
+                                                : ZyndioGradients.brand,
+                                            color:
+                                                isLoading ? c.bgSunken : null,
+                                            shape: BoxShape.circle,
+                                            boxShadow: [
+                                              if (!isLoading)
+                                                BoxShadow(
+                                                  color: c.brandPrimary
+                                                      .withValues(alpha: 0.28),
+                                                  blurRadius: 12,
+                                                  offset: const Offset(0, 4),
+                                                ),
+                                            ],
+                                          ),
+                                          child: Center(
+                                            child: isLoading
+                                                ? Container(
+                                                    width: 14,
+                                                    height: 14,
+                                                    decoration: BoxDecoration(
+                                                      color: c.textPrimary,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              3),
+                                                    ),
+                                                  )
+                                                : const Icon(
+                                                    LucideIcons.arrowUp,
+                                                    size: 20,
+                                                    color: Colors.white),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ),
-
-                  // --- Input Area ---
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Suggestions
-                        ValueListenableBuilder<TextEditingValue>(
-                          valueListenable: _messageController,
-                          builder: (context, value, _) {
-                            if (value.text.isNotEmpty || chatState.messages.isNotEmpty || chatState.isLoading) {
-                              return const SizedBox.shrink();
-                            }
-                            final suggestions = ref.watch(suggestionProvider);
-                            if (suggestions.isEmpty) return const SizedBox.shrink();
-                            return SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: Row(
-                                children: suggestions.map((s) => _GlassSuggestionChip(
-                                  label: s.label,
-                                  icon: s.icon,
-                                  onTap: () {
-                                    _messageController.text = s.prompt;
-                                    _sendMessage();
-                                  },
-                                )).toList(),
-                              ),
-                            );
-                          },
-                        ),
-                        
-                        // Premium Intelligence Glass Input Box
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(32),
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
-                            child: Container(
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: context.nc.isDark 
-                                    ? Colors.white.withValues(alpha: 0.04) 
-                                    : context.nc.cardSurface.withValues(alpha: 0.8),
-                                borderRadius: BorderRadius.circular(32),
-                                border: Border.all(
-                                  color: context.nc.isDark 
-                                      ? Colors.white.withValues(alpha: 0.12) 
-                                      : context.nc.cardBorder, 
-                                  width: 1.5,
-                                ),
-                                boxShadow: [
-                                  if (context.nc.isDark)
-                                    BoxShadow(
-                                      color: const Color(0xFF4F46E5).withValues(alpha: 0.08),
-                                      blurRadius: 20,
-                                      spreadRadius: 2,
-                                    ),
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.03),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (_selectedImage != null)
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                                      child: Row(
-                                        children: [
-                                          Stack(
-                                            clipBehavior: Clip.none,
-                                            children: [
-                                              ClipRRect(
-                                                borderRadius: BorderRadius.circular(12),
-                                                child: Image.file(_selectedImage!, height: 60, width: 60, fit: BoxFit.cover),
-                                              ),
-                                              Positioned(
-                                                top: -6,
-                                                right: -6,
-                                                child: GestureDetector(
-                                                  onTap: () => setState(() => _selectedImage = null),
-                                                  child: Container(
-                                                    padding: const EdgeInsets.all(4),
-                                                    decoration: BoxDecoration(color: context.nc.isDark ? Colors.white : const Color(0xFF1F2937), shape: BoxShape.circle),
-                                                    child: Icon(LucideIcons.x, size: 10, color: context.nc.isDark ? Colors.black : Colors.white),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-
-                                  TextField(
-                                    controller: _messageController,
-                                    minLines: 1,
-                                    maxLines: 8,
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 17,
-                                      color: context.nc.textPrimary,
-                                      height: 1.5,
-                                    ),
-                                    decoration: InputDecoration(
-                                      hintText: 'Ask anything',
-                                      hintStyle: GoogleFonts.outfit(color: context.nc.textTertiary, fontSize: 17),
-                                      contentPadding: const EdgeInsets.fromLTRB(20, 20, 20, 14),
-                                      fillColor: Colors.transparent,
-                                      filled: false,
-                                      border: InputBorder.none,
-                                      enabledBorder: InputBorder.none,
-                                      focusedBorder: InputBorder.none,
-                                      errorBorder: InputBorder.none,
-                                      disabledBorder: InputBorder.none,
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.fromLTRB(10, 0, 12, 12),
-                                    child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.center,
-                                      children: [
-                                        _GrokActionButton(
-                                          icon: LucideIcons.paperclip,
-                                          onTap: _pickImage,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        /* _GrokActionButton(
-                                          icon: LucideIcons.mic,
-                                          onTap: () {
-                                            HapticFeedback.mediumImpact();
-                                            AdvancedVoiceOverlay.show(context);
-                                          },
-                                        ), */
-                                        const Spacer(),
-                                        Consumer(
-                                          builder: (context, ref, _) {
-                                            final isLoading = ref.watch(chatProvider).isLoading;
-                                            return GestureDetector(
-                                              onTap: () {
-                                                HapticFeedback.mediumImpact();
-                                                if (isLoading) {
-                                                  ref.read(chatProvider.notifier).cancelCurrentRequest();
-                                                } else {
-                                                  _sendMessage();
-                                                }
-                                              },
-                                              child: AnimatedContainer(
-                                                duration: const Duration(milliseconds: 200),
-                                                height: 44,
-                                                width: 44,
-                                                decoration: BoxDecoration(
-                                                  gradient: isLoading 
-                                                      ? null 
-                                                      : LinearGradient(
-                                                          colors: [
-                                                            const Color(0xFF4F46E5),
-                                                            const Color(0xFF4F46E5).withValues(alpha: 0.8),
-                                                          ],
-                                                          begin: Alignment.topLeft,
-                                                          end: Alignment.bottomRight,
-                                                        ),
-                                                  color: isLoading ? context.nc.divider.withValues(alpha: 0.5) : null,
-                                                  shape: BoxShape.circle,
-                                                  boxShadow: [
-                                                    if (!isLoading)
-                                                      BoxShadow(
-                                                        color: const Color(0xFF4F46E5).withValues(alpha: 0.4),
-                                                        blurRadius: 12,
-                                                        spreadRadius: 1,
-                                                      ),
-                                                  ],
-                                                ),
-                                                child: Center(
-                                                  child: isLoading
-                                                      ? Container(
-                                                          width: 14,
-                                                          height: 14,
-                                                          decoration: BoxDecoration(
-                                                            color: context.nc.textPrimary,
-                                                            borderRadius: BorderRadius.circular(3),
-                                                          ),
-                                                        )
-                                                      : const Icon(LucideIcons.arrowUp, size: 20, color: Colors.white),
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
+
 class _MessageBubble extends ConsumerWidget {
   final ChatMessage message;
   final int messageIndex;
@@ -616,7 +566,7 @@ class _MessageBubble extends ConsumerWidget {
   const _MessageBubble({
     required this.message,
     required this.messageIndex,
-    this.shouldAnimate = false, 
+    this.shouldAnimate = false,
     this.scrollController,
     this.onAnimationComplete,
     this.onSaveProtocol,
@@ -626,182 +576,216 @@ class _MessageBubble extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isUser = message.isUser;
     final chatState = ref.watch(chatProvider);
-    final isGenerating = chatState.isLoading && messageIndex == chatState.messages.length - 1;
-    
+    final isGenerating =
+        chatState.isLoading && messageIndex == chatState.messages.length - 1;
+
     if (isUser) {
-        // --- USER MESSAGE (Clean Minimalist) ---
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 24),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Container(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.75,
+      // --- USER MESSAGE (brand gradient bubble) ---
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 20),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.75,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              decoration: const BoxDecoration(
+                gradient: ZyndioGradients.brand,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(6),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                decoration: BoxDecoration(
-                  color: context.nc.inputFill,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(20),
-                    bottomLeft: Radius.circular(20),
-                    bottomRight: Radius.circular(4),
-                  ),
-                  border: Border.all(color: context.nc.cardBorder),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Image thumbnail (vision input)
-                    if (message.imagePath != null) ...[
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image.file(
-                          File(message.imagePath!),
-                          height: 160,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Image thumbnail (vision input)
+                  if (message.imagePath != null) ...[
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.file(
+                        File(message.imagePath!),
+                        height: 160,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
                       ),
-                      if (message.text.isNotEmpty) const SizedBox(height: 10),
-                    ],
-                    if (message.text.isNotEmpty)
-                      Text(
-                        message.text,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: context.nc.textPrimary,
-                          height: 1.5,
-                          fontFamily: 'SF Pro Display',
-                          letterSpacing: 0.2,
-                        ),
-                      ),
+                    ),
+                    if (message.text.isNotEmpty) const SizedBox(height: 10),
                   ],
+                  if (message.text.isNotEmpty)
+                    Text(
+                      message.text,
+                      style: const TextStyle(
+                        fontFamily: ZyndioType.family,
+                        fontSize: 16,
+                        color: Colors.white,
+                        height: 1.5,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // --- AI MESSAGE (text in card bubbles; rich cards sit on the canvas) ---
+      return RepaintBoundary(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Text Content
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Builder(
+                    builder: (context) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ...message.blocks.map((block) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: _buildBlock(
+                                  context, block, shouldAnimate, ref),
+                            );
+                          }),
+
+                          // Reaction row (thumbs up / down)
+                          if (!shouldAnimate &&
+                              !isGenerating &&
+                              message.blocks.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 0, bottom: 8),
+                              child: Row(
+                                children: [
+                                  _ReactionButton(
+                                    icon: LucideIcons.thumbsUp,
+                                    isActive: message.reaction == 'up',
+                                    onTap: () {
+                                      HapticFeedback.lightImpact();
+                                      ref
+                                          .read(chatProvider.notifier)
+                                          .reactToMessage(messageIndex, 'up');
+                                    },
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _ReactionButton(
+                                    icon: LucideIcons.thumbsDown,
+                                    isActive: message.reaction == 'down',
+                                    onTap: () {
+                                      HapticFeedback.lightImpact();
+                                      ref
+                                          .read(chatProvider.notifier)
+                                          .reactToMessage(messageIndex, 'down');
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
               ),
             ],
           ),
-        );
-    } else {
-        // --- AI MESSAGE (No Bubble, Text Stream) ---
-        return RepaintBoundary(
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 24),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Text Content
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Builder(
-                      builder: (context) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ...message.blocks.map((block) {
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 16),
-                                child: _buildBlock(context, block, shouldAnimate, ref),
-                              );
-                            }),
-                            
-                            // Reaction row (thumbs up / down)
-                            if (!shouldAnimate && !isGenerating && message.blocks.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4, bottom: 8),
-                                child: Row(
-                                  children: [
-                                    _ReactionButton(
-                                      icon: LucideIcons.thumbsUp,
-                                      isActive: message.reaction == 'up',
-                                      onTap: () {
-                                        HapticFeedback.lightImpact();
-                                        ref.read(chatProvider.notifier).reactToMessage(messageIndex, 'up');
-                                      },
-                                    ),
-                                    const SizedBox(width: 8),
-                                    _ReactionButton(
-                                      icon: LucideIcons.thumbsDown,
-                                      isActive: message.reaction == 'down',
-                                      onTap: () {
-                                        HapticFeedback.lightImpact();
-                                        ref.read(chatProvider.notifier).reactToMessage(messageIndex, 'down');
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
+        ),
+      );
     }
   }
 
-  Widget _buildBlock(BuildContext context, MessageBlock block, bool shouldAnimate, WidgetRef ref) {
+  Widget _buildBlock(BuildContext context, MessageBlock block,
+      bool shouldAnimate, WidgetRef ref) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
     if (block is TextBlock) {
-      return MarkdownBody(
-        data: block.text,
-        selectable: true,
-        styleSheet: MarkdownStyleSheet(
-          p: TextStyle(
-            fontSize: 16,
-            color: context.nc.textPrimary,
-            height: 1.6,
-            fontFamily: 'SF Pro Display',
-            fontWeight: FontWeight.w400,
-            letterSpacing: 0.2,
-          ),
-          h1: GoogleFonts.outfit(
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-            color: context.nc.textPrimary,
-            height: 1.3,
-          ),
-          h2: GoogleFonts.outfit(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: context.nc.textPrimary,
-            height: 1.3,
-          ),
-          h3: GoogleFonts.outfit(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: context.nc.textPrimary,
-            height: 1.3,
-          ),
-          strong: TextStyle(
-            fontSize: 16,
-            color: context.nc.textPrimary,
-            fontWeight: FontWeight.w700,
-            fontFamily: 'SF Pro Display',
-          ),
-          listBullet: TextStyle(
-            color: context.nc.textSecondary,
-            fontSize: 16,
-          ),
-          listIndent: 24,
-          blockSpacing: 16,
-          blockquote: TextStyle(color: context.nc.textSecondary, fontStyle: FontStyle.italic, fontSize: 15),
-          blockquoteDecoration: BoxDecoration(
-            border: Border(left: BorderSide(width: 3, color: context.nc.divider))
-          ),
-          code: TextStyle(
-            backgroundColor: context.nc.inputFill,
-            color: context.nc.textPrimary,
-            fontSize: 14,
-            fontFamily: 'JetBrainsMono',
-            fontWeight: FontWeight.w500,
-            letterSpacing: -0.3
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        decoration: zyndioCard(context, radius: 20),
+        child: MarkdownBody(
+          data: block.text,
+          selectable: true,
+          styleSheet: MarkdownStyleSheet(
+            p: TextStyle(
+              fontFamily: ZyndioType.family,
+              fontSize: 16,
+              color: c.textPrimary,
+              height: 1.6,
+              fontWeight: FontWeight.w400,
+            ),
+            h1: TextStyle(
+              fontFamily: ZyndioType.family,
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.5,
+              color: c.textPrimary,
+              height: 1.3,
+            ),
+            h2: TextStyle(
+              fontFamily: ZyndioType.family,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.4,
+              color: c.textPrimary,
+              height: 1.3,
+            ),
+            h3: TextStyle(
+              fontFamily: ZyndioType.family,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: c.textPrimary,
+              height: 1.3,
+            ),
+            strong: TextStyle(
+              fontFamily: ZyndioType.family,
+              fontSize: 16,
+              color: c.textPrimary,
+              fontWeight: FontWeight.w700,
+            ),
+            a: TextStyle(
+              fontFamily: ZyndioType.family,
+              color: c.brandPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+            listBullet: TextStyle(
+              fontFamily: ZyndioType.family,
+              color: c.textSecondary,
+              fontSize: 16,
+            ),
+            listIndent: 24,
+            blockSpacing: 14,
+            blockquote: TextStyle(
+              fontFamily: ZyndioType.family,
+              color: c.textSecondary,
+              fontStyle: FontStyle.italic,
+              fontSize: 15,
+            ),
+            blockquoteDecoration: BoxDecoration(
+                border:
+                    Border(left: BorderSide(width: 3, color: c.borderSubtle))),
+            code: TextStyle(
+                backgroundColor: c.bgSunken,
+                color: c.textPrimary,
+                fontSize: 14,
+                fontFamily: 'JetBrainsMono',
+                fontWeight: FontWeight.w500,
+                letterSpacing: -0.3),
+            codeblockDecoration: BoxDecoration(
+              color: c.bgSunken,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            horizontalRuleDecoration: BoxDecoration(
+              border: Border(top: BorderSide(width: 1, color: c.borderSubtle)),
+            ),
           ),
         ),
       );
@@ -823,10 +807,13 @@ class _MessageBubble extends ConsumerWidget {
               protocol: block.protocol,
               onClose: () => Navigator.pop(canvasContext),
               onSave: () async {
-                await ref.read(protocolProvider.notifier).saveGeneratedProtocol(block.protocol);
+                await ref
+                    .read(protocolProvider.notifier)
+                    .saveGeneratedProtocol(block.protocol);
                 if (canvasContext.mounted) {
-                  Navigator.pop(canvasContext); 
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Saved as New Protocol")));
+                  Navigator.pop(canvasContext);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Saved as New Protocol")));
                 }
               },
             ),
@@ -848,17 +835,22 @@ class _MessageBubble extends ConsumerWidget {
                 final profile = ref.read(patientProfileProvider).value;
                 if (profile != null) {
                   try {
-                    await MealRepository.saveGeneratedPlan(profile.id, block.mealPlan);
+                    await MealRepository.saveGeneratedPlan(
+                        profile.id, block.mealPlan);
                     if (canvasContext.mounted) {
                       Navigator.pop(canvasContext);
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Meal plan saved to Your Weekly Menu")),
+                        const SnackBar(
+                            content:
+                                Text("Meal plan saved to Your Weekly Menu")),
                       );
                     }
                   } catch (e) {
                     if (canvasContext.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("Error saving: $e"), backgroundColor: Colors.red),
+                        SnackBar(
+                            content: Text("Error saving: $e"),
+                            backgroundColor: c.statusCritical),
                       );
                     }
                   }
@@ -871,7 +863,7 @@ class _MessageBubble extends ConsumerWidget {
     } else if (block is CtaBlock) {
       return ChatCtaStrip(actions: block.actions);
     }
-    
+
     return const SizedBox.shrink();
   }
 }
@@ -880,20 +872,27 @@ class _DataCard extends StatelessWidget {
   final DataCardBlock block;
   const _DataCard({required this.block});
 
-  Widget _getStatusIcon(String status) {
+  Widget _getStatusIcon(ZyndioColors c, String status) {
     final lowerStatus = status.toLowerCase();
-    if (lowerStatus.contains('good') || lowerStatus.contains('excellent') || lowerStatus.contains('optimal')) {
-      return const Icon(LucideIcons.checkCircle2, color: Color(0xFF10B981), size: 16);
-    } else if (lowerStatus.contains('warning') || lowerStatus.contains('elevated') || lowerStatus.contains('low')) {
-      return const Icon(LucideIcons.alertCircle, color: Color(0xFFF59E0B), size: 16);
-    } else if (lowerStatus.contains('alert') || lowerStatus.contains('high') || lowerStatus.contains('danger')) {
-      return const Icon(LucideIcons.alertTriangle, color: Color(0xFFEF4444), size: 16);
+    if (lowerStatus.contains('good') ||
+        lowerStatus.contains('excellent') ||
+        lowerStatus.contains('optimal')) {
+      return Icon(LucideIcons.checkCircle2, color: c.statusSuccess, size: 16);
+    } else if (lowerStatus.contains('warning') ||
+        lowerStatus.contains('elevated') ||
+        lowerStatus.contains('low')) {
+      return Icon(LucideIcons.alertCircle, color: c.statusWarning, size: 16);
+    } else if (lowerStatus.contains('alert') ||
+        lowerStatus.contains('high') ||
+        lowerStatus.contains('danger')) {
+      return Icon(LucideIcons.alertTriangle, color: c.statusCritical, size: 16);
     }
-    return const Icon(LucideIcons.info, color: Color(0xFF94A3B8), size: 16);
+    return Icon(LucideIcons.info, color: c.textTertiary, size: 16);
   }
 
   @override
   Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
     final bool hasVisual = block.rows.any((row) {
       final history = row['history'];
       final trend = row['trend'];
@@ -902,18 +901,7 @@ class _DataCard extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
-        color: context.nc.cardSurface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: context.nc.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+      decoration: zyndioCard(context, radius: 22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -923,34 +911,39 @@ class _DataCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
               child: Text(
                 block.title,
-                style: GoogleFonts.outfit(
-                  fontSize: 18,
+                style: TextStyle(
+                  fontFamily: ZyndioType.family,
+                  fontSize: 17,
                   fontWeight: FontWeight.w700,
-                  color: context.nc.textPrimary,
-                  letterSpacing: -0.4,
+                  color: c.textPrimary,
+                  letterSpacing: -0.3,
                 ),
               ),
             ),
-          
+
           if (block.title.isNotEmpty)
-            Divider(height: 1, color: context.nc.divider),
+            Divider(height: 1, thickness: 1, color: c.borderSubtle),
 
           // Rows
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Table(
-              columnWidths: hasVisual ? const {
-                0: FlexColumnWidth(1.4), // Label + Status
-                1: FlexColumnWidth(0.8), // Value
-                2: FlexColumnWidth(0.8), // Visual (Graph/Trend)
-              } : const {
-                0: FlexColumnWidth(1.0),
-                1: FlexColumnWidth(1.0),
-              },
+              columnWidths: hasVisual
+                  ? const {
+                      0: FlexColumnWidth(1.4), // Label + Status
+                      1: FlexColumnWidth(0.8), // Value
+                      2: FlexColumnWidth(0.8), // Visual (Graph/Trend)
+                    }
+                  : const {
+                      0: FlexColumnWidth(1.0),
+                      1: FlexColumnWidth(1.0),
+                    },
               defaultVerticalAlignment: TableCellVerticalAlignment.middle,
               children: block.rows.map((row) {
-                final List<dynamic>? history = row['history'] is List ? (row['history'] as List) : null;
-                final double? trend = double.tryParse(row['trend']?.toString() ?? '');
+                final List<dynamic>? history =
+                    row['history'] is List ? (row['history'] as List) : null;
+                final double? trend =
+                    double.tryParse(row['trend']?.toString() ?? '');
 
                 return TableRow(
                   children: [
@@ -964,9 +957,10 @@ class _DataCard extends StatelessWidget {
                           Text(
                             row['label']?.toString() ?? '',
                             style: TextStyle(
+                              fontFamily: ZyndioType.family,
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: context.nc.textSecondary,
+                              color: c.textSecondary,
                             ),
                           ),
                           if (row['status'] != null) ...[
@@ -974,15 +968,16 @@ class _DataCard extends StatelessWidget {
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                _getStatusIcon(row['status'].toString()),
+                                _getStatusIcon(c, row['status'].toString()),
                                 const SizedBox(width: 4),
                                 Flexible(
                                   child: Text(
                                     row['status'].toString(),
                                     style: TextStyle(
+                                      fontFamily: ZyndioType.family,
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
-                                      color: context.nc.textTertiary,
+                                      color: c.textTertiary,
                                       letterSpacing: 0.2,
                                     ),
                                     overflow: TextOverflow.ellipsis,
@@ -994,17 +989,20 @@ class _DataCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    
+
                     // Col 2: Value
                     Padding(
-                      padding: EdgeInsets.fromLTRB(4, 10, hasVisual ? 4 : 20, 10),
+                      padding:
+                          EdgeInsets.fromLTRB(4, 10, hasVisual ? 4 : 20, 10),
                       child: Text(
                         row['value']?.toString() ?? '',
                         textAlign: hasVisual ? TextAlign.left : TextAlign.right,
-                        style: GoogleFonts.outfit(
+                        style: TextStyle(
+                          fontFamily: ZyndioType.family,
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
-                          color: context.nc.textPrimary,
+                          fontFeatures: ZyndioType.tabular,
+                          color: c.textPrimary,
                         ),
                       ),
                     ),
@@ -1019,7 +1017,12 @@ class _DataCard extends StatelessWidget {
                               ? SizedBox(
                                   height: 24,
                                   width: 80,
-                                  child: _InlineSparkline(data: history.map((e) => double.tryParse(e.toString()) ?? 0.0).toList()),
+                                  child: _InlineSparkline(
+                                      data: history
+                                          .map((e) =>
+                                              double.tryParse(e.toString()) ??
+                                              0.0)
+                                          .toList()),
                                 )
                               : (trend != null)
                                   ? _MiniTrendBar(trend: trend)
@@ -1038,21 +1041,23 @@ class _DataCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: BoxDecoration(
-                color: context.nc.isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
-                border: Border(top: BorderSide(color: context.nc.divider.withValues(alpha: 0.5))),
+                color: c.bgSunken,
+                borderRadius:
+                    const BorderRadius.vertical(bottom: Radius.circular(22)),
+                border: Border(top: BorderSide(color: c.borderSubtle)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(LucideIcons.info, size: 14, color: context.nc.textSecondary),
+                  Icon(LucideIcons.info, size: 14, color: c.textSecondary),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       block.verdict!,
                       style: TextStyle(
+                        fontFamily: ZyndioType.family,
                         fontSize: 13,
-                        color: context.nc.textSecondary,
+                        color: c.textSecondary,
                         height: 1.4,
                         fontWeight: FontWeight.w500,
                       ),
@@ -1071,34 +1076,29 @@ class _MetricCard extends StatelessWidget {
   final MetricCardBlock block;
   const _MetricCard({required this.block});
 
-  Color _getStatusColor(String? status) {
+  /// (foreground, subtle background) for the status.
+  (Color, Color) _getStatusColors(ZyndioColors c, String? status) {
     switch (status?.toLowerCase()) {
-      case 'optimal': return const Color(0xFF10B981);
-      case 'warning': return const Color(0xFFF59E0B);
-      case 'alert': return const Color(0xFFEF4444);
-      default: return const Color(0xFF3B82F6);
+      case 'optimal':
+        return (c.statusSuccess, c.statusSuccessSubtle);
+      case 'warning':
+        return (c.statusWarning, c.statusWarningSubtle);
+      case 'alert':
+        return (c.statusCritical, c.statusCriticalSubtle);
+      default:
+        return (c.brandPrimary, c.brandSubtle);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = _getStatusColor(block.status);
-    
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    final (statusColor, statusBg) = _getStatusColors(c, block.status);
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: context.nc.cardSurface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: context.nc.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+      decoration: zyndioCard(context, radius: 22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1111,19 +1111,21 @@ class _MetricCard extends StatelessWidget {
                   children: [
                     Text(
                       block.label,
-                      style: GoogleFonts.outfit(
-                        fontSize: 18,
+                      style: TextStyle(
+                        fontFamily: ZyndioType.family,
+                        fontSize: 17,
                         fontWeight: FontWeight.w600,
-                        color: context.nc.textPrimary,
+                        color: c.textPrimary,
                       ),
                     ),
                     if (block.status != null) ...[
                       const SizedBox(height: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
-                          color: statusColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
+                          color: statusBg,
+                          borderRadius: BorderRadius.circular(999),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -1140,6 +1142,7 @@ class _MetricCard extends StatelessWidget {
                             Text(
                               block.status!.toUpperCase(),
                               style: TextStyle(
+                                fontFamily: ZyndioType.family,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
                                 color: statusColor,
@@ -1173,9 +1176,12 @@ class _MetricCard extends StatelessWidget {
             children: [
               Text(
                 block.value,
-                style: GoogleFonts.outfit(
+                style: TextStyle(
+                  fontFamily: ZyndioType.family,
                   fontSize: 32,
                   fontWeight: FontWeight.w700,
+                  letterSpacing: -0.8,
+                  fontFeatures: ZyndioType.tabular,
                   color: statusColor,
                 ),
               ),
@@ -1183,10 +1189,11 @@ class _MetricCard extends StatelessWidget {
                 const SizedBox(width: 6),
                 Text(
                   block.unit!,
-                  style: const TextStyle(
+                  style: TextStyle(
+                    fontFamily: ZyndioType.family,
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF94A3B8),
+                    color: c.textTertiary,
                   ),
                 ),
               ],
@@ -1200,13 +1207,15 @@ class _MetricCard extends StatelessWidget {
 
 class _InlineSparkline extends StatelessWidget {
   final List<double> data;
-  final Color color;
+
+  /// Line colour; defaults to the brand colour.
+  final Color? color;
   final bool showDots;
   final bool showGradient;
 
   const _InlineSparkline({
     required this.data,
-    this.color = const Color(0xFF3B82F6),
+    this.color,
     this.showDots = false,
     this.showGradient = false,
   });
@@ -1214,7 +1223,9 @@ class _InlineSparkline extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (data.length < 2) return const SizedBox.shrink();
-    
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    final lineColor = color ?? c.brandPrimary;
+
     final spots = <FlSpot>[];
     for (int i = 0; i < data.length; i++) {
       spots.add(FlSpot(i.toDouble(), data[i]));
@@ -1230,30 +1241,31 @@ class _InlineSparkline extends StatelessWidget {
           LineChartBarData(
             spots: spots,
             isCurved: true,
-            color: color,
+            color: lineColor,
             barWidth: showDots ? 2.5 : 1.5,
             dotData: FlDotData(
               show: showDots,
-              getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
+              getDotPainter: (spot, percent, barData, index) =>
+                  FlDotCirclePainter(
                 radius: 3,
-                color: context.nc.cardSurface,
+                color: c.bgSurface,
                 strokeWidth: 2,
-                strokeColor: color,
+                strokeColor: lineColor,
               ),
             ),
             belowBarData: BarAreaData(
               show: true,
-              gradient: showGradient 
-                ? LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      color.withOpacity(0.2),
-                      color.withOpacity(0.0),
-                    ],
-                  )
-                : null,
-              color: showGradient ? null : color.withOpacity(0.1),
+              gradient: showGradient
+                  ? LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        lineColor.withValues(alpha: 0.2),
+                        lineColor.withValues(alpha: 0.0),
+                      ],
+                    )
+                  : null,
+              color: showGradient ? null : lineColor.withValues(alpha: 0.1),
             ),
           ),
         ],
@@ -1268,15 +1280,16 @@ class _MiniTrendBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
     final clamped = trend.clamp(-20.0, 20.0);
     final percent = (clamped / 20.0).abs();
-    final color = trend >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+    final color = trend >= 0 ? c.statusSuccess : c.statusCritical;
 
     return Container(
       height: 4,
       width: 40,
       decoration: BoxDecoration(
-        color: context.nc.inputFill,
+        color: c.bgSunken,
         borderRadius: BorderRadius.circular(2),
       ),
       alignment: trend >= 0 ? Alignment.centerLeft : Alignment.centerRight,
@@ -1284,7 +1297,7 @@ class _MiniTrendBar extends StatelessWidget {
         widthFactor: percent.clamp(0.1, 1.0),
         child: Container(
           decoration: BoxDecoration(
-            color: color.withOpacity(0.6),
+            color: color,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -1299,34 +1312,34 @@ class _ReactionButton extends StatelessWidget {
   final bool isActive;
   final VoidCallback onTap;
 
-  const _ReactionButton({required this.icon, required this.isActive, required this.onTap});
+  const _ReactionButton(
+      {required this.icon, required this.isActive, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.all(7),
+        padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: isActive ? (context.nc.isDark ? Colors.white.withValues(alpha: 0.1) : const Color(0xFF3B82F6).withValues(alpha: 0.1)) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          color: isActive ? c.brandSubtle : Colors.transparent,
+          borderRadius: BorderRadius.circular(999),
         ),
         child: Icon(
           icon,
           size: 16,
-          color: isActive ? (context.nc.isDark ? Colors.white : const Color(0xFF3B82F6)) : context.nc.textTertiary,
+          color: isActive ? c.brandPrimary : c.textTertiary,
         ),
       ),
     );
   }
 }
 
-
-
 class _LoadingBubble extends StatefulWidget {
   final String promptContext;
-  
+
   const _LoadingBubble({required this.promptContext});
 
   @override
@@ -1335,7 +1348,7 @@ class _LoadingBubble extends StatefulWidget {
 
 class _LoadingBubbleState extends State<_LoadingBubble> {
   late final List<String> _phrases;
-  
+
   int _currentIndex = 0;
   Timer? _timer;
 
@@ -1343,7 +1356,7 @@ class _LoadingBubbleState extends State<_LoadingBubble> {
   void initState() {
     super.initState();
     _phrases = _generatePhrases(widget.promptContext);
-    
+
     _timer = Timer.periodic(const Duration(milliseconds: 2500), (timer) {
       if (mounted) {
         setState(() {
@@ -1356,11 +1369,13 @@ class _LoadingBubbleState extends State<_LoadingBubble> {
       }
     });
   }
-  
+
   List<String> _generatePhrases(String prompt) {
     final lowerPrompt = prompt.toLowerCase();
-    
-    if (lowerPrompt.contains('protocol') || lowerPrompt.contains('plan') || lowerPrompt.contains('routine')) {
+
+    if (lowerPrompt.contains('protocol') ||
+        lowerPrompt.contains('plan') ||
+        lowerPrompt.contains('routine')) {
       return [
         "Analyzing health profile...",
         "Evaluating biomedical variables...",
@@ -1368,8 +1383,11 @@ class _LoadingBubbleState extends State<_LoadingBubble> {
         "Synthesizing protocol...",
       ];
     }
-    
-    if (lowerPrompt.contains('simulate') || lowerPrompt.contains('twin') || lowerPrompt.contains('predict') || lowerPrompt.contains('impact')) {
+
+    if (lowerPrompt.contains('simulate') ||
+        lowerPrompt.contains('twin') ||
+        lowerPrompt.contains('predict') ||
+        lowerPrompt.contains('impact')) {
       return [
         "Initializing digital twin...",
         "Running metabolic permutations...",
@@ -1377,7 +1395,7 @@ class _LoadingBubbleState extends State<_LoadingBubble> {
         "Finalizing simulation...",
       ];
     }
-    
+
     return [
       "Analyzing context...",
       "Querying wellness intelligence...",
@@ -1394,23 +1412,22 @@ class _LoadingBubbleState extends State<_LoadingBubble> {
 
   @override
   Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.only(bottom: 20),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: context.nc.isDark ? Colors.white.withValues(alpha: 0.05) : context.nc.inputFill,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: context.nc.cardBorder),
-            ),
+            decoration: zyndioCard(context, radius: 20),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const SizedBox(
-                  width: 14, height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF94A3B8)),
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: c.brandPrimary),
                 ),
                 const SizedBox(width: 12),
                 AnimatedSwitcher(
@@ -1419,8 +1436,9 @@ class _LoadingBubbleState extends State<_LoadingBubble> {
                     _phrases[_currentIndex],
                     key: ValueKey<int>(_currentIndex),
                     style: TextStyle(
+                      fontFamily: ZyndioType.family,
                       fontSize: 14,
-                      color: context.nc.textSecondary,
+                      color: c.textSecondary,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -1433,22 +1451,15 @@ class _LoadingBubbleState extends State<_LoadingBubble> {
     );
   }
 }
-// --- End of Header Customization ---
-
-
-// ... existing imports ...
-
-// Add this class at the bottom of the file
-
 
 // Extension to easily blur containers
 extension BlurExtension on Widget {
-   Widget blur(double sigma) {
-     return ImageFiltered(
-       imageFilter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-       child: this,
-     );
-   }
+  Widget blur(double sigma) {
+    return ImageFiltered(
+      imageFilter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+      child: this,
+    );
+  }
 }
 
 class _GlassSuggestionChip extends StatelessWidget {
@@ -1464,37 +1475,30 @@ class _GlassSuggestionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: context.nc.cardSurface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: context.nc.cardBorder),
-          boxShadow: [
-             BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-             )
-          ]
+          color: c.bgSurface,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: c.borderSubtle),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: context.nc.textPrimary,
-            fontSize: 13,
+            fontFamily: ZyndioType.family,
+            color: c.textPrimary,
+            fontSize: 14,
             fontWeight: FontWeight.w500,
-            fontFamily: 'SF Pro Display',
           ),
         ),
       ),
     );
   }
 }
-
 
 class _ProtocolCard extends StatelessWidget {
   final HealthProtocol protocol;
@@ -1504,24 +1508,14 @@ class _ProtocolCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: context.nc.cardSurface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: context.nc.cardBorder),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 15,
-              offset: const Offset(0, 4),
-            )
-          ]
-        ),
+        decoration: zyndioCard(context, radius: 22),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(22),
           child: Stack(
             children: [
               Positioned(
@@ -1530,35 +1524,31 @@ class _ProtocolCard extends StatelessWidget {
                 child: Icon(
                   LucideIcons.fileText,
                   size: 100,
-                  color: context.nc.isDark 
-                      ? Colors.white.withValues(alpha: 0.03) 
-                      : Colors.black.withValues(alpha: 0.02),
+                  color: c.textPrimary.withValues(alpha: 0.03),
                 ),
               ),
               Padding(
                 padding: const EdgeInsets.all(18),
                 child: Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF4F46E5).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(LucideIcons.fileText, size: 24, color: Color(0xFF4F46E5)),
+                    const ZyndioIconTile(
+                      icon: LucideIcons.fileText,
+                      tint: ZyndioTint.blue,
+                      size: 48,
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             protocol.title,
-                            style: GoogleFonts.outfit(
-                              fontWeight: FontWeight.w700, 
-                              fontSize: 17, 
-                              color: context.nc.textPrimary,
-                              letterSpacing: -0.4,
+                            style: TextStyle(
+                              fontFamily: ZyndioType.family,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                              color: c.textPrimary,
+                              letterSpacing: -0.2,
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -1567,9 +1557,10 @@ class _ProtocolCard extends StatelessWidget {
                               Text(
                                 "Protocol Document",
                                 style: TextStyle(
-                                  fontSize: 13, 
+                                  fontFamily: ZyndioType.family,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.w500,
-                                  color: context.nc.textSecondary,
+                                  color: c.textSecondary,
                                 ),
                               ),
                               const SizedBox(width: 6),
@@ -1577,7 +1568,7 @@ class _ProtocolCard extends StatelessWidget {
                                 width: 3,
                                 height: 3,
                                 decoration: BoxDecoration(
-                                  color: context.nc.textTertiary,
+                                  color: c.textTertiary,
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -1585,9 +1576,10 @@ class _ProtocolCard extends StatelessWidget {
                               Text(
                                 "AI Generated",
                                 style: TextStyle(
-                                  fontSize: 13, 
+                                  fontFamily: ZyndioType.family,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.w500,
-                                  color: const Color(0xFF10B981),
+                                  color: c.statusSuccess,
                                 ),
                               ),
                             ],
@@ -1595,7 +1587,8 @@ class _ProtocolCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Icon(LucideIcons.chevronRight, color: context.nc.textTertiary, size: 20),
+                    Icon(LucideIcons.chevronRight,
+                        color: c.textTertiary, size: 20),
                   ],
                 ),
               ),
@@ -1615,6 +1608,7 @@ class _MealPlanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
     // Calculate average daily calories
     int avgCalories = 0;
     if (plan.weeklyPlan.isNotEmpty) {
@@ -1632,23 +1626,13 @@ class _MealPlanCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: context.nc.cardSurface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
-          boxShadow: [
-            BoxShadow(color: const Color(0xFF10B981).withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))
-          ],
-        ),
+        decoration: zyndioCard(context, radius: 22),
         child: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF10B981).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(LucideIcons.utensils, size: 22, color: Color(0xFF10B981)),
+            const ZyndioIconTile(
+              icon: LucideIcons.utensils,
+              tint: ZyndioTint.green,
+              size: 48,
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -1657,27 +1641,32 @@ class _MealPlanCard extends StatelessWidget {
                 children: [
                   Text(
                     plan.name,
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: context.nc.textPrimary),
+                    style: TextStyle(
+                      fontFamily: ZyndioType.family,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      color: c.textPrimary,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     "${plan.weeklyPlan.length} days · ~$avgCalories kcal/day",
-                    style: TextStyle(fontSize: 13, color: context.nc.textSecondary),
+                    style: TextStyle(
+                      fontFamily: ZyndioType.family,
+                      fontSize: 13,
+                      color: c.textSecondary,
+                    ),
                   ),
                 ],
               ),
             ),
-            const Icon(LucideIcons.chevronRight, color: Colors.grey),
+            Icon(LucideIcons.chevronRight, color: c.textTertiary, size: 20),
           ],
         ),
       ),
     );
   }
 }
-
-
-
-
 
 class _GrokActionButton extends StatelessWidget {
   final IconData icon;
@@ -1690,6 +1679,7 @@ class _GrokActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
     return GestureDetector(
       onTap: () {
         HapticFeedback.lightImpact();
@@ -1699,20 +1689,15 @@ class _GrokActionButton extends StatelessWidget {
         height: 44,
         width: 44,
         decoration: BoxDecoration(
-          color: context.nc.isDark ? Colors.white.withValues(alpha: 0.05) : context.nc.inputFill,
+          color: c.bgSunken,
           shape: BoxShape.circle,
-          border: Border.all(
-            color: context.nc.isDark ? Colors.white.withValues(alpha: 0.08) : Colors.transparent,
-          ),
         ),
         child: Icon(
           icon,
           size: 20,
-          color: context.nc.textSecondary,
+          color: c.textSecondary,
         ),
       ),
     );
   }
 }
-
-// Duplicate _LoadingBubble removed. Using original phrases version above.

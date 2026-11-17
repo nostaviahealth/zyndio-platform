@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:health/health.dart';
@@ -13,6 +12,7 @@ import 'health_sample_mapper.dart';
 import 'wearable_daily_aggregator.dart';
 import 'wearable_daily_uploader.dart';
 import 'wearable_metric.dart';
+import '../../utils/platform_info.dart';
 
 /// Where daily samples come from. The real one reads Apple Health / Health
 /// Connect; tests pass a fake.
@@ -31,7 +31,7 @@ class HealthPluginSampleReader implements WearableSampleReader {
 
   @override
   Future<bool> historyAuthorized() async {
-    if (!Platform.isAndroid) return true;
+    if (!PlatformInfo.isAndroid) return true;
     try {
       return await _health.isHealthDataHistoryAuthorized();
     } catch (_) {
@@ -43,7 +43,7 @@ class HealthPluginSampleReader implements WearableSampleReader {
   Future<List<WearableSample>> read(DateTime start, DateTime end) async {
     await _health.configure();
     final types =
-        Platform.isIOS ? wearableUploadTypesIOS : wearableUploadTypesAndroid;
+        PlatformInfo.isIOS ? wearableUploadTypesIOS : wearableUploadTypesAndroid;
     final out = <WearableSample>[];
     // One type per query: a type the patient didn't grant must not cost the
     // others (Health Connect fails a whole multi-type read).
@@ -62,7 +62,7 @@ class HealthPluginSampleReader implements WearableSampleReader {
         // Not granted / not available on this device: no data for this type.
       }
     }
-    if (Platform.isIOS) out.addAll(await _readVo2Max(start, end));
+    if (PlatformInfo.isIOS) out.addAll(await _readVo2Max(start, end));
     return out;
   }
 
@@ -105,7 +105,7 @@ class WearableUploadPermissions {
   /// a refusal just means less data. iOS: the native unified request already
   /// covers every uploaded type.
   Future<void> request() async {
-    if (!Platform.isAndroid) return;
+    if (!PlatformInfo.isAndroid) return;
     try {
       const extras = [
         HealthDataType.WEIGHT,

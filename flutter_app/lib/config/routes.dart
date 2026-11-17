@@ -19,7 +19,6 @@ import '../screens/onboarding/consent_screen.dart';
 import '../screens/onboarding/profile_setup_screen.dart';
 import '../providers/onboarding_provider.dart';
 
-import '../screens/health_data/health_data_screen.dart';
 
 import '../screens/health_data/lab_report_upload_screen.dart';
 
@@ -49,7 +48,9 @@ import '../screens/settings/export_health_data_screen.dart'; // Export Health Da
 import '../screens/settings/leagues_screen.dart'; // <--- Added Import
 import '../screens/lens/lens_screen.dart';
 import '../screens/notifications/notification_screen.dart';
-import '../screens/common/coming_soon_screen.dart'; // <--- Added Import
+import '../screens/common/coming_soon_screen.dart';
+import '../models/food_log.dart';
+import '../screens/settings/meal_detail_screen.dart';
 import '../screens/common/service_unavailable_screen.dart';
 import '../main.dart' show supabaseInitializedProvider;
 import '../screens/settings/timeline_history_screen.dart';
@@ -323,36 +324,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const LabReportUploadScreen(),
       ),
       GoRoute(
-        path: '/health_data/gut-microbiome',
-        name: 'gut_microbiome_panel',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const HealthDataScreen(reportType: 'Gut Microbiome'),
-      ),
-      GoRoute(
-        path: '/health_data/genetic',
-        name: 'genetic_panel',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const HealthDataScreen(reportType: 'Genetic'),
-      ),
-      GoRoute(
-        path: '/health_data/biological-age',
-        name: 'biological_age_panel',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const HealthDataScreen(reportType: 'Biological Age'),
-      ),
-      GoRoute(
-        path: '/health_data/heavy-metals',
-        name: 'heavy_metals_panel',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const HealthDataScreen(reportType: 'Heavy Metals'),
-      ),
-      GoRoute(
-        path: '/health_data/toxicity',
-        name: 'toxicity_panel',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const HealthDataScreen(reportType: 'Toxicity'),
-      ),
-      GoRoute(
         path: '/settings',
         name: 'settings',
         parentNavigatorKey: _rootNavigatorKey,
@@ -457,6 +428,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/food-log',
         name: 'lens_history',
         builder: (context, state) => const LensHistoryScreen(),
+      ),
+      // Food log → tap a meal. Needs the FoodLog as `extra`; a deep link or
+      // restored route without it goes back to the log instead of crashing.
+      GoRoute(
+        path: '/meal-detail',
+        name: 'meal_detail',
+        redirect: (context, state) =>
+            state.extra is FoodLog ? null : '/food-log',
+        builder: (context, state) =>
+            MealDetailScreen(log: state.extra! as FoodLog),
       ),
       GoRoute(
         path: '/notifications',

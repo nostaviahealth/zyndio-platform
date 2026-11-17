@@ -7,6 +7,7 @@ import '../../models/clinical_profile.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../providers/patient_provider.dart';
 import '../../widgets/clinical_profile_form.dart';
+import '../../widgets/tc025/tc025_widgets.dart';
 import '../onboarding/profile_setup_screen.dart';
 
 /// APP-04: edit the profile collected in onboarding - name, date of birth,
@@ -57,39 +58,48 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
     final profile = ref.watch(clinicalProfileProvider);
-    return Scaffold(
-      backgroundColor: context.nc.scaffoldBg,
-      appBar: AppBar(
-        title: const Text('Edit Profile'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(LucideIcons.arrowLeft, color: context.nc.textPrimary),
-          onPressed: () => context.pop(),
-        ),
-      ),
+    return ZyndioDetailScaffold(
+      title: 'Edit Profile',
+      onBack: () => context.pop(),
       body: profile.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
+        loading: () => Center(child: CircularProgressIndicator(color: c.brandPrimary)),
+        error: (e, _) => SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: zyndioCard(context),
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("We couldn't load your profile.",
-                    style: TextStyle(color: context.nc.textPrimary)),
-                const SizedBox(height: 12),
-                TextButton(
-                  onPressed: () => ref.invalidate(clinicalProfileProvider),
-                  child: const Text('Try again'),
+                Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: c.statusCriticalSubtle,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(LucideIcons.cloudOff, size: 20, color: c.statusCritical),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  "We couldn't load your profile.",
+                  style: ZyndioType.headline.copyWith(color: c.textPrimary),
+                ),
+                const SizedBox(height: 16),
+                ZyndioOutlineButton(
+                  label: 'Try again',
+                  onTap: () => ref.invalidate(clinicalProfileProvider),
                 ),
               ],
             ),
           ),
         ),
         data: (p) => SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
           child: ClinicalProfileForm(
             initial: p,
             submitLabel: 'Save changes',

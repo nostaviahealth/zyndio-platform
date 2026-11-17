@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +5,7 @@ import '../providers/wearable_sync_provider.dart';
 import '../providers/rhythm_provider.dart';
 import '../providers/patient_provider.dart';
 import '../data/meal_repository.dart';
+import '../utils/platform_info.dart';
 
 class WatchService {
   static const MethodChannel _syncChannel = MethodChannel('com.zyndio/watch_sync');
@@ -74,7 +74,7 @@ class WatchService {
   }
 
   static Future<void> syncStateToWatch(WearableSyncState state) async {
-    if (!Platform.isIOS) return;
+    if (!PlatformInfo.isIOS) return;
     if (state.snapshot == null) return;
     
     try {

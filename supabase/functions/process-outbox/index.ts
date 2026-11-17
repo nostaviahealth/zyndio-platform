@@ -15,7 +15,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { corsHeadersFor, jsonResponse } from '../_shared/cors.ts'
 import { parseBearerToken, verifyBearerJwt } from '../_shared/validation.ts'
 import { serviceRoleClient } from '../_shared/requireOrgAdminActor.ts'
-import { sendNotificationStub } from '../_shared/emailStub.ts'
+import { deliverNotification } from '../_shared/emailStub.ts'
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeadersFor(req) })
@@ -47,7 +47,7 @@ serve(async (req) => {
 
     let sent = 0
     for (const row of pending ?? []) {
-      await sendNotificationStub(admin, {
+      await deliverNotification(admin, {
         id: row.id,
         userId: row.user_id,
         type: row.type,

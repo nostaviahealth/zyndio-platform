@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../config/theme.dart';
+import 'tc025/tc025_widgets.dart';
+
 /// Callback signature for persisting the patient's APP-03 partner outcome
 /// sharing authorisation (e.g. via Supabase RPC
 /// `public.set_partner_outcome_authorisation`).
@@ -97,15 +100,8 @@ class _PartnerOutcomesConsentCardState
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final surfaceColor = isDark ? const Color(0xFF10141F) : Colors.white;
-    final borderColor =
-        isDark ? const Color(0xFF283042) : const Color(0xFFD8DEE8);
-    final primaryText =
-        isDark ? const Color(0xFFEEF1F8) : const Color(0xFF030616);
-    final secondaryText =
-        isDark ? const Color(0xFFA6B0C3) : const Color(0xFF48556A);
+    final c = context.zc;
+    final z = context.z25;
 
     return Semantics(
       container: true,
@@ -113,12 +109,8 @@ class _PartnerOutcomesConsentCardState
           'Body composition partner outcome sharing authorisation (${widget.partnerName})',
       child: Container(
         key: const Key('partner-outcomes-consent-card'),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: surfaceColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: borderColor),
-        ),
+        padding: const EdgeInsets.all(20),
+        decoration: zyndioCard(context, radius: 22),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -133,22 +125,25 @@ class _PartnerOutcomesConsentCardState
                       Text(
                         'Share milestone outcomes with ${widget.partnerName}',
                         style: TextStyle(
-                          fontSize: 16,
+                          fontFamily: ZyndioType.family,
+                          fontSize: 17,
+                          height: 24 / 17,
                           fontWeight: FontWeight.w600,
-                          color: primaryText,
+                          letterSpacing: -0.2,
+                          color: c.textPrimary,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 8),
                       Container(
                         key: const Key('partner-consent-status-badge'),
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
+                          horizontal: 10,
+                          vertical: 4,
                         ),
                         decoration: BoxDecoration(
                           color: _authorized
-                              ? const Color(0xFFE6F4EA)
-                              : const Color(0xFFF3F5F8),
+                              ? c.statusSuccessSubtle
+                              : z.badgeNeutralBg,
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
@@ -156,11 +151,12 @@ class _PartnerOutcomesConsentCardState
                               ? 'Authorised (${widget.consentVersion})'
                               : 'Not authorised',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontFamily: ZyndioType.family,
+                            fontSize: 12.5,
                             fontWeight: FontWeight.w600,
                             color: _authorized
-                                ? const Color(0xFF137333)
-                                : const Color(0xFF48556A),
+                                ? c.statusSuccess
+                                : z.badgeNeutralText,
                           ),
                         ),
                       ),
@@ -169,11 +165,17 @@ class _PartnerOutcomesConsentCardState
                 ),
                 const SizedBox(width: 12),
                 if (_isSaving)
-                  const SizedBox(
-                    key: Key('partner-consent-saving-indicator'),
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                  Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: SizedBox(
+                      key: const Key('partner-consent-saving-indicator'),
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: c.brandPrimary,
+                      ),
+                    ),
                   )
                 else
                   Switch.adaptive(
@@ -183,13 +185,15 @@ class _PartnerOutcomesConsentCardState
                   ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Text(
               _consentStatement,
               style: TextStyle(
-                fontSize: 14,
+                fontFamily: ZyndioType.family,
+                fontSize: 15,
+                height: 22 / 15,
                 fontWeight: FontWeight.w500,
-                color: primaryText,
+                color: c.textPrimary,
               ),
             ),
             const SizedBox(height: 8),
@@ -197,42 +201,44 @@ class _PartnerOutcomesConsentCardState
               'Optional and separate from your clinic care. You can revoke this authorisation at any time; revoking immediately stops future outcome deliveries to ${widget.partnerName} and does not affect your clinical treatment.',
               key: const Key('partner-consent-revocation-disclosure'),
               style: TextStyle(
-                fontSize: 13,
-                height: 1.45,
-                color: secondaryText,
+                fontFamily: ZyndioType.family,
+                fontSize: 14,
+                height: 20 / 14,
+                color: c.textSecondary,
               ),
             ),
             if (_errorMessage != null) ...[
               const SizedBox(height: 12),
               Container(
                 key: const Key('partner-consent-error-banner'),
-                padding: const EdgeInsets.all(10),
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFCE8E6),
-                  borderRadius: BorderRadius.circular(8),
+                  color: z.critBg,
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   _errorMessage!,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFFB31412),
+                  style: TextStyle(
+                    fontFamily: ZyndioType.family,
+                    fontSize: 14,
+                    height: 20 / 14,
+                    color: z.critText,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
             ],
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                key: const Key('partner-consent-action-button'),
-                onPressed: _isSaving ? null : () => _handleToggle(!_authorized),
-                child: Text(
-                  _authorized
-                      ? 'Revoke authorisation'
-                      : 'Authorise outcome sharing',
-                ),
-              ),
+            const SizedBox(height: 16),
+            ZyndioOutlineButton(
+              key: const Key('partner-consent-action-button'),
+              onTap: _isSaving ? null : () => _handleToggle(!_authorized),
+              label: _authorized
+                  ? 'Revoke authorisation'
+                  : 'Authorise outcome sharing',
             ),
           ],
         ),

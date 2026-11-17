@@ -139,46 +139,52 @@ class AuthWordmark extends StatelessWidget {
       container: true,
       label: 'Zyndio, physician-led telehealth care',
       child: ExcludeSemantics(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Image.asset(
-              'assets/icons/zyndio-mark-tight.png',
-              height: markHeight,
-              excludeFromSemantics: true,
-            ),
-            const SizedBox(width: 14),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'ZYNDIO',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w400,
-                    fontSize: 24,
-                    height: 1.0,
-                    letterSpacing: 0.18 * 24,
-                    color: c.textPrimary,
+        // Scales the lockup as one unit only when it doesn't fit (small
+        // phones, large text); otherwise it renders at its designed size.
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Image.asset(
+                'assets/icons/zyndio-mark-tight.png',
+                height: markHeight,
+                excludeFromSemantics: true,
+              ),
+              const SizedBox(width: 14),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'ZYNDIO',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w400,
+                      fontSize: 24,
+                      height: 1.0,
+                      letterSpacing: 0.18 * 24,
+                      color: c.textPrimary,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 7),
-                Text(
-                  tagline,
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w500,
-                    fontSize: 9.5,
-                    height: 1.0,
-                    letterSpacing: 0.12 * 9.5,
-                    color: c.brandOnSubtle,
+                  const SizedBox(height: 7),
+                  Text(
+                    tagline,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w500,
+                      fontSize: 9.5,
+                      height: 1.0,
+                      letterSpacing: 0.12 * 9.5,
+                      color: c.brandOnSubtle,
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -280,7 +286,9 @@ class AuthLabeledField extends StatelessWidget {
               Expanded(
                 child: Text(errorText!,
                     style: TextStyle(
-                        color: c.statusCritical, fontSize: 13, height: 18 / 13)),
+                        color: c.statusCritical,
+                        fontSize: 13,
+                        height: 18 / 13)),
               ),
             ],
           ),
@@ -315,7 +323,8 @@ InputDecoration authFieldDecoration(
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: error ? c.statusCritical : c.brandPrimary, width: 2),
+      borderSide: BorderSide(
+          color: error ? c.statusCritical : c.brandPrimary, width: 2),
     ),
     errorBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
@@ -431,8 +440,7 @@ class AuthPrimaryButton extends StatelessWidget {
                   SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: fg),
+                    child: CircularProgressIndicator(strokeWidth: 2, color: fg),
                   ),
                   const SizedBox(width: 10),
                   Text(label,

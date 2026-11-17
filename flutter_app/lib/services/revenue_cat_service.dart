@@ -1,7 +1,7 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import '../utils/platform_info.dart';
 
 class RevenueCatService {
   static const iosApiKey = String.fromEnvironment('REVENUECAT_IOS_KEY');
@@ -22,10 +22,10 @@ class RevenueCatService {
       await Purchases.setLogLevel(kDebugMode ? LogLevel.debug : LogLevel.info);
 
       PurchasesConfiguration configuration;
-      if (Platform.isAndroid) {
+      if (PlatformInfo.isAndroid) {
         debugPrint('🤖 RevenueCat: Detected Android');
         configuration = PurchasesConfiguration(androidApiKey);
-      } else if (Platform.isIOS) {
+      } else if (PlatformInfo.isIOS) {
         debugPrint('🍎 RevenueCat: Detected iOS');
         configuration = PurchasesConfiguration(iosApiKey);
       } else {

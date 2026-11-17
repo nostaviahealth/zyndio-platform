@@ -1,6 +1,5 @@
 import "../services/watch_service.dart";
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/health_repository.dart';
@@ -17,6 +16,7 @@ import 'gamification_provider.dart';
 import '../services/correlation_engine.dart';
 import '../services/proactive_intelligence_service.dart';
 import '../services/meal_watchdog_service.dart';
+import '../utils/platform_info.dart';
 
 class WearableSyncState {
   final bool isSyncing;
@@ -262,7 +262,7 @@ class WearableSyncNotifier extends AsyncNotifier<WearableSyncState> {
       double hrrBpmVal = 0;
       String hrrRangeText = 'No range';
 
-      if (Platform.isIOS) {
+      if (PlatformInfo.isIOS) {
         try {
           final vo2Data = await Vo2MaxService.getVo2Max();
           if (vo2Data != null) {
@@ -457,7 +457,7 @@ class WearableSyncNotifier extends AsyncNotifier<WearableSyncState> {
       ref.invalidate(wearableStateProvider);
 
       // Sync to Apple Watch
-      if (Platform.isIOS) {
+      if (PlatformInfo.isIOS) {
         WatchService.syncStateToWatch(state.value!);
       }
 
