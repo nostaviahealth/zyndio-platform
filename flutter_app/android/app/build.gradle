@@ -29,6 +29,12 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
+// Workaround for Flutter Gradle plugin issue where CopyFlutterJniLibsTask validates intermediateDir
+// as an input directory before compileFlutterBuild creates it.
+['release', 'debug', 'profile'].each { mode ->
+    project.layout.buildDirectory.dir("intermediates/flutter/${mode}").get().asFile.mkdirs()
+}
+
 android {
     namespace "com.zyndio.app"
     compileSdk 36

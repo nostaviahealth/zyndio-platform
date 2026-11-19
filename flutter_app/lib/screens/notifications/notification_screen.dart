@@ -7,6 +7,7 @@ import '../../models/notification_model.dart';
 import '../../models/alert_model.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/alert_provider.dart';
+import '../../widgets/tc025/tc025_widgets.dart';
 
 class NotificationScreen extends ConsumerStatefulWidget {
   const NotificationScreen({super.key});
@@ -39,76 +40,93 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen>
     final notificationsAsync = ref.watch(notificationsProvider);
     final alertHistory = ref.watch(alertHistoryProvider);
     final unreadCount = ref.watch(unreadNotificationCountProvider);
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    final z = context.z25;
 
-    return Scaffold(
-      backgroundColor: context.nc.scaffoldBg,
-      appBar: AppBar(
-        title: Text(
-          'Notifications',
+    return ZyndioDetailScaffold(
+      title: 'Notifications',
+      onBack: () => context.pop(),
+      trailing: TextButton(
+        onPressed: () {
+          ref.read(notificationsProvider.notifier).markAllAsRead();
+          ref.read(alertProvider.notifier).clearHistory();
+        },
+        style: TextButton.styleFrom(
+          foregroundColor: c.brandPrimary,
+          minimumSize: const Size(44, 44),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          shape: const StadiumBorder(),
+        ),
+        child: Text(
+          'Clear all',
           style: TextStyle(
-            color: context.nc.textPrimary,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-        backgroundColor: context.nc.scaffoldBg,
-        elevation: 0,
-        centerTitle: false,
-        leading: IconButton(
-          icon: Icon(LucideIcons.chevronLeft, color: context.nc.textPrimary),
-          onPressed: () => context.pop(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              ref.read(notificationsProvider.notifier).markAllAsRead();
-              ref.read(alertProvider.notifier).clearHistory();
-            },
-            child: const Text(
-              'Clear all',
-              style: TextStyle(
-                color: BrandColors.emerald500,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: context.nc.divider, width: 0.5)),
-            ),
-            child: TabBar(
-              controller: _tabController,
-              indicatorColor: Colors.white,
-              indicatorWeight: 2,
-              labelColor: Colors.white,
-              unselectedLabelColor: context.nc.textTertiary,
-              labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-              unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-              dividerColor: Colors.transparent,
-              tabs: [
-                Tab(text: 'Activity (${alertHistory.length})'),
-                Tab(text: unreadCount > 0 ? 'Inbox ($unreadCount)' : 'Inbox'),
-              ],
-            ),
+            fontFamily: ZyndioType.family,
+            color: c.brandPrimary,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Tab 1: In-App Alert History (this session)
-          _buildAlertHistoryTab(alertHistory),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Container(
+              height: 44,
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: z.segmentBg,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: TabBar(
+                controller: _tabController,
+                indicator: BoxDecoration(
+                  gradient: ZyndioGradients.segmentActive,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                indicatorSize: TabBarIndicatorSize.tab,
+                labelColor: Colors.white,
+                unselectedLabelColor: z.segmentText,
+                labelStyle: const TextStyle(
+                  fontFamily: ZyndioType.family,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontFamily: ZyndioType.family,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+                dividerColor: Colors.transparent,
+                splashBorderRadius: BorderRadius.circular(999),
+                overlayColor: WidgetStateProperty.all(Colors.transparent),
+                tabs: [
+                  Tab(text: 'Activity (${alertHistory.length})'),
+                  Tab(text: unreadCount > 0 ? 'Inbox ($unreadCount)' : 'Inbox'),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                // Tab 1: In-App Alert History (this session)
+                _buildAlertHistoryTab(alertHistory),
 
-          // Tab 2: Supabase Notifications (persisted)
-          _buildInboxTab(notificationsAsync),
+                // Tab 2: Supabase Notifications (persisted)
+                _buildInboxTab(notificationsAsync),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
+
+  static const _listPadding = EdgeInsets.fromLTRB(20, 12, 20, 40);
 
   // ── TAB 1: ALERT HISTORY ──
 
@@ -122,9 +140,9 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen>
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.all(16),
+      padding: _listPadding,
       itemCount: alerts.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final alert = alerts[index];
         return _AlertHistoryCard(alert: alert);
@@ -135,6 +153,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen>
   // ── TAB 2: INBOX ──
 
   Widget _buildInboxTab(AsyncValue<List<NotificationItem>> notificationsAsync) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
     return notificationsAsync.when(
       data: (notifications) {
         if (notifications.isEmpty) {
@@ -146,25 +165,51 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen>
         }
 
         return ListView.separated(
-          padding: const EdgeInsets.all(16),
+          padding: _listPadding,
           itemCount: notifications.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
             final notification = notifications[index];
             return _NotificationCard(notification: notification);
           },
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator(color: Colors.white)),
-      error: (err, stack) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(LucideIcons.alertCircle, size: 40, color: context.nc.textTertiary),
-            const SizedBox(height: 12),
-            Text('Could not load inbox', style: TextStyle(color: context.nc.textSecondary)),
-          ],
-        ),
+      loading: () =>
+          Center(child: CircularProgressIndicator(color: c.brandPrimary)),
+      error: (err, stack) => ListView(
+        padding: _listPadding,
+        children: [
+          ZyndioCard(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: c.statusCriticalSubtle,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(LucideIcons.alertCircle,
+                      size: 20, color: c.statusCritical),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    'Could not load inbox',
+                    style: TextStyle(
+                      fontFamily: ZyndioType.family,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: c.textPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -176,35 +221,135 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen>
     required String title,
     required String subtitle,
   }) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: context.nc.cardSurface,
-              shape: BoxShape.circle,
-              border: Border.all(color: context.nc.cardBorder),
-            ),
-            child: Icon(icon, size: 40, color: context.nc.textTertiary),
+    return ListView(
+      padding: _listPadding,
+      children: [
+        ZyndioStateCard(icon: icon, title: title, body: subtitle),
+      ],
+    );
+  }
+}
+
+// ─── SHARED ROW PIECES ──────────────────────────────────────────────────────
+
+String _formatTimeAgo(DateTime dt) {
+  final now = DateTime.now();
+  final diff = now.difference(dt);
+
+  if (diff.inMinutes < 1) return 'Just now';
+  if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+  if (diff.inHours < 24) return '${diff.inHours}h ago';
+  return '${dt.day}/${dt.month}/${dt.year}';
+}
+
+ZyndioTint _alertTint(AlertCategory category) => switch (category) {
+      AlertCategory.protocol => ZyndioTint.blue,
+      AlertCategory.insight => ZyndioTint.violet,
+      AlertCategory.achievement => ZyndioTint.amber,
+      AlertCategory.warning => ZyndioTint.rose,
+      AlertCategory.system => ZyndioTint.green,
+    };
+
+(IconData, ZyndioTint) _notificationIcon(NotificationType type) =>
+    switch (type) {
+      NotificationType.info => (LucideIcons.info, ZyndioTint.blue),
+      NotificationType.success => (LucideIcons.checkCircle, ZyndioTint.green),
+      NotificationType.warning => (LucideIcons.alertTriangle, ZyndioTint.amber),
+      NotificationType.error => (LucideIcons.alertCircle, ZyndioTint.rose),
+      NotificationType.protocol =>
+        (LucideIcons.clipboardCheck, ZyndioTint.indigo),
+      NotificationType.alert => (LucideIcons.bell, ZyndioTint.violet),
+    };
+
+/// Icon tile + title/time row + body, shared by both notification cards.
+class _NotificationRowContent extends StatelessWidget {
+  const _NotificationRowContent({
+    required this.icon,
+    required this.tint,
+    required this.title,
+    required this.body,
+    required this.time,
+    this.unread = false,
+    this.boldTitle = true,
+  });
+
+  final IconData icon;
+  final ZyndioTint tint;
+  final String title;
+  final String body;
+  final String time;
+  final bool unread;
+  final bool boldTitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ZyndioIconTile(icon: icon, tint: tint, size: 44),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontFamily: ZyndioType.family,
+                        fontSize: 16,
+                        height: 22 / 16,
+                        fontWeight:
+                            boldTitle ? FontWeight.w700 : FontWeight.w600,
+                        color: c.textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    time,
+                    style: TextStyle(
+                      fontFamily: ZyndioType.family,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: c.textTertiary,
+                    ),
+                  ),
+                  if (unread) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: c.brandPrimary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                body,
+                style: TextStyle(
+                  fontFamily: ZyndioType.family,
+                  fontSize: 14,
+                  height: 20 / 14,
+                  color: c.textSecondary,
+                ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              color: context.nc.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: TextStyle(fontSize: 13, color: context.nc.textTertiary),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -218,76 +363,21 @@ class _AlertHistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
-    return GestureDetector(
+    return ZyndioCard(
+      padding: const EdgeInsets.all(16),
       onTap: () {
         if (alert.actionRoute != null) {
           context.push(alert.actionRoute!);
         }
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: context.nc.cardSurface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: context.nc.cardBorder),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    alert.title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: context.nc.textPrimary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Text(
-                  _formatTime(alert.timestamp),
-                  style: TextStyle(fontSize: 11, color: context.nc.textTertiary),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              alert.message,
-              style: TextStyle(
-                fontSize: 13,
-                color: context.nc.textSecondary,
-                height: 1.4,
-              ),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
+      child: _NotificationRowContent(
+        icon: AlertVisualConfig.fromCategory(alert.category).icon,
+        tint: _alertTint(alert.category),
+        title: alert.title,
+        body: alert.message,
+        time: _formatTimeAgo(alert.timestamp),
       ),
     );
-  }
-
-  String _formatTime(DateTime dt) {
-    final now = DateTime.now();
-    final diff = now.difference(dt);
-
-    if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return '${dt.day}/${dt.month}/${dt.year}';
   }
 }
 
@@ -300,7 +390,12 @@ class _NotificationCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return GestureDetector(
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    final (icon, tint) = _notificationIcon(notification.type);
+    return ZyndioCard(
+      padding: const EdgeInsets.all(16),
+      // Unread rows sit on the soft brand tint; read rows on the plain surface.
+      color: notification.isRead ? null : c.brandSubtle,
       onTap: () {
         if (!notification.isRead) {
           ref.read(notificationsProvider.notifier).markAsRead(notification.id);
@@ -309,82 +404,15 @@ class _NotificationCard extends ConsumerWidget {
           context.push(notification.actionRoute!);
         }
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: notification.isRead ? context.nc.cardSurface : context.nc.cardSurfaceElevated,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: notification.isRead
-                ? context.nc.cardBorder
-                : Colors.white.withOpacity(0.3),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    notification.title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: notification.isRead ? FontWeight.w600 : FontWeight.bold,
-                      color: context.nc.textPrimary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (!notification.isRead)
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: BrandColors.blue500,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              notification.body,
-              style: TextStyle(
-                fontSize: 13,
-                color: context.nc.textSecondary,
-                height: 1.4,
-              ),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _formatTime(notification.timestamp),
-              style: TextStyle(fontSize: 11, color: context.nc.textTertiary),
-            ),
-          ],
-        ),
+      child: _NotificationRowContent(
+        icon: icon,
+        tint: tint,
+        title: notification.title,
+        body: notification.body,
+        time: _formatTimeAgo(notification.timestamp),
+        unread: !notification.isRead,
+        boldTitle: !notification.isRead,
       ),
     );
-  }
-
-  String _formatTime(DateTime dt) {
-    final now = DateTime.now();
-    final diff = now.difference(dt);
-
-    if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return '${dt.day}/${dt.month}/${dt.year}';
   }
 }

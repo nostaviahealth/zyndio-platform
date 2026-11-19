@@ -8,7 +8,7 @@ import '../../config/theme.dart';
 import '../../config/supabase_config.dart';
 import '../../data/food_images.dart';
 import '../../models/food_log.dart';
-import '../../widgets/app_card.dart';
+import '../../widgets/tc025/tc025_widgets.dart';
 
 /// Provider for Food Logs
 final foodLogsProvider = FutureProvider.autoDispose<List<FoodLog>>((ref) async {
@@ -34,36 +34,41 @@ class LensHistoryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final logsAsync = ref.watch(foodLogsProvider);
+    final c = Theme.of(context).extension<ZyndioColors>()!;
 
-    return Scaffold(
-      backgroundColor: BrandColors.background,
-      appBar: AppBar(
-        title: const Text('Meals'),
-        leading: IconButton(
-          icon: const Icon(LucideIcons.arrowLeft),
-          onPressed: () => context.pop(),
-        ),
-      ),
+    return ZyndioDetailScaffold(
+      title: 'Meals',
+      onBack: () => context.pop(),
       body: RefreshIndicator(
+        color: c.brandPrimary,
+        backgroundColor: c.bgSurface,
         onRefresh: () async => ref.refresh(foodLogsProvider),
         child: logsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator(color: BrandColors.emerald500)),
-          error: (e, _) => Center(child: Text('Error: $e', style: TextStyle(color: BrandColors.red500))),
+          loading: () =>
+              Center(child: CircularProgressIndicator(color: c.brandPrimary)),
+          error: (e, _) => Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                'Error: $e',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: ZyndioType.family,
+                  fontSize: 15,
+                  color: c.statusCritical,
+                ),
+              ),
+            ),
+          ),
           data: (logs) {
             if (logs.isEmpty) {
               return ListView(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
                 children: const [
-                  SizedBox(height: 100),
-                  Center(
-                    child: Column(
-                      children: [
-                        Icon(LucideIcons.utensilsCrossed, size: 48, color: BrandColors.slate300),
-                        SizedBox(height: 16),
-                        Text('No meals logged yet', style: TextStyle(color: BrandColors.slate500)),
-                        SizedBox(height: 8),
-                        Text('Use Lens to scan your first meal!', style: TextStyle(color: BrandColors.slate400, fontSize: 12)),
-                      ],
-                    ),
+                  ZyndioStateCard(
+                    icon: LucideIcons.utensilsCrossed,
+                    title: 'No meals logged yet',
+                    body: 'Use Lens to scan your first meal!',
                   ),
                 ],
               );
@@ -73,12 +78,13 @@ class LensHistoryScreen extends ConsumerWidget {
             final grouped = _groupByDate(logs);
 
             return ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
               itemCount: grouped.length,
               itemBuilder: (context, index) {
                 final dateKey = grouped.keys.elementAt(index);
                 final dateLogs = grouped[dateKey]!;
-                return _buildDateSection(context, dateKey, dateLogs);
+                return _buildDateSection(context, dateKey, dateLogs,
+                    first: index == 0);
               },
             );
           },
@@ -106,38 +112,36 @@ class LensHistoryScreen extends ConsumerWidget {
     return DateFormat('MMMM d, yyyy').format(date);
   }
 
-  Widget _buildDateSection(BuildContext context, String dateHeader, List<FoodLog> logs) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Text(
-            dateHeader.toUpperCase(),
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: BrandColors.slate400,
-              letterSpacing: 1.5,
-            ),
-          ),
-        ),
-        ...logs.map((log) => _buildCompactCard(context, log)),
-      ],
+  Widget _buildDateSection(
+      BuildContext context, String dateHeader, List<FoodLog> logs,
+      {bool first = false}) {
+    return Padding(
+      padding: EdgeInsets.only(top: first ? 0 : 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ZyndioSectionLabel(dateHeader),
+          ...logs.map((log) => _buildCompactCard(context, log)),
+        ],
+      ),
     );
   }
 
   Widget _buildCompactCard(BuildContext context, FoodLog log) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
     final timeStr = DateFormat('h:mm a').format(log.loggedAt);
     final foodName = _extractFoodName(log.analysis);
     final macros = _extractMacrosSummary(log.analysis);
     final score = log.analysis['score'] ?? 0;
+    final scoreColor = score >= 80
+        ? c.statusSuccess
+        : (score >= 50 ? c.statusWarning : c.statusCritical);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: GestureDetector(
         onTap: () => context.push('/meal-detail', extra: log),
-        child: AppCard(
+        child: ZyndioCard(
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
@@ -145,12 +149,12 @@ class LensHistoryScreen extends ConsumerWidget {
               Stack(
                 children: [
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(14),
                     child: log.imagePath != null && log.imagePath!.isNotEmpty
                         ? Consumer(
                             builder: (context, ref, _) {
                               final url = ref.watch(foodImageUrlProvider(log.imagePath!)).value ?? '';
-                              if (url.isEmpty) return _imagePlaceholder();
+                              if (url.isEmpty) return _imagePlaceholder(context);
                               return Image.network(
                                 url,
                                 width: 68,
@@ -158,28 +162,30 @@ class LensHistoryScreen extends ConsumerWidget {
                                 fit: BoxFit.cover,
                                 cacheWidth: 136,
                                 cacheHeight: 136,
-                                errorBuilder: (c, e, s) => _imagePlaceholder(),
+                                errorBuilder: (ctx, e, s) => _imagePlaceholder(ctx),
                               );
                             },
                           )
-                        : _imagePlaceholder(),
+                        : _imagePlaceholder(context),
                   ),
                   if (score > 0)
                     Positioned(
                       top: 4,
                       right: 4,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: (score >= 80 ? BrandColors.emerald500 : (score >= 50 ? BrandColors.amber500 : BrandColors.red500)).withOpacity(0.9),
-                          borderRadius: BorderRadius.circular(6),
-                          boxShadow: [
-                            BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 2),
-                          ],
+                          color: c.bgSurface,
+                          borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
                           '$score',
-                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontFamily: ZyndioType.family,
+                            color: scoreColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
@@ -195,16 +201,22 @@ class LensHistoryScreen extends ConsumerWidget {
                       foodName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 15,
+                      style: TextStyle(
+                        fontFamily: ZyndioType.family,
+                        fontSize: 16,
+                        height: 22 / 16,
                         fontWeight: FontWeight.w600,
-                        color: BrandColors.dark,
+                        color: c.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       macros,
-                      style: const TextStyle(fontSize: 12, color: BrandColors.slate500),
+                      style: TextStyle(
+                        fontFamily: ZyndioType.family,
+                        fontSize: 13,
+                        color: c.textSecondary,
+                      ),
                     ),
                   ],
                 ),
@@ -215,10 +227,15 @@ class LensHistoryScreen extends ConsumerWidget {
                 children: [
                   Text(
                     timeStr,
-                    style: const TextStyle(fontSize: 11, color: BrandColors.slate400),
+                    style: TextStyle(
+                      fontFamily: ZyndioType.family,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: c.textTertiary,
+                    ),
                   ),
                   const SizedBox(height: 8),
-                  const Icon(LucideIcons.chevronRight, size: 18, color: BrandColors.slate300),
+                  Icon(LucideIcons.chevronRight, size: 18, color: c.textTertiary),
                 ],
               ),
             ],
@@ -228,18 +245,18 @@ class LensHistoryScreen extends ConsumerWidget {
     );
   }
 
-  Widget _imagePlaceholder() {
+  Widget _imagePlaceholder(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
     return Container(
       width: 64,
       height: 64,
       decoration: BoxDecoration(
-        color: BrandColors.slate100,
-        borderRadius: BorderRadius.circular(10),
+        color: c.bgSunken,
+        borderRadius: BorderRadius.circular(14),
       ),
-      child: const Icon(LucideIcons.image, color: BrandColors.slate300, size: 24),
+      child: Icon(LucideIcons.image, color: c.textTertiary, size: 24),
     );
   }
-
 
   String _extractFoodName(Map<String, dynamic> json) {
     // Try common keys

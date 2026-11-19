@@ -5,6 +5,7 @@ import '../../config/theme.dart';
 import '../../data/lab_submission.dart';
 import '../../providers/lab_analysis_provider.dart';
 import '../../providers/lab_reports_provider.dart';
+import '../../widgets/tc025/tc025_widgets.dart';
 
 /// APP-05: what happened to the report the patient just submitted. The
 /// server has already filed it (or refused a duplicate), so there is nothing
@@ -23,64 +24,71 @@ class LabReportSubmittedScreen extends ConsumerWidget {
         _ => LucideIcons.clock,
       };
 
-  Color get _accent => switch (submission.outcome) {
-        LabSubmissionOutcome.analyzed => BrandColors.emerald500,
-        LabSubmissionOutcome.needsReview => BrandColors.emerald500,
-        LabSubmissionOutcome.identityHold => BrandColors.red400,
-        _ => BrandColors.slate400,
+  /// (icon colour, icon-disc fill) for the outcome.
+  (Color, Color) _accent(BuildContext context, ZyndioColors c) =>
+      switch (submission.outcome) {
+        LabSubmissionOutcome.analyzed => (c.statusSuccess, c.statusSuccessSubtle),
+        LabSubmissionOutcome.needsReview => (c.statusSuccess, c.statusSuccessSubtle),
+        LabSubmissionOutcome.identityHold => (c.statusCritical, c.statusCriticalSubtle),
+        _ => (c.textSecondary, context.z25.tileBg),
       };
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    return _build(context, ref);
+  }
+
+  Widget _build(BuildContext context, WidgetRef ref) {
+    final c = context.zc;
+    final (accent, accentBg) = _accent(context, c);
     final showValues = submission.outcome == LabSubmissionOutcome.analyzed ||
         submission.outcome == LabSubmissionOutcome.needsReview;
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: const Text('Lab report'),
+    return ZyndioDetailScaffold(
+      title: 'Lab report',
+      bottomBar: ZyndioGradientButton(
+        key: const Key('lab-submission-done'),
+        label: 'Done',
+        trailingArrow: false,
+        onTap: () {
+          ref.invalidate(labReportsProvider);
+          ref.read(labAnalysisProvider.notifier).consumeResult();
+          Navigator.of(context).pop();
+        },
       ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-          children: [
-            Icon(_icon, size: 44, color: _accent),
-            const SizedBox(height: 16),
-            Text(
-              submission.title,
-              key: const Key('lab-submission-title'),
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              submission.message,
-              key: const Key('lab-submission-message'),
-              style: TextStyle(fontSize: 15, height: 1.5, color: Colors.white.withValues(alpha: 0.75)),
-            ),
-            if (showValues && submission.markers.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              for (final m in submission.markers) _MarkerRow(marker: m),
-            ],
-            const SizedBox(height: 32),
-            FilledButton(
-              key: const Key('lab-submission-done'),
-              style: FilledButton.styleFrom(
-                backgroundColor: BrandColors.emerald500,
-                minimumSize: const Size.fromHeight(56),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      children: [
+        ZyndioCard(
+          radius: 24,
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: accentBg, shape: BoxShape.circle),
+                child: Icon(_icon, size: 32, color: accent),
               ),
-              onPressed: () {
-                ref.invalidate(labReportsProvider);
-                ref.read(labAnalysisProvider.notifier).consumeResult();
-                Navigator.of(context).pop();
-              },
-              child: const Text('Done', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-            ),
-          ],
+              const SizedBox(height: 18),
+              Text(
+                submission.title,
+                key: const Key('lab-submission-title'),
+                style: ZyndioType.title2.copyWith(color: c.textPrimary),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                submission.message,
+                key: const Key('lab-submission-message'),
+                style: ZyndioType.subhead.copyWith(height: 1.5, color: c.textSecondary),
+              ),
+            ],
+          ),
         ),
-      ),
+        if (showValues && submission.markers.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          for (final m in submission.markers) _MarkerRow(marker: m),
+        ],
+      ],
     );
   }
 }
@@ -92,37 +100,46 @@ class _MarkerRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(marker.name,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
-                if (marker.range.isNotEmpty && marker.range != '--')
-                  Text('Range ${marker.range}',
-                      style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5))),
-                if (marker.needsReview)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 4),
-                    child: Text('Needs review',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFFF59E0B))),
-                  ),
-              ],
+    final c = context.zc;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: ZyndioCard(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(marker.name,
+                      style: ZyndioType.callout.copyWith(
+                          fontWeight: FontWeight.w600, color: c.textPrimary)),
+                  if (marker.range.isNotEmpty && marker.range != '--')
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text('Range ${marker.range}',
+                          style: ZyndioType.footnote.copyWith(color: c.textTertiary)),
+                    ),
+                  if (marker.needsReview)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 6),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: ZyndioPill('Needs review', tone: ZyndioPillTone.warning),
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-          Text('${marker.value} ${marker.unit}'.trim(),
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
-        ],
+            const SizedBox(width: 12),
+            Text('${marker.value} ${marker.unit}'.trim(),
+                style: ZyndioType.headline.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: ZyndioType.tabular,
+                    color: c.textPrimary)),
+          ],
+        ),
       ),
     );
   }

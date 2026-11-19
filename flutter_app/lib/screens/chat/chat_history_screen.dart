@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../config/theme.dart';
 import '../../providers/chat_provider.dart';
 import '../../models/chat_session.dart';
+import '../../widgets/tc025/tc025_widgets.dart';
 
 class ChatHistoryScreen extends ConsumerWidget {
   const ChatHistoryScreen({super.key});
@@ -12,39 +13,36 @@ class ChatHistoryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final historyAsync = ref.watch(chatHistoryProvider);
+    final c = Theme.of(context).extension<ZyndioColors>()!;
 
-    return Scaffold(
-      backgroundColor: context.nc.scaffoldBg,
-      appBar: AppBar(
-        backgroundColor: context.nc.scaffoldBg,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(LucideIcons.arrowLeft, color: context.nc.textPrimary),
-          onPressed: () => context.pop(),
-        ),
-        title: Text(
-          'History',
-          style: TextStyle(
-            color: context.nc.textPrimary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(1.0),
-            child: Container(color: context.nc.divider, height: 1.0),
-        ),
-      ),
+    return ZyndioDetailScaffold(
+      title: 'History',
+      onBack: () => context.pop(),
       body: historyAsync.when(
         data: (sessions) => ListView.separated(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
           itemCount: sessions.length,
           separatorBuilder: (context, index) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
             return _HistoryCard(session: sessions[index]);
           },
         ),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Error: $err')),
+        loading: () =>
+            Center(child: CircularProgressIndicator(color: c.brandPrimary)),
+        error: (err, stack) => Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              'Error: $err',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: ZyndioType.family,
+                fontSize: 15,
+                color: c.statusCritical,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -57,20 +55,12 @@ class _HistoryCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
     return Container(
-      decoration: BoxDecoration(
-        color: context.nc.cardSurface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: zyndioCard(context, radius: 22),
       child: Material(
         color: Colors.transparent,
+        borderRadius: BorderRadius.circular(22),
         child: InkWell(
           onTap: () async {
             // Load the selected session
@@ -80,9 +70,9 @@ class _HistoryCard extends ConsumerWidget {
               context.pushNamed('chat');
             }
           },
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(22),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(18, 16, 14, 16),
             child: Row(
               children: [
                 Expanded(
@@ -93,22 +83,26 @@ class _HistoryCard extends ConsumerWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Expanded(
-                           child: Text(
-                            session.title,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: context.nc.textPrimary,
+                            child: Text(
+                              session.title,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: ZyndioType.family,
+                                fontSize: 16,
+                                height: 22 / 16,
+                                fontWeight: FontWeight.w600,
+                                color: c.textPrimary,
+                              ),
                             ),
-                           ),
                           ),
                           const SizedBox(width: 8),
                           Text(
                             _formatDate(session.date),
                             style: TextStyle(
-                              fontSize: 11,
-                              color: context.nc.textSecondary,
+                              fontFamily: ZyndioType.family,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: c.textTertiary,
                             ),
                           ),
                         ],
@@ -119,16 +113,17 @@ class _HistoryCard extends ConsumerWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 13,
-                          color: context.nc.textSecondary,
-                          height: 1.4,
+                          fontFamily: ZyndioType.family,
+                          fontSize: 14,
+                          height: 20 / 14,
+                          color: c.textSecondary,
                         ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(LucideIcons.chevronRight, size: 16, color: context.nc.textTertiary),
+                Icon(LucideIcons.chevronRight, size: 20, color: c.textTertiary),
               ],
             ),
           ),
@@ -144,7 +139,7 @@ class _HistoryCard extends ConsumerWidget {
     if (difference.inDays == 0) return 'Today';
     if (difference.inDays == 1) return 'Yesterday';
     if (difference.inDays < 7) return '${difference.inDays}d ago';
-    
+
     return '${date.month}/${date.day}';
   }
 }

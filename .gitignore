@@ -43,3 +43,7 @@ pnpm-debug.log*
 # Scratch and agent files
 flutter_app/scratch/
 .claude-runs/
+
+# Local-only: Claude preview config/worktrees and exported videos/assets
+.claude/
+exports/

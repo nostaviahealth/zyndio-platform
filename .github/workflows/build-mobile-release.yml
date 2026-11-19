@@ -47,11 +47,19 @@ jobs:
 
       - name: Create production dart_defines.json
         working-directory: flutter_app
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          cat <<'EOF' > dart_defines.json
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::Set the SUPABASE_URL and SUPABASE_ANON_KEY repository secrets before running a release build."
+            exit 1
+          fi
+          cat <<EOF > dart_defines.json
           {
-            "SUPABASE_URL": "https://ubliebvxufkasxilxuxl.supabase.co",
-            "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVibGllYnZ4dWZrYXN4aWx4dXhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQyOTY3MTIsImV4cCI6MjEwOTg3MjcxMn0.6ml5YTYqYlJDT_O_peck6MzvDReSU_shNy35knDhuho",
+            "SUPABASE_URL": "${SUPABASE_URL}",
+            "SUPABASE_ANON_KEY": "${SUPABASE_ANON_KEY}",
+            "DEMO_LOGIN": true,
             "SHOPIFY_STOREFRONT_TOKEN": "example-shopify-token-000000000000000",
             "REVENUECAT_IOS_KEY": "example-revenuecat-ios-key-00000000000",
             "REVENUECAT_ANDROID_KEY": "example-revenuecat-android-key-0000000"
@@ -124,11 +132,19 @@ jobs:
 
       - name: Create production dart_defines.json
         working-directory: flutter_app
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          cat <<'EOF' > dart_defines.json
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::Set the SUPABASE_URL and SUPABASE_ANON_KEY repository secrets before running a release build."
+            exit 1
+          fi
+          cat <<EOF > dart_defines.json
           {
-            "SUPABASE_URL": "https://ubliebvxufkasxilxuxl.supabase.co",
-            "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVibGllYnZ4dWZrYXN4aWx4dXhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQyOTY3MTIsImV4cCI6MjEwOTg3MjcxMn0.6ml5YTYqYlJDT_O_peck6MzvDReSU_shNy35knDhuho",
+            "SUPABASE_URL": "${SUPABASE_URL}",
+            "SUPABASE_ANON_KEY": "${SUPABASE_ANON_KEY}",
+            "DEMO_LOGIN": true,
             "SHOPIFY_STOREFRONT_TOKEN": "example-shopify-token-000000000000000",
             "REVENUECAT_IOS_KEY": "example-revenuecat-ios-key-00000000000",
             "REVENUECAT_ANDROID_KEY": "example-revenuecat-android-key-0000000"

@@ -102,6 +102,36 @@ supabase stop
 `supabase stop --no-backup` also discards the local database if you want a truly clean restart
 (equivalent to never having run `supabase db reset`).
 
+## Deploy checklist — patient sign-in emails (TC-006)
+
+Patients sign in with a 6-digit code that the `patient-request-login-code` Edge Function
+emails to them. Until the SMTP secrets below are set, nothing is sent (the code only sits in
+`notification_outbox`), so **real patients cannot sign in**.
+
+1. Pick a mailbox that can send over **SMTP on port 465 (implicit TLS)**. Supabase Edge
+   Functions block outbound ports 25 and 587, so a provider that only offers 587 (for example
+   Microsoft 365) will not work. Google Workspace (`smtp.gmail.com`, with an app password),
+   Zoho, Amazon SES, Brevo, Postmark and Resend all offer 465.
+2. Send from your own domain and set up SPF, DKIM and DMARC for it, or codes will land in spam.
+3. Set the secrets on the hosted project (values never go in the repo):
+
+   ```bash
+   supabase secrets set SMTP_HOST=smtp.example.com SMTP_PORT=465 \
+     SMTP_USERNAME=<smtp login> SMTP_PASSWORD=<smtp password> \
+     SMTP_FROM=<from address on your domain> SMTP_FROM_NAME=Zyndio
+   ```
+
+4. Redeploy `patient-request-login-code` and `process-outbox`, then sign in with an enrolled
+   test patient. Each `notification_outbox` row for the code should end as `status = 'sent'`;
+   `failed` means the mail server refused. The function logs the SMTP stage and code, never the
+   recipient or the code.
+
+The code system itself is unchanged: 10-minute expiry, single use, 5 wrong tries lock the
+account for 15 minutes, and a per-IP failure throttle. The email goes out after the response
+is sent, so response timing still doesn't reveal which emails are enrolled. Only the sign-in
+code has a real template so far; invite, email-verification and password-reset rows still use
+the logged stub.
+
 ## Deploy checklist — client IP behind the Cloudflare proxy
 
 If an environment's apps reach Supabase through `supabase/proxy-worker.js`,

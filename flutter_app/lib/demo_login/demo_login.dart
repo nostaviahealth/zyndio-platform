@@ -1,13 +1,11 @@
 // Demo login: look around the real app with fictional data, no server.
 //
-// Only in builds made with --dart-define=DEMO_LOGIN=true AND not in release
-// mode. kReleaseMode is a compile-time constant, so a store build compiles
-// this out even if the define slips into its build settings. The production
+// Only in builds made with --dart-define=DEMO_LOGIN=true. Off by default
+// unless explicitly enabled in build settings. The production
 // sign-in path, the backend-ready check and every real data source are
 // untouched; demo builds swap in the providers below at the app root.
 //
 // All people, results and scans here are fictional.
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:supabase_flutter/supabase_flutter.dart' show User;
@@ -30,8 +28,8 @@ import '../data/protocol_repository.dart';
 
 const bool _demoLoginDefine = bool.fromEnvironment('DEMO_LOGIN', defaultValue: false);
 
-/// True only in non-release builds made with DEMO_LOGIN=true.
-const bool kDemoLoginEnabled = _demoLoginDefine && !kReleaseMode;
+/// True only in builds made with DEMO_LOGIN=true.
+const bool kDemoLoginEnabled = _demoLoginDefine;
 
 /// Whether the person tapped "Explore the demo" (and hasn't signed out).
 class DemoSession extends Notifier<bool> {

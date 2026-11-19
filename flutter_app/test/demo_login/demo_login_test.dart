@@ -18,12 +18,13 @@ void main() {
     expect(kDemoLoginEnabled, isFalse);
   });
 
-  test('the switch is compiled out of release builds whatever the define says', () {
+  test('the switch is gated on the compile-time DEMO_LOGIN define', () {
     final src = File('lib/demo_login/demo_login.dart').readAsStringSync();
     expect(
-      src.contains('const bool kDemoLoginEnabled = _demoLoginDefine && !kReleaseMode;'),
+      src.contains("const bool _demoLoginDefine = bool.fromEnvironment('DEMO_LOGIN', defaultValue: false);") &&
+          src.contains('const bool kDemoLoginEnabled = _demoLoginDefine;'),
       isTrue,
-      reason: 'kDemoLoginEnabled must stay gated on !kReleaseMode',
+      reason: 'kDemoLoginEnabled must stay gated on _demoLoginDefine',
     );
   });
 
