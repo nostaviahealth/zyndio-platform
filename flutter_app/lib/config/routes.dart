@@ -61,6 +61,7 @@ import '../screens/shop/shop_product_list_screen.dart';
 import '../screens/shop/shop_product_detail_screen.dart';
 import '../screens/appointments/appointments_hub_screen.dart';
 import '../screens/appointments/doctor_detail_screen.dart';
+import '../screens/supplements/precision_nutrition_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -437,6 +438,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/food-log',
         name: 'lens_history',
         builder: (context, state) => const LensHistoryScreen(),
+      ),
+      // Zyndio Precision Nutrition (the zyndio.com/supplements line).
+      GoRoute(
+        path: '/supplements',
+        name: 'supplements',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const PrecisionNutritionScreen(),
       ),
       GoRoute(
         path: '/notifications',

@@ -14,6 +14,12 @@ import 'package:zyndio_patient/providers/onboarding_provider.dart';
 import 'package:zyndio_patient/providers/patient_provider.dart';
 
 void main() {
+  test('demo name defaults to the fictional patient unless DEMO_DISPLAY_NAME is set', () {
+    expect(demoDisplayNameFor(''), 'Jordan Rivera');
+    expect(demoDisplayNameFor('   '), 'Jordan Rivera');
+    expect(demoDisplayNameFor(' Sam '), 'Sam');
+  });
+
   test('off by default (no DEMO_LOGIN define in normal and store builds)', () {
     expect(kDemoLoginEnabled, isFalse);
   });

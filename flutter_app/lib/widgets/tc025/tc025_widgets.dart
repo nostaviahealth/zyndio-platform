@@ -9,6 +9,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../config/theme.dart';
 import '../../providers/patient_provider.dart';
+import '../../services/zyndio_links.dart';
 import 'zyndio_glyphs.dart';
 
 export 'zyndio_glyphs.dart' show ZyndioGlyph;
@@ -291,8 +292,68 @@ class ZyndioBrandRow extends StatelessWidget {
           ),
         ),
         const Spacer(),
+        // Client brief (17 Nov): zyndio.com and the patient portal are always
+        // one tap away from every tab.
+        ZyndioHeaderLinkButton(
+          label: 'Open zyndio.com',
+          onTap: () => openZyndioLink(context, ZyndioLinks.website),
+          child: Text(
+            'Z',
+            style: TextStyle(
+              fontFamily: ZyndioType.family,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: c.textPrimary,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        ZyndioHeaderLinkButton(
+          label: 'Open patient portal',
+          onTap: () => openZyndioLink(context, ZyndioLinks.patientPortal),
+          child: Icon(LucideIcons.shieldCheck, size: 20, color: c.textPrimary),
+        ),
+        const SizedBox(width: 6),
         const ZyndioAvatarButton(),
       ],
+    );
+  }
+}
+
+/// Round header button (card surface) for a link out of the app.
+class ZyndioHeaderLinkButton extends StatelessWidget {
+  const ZyndioHeaderLinkButton(
+      {super.key, required this.label, required this.onTap, required this.child});
+
+  final String label;
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      onTap: onTap,
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: SizedBox(
+            width: 48,
+            height: 48,
+            child: Center(
+              child: Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: zyndioCard(context, radius: 20),
+                child: child,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

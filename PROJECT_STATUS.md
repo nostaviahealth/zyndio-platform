@@ -59,7 +59,16 @@ opens from the avatar on every tab.
   metals, toxins) were removed. Icon tiles use Zyndio's own hand-drawn glyph set
   (`zyndio_glyphs.dart`) in glossy squircle tiles instead of stock icons.
 - Demo login (`--dart-define=DEMO_LOGIN=true`, debug builds only) with fictional data on every
-  tab, including a baseline, Day 90 and Day 180 scan.
+  tab, including a baseline, Day 90 and Day 180 scan. For a live presentation, the gitignored
+  `dart_defines.json` can set `DEMO_DISPLAY_NAME` (greeting and avatar name) and `DEMO_GREETING`
+  (e.g. "Good morning", whatever the presenter's local time is). Never commit these.
+- Client walkthrough feedback (17 Nov 2026): every tab's header has a "Z" button that opens
+  zyndio.com and a shield button for the patient portal (`member.zyndio.com`), both in the
+  in-app browser. Care's "Patient Portal" row opens the portal too. A new Precision Nutrition
+  screen (`/supplements`, from Care and from My Plan → Supplements) lists the eight
+  zyndio.com/supplements products with prices. Buying opens that product's page on zyndio.com,
+  which handles checkout. The buttons are in the header, not the bottom tab bar, because a sixth
+  item would make each tab smaller than the 48pt minimum tap target.
 - Longevity score ring and Recovery tile only appear with their feature flag **and** a real
   value. Appointments is mock data and stays behind its flag.
 - Consumer extras (Shop, Meditate, Cycle tracking, leagues, goals, membership) are hidden
@@ -113,9 +122,9 @@ None of these can be finished in code alone.
 - Final legal text: terms, privacy notice, consent wording (APP-02).
 - Zyndio's reference ranges (POR-05) and clinical sign-off of ranges, alert wording and protocols.
 - Escalation contacts and companion name/tone (APP-09).
-- The secure clinical portal link (Care tab shows "Coming soon").
 - The client's real portrait for the profile avatar, and product photography.
-- DEXA webhook details and NAD+ lab API details (INT-05).
+- DEXA webhook details and NAD+ lab API details (INT-05), including how the at-home NAD+ test
+  kit results reach the app.
 - Signed BAA before any real patient data, and before switching on AI lab extraction.
 
 **Accounts and hosting**

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../config/theme.dart';
+import '../../demo_login/demo_login.dart';
 import '../../providers/intelligence_provider.dart';
 import '../../providers/patient_provider.dart';
 import '../../providers/wearable_sync_provider.dart';
@@ -17,13 +18,17 @@ import '../../widgets/tc025/tc025_widgets.dart';
 
 // ── Pure helpers (unit-tested) ──────────────────────────────────────────────
 
-/// Greeting by device-time hour + first name (specs §3.1).
-String todayGreeting(int hour, String? firstName) {
-  final part = hour < 12
-      ? 'Good morning'
-      : hour < 18
-          ? 'Good afternoon'
-          : 'Good evening';
+/// Greeting by device-time hour + first name (specs §3.1). [fixedPart]
+/// replaces the time-of-day phrase (demo sessions with DEMO_GREETING set).
+String todayGreeting(int hour, String? firstName, {String? fixedPart}) {
+  final fixed = fixedPart?.trim() ?? '';
+  final part = fixed.isNotEmpty
+      ? fixed
+      : hour < 12
+          ? 'Good morning'
+          : hour < 18
+              ? 'Good afternoon'
+              : 'Good evening';
   final name = (firstName == null || firstName.trim().isEmpty)
       ? ''
       : ', ${firstName.trim()}';
@@ -80,8 +85,12 @@ class TodayScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(patientProfileProvider).value;
-    final greeting =
-        todayGreeting(DateTime.now().hour, firstNameOf(profile?.name));
+    final inDemo = kDemoLoginEnabled && ref.watch(demoSessionProvider);
+    final greeting = todayGreeting(
+      DateTime.now().hour,
+      firstNameOf(profile?.name),
+      fixedPart: inDemo ? kDemoGreeting : null,
+    );
     final sync = ref.watch(wearableSyncProvider);
     final state = classifyToday(sync);
     final flags = ref.watch(featureFlagsProvider);

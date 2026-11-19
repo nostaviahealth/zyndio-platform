@@ -47,3 +47,5 @@ flutter_app/scratch/
 # Local-only: Claude preview config/worktrees and exported videos/assets
 .claude/
 exports/
+# Golden-test failure diffs (local only)
+flutter_app/test/**/failures/

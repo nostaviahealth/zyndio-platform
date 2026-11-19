@@ -106,6 +106,14 @@ void main() {
       expect(todayGreeting(8, null), 'Good morning');
     });
 
+    test('a fixed demo greeting replaces the time-of-day phrase', () {
+      expect(todayGreeting(20, 'Jordan', fixedPart: 'Good morning'),
+          'Good morning, Jordan');
+      // Blank override falls back to the device hour.
+      expect(todayGreeting(20, 'Jordan', fixedPart: '  '),
+          'Good evening, Jordan');
+    });
+
     test('firstNameOf', () {
       expect(firstNameOf('Jordan Rivera'), 'Jordan');
       expect(firstNameOf('  '), isNull);
