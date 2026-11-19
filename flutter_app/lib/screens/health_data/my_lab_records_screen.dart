@@ -7,6 +7,7 @@ import '../../models/lab_report.dart';
 import '../../providers/lab_reports_provider.dart';
 import '../../providers/patient_provider.dart';
 import '../../data/health_data_repository.dart';
+import '../../widgets/tc025/tc025_widgets.dart';
 import './report_detail_screen.dart';
 
 class MyLabRecordsScreen extends ConsumerWidget {
@@ -14,37 +15,25 @@ class MyLabRecordsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
     final reportsAsync = ref.watch(labReportsProvider);
 
-    return Scaffold(
-      backgroundColor: context.nc.scaffoldBg,
-      appBar: AppBar(
-        title: Text('My Lab Records', style: TextStyle(fontWeight: FontWeight.bold, color: context.nc.textPrimary)),
-        backgroundColor: context.nc.scaffoldBg,
-        elevation: 0,
-        foregroundColor: context.nc.textPrimary,
-        leading: IconButton(
-          icon: Icon(LucideIcons.arrowLeft, color: context.nc.textPrimary),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
+    return ZyndioDetailScaffold(
+      title: 'My Lab Records',
+      onBack: () => Navigator.pop(context),
       body: reportsAsync.when(
         data: (reports) {
           if (reports.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(LucideIcons.fileText, size: 48, color: context.nc.textTertiary.withOpacity(0.5)),
-                  const SizedBox(height: 16),
-                  Text("No Records Found", style: TextStyle(fontSize: 18, color: context.nc.textSecondary)),
-                ],
-              ),
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
+              children: const [
+                _StateNote(icon: LucideIcons.fileText, text: "No Records Found"),
+              ],
             );
           }
-          
+
           return ListView.separated(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
             itemCount: reports.length,
             separatorBuilder: (c, i) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
@@ -53,8 +42,56 @@ class MyLabRecordsScreen extends ConsumerWidget {
             },
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => const Center(child: Text(labReportsLoadFailedMessage)),
+        loading: () => Center(child: CircularProgressIndicator(color: c.brandPrimary)),
+        error: (_, __) => ListView(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
+          children: const [
+            _StateNote(
+                icon: LucideIcons.triangleAlert, text: labReportsLoadFailedMessage),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Empty / error note: the design-system state card layout (icon disc +
+/// one line of copy) for states that only have a single message.
+class _StateNote extends StatelessWidget {
+  const _StateNote({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: zyndioCard(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: context.z25.tileBg,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 20, color: c.textPrimary),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            text,
+            style: ZyndioType.headline.copyWith(
+              letterSpacing: -0.2,
+              color: c.textPrimary,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -66,20 +103,31 @@ class _LabRecordCard extends ConsumerWidget {
   const _LabRecordCard({required this.report});
 
   Future<void> _deleteReport(BuildContext context, WidgetRef ref) async {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: context.nc.cardSurfaceElevated,
-        title: Text("Delete Report?", style: TextStyle(color: context.nc.textPrimary)),
-        content: Text("This action cannot be undone.", style: TextStyle(color: context.nc.textSecondary)),
+        backgroundColor: c.bgSurface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text("Delete Report?", style: ZyndioType.headline.copyWith(color: c.textPrimary)),
+        content: Text("This action cannot be undone.", style: ZyndioType.subhead.copyWith(color: c.textSecondary)),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false), 
-            child: Text("Cancel", style: TextStyle(color: context.nc.textSecondary))
+            onPressed: () => Navigator.pop(context, false),
+            child: Text("Cancel",
+                style: TextStyle(
+                    fontFamily: ZyndioType.family,
+                    fontWeight: FontWeight.w600,
+                    color: c.textSecondary))
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true), 
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+              foregroundColor: c.statusCritical,
+              textStyle: const TextStyle(
+                  fontFamily: ZyndioType.family, fontWeight: FontWeight.w600),
+            ),
             child: const Text("Delete")
           ),
         ],
@@ -97,7 +145,7 @@ class _LabRecordCard extends ConsumerWidget {
             }
           } else {
              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(labReportDeleteFailedMessage), backgroundColor: Colors.red));
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text(labReportDeleteFailedMessage), backgroundColor: c.statusCritical));
              }
           }
       }
@@ -106,66 +154,50 @@ class _LabRecordCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
     // Format Date
     final date = DateTime.tryParse(report.date) ?? DateTime.now();
     final dateStr = DateFormat('yyyy-MM-dd').format(date);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: context.nc.cardSurface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: context.nc.cardBorder),
-        boxShadow: [
-          BoxShadow(color: context.nc.shadowColor, blurRadius: 8, offset: const Offset(0, 2))
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () {
-             Navigator.push(context, MaterialPageRoute(builder: (c) => ReportDetailScreen(report: report)));
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
+    return ZyndioCard(
+      radius: 22,
+      padding: const EdgeInsets.fromLTRB(16, 14, 6, 14),
+      onTap: () {
+         Navigator.push(context, MaterialPageRoute(builder: (c) => ReportDetailScreen(report: report)));
+      },
+      child: Row(
+        children: [
+          const ZyndioIconTile(
+            icon: LucideIcons.calendar,
+            tint: ZyndioTint.violet,
+            size: 48,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 50, height: 50,
-                  decoration: BoxDecoration(
-                    color: context.nc.inputFill,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: context.nc.cardBorder),
-                  ),
-                  child: Center(
-                    child: Icon(LucideIcons.calendar, color: context.nc.textTertiary, size: 24),
+                Text(
+                  dateStr,
+                  style: ZyndioType.callout.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontFeatures: ZyndioType.tabular,
+                    color: c.textPrimary,
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        dateStr,
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: context.nc.textPrimary),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${report.markers.length} markers',
-                        style: TextStyle(color: context.nc.textSecondary, fontSize: 13),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(LucideIcons.trash2, size: 20, color: context.nc.textTertiary.withOpacity(0.5)),
-                  onPressed: () => _deleteReport(context, ref),
+                const SizedBox(height: 2),
+                Text(
+                  '${report.markers.length} markers',
+                  style: ZyndioType.footnote.copyWith(color: c.textSecondary),
                 ),
               ],
             ),
           ),
-        ),
+          IconButton(
+            icon: Icon(LucideIcons.trash2, size: 20, color: c.textTertiary),
+            onPressed: () => _deleteReport(context, ref),
+          ),
+        ],
       ),
     );
   }

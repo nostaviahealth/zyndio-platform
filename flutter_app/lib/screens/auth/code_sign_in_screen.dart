@@ -255,7 +255,9 @@ class _CodeSignInScreenState extends ConsumerState<CodeSignInScreen> {
           ],
           const SizedBox(height: 12),
           Text(
-            'Code expires after 10 minutes. Paste works, and your keyboard can fill the code from email.',
+            kDemoLoginEnabled
+                ? 'Demo mode: enter any 6-digit code (for example 123456) to continue.'
+                : 'Code expires after 10 minutes. Paste works, and your keyboard can fill the code from email.',
             style: TextStyle(color: c.textSecondary, fontSize: 13, height: 18 / 13),
           ),
           const SizedBox(height: 24),

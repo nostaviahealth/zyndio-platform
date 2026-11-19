@@ -19,7 +19,6 @@ import '../screens/onboarding/consent_screen.dart';
 import '../screens/onboarding/profile_setup_screen.dart';
 import '../providers/onboarding_provider.dart';
 
-import '../screens/health_data/health_data_screen.dart';
 
 import '../screens/health_data/lab_report_upload_screen.dart';
 
@@ -39,6 +38,7 @@ import '../screens/chat/chat_screen.dart';
 import '../screens/chat/chat_history_screen.dart';
 import '../widgets/main_shell.dart';
 import '../providers/auth_provider.dart';
+import '../providers/navbar_provider.dart';
 import '../screens/protocol/weekly_menu_screen.dart';
 import '../screens/meditation/meditation_hub_screen.dart';
 import '../screens/settings/meditation_stats_screen.dart';
@@ -121,9 +121,14 @@ final routerProvider = Provider<GoRouter>((ref) {
   // APP-02/APP-04: server-side onboarding status (consents + profile).
   final onboarding = ref.watch(onboardingStatusProvider);
   final flags = ref.watch(featureFlagsProvider);
+  // Bring the tab bar back after leaving a page that hid it on scroll. One
+  // observer per navigator: an observer can only watch one at a time.
+  final navbar = ref.read(navbarVisibleProvider.notifier);
+  NavbarRevealObserver navbarReveal() => NavbarRevealObserver(navbar.show);
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
+    observers: [navbarReveal()],
     initialLocation: '/',
     debugLogDiagnostics: kDebugMode, // no route logging in release builds
     redirect: (context, state) {
@@ -257,6 +262,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state, navigationShell) => MainShell(navigationShell: navigationShell),
         branches: [
           StatefulShellBranch(
+            observers: [navbarReveal()],
             routes: [
               GoRoute(
                 path: '/',
@@ -268,6 +274,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           StatefulShellBranch(
+            observers: [navbarReveal()],
             routes: [
               GoRoute(
                 path: '/progress',
@@ -279,6 +286,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           StatefulShellBranch(
+            observers: [navbarReveal()],
             routes: [
               GoRoute(
                 path: '/biomarkers',
@@ -290,6 +298,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           StatefulShellBranch(
+            observers: [navbarReveal()],
             routes: [
               GoRoute(
                 path: '/my-plan',
@@ -301,6 +310,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           StatefulShellBranch(
+            observers: [navbarReveal()],
             routes: [
               GoRoute(
                 path: '/care',
@@ -321,36 +331,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'upload_report',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const LabReportUploadScreen(),
-      ),
-      GoRoute(
-        path: '/health_data/gut-microbiome',
-        name: 'gut_microbiome_panel',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const HealthDataScreen(reportType: 'Gut Microbiome'),
-      ),
-      GoRoute(
-        path: '/health_data/genetic',
-        name: 'genetic_panel',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const HealthDataScreen(reportType: 'Genetic'),
-      ),
-      GoRoute(
-        path: '/health_data/biological-age',
-        name: 'biological_age_panel',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const HealthDataScreen(reportType: 'Biological Age'),
-      ),
-      GoRoute(
-        path: '/health_data/heavy-metals',
-        name: 'heavy_metals_panel',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const HealthDataScreen(reportType: 'Heavy Metals'),
-      ),
-      GoRoute(
-        path: '/health_data/toxicity',
-        name: 'toxicity_panel',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const HealthDataScreen(reportType: 'Toxicity'),
       ),
       GoRoute(
         path: '/settings',

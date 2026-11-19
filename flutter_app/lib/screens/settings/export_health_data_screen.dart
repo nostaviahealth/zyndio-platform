@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -11,7 +10,7 @@ import '../../config/theme.dart';
 import '../../models/health_data_snapshot.dart';
 import '../../services/health_data_aggregator.dart';
 import '../../services/pdf_report_generator.dart';
-import '../../widgets/app_card.dart';
+import '../../widgets/tc025/tc025_widgets.dart';
 
 class ExportHealthDataScreen extends ConsumerStatefulWidget {
   const ExportHealthDataScreen({super.key});
@@ -112,7 +111,7 @@ class _ExportHealthDataScreenState extends ConsumerState<ExportHealthDataScreen>
       await file.writeAsBytes(pdfBytes);
       setState(() => _progress = 1.0);
 
-      final box = context.mounted ? (context.findRenderObject() as RenderBox?) : null;
+      final box = mounted ? (context.findRenderObject() as RenderBox?) : null;
       final origin = box != null ? (box.localToGlobal(Offset.zero) & box.size) : null;
 
       await Future.delayed(const Duration(milliseconds: 400)); // Let progress bar finish
@@ -130,7 +129,7 @@ class _ExportHealthDataScreenState extends ConsumerState<ExportHealthDataScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error generating report: $e'),
-          backgroundColor: BrandColors.red500,
+          backgroundColor: Theme.of(context).extension<ZyndioColors>()!.statusCritical,
         ),
       );
     } finally {
@@ -145,347 +144,83 @@ class _ExportHealthDataScreenState extends ConsumerState<ExportHealthDataScreen>
 
   @override
   Widget build(BuildContext context) {
-    final nc = context.nc;
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    final z = context.z25;
+    final helperStyle = TextStyle(
+      fontFamily: ZyndioType.family,
+      fontSize: 14,
+      height: 20 / 14,
+      color: c.textSecondary,
+    );
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: nc.isDark ? Brightness.light : Brightness.dark,
+    return ZyndioDetailScaffold(
+      title: 'Health Data Snapshot',
+      onBack: () => context.pop(),
+      trailing: const ZyndioPill('EXPORT', tone: ZyndioPillTone.brand, icon: LucideIcons.fileDown),
+      bottomBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_isGenerating) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: _progress,
+                backgroundColor: c.bgSunken,
+                valueColor: AlwaysStoppedAnimation<Color>(c.brandPrimary),
+                minHeight: 6,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _progress < 0.4
+                  ? 'Aggregating health data...'
+                  : _progress < 0.8
+                      ? 'Rendering clinical PDF...'
+                      : 'Preparing for share...',
+              style: TextStyle(fontFamily: ZyndioType.family, color: c.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 10),
+          ],
+          ZyndioGradientButton(
+            label: 'Generate & Share PDF',
+            icon: LucideIcons.fileDown,
+            trailingArrow: false,
+            loading: _isGenerating,
+            onTap: _isGenerating ? null : _generateAndSharePdf,
+          ),
+        ],
       ),
-      child: Scaffold(
-        backgroundColor: nc.scaffoldBg,
-        body: SafeArea(
-          child: Column(
+      children: [
+        // Description
+        ZyndioCard(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // App Bar
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => context.pop(),
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: nc.cardSurface,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: nc.cardBorder),
-                        ),
-                        child: Icon(LucideIcons.arrowLeft, color: nc.textPrimary, size: 20),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'EXPORT',
-                            style: TextStyle(
-                              color: BrandColors.indigo400,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Health Data Snapshot',
-                            style: TextStyle(
-                              color: nc.textPrimary,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: BrandColors.indigo500.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: BrandColors.indigo400.withValues(alpha: 0.3)),
-                      ),
-                      child: const Icon(LucideIcons.fileDown, color: BrandColors.indigo400, size: 20),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Content
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 8),
-
-                      // Description
-                      AppCard(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: BrandColors.indigo500.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(LucideIcons.stethoscope, color: BrandColors.indigo400, size: 22),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Clinician-Ready Health Passport',
-                                    style: TextStyle(color: nc.textPrimary, fontSize: 14, fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Generate a comprehensive PDF snapshot of your health data — labs, vitals, sleep, nutrition, and protocols — designed for any doctor to review in minutes.',
-                                    style: TextStyle(color: nc.textSecondary, fontSize: 12, height: 1.4),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Time Range Selector
-                      Text(
-                        'Time Range',
-                        style: TextStyle(color: nc.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Select the data window for vitals, sleep, and nutrition trends.',
-                        style: TextStyle(color: nc.textTertiary, fontSize: 12),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: List.generate(_rangeOptions.length, (index) {
-                          final isSelected = _selectedRangeIndex == index;
-                          return Expanded(
-                            child: GestureDetector(
-                              onTap: () => setState(() => _selectedRangeIndex = index),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                margin: EdgeInsets.only(right: index < _rangeOptions.length - 1 ? 8 : 0),
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                decoration: BoxDecoration(
-                                  color: isSelected ? BrandColors.indigo500 : nc.cardSurface,
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: isSelected ? BrandColors.indigo400 : nc.cardBorder,
-                                  ),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    _rangeOptions[index]['label'] as String,
-                                    style: TextStyle(
-                                      color: isSelected ? Colors.white : nc.textSecondary,
-                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
-                      const SizedBox(height: 28),
-
-                      // Section Toggles
-                      Text(
-                        'Include Sections',
-                        style: TextStyle(color: nc.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Choose which health data categories to include in the export.',
-                        style: TextStyle(color: nc.textTertiary, fontSize: 12),
-                      ),
-                      const SizedBox(height: 12),
-
-                      ...List.generate(_sectionOptions.length, (index) {
-                        final option = _sectionOptions[index];
-                        final key = option['key'] as String;
-                        final isEnabled = _getSectionValue(key);
-
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: GestureDetector(
-                            onTap: () => _toggleSection(key, !isEnabled),
-                            behavior: HitTestBehavior.opaque,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              decoration: BoxDecoration(
-                                color: nc.cardSurface,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: isEnabled
-                                      ? BrandColors.indigo400.withValues(alpha: 0.4)
-                                      : nc.cardBorder,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: isEnabled
-                                          ? BrandColors.indigo500.withValues(alpha: 0.15)
-                                          : nc.inputFill,
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Icon(
-                                      option['icon'] as IconData,
-                                      size: 18,
-                                      color: isEnabled ? BrandColors.indigo400 : nc.iconSubtle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          option['label'] as String,
-                                          style: TextStyle(
-                                            color: nc.textPrimary,
-                                            fontSize: 13.5,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          option['description'] as String,
-                                          style: TextStyle(color: nc.textTertiary, fontSize: 11.5),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
-                                    width: 22,
-                                    height: 22,
-                                    decoration: BoxDecoration(
-                                      color: isEnabled ? BrandColors.indigo500 : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
-                                        color: isEnabled ? BrandColors.indigo400 : nc.iconSubtle,
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                    child: isEnabled
-                                        ? const Icon(LucideIcons.check, size: 14, color: Colors.white)
-                                        : null,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
-
-                      const SizedBox(height: 32),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Bottom Action Bar
               Container(
-                padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).padding.bottom + 16),
-                decoration: BoxDecoration(
-                  color: nc.cardSurfaceElevated,
-                  border: Border(top: BorderSide(color: nc.cardBorder)),
-                ),
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: z.tileBg, shape: BoxShape.circle),
+                child: Icon(LucideIcons.stethoscope, color: c.brandPrimary, size: 20),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (_isGenerating) ...[
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: LinearProgressIndicator(
-                          value: _progress,
-                          backgroundColor: nc.inputFill,
-                          valueColor: const AlwaysStoppedAnimation<Color>(BrandColors.indigo500),
-                          minHeight: 6,
-                        ),
+                    Text(
+                      'Clinician-Ready Health Passport',
+                      style: TextStyle(
+                        fontFamily: ZyndioType.family,
+                        color: c.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                       ),
-                      const SizedBox(height: 10),
-                      Text(
-                        _progress < 0.4
-                            ? 'Aggregating health data...'
-                            : _progress < 0.8
-                                ? 'Rendering clinical PDF...'
-                                : 'Preparing for share...',
-                        style: TextStyle(color: nc.textSecondary, fontSize: 12),
-                      ),
-                      const SizedBox(height: 10),
-                    ],
-                    SizedBox(
-                      width: double.infinity,
-                      child: GestureDetector(
-                        onTap: _isGenerating ? null : _generateAndSharePdf,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          height: 52,
-                          decoration: BoxDecoration(
-                            gradient: _isGenerating
-                                ? null
-                                : const LinearGradient(
-                                    colors: [BrandColors.indigo500, BrandColors.indigo600],
-                                  ),
-                            color: _isGenerating ? nc.inputFill : null,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: _isGenerating
-                                ? []
-                                : [
-                                    BoxShadow(
-                                      color: BrandColors.indigo500.withValues(alpha: 0.4),
-                                      blurRadius: 14,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                          ),
-                          child: _isGenerating
-                              ? Center(
-                                  child: SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      color: nc.textSecondary,
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                                )
-                              : const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(LucideIcons.fileDown, size: 18, color: Colors.white),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'Generate & Share PDF',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                        ),
-                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Generate a comprehensive PDF snapshot of your health data — labs, vitals, sleep, nutrition, and protocols — designed for any doctor to review in minutes.',
+                      style: helperStyle,
                     ),
                   ],
                 ),
@@ -493,7 +228,140 @@ class _ExportHealthDataScreenState extends ConsumerState<ExportHealthDataScreen>
             ],
           ),
         ),
-      ),
+        const SizedBox(height: 28),
+
+        // Time Range Selector
+        const ZyndioSectionLabel('Time Range'),
+        Text(
+          'Select the data window for vitals, sleep, and nutrition trends.',
+          style: helperStyle,
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: List.generate(_rangeOptions.length, (index) {
+            final isSelected = _selectedRangeIndex == index;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() => _selectedRangeIndex = index),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: EdgeInsets.only(right: index < _rangeOptions.length - 1 ? 8 : 0),
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    gradient: isSelected ? ZyndioGradients.segmentActive : null,
+                    color: isSelected ? null : z.segmentBg,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    _rangeOptions[index]['label'] as String,
+                    style: TextStyle(
+                      fontFamily: ZyndioType.family,
+                      color: isSelected ? Colors.white : z.segmentText,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+        const SizedBox(height: 28),
+
+        // Section Toggles
+        const ZyndioSectionLabel('Include Sections'),
+        Text(
+          'Choose which health data categories to include in the export.',
+          style: helperStyle,
+        ),
+        const SizedBox(height: 12),
+
+        Container(
+          decoration: zyndioCard(context, radius: 22),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: List.generate(_sectionOptions.length, (index) {
+              final option = _sectionOptions[index];
+              final key = option['key'] as String;
+              final isEnabled = _getSectionValue(key);
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (index > 0)
+                    Divider(height: 1, thickness: 1, indent: 70, color: c.borderSubtle),
+                  GestureDetector(
+                    onTap: () => _toggleSection(key, !isEnabled),
+                    behavior: HitTestBehavior.opaque,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                      child: Row(
+                        children: [
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            width: 40,
+                            height: 40,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: isEnabled ? z.tileBg : c.bgSunken,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              option['icon'] as IconData,
+                              size: 20,
+                              color: isEnabled ? c.brandPrimary : c.textTertiary,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  option['label'] as String,
+                                  style: TextStyle(
+                                    fontFamily: ZyndioType.family,
+                                    color: c.textPrimary,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  option['description'] as String,
+                                  style: helperStyle,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: isEnabled ? c.brandPrimary : Colors.transparent,
+                              borderRadius: BorderRadius.circular(7),
+                              border: Border.all(
+                                color: isEnabled ? c.brandPrimary : c.borderStrong,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: isEnabled
+                                ? Icon(LucideIcons.check, size: 15, color: c.brandOnPrimary)
+                                : null,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }),
+          ),
+        ),
+      ],
     );
   }
 }
