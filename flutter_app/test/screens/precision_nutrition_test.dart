@@ -20,6 +20,7 @@ void main() {
   late bool openResult;
 
   setUp(() {
+    precisionNutritionNetworkImages = false;
     opened = [];
     openResult = true;
     zyndioUrlOpener = (url) async {
@@ -50,7 +51,13 @@ void main() {
         expect(p.url.host, 'www.zyndio.com');
         expect(p.url.scheme, 'https');
         expect(p.priceUsd, greaterThan(0));
+        final img = Uri.parse(p.imageUrl);
+        expect(img.host, 'www.zyndio.com');
+        expect(img.queryParameters['url'], '/supplements/${p.image}');
+        expect(img.queryParameters['w'], '640');
       }
+      expect(precisionNutritionProducts.map((p) => p.image).toSet(),
+          hasLength(8));
       expect(precisionNutritionProducts.where((p) => p.isTest), hasLength(1));
     });
   });

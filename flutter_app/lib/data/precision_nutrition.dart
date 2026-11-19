@@ -11,6 +11,7 @@ class NutritionProduct {
     required this.serving,
     required this.priceUsd,
     required this.path,
+    required this.image,
     required this.glyph,
     required this.tint,
     this.isTest = false,
@@ -26,6 +27,9 @@ class NutritionProduct {
 
   /// Product page path on zyndio.com.
   final String path;
+
+  /// Product image file in zyndio.com's /supplements folder.
+  final String image;
   final ZyndioGlyph glyph;
   final ZyndioTint tint;
 
@@ -33,6 +37,11 @@ class NutritionProduct {
   final bool isTest;
 
   Uri get url => Uri.parse('https://www.zyndio.com$path');
+
+  /// The website's own product image, resized to 640px by the site's image
+  /// service (about 40–120 KB, versus up to 1.4 MB for the originals).
+  String get imageUrl =>
+      'https://www.zyndio.com/_next/image?url=%2Fsupplements%2F$image&w=640&q=75';
   String get price => '\$$priceUsd.00';
 }
 
@@ -46,6 +55,7 @@ const List<NutritionProduct> precisionNutritionProducts = [
     serving: '1,000 mg active formula per serving · 62 servings',
     priceUsd: 118,
     path: '/nad',
+    image: 'nad-jar-v2.png',
     glyph: ZyndioGlyph.molecule,
     tint: ZyndioTint.violet,
   ),
@@ -57,6 +67,7 @@ const List<NutritionProduct> precisionNutritionProducts = [
     serving: '1,000 mg active formula per tablet · 62 chewable tablets',
     priceUsd: 118,
     path: '/nad-chewable',
+    image: 'nad-chewable-bottle-v1.png',
     glyph: ZyndioGlyph.capsule,
     tint: ZyndioTint.indigo,
   ),
@@ -68,6 +79,7 @@ const List<NutritionProduct> precisionNutritionProducts = [
     serving: 'At-home sample collection · Lab-processed results',
     priceUsd: 198,
     path: '/nad-kit',
+    image: 'nad-kit-box-v2.png',
     glyph: ZyndioGlyph.testTube,
     tint: ZyndioTint.teal,
     isTest: true,
@@ -80,6 +92,7 @@ const List<NutritionProduct> precisionNutritionProducts = [
     serving: '500 mg NMN per serving · 62 servings',
     priceUsd: 58,
     path: '/pure-nmn',
+    image: 'pure-nmn.jpg',
     glyph: ZyndioGlyph.sparkle,
     tint: ZyndioTint.blue,
   ),
@@ -91,6 +104,7 @@ const List<NutritionProduct> precisionNutritionProducts = [
     serving: '2 softgels per serving · 30 servings',
     priceUsd: 56,
     path: '/mitoaid',
+    image: 'mitoaid.jpg',
     glyph: ZyndioGlyph.flame,
     tint: ZyndioTint.rose,
   ),
@@ -102,6 +116,7 @@ const List<NutritionProduct> precisionNutritionProducts = [
     serving: '4.4 g per serving · 30 servings',
     priceUsd: 58,
     path: '/creatine',
+    image: 'creatine.jpg',
     glyph: ZyndioGlyph.kettlebell,
     tint: ZyndioTint.green,
   ),
@@ -112,6 +127,7 @@ const List<NutritionProduct> precisionNutritionProducts = [
     serving: '5,000 IU D3 + 100 mcg K2 per softgel · 180 softgels',
     priceUsd: 42,
     path: '/d3-k2',
+    image: 'd3-k2.jpg',
     glyph: ZyndioGlyph.sun,
     tint: ZyndioTint.amber,
   ),
@@ -123,6 +139,7 @@ const List<NutritionProduct> precisionNutritionProducts = [
     serving: '2 capsules per serving · 90 servings',
     priceUsd: 45,
     path: '/vital-minerals',
+    image: 'vital-minerals.jpg',
     glyph: ZyndioGlyph.droplet,
     tint: ZyndioTint.teal,
   ),

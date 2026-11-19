@@ -66,7 +66,8 @@ opens from the avatar on every tab.
   zyndio.com and a shield button for the patient portal (`member.zyndio.com`), both in the
   in-app browser. Care's "Patient Portal" row opens the portal too. A new Precision Nutrition
   screen (`/supplements`, from Care and from My Plan → Supplements) lists the eight
-  zyndio.com/supplements products with prices. Buying opens that product's page on zyndio.com,
+  zyndio.com/supplements products with prices and the website's own product photos (loaded
+  from zyndio.com and cached; the glyph tile shows while loading or offline). Buying opens that product's page on zyndio.com,
   which handles checkout. The buttons are in the header, not the bottom tab bar, because a sixth
   item would make each tab smaller than the 48pt minimum tap target.
 - Longevity score ring and Recovery tile only appear with their feature flag **and** a real
@@ -122,7 +123,7 @@ None of these can be finished in code alone.
 - Final legal text: terms, privacy notice, consent wording (APP-02).
 - Zyndio's reference ranges (POR-05) and clinical sign-off of ranges, alert wording and protocols.
 - Escalation contacts and companion name/tone (APP-09).
-- The client's real portrait for the profile avatar, and product photography.
+- The client's real portrait for the profile avatar.
 - DEXA webhook details and NAD+ lab API details (INT-05), including how the at-home NAD+ test
   kit results reach the app.
 - Signed BAA before any real patient data, and before switching on AI lab extraction.

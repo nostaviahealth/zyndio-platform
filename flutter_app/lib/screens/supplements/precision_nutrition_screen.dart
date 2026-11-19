@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -111,7 +112,7 @@ class _ProductCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ZyndioIconTile(glyph: p.glyph, tint: p.tint, size: 52),
+              NutritionProductImage(product: p, size: 84),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -184,10 +185,18 @@ Future<void> showNutritionProductSheet(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            NutritionProductImage(product: p, size: 200, wide: true),
+            const SizedBox(height: 6),
+            Center(
+              child: Text('Product rendering · Final packaging may vary',
+                  style: TextStyle(
+                      fontFamily: ZyndioType.family,
+                      fontSize: 11,
+                      color: c.textTertiary)),
+            ),
+            const SizedBox(height: 14),
             Row(
               children: [
-                ZyndioIconTile(glyph: p.glyph, tint: p.tint, size: 56),
-                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -254,4 +263,59 @@ Future<void> showNutritionProductSheet(
       ),
     ),
   );
+}
+
+/// Off in widget tests (no network or cache plugins there); the glyph tile
+/// stands in, exactly as it does while an image loads or when offline.
+@visibleForTesting
+bool precisionNutritionNetworkImages = true;
+
+/// The product's photo from zyndio.com on a soft tile, cached after the first
+/// load. While loading, offline, or if the site moves the image, the
+/// product's own glyph tile shows instead.
+class NutritionProductImage extends StatelessWidget {
+  const NutritionProductImage(
+      {super.key, required this.product, required this.size, this.wide = false});
+
+  final NutritionProduct product;
+  final double size;
+
+  /// Full-width banner (details sheet) instead of a square thumbnail.
+  final bool wide;
+
+  @override
+  Widget build(BuildContext context) {
+    // zyndio.com shows these photos on white, and the JPGs carry a white
+    // background, so the tile stays white in both themes.
+    final fallback = Center(
+      child: ZyndioIconTile(
+          glyph: product.glyph, tint: product.tint, size: wide ? 72 : size * 0.62),
+    );
+    return Semantics(
+      image: true,
+      label: '${product.name} product packaging',
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(wide ? 20 : 18),
+        child: Container(
+          width: wide ? double.infinity : size,
+          height: size,
+          padding: EdgeInsets.all(wide ? 12 : 6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(wide ? 20 : 18),
+            border: Border.all(color: context.zc.borderSubtle),
+          ),
+          child: !precisionNutritionNetworkImages
+              ? fallback
+              : CachedNetworkImage(
+                  imageUrl: product.imageUrl,
+                  fit: BoxFit.contain,
+                  fadeInDuration: const Duration(milliseconds: 200),
+                  placeholder: (_, __) => fallback,
+                  errorWidget: (_, __, ___) => fallback,
+                ),
+        ),
+      ),
+    );
+  }
 }
