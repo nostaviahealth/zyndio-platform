@@ -9,11 +9,19 @@ class ZyndioLinks {
   /// The main Zyndio website (client brief: always one tap away).
   static final Uri website = Uri.parse('https://www.zyndio.com');
 
-  /// The patient portal (sign-in for members).
+  /// The patient portal (where patients sign in to their Zyndio account).
   static final Uri patientPortal = Uri.parse('https://member.zyndio.com');
 
   /// The Precision Nutrition supplement line.
   static final Uri supplements = Uri.parse('https://www.zyndio.com/supplements');
+
+  /// DEXA scan booking (client walkthrough, 19 Nov 2026): patients who have
+  /// the app but no scan yet are sent here.
+  static final Uri dexaScan = Uri.parse('https://www.zyndio.com/dexascan');
+
+  /// The Zyndio merchandise store: branded apparel, mugs, calendars
+  /// (client walkthrough, 19 Nov 2026).
+  static final Uri store = Uri.parse('https://www.zyndio.com/store');
 }
 
 /// Opens [url]; returns whether it opened. Swappable in tests.

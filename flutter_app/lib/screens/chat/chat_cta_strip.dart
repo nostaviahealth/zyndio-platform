@@ -21,6 +21,8 @@ class ChatCtaStrip extends StatelessWidget {
         return LucideIcons.clipboardList;
       case 'navigate_to_wearables':
         return LucideIcons.watch;
+      case 'navigate_to_supplements':
+        return LucideIcons.pill;
       default:
         return LucideIcons.arrowRight;
     }
@@ -40,6 +42,10 @@ class ChatCtaStrip extends StatelessWidget {
         break;
       case 'navigate_to_wearables':
         context.push('/wearables');
+        break;
+      case 'navigate_to_supplements':
+        // Zyndio Precision Nutrition (client walkthrough, 19 Nov 2026).
+        context.push('/supplements');
         break;
       default:
         break;

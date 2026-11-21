@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../config/theme.dart';
 import '../../providers/patient_provider.dart';
@@ -9,6 +10,31 @@ import '../../providers/lab_analysis_provider.dart';
 import '../../providers/lab_reports_provider.dart';
 import '../../widgets/tc025/tc025_widgets.dart';
 import './lab_report_submitted_screen.dart';
+
+/// Takes a photo of a lab report; null when the patient cancels. Swappable in
+/// tests.
+typedef LabPhotoCapture = Future<PlatformFile?> Function();
+
+Future<PlatformFile?> _cameraCapture() async {
+  final shot = await ImagePicker().pickImage(
+    source: ImageSource.camera,
+    // Keep printed values legible for extraction.
+    imageQuality: 92,
+    maxWidth: 3000,
+  );
+  if (shot == null) return null;
+  return PlatformFile(
+    path: shot.path,
+    name: shot.name,
+    size: await shot.length(),
+  );
+}
+
+/// The real camera capture, for tests to restore after swapping it.
+const LabPhotoCapture labPhotoCaptureDefault = _cameraCapture;
+
+@visibleForTesting
+LabPhotoCapture labPhotoCapture = labPhotoCaptureDefault;
 
 class LabReportUploadScreen extends ConsumerStatefulWidget {
   const LabReportUploadScreen({super.key});
@@ -54,6 +80,26 @@ class _LabReportUploadScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  /// Photographs a printed report with the camera (client walkthrough,
+  /// 19 Nov 2026). The photo goes through the same analysis as an upload.
+  Future<void> _takePhoto() async {
+    try {
+      final photo = await labPhotoCapture();
+      if (photo == null || !mounted) return;
+      setState(() => _selectedFile = photo);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                "Couldn't open the camera. Check camera access in your phone's settings, or upload the report instead."),
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     }
@@ -108,8 +154,7 @@ class _LabReportUploadScreenState
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
-      child: Scaffold(
-        backgroundColor: context.z25.screenBg,
+      child: ZyndioBackdropScaffold(
         body: SafeArea(
           bottom: false,
           child: Column(
@@ -127,8 +172,17 @@ class _LabReportUploadScreenState
                   children: [
                     // ── Drop zone ──
                     if (!analysisState.isRunning &&
-                        analysisState.status != LabAnalysisStatus.completed)
+                        analysisState.status != LabAnalysisStatus.completed) ...[
                       _buildDropZone(c),
+                      // Upload stays first (the client prefers it); a photo
+                      // of a printed report works too (APP-05 camera).
+                      const SizedBox(height: 12),
+                      ZyndioOutlineButton(
+                        label: 'Take a photo instead',
+                        icon: LucideIcons.camera,
+                        onTap: _takePhoto,
+                      ),
+                    ],
 
                     // ── Completed State ──
                     if (analysisState.status == LabAnalysisStatus.completed)

@@ -151,3 +151,32 @@ const String precisionNutritionDisclaimer =
     'These products are not intended to diagnose, treat, cure, or prevent any disease. '
     'These are over-the-counter supplements, separate from your prescribed care. '
     'Consult your healthcare provider before starting any supplement.';
+
+/// The Precision Nutrition line as context for the AI companion (client
+/// walkthrough, 19 Nov 2026): when a patient's uploaded blood work points at a
+/// supplement, the companion suggests products from this catalogue (the ones
+/// in the app's store) instead of generic brands, and says which result led
+/// to each suggestion. It stays within the companion's wellness boundaries:
+/// no diagnosis, no dosing beyond the label, care team first.
+String precisionNutritionAiContext() {
+  final b = StringBuffer()
+    ..writeln('=== ZYNDIO PRECISION NUTRITION (the in-app store) ===')
+    ..writeln(
+        'When the user asks which supplements could help, or their lab results point to an area a supplement can support, recommend ONLY from this list. Never name other brands.')
+    ..writeln(
+        'For each suggestion: tie it to a specific marker in LATEST LAB RESULTS (name and value) when there is one, say what the product supports in plain words, and give its price. Suggest at most 3.')
+    ..writeln(
+        "If the lab results don't point to any of these, say so plainly instead of forcing a product.")
+    ..writeln(
+        'These are over-the-counter wellness supplements, not treatment. Never claim a product treats, cures or prevents a condition, and never suggest a dose beyond the label serving. Tell the user to check with their care team before starting anything new, especially if they take medication or are on a GLP-1 therapy.')
+    ..writeln(
+        'The at-home NAD+ test kit measures NAD+ levels; suggest it when NAD+ status is unknown.')
+    ..writeln(
+        'When you recommend any of these, add the navigate_to_supplements CTA so the user can see them in the app.')
+    ..writeln('Catalogue:');
+  for (final p in precisionNutritionProducts) {
+    b.writeln(
+        '- ${p.name} (${p.isTest ? 'test kit' : 'supplement'}, ${p.price}): ${p.summary.replaceAll('*', '')} ${p.serving}.');
+  }
+  return b.toString();
+}

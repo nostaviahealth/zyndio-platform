@@ -671,6 +671,32 @@ abstract final class ZyndioGradients {
   );
 }
 
+/// Dark-mode atmosphere for the patient screens, taken from the Zyndio
+/// Ambassador Network site (ambassadors.zyndio.com) that the client asked the
+/// app's dark screen to mimic (walkthrough, 19 Nov 2026): soft blue, violet
+/// and sky glows on the deep navy canvas, and glassy navy cards with a
+/// blue-tinted hairline. Text keeps the [ZyndioColors.dark] tokens; every
+/// card stop below keeps textTertiary ≥ 4.5:1 (see theme_test).
+abstract final class ZyndioNight {
+  /// Top-left glow: blue-600 at 22%.
+  static const Color glowBlue = Color(0x382563EB);
+
+  /// Top-right glow: violet-600 at 20%.
+  static const Color glowViolet = Color(0x337C3AED);
+
+  /// Bottom glow: sky-500 at 10%.
+  static const Color glowSky = Color(0x1A0EA5E9);
+
+  /// Card gradient, top-left to bottom-right (the site's 145° navy panels).
+  static const Color cardStart = Color(0xFF0E1730);
+  static const Color cardMid = Color(0xFF0F1C38);
+  static const Color cardEnd = Color(0xFF161A40);
+  static const List<Color> card = [cardStart, cardMid, cardEnd];
+
+  /// Card hairline: blue-300 at 18%.
+  static const Color cardBorder = Color(0x2E93C5FD);
+}
+
 /// TC-025 semantic colours, light (`$value`) and dark (`app.dark`).
 /// Read via `context.z25` or `Theme.of(context).extension<ZyndioTc025Colors>()!`.
 @immutable

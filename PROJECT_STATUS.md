@@ -1,6 +1,6 @@
 # Zyndio — project status
 
-**Last updated:** 10 November 2026 (PRD added to repo, all 6 pgTAP CI suites fixed, Portal & App routes/buttons wired up, `R-AUTH-M8` proxy guard & `docs/COMPLIANCE_SECURITY_PACK.md` completed).
+**Last updated:** 21 November 2026 (19 Nov Android walkthrough changes: DEXA booking and merch store links, Appearance setting with the ambassador dark look, AI supplement suggestions from blood work, lab photo; earlier: PRD added to repo, all 6 pgTAP CI suites fixed, Portal & App routes/buttons wired up, `R-AUTH-M8` proxy guard & `docs/COMPLIANCE_SECURITY_PACK.md` completed).
 
 Read this first when you pick the project up. It says what is built, what is left, and what is
 waiting on someone outside the code. Update it in the same pull request whenever you finish
@@ -70,6 +70,26 @@ opens from the avatar on every tab.
   from zyndio.com and cached; the glyph tile shows while loading or offline). Buying opens that product's page on zyndio.com,
   which handles checkout. The buttons are in the header, not the bottom tab bar, because a sixth
   item would make each tab smaller than the 48pt minimum tap target.
+- Android test build walkthrough with Zyndio's team (19 Nov 2026):
+  - **DEXA booking link.** A patient with no scan sees "Book a DEXASCAN" on Progress, which
+    opens zyndio.com/dexascan (when the Appointments flag is on, in-app booking takes its
+    place, as before). Patients who already have scans get the same link under the report
+    button, for their next scan.
+  - **Merch store.** Care has a "Zyndio Store" card (new hand-drawn bag glyph) that opens
+    zyndio.com/store (apparel, mugs, calendars). Supplements stay in Precision Nutrition.
+  - **Light or dark.** Settings → Appearance: System (default), Light or Dark, saved on the
+    device. In dark mode the patient screens use the look of the Ambassador Network site
+    (ambassadors.zyndio.com): blue, violet and sky glows on the navy canvas and glassy navy
+    cards with a blue hairline (`ZyndioNight` in `theme.dart`). The colour tokens themselves
+    are unchanged, so the sign-in goldens are not affected.
+  - **AI supplement suggestions from blood work.** The companion's context now includes the
+    Precision Nutrition catalogue and the rule to suggest only those products, each tied to a
+    marker in the latest lab results, with no dosing beyond the label and "check with your
+    care team first". Its replies can include a button that opens Precision Nutrition, and the
+    chat offers "Supplements for My Labs" once a report is uploaded, plus "My Score of N"
+    (what the longevity score means) when there is a score. Needs the live AI (APP-09).
+  - **Lab photo.** Lab upload keeps "Select Report" (PDF or image) first, as the client
+    prefers, and adds "Take a photo instead" for a printed report (APP-05 camera).
 - Longevity score ring and Recovery tile only appear with their feature flag **and** a real
   value. Appointments is mock data and stays behind its flag.
 - Consumer extras (Shop, Meditate, Cycle tracking, leagues, goals, membership) are hidden
@@ -126,6 +146,14 @@ None of these can be finished in code alone.
 - The client's real portrait for the profile avatar.
 - DEXA webhook details and NAD+ lab API details (INT-05), including how the at-home NAD+ test
   kit results reach the app.
+- From the 19 Nov walkthrough:
+  - The **GLP-1 test kit** for Precision Nutrition: product photo, price and page link
+    (a membership: the patient picks tirzepatide or semaglutide and does four tests, one
+    each quarter). The client said they would send it that week or early the next.
+  - The **nine GLP-1 biomarkers** in the at-home blood test from Dr. She, and the API that
+    sends those results to the app, so they show on Biomarkers and reach the AI.
+  - Any further links the team wants in the app (they mentioned books). The team will review
+    the build once more and send their final wish list before store submission.
 - Signed BAA before any real patient data, and before switching on AI lab extraction.
 
 **Accounts and hosting**

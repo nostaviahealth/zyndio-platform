@@ -95,17 +95,18 @@ class ZyndioTabScaffold extends StatelessWidget {
       value: hero != null || dark
           ? SystemUiOverlayStyle.light
           : SystemUiOverlayStyle.dark,
-      child: Container(
-        color: context.z25.screenBg,
-        child: Stack(
+      child: LayoutBuilder(
+        builder: (context, constraints) => Stack(
           children: [
+            const Positioned.fill(child: ZyndioScreenBackdrop()),
             Positioned.fill(
               child: onRefresh == null
                   ? list
                   : RefreshIndicator(onRefresh: onRefresh!, child: list),
             ),
             // Soft fade under the status bar so scrolled content never
-            // collides with the clock.
+            // collides with the clock. It is the screen's own backdrop
+            // (glows included in dark mode) faded out, so there's no seam.
             if (hero == null)
               Positioned(
                 top: 0,
@@ -113,16 +114,20 @@ class ZyndioTabScaffold extends StatelessWidget {
                 right: 0,
                 height: top + 8,
                 child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        stops: const [0.7, 1.0],
-                        colors: [
-                          context.z25.screenBg,
-                          context.z25.screenBg.withValues(alpha: 0),
-                        ],
+                  child: ShaderMask(
+                    blendMode: BlendMode.dstIn,
+                    shaderCallback: (rect) => const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      stops: [0.7, 1.0],
+                      colors: [Colors.black, Colors.transparent],
+                    ).createShader(rect),
+                    child: ClipRect(
+                      child: OverflowBox(
+                        alignment: Alignment.topCenter,
+                        minHeight: constraints.maxHeight,
+                        maxHeight: constraints.maxHeight,
+                        child: const ZyndioScreenBackdrop(),
                       ),
                     ),
                   ),
@@ -133,6 +138,61 @@ class ZyndioTabScaffold extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The patient-screen background: the screen colour, plus in dark mode the
+/// soft blue, violet and sky glows of the Zyndio Ambassador Network site
+/// ([ZyndioNight], client walkthrough 19 Nov 2026). Fills its parent and
+/// stays put while content scrolls over it.
+class ZyndioScreenBackdrop extends StatelessWidget {
+  const ZyndioScreenBackdrop({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = context.z25.screenBg;
+    if (Theme.of(context).brightness != Brightness.dark) {
+      return ColoredBox(color: bg);
+    }
+    return ColoredBox(
+      color: bg,
+      child: const Stack(
+        fit: StackFit.expand,
+        children: [
+          _Glow(
+              center: Alignment(-1.05, -1.0),
+              radius: 0.95,
+              color: ZyndioNight.glowBlue),
+          _Glow(
+              center: Alignment(1.05, -0.82),
+              radius: 0.8,
+              color: ZyndioNight.glowViolet),
+          _Glow(
+              center: Alignment(0, 1.05),
+              radius: 1.05,
+              color: ZyndioNight.glowSky),
+        ],
+      ),
+    );
+  }
+}
+
+class _Glow extends StatelessWidget {
+  const _Glow(
+      {required this.center, required this.radius, required this.color});
+  final Alignment center;
+  final double radius;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: RadialGradient(
+            center: center,
+            radius: radius,
+            colors: [color, color.withValues(alpha: 0)],
+          ),
+        ),
+      );
 }
 
 /// The patient's initials in a gradient ring; opens Profile & settings.
@@ -201,15 +261,27 @@ class ZyndioAvatarButton extends ConsumerWidget {
 }
 
 /// The premium card surface: white, generous radius, two soft shadows (a
-/// tight contact shadow and a wide ambient one) and no outline.
+/// tight contact shadow and a wide ambient one) and no outline. In dark mode
+/// it is the Ambassador Network's glassy navy panel with a blue-tinted
+/// hairline ([ZyndioNight]) unless a [color] is given.
 BoxDecoration zyndioCard(BuildContext context,
     {double radius = 24, Color? color}) {
   final c = context.zc;
   final dark = Theme.of(context).brightness == Brightness.dark;
+  final night = dark && color == null;
   return BoxDecoration(
-    color: color ?? c.bgSurface,
+    color: night ? null : color ?? c.bgSurface,
+    gradient: night
+        ? const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: ZyndioNight.card,
+          )
+        : null,
     borderRadius: BorderRadius.circular(radius),
-    border: dark ? Border.all(color: c.borderSubtle) : null,
+    border: dark
+        ? Border.all(color: night ? ZyndioNight.cardBorder : c.borderSubtle)
+        : null,
     boxShadow: dark
         ? null
         : const [
@@ -801,8 +873,7 @@ class ZyndioDetailScaffold extends StatelessWidget {
     }
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
-      child: Scaffold(
-        backgroundColor: context.z25.screenBg,
+      child: ZyndioBackdropScaffold(
         body: SafeArea(bottom: bottomBar == null, child: content),
         bottomNavigationBar: bottomBar == null
             ? null
@@ -816,6 +887,29 @@ class ZyndioDetailScaffold extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A [Scaffold] on the shared [ZyndioScreenBackdrop], for pushed patient
+/// screens that build their own layout (Settings, lab upload).
+class ZyndioBackdropScaffold extends StatelessWidget {
+  const ZyndioBackdropScaffold(
+      {super.key, required this.body, this.bottomNavigationBar});
+
+  final Widget body;
+  final Widget? bottomNavigationBar;
+
+  @override
+  Widget build(BuildContext context) => Stack(
+        fit: StackFit.expand,
+        children: [
+          const ZyndioScreenBackdrop(),
+          Scaffold(
+            backgroundColor: Colors.transparent,
+            body: body,
+            bottomNavigationBar: bottomNavigationBar,
+          ),
+        ],
+      );
 }
 
 /// A plain content card (white surface, soft shadow) with standard padding.

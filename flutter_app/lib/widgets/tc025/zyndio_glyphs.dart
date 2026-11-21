@@ -31,7 +31,8 @@ enum ZyndioGlyph {
   flame,
   molecule,
   sun,
-  chat;
+  chat,
+  bag;
 
   /// SVG source with `TINT` replaced by [tint] (the tile's deep colour).
   String svg(Color tint) {
@@ -222,6 +223,15 @@ const Map<ZyndioGlyph, String> _paths = {
   ZyndioGlyph.chat: '''
 <path d="M13 10h22a5 5 0 0 1 5 5v13a5 5 0 0 1-5 5H22.5l-6.8 5.6a1 1 0 0 1-1.7-.8V33h-1a5 5 0 0 1-5-5V15a5 5 0 0 1 5-5z" fill="$_w"/>
 <g fill="TINT" fill-opacity=".5"><circle cx="17.6" cy="21.5" r="2"/><circle cx="24" cy="21.5" r="2"/><circle cx="30.4" cy="21.5" r="2"/></g>''',
+
+  // Zyndio Store: a shopping bag with a shaded side panel and a Z on the front.
+  ZyndioGlyph.bag: '''
+<path d="M18.6 19.5v-3.6a5.4 5.4 0 0 1 10.8 0v3.6" fill="none" stroke="$_w" stroke-opacity=".75" stroke-width="2.8" stroke-linecap="round"/>
+<path d="M14 17h20a2.4 2.4 0 0 1 2.4 2.2l1.7 17.4a4 4 0 0 1-4 4.4H13.9a4 4 0 0 1-4-4.4l1.7-17.4A2.4 2.4 0 0 1 14 17z" fill="$_w"/>
+<path d="M31 17h3a2.4 2.4 0 0 1 2.4 2.2l1.7 17.4a4 4 0 0 1-4 4.4h-1.5z" fill="TINT" fill-opacity=".1"/>
+<circle cx="18.6" cy="21.6" r="1.3" fill="TINT" fill-opacity=".45"/>
+<circle cx="29.4" cy="21.6" r="1.3" fill="TINT" fill-opacity=".45"/>
+<path d="M20.5 27.2h7l-7 7.4h7" fill="none" stroke="TINT" stroke-opacity=".6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>''',
 };
 
 /// Stock icons already used in tiles across the app → bespoke glyphs, so
@@ -255,4 +265,5 @@ final Map<IconData, ZyndioGlyph> _byIcon = {
   LucideIcons.sun: ZyndioGlyph.sun,
   LucideIcons.messageCircle: ZyndioGlyph.chat,
   LucideIcons.messageSquare: ZyndioGlyph.chat,
+  LucideIcons.shoppingBag: ZyndioGlyph.bag,
 };

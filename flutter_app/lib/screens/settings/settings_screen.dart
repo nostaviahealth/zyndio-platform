@@ -17,6 +17,7 @@ import '../../providers/feature_flags_provider.dart';
 import '../../providers/patient_provider.dart';
 import '../../providers/programme_journey_provider.dart';
 import '../../providers/purchase_provider.dart';
+import '../../providers/theme_mode_provider.dart';
 import '../../services/milestone_reminders.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/tc025/tc025_widgets.dart';
@@ -65,8 +66,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     // it keeps whatever the last page set (e.g. white icons) after going back.
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: context.nc.isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
-      child: Scaffold(
-        backgroundColor: context.z25.screenBg,
+      child: ZyndioBackdropScaffold(
         body: SafeArea(
           bottom: false,
           child: ListView(
@@ -134,6 +134,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   onTap: () => context.push('/settings/terms'),
                 ),
               ]),
+              const SizedBox(height: 24),
+              const ZyndioSectionLabel('Appearance'),
+              const AppearanceCard(),
               const SizedBox(height: 24),
               const ZyndioSectionLabel('Notifications'),
               _Group(rows: [
@@ -509,6 +512,60 @@ class _ProfileCard extends ConsumerWidget {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Settings → Appearance: follow the phone, or always light or dark (client
+/// walkthrough, 19 Nov 2026). The choice is saved on this device.
+class AppearanceCard extends ConsumerWidget {
+  const AppearanceCard({super.key});
+
+  static const _modes = [ThemeMode.system, ThemeMode.light, ThemeMode.dark];
+  static const _labels = ['System', 'Light', 'Dark'];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    final mode = ref.watch(themeModeProvider);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      decoration: zyndioCard(context, radius: 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Theme',
+            style: TextStyle(
+              fontFamily: ZyndioType.family,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: c.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            mode == ThemeMode.system
+                ? "Matches your phone's light or dark setting."
+                : 'Always ${_labels[_modes.indexOf(mode)].toLowerCase()}, whatever your phone uses.',
+            style: TextStyle(
+              fontFamily: ZyndioType.family,
+              fontSize: 13,
+              height: 18 / 13,
+              color: c.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ZyndioSegmentedTabs(
+            labels: _labels,
+            selected: _modes.indexOf(mode),
+            onSelected: (i) {
+              HapticFeedback.selectionClick();
+              ref.read(themeModeProvider.notifier).setMode(_modes[i]);
+            },
           ),
         ],
       ),

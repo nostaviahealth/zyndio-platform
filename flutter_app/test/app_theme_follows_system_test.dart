@@ -1,6 +1,6 @@
 // TC-025 C4 (Q16): the patient app follows the phone's light/dark setting by
-// default (ThemeMode.system). The manual switch is PR B1; the Settings
-// dark-mode switch stays as it is on main.
+// default (ThemeMode.system). The manual Light/Dark choice in Settings →
+// Appearance is covered by appearance_setting_test.dart.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

@@ -15,7 +15,8 @@ import '../health_data/my_lab_records_screen.dart';
 /// image-led rows to their results, scans, medications, visits and resources.
 /// Every row goes somewhere that exists; Appointments is behind its flag
 /// (mock data) and Resources is marked "Coming soon" until content exists.
-/// Patient Portal opens member.zyndio.com in the in-app browser.
+/// Patient Portal opens member.zyndio.com and Zyndio Store opens
+/// zyndio.com/store, both in the in-app browser.
 class CareScreen extends ConsumerWidget {
   const CareScreen({super.key});
 
@@ -80,6 +81,15 @@ class CareScreen extends ConsumerWidget {
           title: 'Precision Nutrition',
           subtitle: 'NAD+ test kit and supplements from Zyndio.',
           onTap: () => context.pushNamed('supplements'),
+        ),
+        const SizedBox(height: 12),
+        // Client walkthrough (19 Nov): one card for the merchandise store.
+        ZyndioListRow(
+          icon: LucideIcons.shoppingBag,
+          tint: ZyndioTint.rose,
+          title: 'Zyndio Store',
+          subtitle: 'Apparel, hoodies, mugs and calendars at zyndio.com/store.',
+          onTap: () => openZyndioLink(context, ZyndioLinks.store),
         ),
         const SizedBox(height: 12),
         ZyndioListRow(
