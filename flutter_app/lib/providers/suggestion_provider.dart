@@ -3,7 +3,9 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../models/smart_suggestion.dart';
 import 'patient_provider.dart';
 import 'lab_reports_provider.dart';
+import 'feature_flags_provider.dart';
 import 'intelligence_provider.dart';
+import 'longevity_provider.dart';
 import 'protocol_provider.dart';
 
 final suggestionProvider = Provider<List<SmartSuggestion>>((ref) {
@@ -64,12 +66,38 @@ final suggestionProvider = Provider<List<SmartSuggestion>>((ref) {
 
   // 2. Data-Driven Context (Lab Reports)
   final labReports = ref.watch(labReportsProvider).value;
-  if (labReports != null && labReports.isNotEmpty) {
+  final hasLabs = labReports != null && labReports.isNotEmpty;
+  if (hasLabs) {
     suggestions.insert(0, const SmartSuggestion(
       id: 'analyze_labs',
       label: 'Analyze Latest Labs',
       prompt: 'Deep dive into my latest blood work. What are the key red flags?',
       icon: LucideIcons.testTube,
+      type: SuggestionType.data,
+    ));
+    // Client walkthrough (19 Nov 2026): the companion suggests Zyndio's own
+    // supplements from uploaded blood work.
+    suggestions.insert(1, const SmartSuggestion(
+      id: 'supplements_for_labs',
+      label: 'Supplements for My Labs',
+      prompt:
+          'Based on my latest blood work, which Zyndio Precision Nutrition supplements could support me, and why?',
+      icon: LucideIcons.pill,
+      type: SuggestionType.data,
+    ));
+  }
+
+  // Client walkthrough (19 Nov 2026): "What does my longevity score mean?"
+  // Same rule as Today's score ring: the flag AND a real score.
+  final score = ref.watch(featureFlagsProvider).longevityScoreEnabled
+      ? ref.watch(longevityScoreProvider)?.score
+      : null;
+  if (score != null) {
+    suggestions.insert(hasLabs ? 2 : 0, SmartSuggestion(
+      id: 'longevity_score_meaning',
+      label: 'My Score of $score',
+      prompt: 'What does my longevity score of $score mean, and what moves it the most?',
+      icon: LucideIcons.activity,
       type: SuggestionType.data,
     ));
   }

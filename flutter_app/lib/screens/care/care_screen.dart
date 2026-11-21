@@ -7,6 +7,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../config/theme.dart';
 import '../../providers/feature_flags_provider.dart';
 import '../../providers/patient_provider.dart';
+import '../../services/zyndio_links.dart';
 import '../../widgets/tc025/tc025_widgets.dart';
 import '../health_data/my_lab_records_screen.dart';
 
@@ -14,6 +15,8 @@ import '../health_data/my_lab_records_screen.dart';
 /// image-led rows to their results, scans, medications, visits and resources.
 /// Every row goes somewhere that exists; Appointments is behind its flag
 /// (mock data) and Resources is marked "Coming soon" until content exists.
+/// Patient Portal opens member.zyndio.com and Zyndio Store opens
+/// zyndio.com/store, both in the in-app browser.
 class CareScreen extends ConsumerWidget {
   const CareScreen({super.key});
 
@@ -63,15 +66,30 @@ class CareScreen extends ConsumerWidget {
           ),
         ],
         const SizedBox(height: 12),
-        // Client brief: a secure clinical portal. No portal link exists yet,
-        // so the row says so honestly instead of opening a placeholder.
+        // Client brief (17 Nov): the patient portal at member.zyndio.com.
         ZyndioListRow(
           icon: LucideIcons.shieldCheck,
           tint: ZyndioTint.indigo,
-          title: 'Secure Clinical Portal',
-          subtitle: 'Message your care team and share records securely.',
-          trailingBadge: 'Coming soon',
-          onTap: () => _showPortalSheet(context),
+          title: 'Patient Portal',
+          subtitle: 'Sign in at member.zyndio.com.',
+          onTap: () => openZyndioLink(context, ZyndioLinks.patientPortal),
+        ),
+        const SizedBox(height: 12),
+        ZyndioListRow(
+          icon: LucideIcons.pill,
+          tint: ZyndioTint.amber,
+          title: 'Precision Nutrition',
+          subtitle: 'NAD+ test kit and supplements from Zyndio.',
+          onTap: () => context.pushNamed('supplements'),
+        ),
+        const SizedBox(height: 12),
+        // Client walkthrough (19 Nov): one card for the merchandise store.
+        ZyndioListRow(
+          icon: LucideIcons.shoppingBag,
+          tint: ZyndioTint.rose,
+          title: 'Zyndio Store',
+          subtitle: 'Apparel, hoodies, mugs and calendars at zyndio.com/store.',
+          onTap: () => openZyndioLink(context, ZyndioLinks.store),
         ),
         const SizedBox(height: 12),
         ZyndioListRow(
@@ -85,75 +103,6 @@ class CareScreen extends ConsumerWidget {
       ],
     );
   }
-}
-
-void _showPortalSheet(BuildContext context) {
-  final c = Theme.of(context).extension<ZyndioColors>()!;
-  showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: c.bgSurface,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    ),
-    builder: (sheetCtx) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Secure Clinical Portal',
-              style: TextStyle(
-                fontFamily: ZyndioType.family,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: c.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Direct clinician messaging will appear here once your clinic activates portal messaging. You can already link your clinic record, upload lab reports, and manage outcome sharing below.',
-              style: TextStyle(
-                fontFamily: ZyndioType.family,
-                fontSize: 14,
-                color: c.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(LucideIcons.link, color: c.textPrimary),
-              title: Text('Link clinic record',
-                  style: TextStyle(
-                      fontFamily: ZyndioType.family,
-                      fontWeight: FontWeight.w600,
-                      color: c.textPrimary)),
-              trailing: Icon(LucideIcons.chevronRight, color: c.textTertiary),
-              onTap: () {
-                Navigator.of(sheetCtx).pop();
-                context.push('/link-record');
-              },
-            ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(LucideIcons.share2, color: c.textPrimary),
-              title: Text('Partner outcomes sharing',
-                  style: TextStyle(
-                      fontFamily: ZyndioType.family,
-                      fontWeight: FontWeight.w600,
-                      color: c.textPrimary)),
-              trailing: Icon(LucideIcons.chevronRight, color: c.textTertiary),
-              onTap: () {
-                Navigator.of(sheetCtx).pop();
-                context.push('/settings/partner_outcomes');
-              },
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
 }
 
 void _showResourcesSheet(BuildContext context) {

@@ -517,29 +517,31 @@ class BrandThemeColors extends ThemeExtension<BrandThemeColors> {
     isDark: false,
   );
 
-  // ── DARK MODE (Premium Intelligence) ──
+  // ── DARK MODE ──
+  // Mirrors ZyndioColors.dark so legacy `context.nc` screens match the
+  // tab screens in dark mode (no separate "obsidian glass" palette).
   static const dark = BrandThemeColors(
-    primary: Color(0xFF3B82F6),          // blue500
-    scaffoldBg: Color(0xFF020617),       // Deep Obsidian (slate-950)
-    cardSurface: Color(0x401E293B),      // 25% Slate-800 Glass (High transparency)
-    cardSurfaceElevated: Color(0x66334155), // 40% Slate-700 Glass
-    cardBorder: Color(0x4DFFFFFF),       // 30% White border (Glassy edge)
-    textPrimary: Color(0xFFF8FAFC),      // slate-50
-    textSecondary: Color(0xFFCBD5E1),    // slate-300
-    textTertiary: Color(0xFF94A3B8),     // slate-400
+    primary: Color(0xFF4FB8F2),          // ZyndioColors.dark.brandPrimary
+    scaffoldBg: Color(0xFF070A14),       // bgCanvas
+    cardSurface: Color(0xFF10141F),      // bgSurface
+    cardSurfaceElevated: Color(0xFF161B28),
+    cardBorder: Color(0xFF222838),       // borderSubtle
+    textPrimary: Color(0xFFEEF1F8),      // textPrimary
+    textSecondary: Color(0xFFA6B0C3),    // textSecondary
+    textTertiary: Color(0xFF8F9AAF),     // textTertiary
     textOnDark: Colors.white,
-    iconDefault: Color(0xFFCBD5E1),      // slate-300
-    iconSubtle: Color(0xFF64748B),       // slate-500
-    divider: Color(0x1EFFFFFF),          // 12% white divider
-    navbarBg: Color(0x80020617),         // 50% navbar glass
-    navbarPillBg: Color(0x661E293B),     // 40% pill glass
-    inputFill: Color(0x331E293B),        // 20% transparent input
-    inputBorder: Color(0x1EFFFFFF),      // 12% white border
-    shimmerBase: Color(0xFF1E293B),
-    shimmerHighlight: Color(0xFF334155),
-    glassBg: Color(0x4D0F172A),          // 30% slate-900 glass
-    glassBorder: Color(0x40FFFFFF),      // 25% white border
-    shadowColor: Color(0x66000000),      // black 40%
+    iconDefault: Color(0xFFA6B0C3),      // textSecondary
+    iconSubtle: Color(0xFF8F9AAF),       // textTertiary
+    divider: Color(0xFF222838),          // borderSubtle
+    navbarBg: Color(0xFF10141F),         // bgSurface
+    navbarPillBg: Color(0xFF0B0F19),     // bgSunken
+    inputFill: Color(0xFF10141F),        // bgSurface
+    inputBorder: Color(0xFF222838),      // borderSubtle
+    shimmerBase: Color(0xFF0B0F19),      // bgSunken
+    shimmerHighlight: Color(0xFF161B28),
+    glassBg: Color(0xFF10141F),          // bgSurface (no glass)
+    glassBorder: Color(0xFF222838),      // borderSubtle
+    shadowColor: Color(0x00000000),      // dark cards use hairlines, not shadows
     leaderboardOwnBorder: Color(0xFF2563EB),  // blue600 (3.90:1 on the dark page)
     leaderboardYouPillText: Color(0xFF93C5FD), // blue300
     isDark: true,
@@ -667,6 +669,32 @@ abstract final class ZyndioGradients {
     end: Alignment.centerRight,
     colors: [Color(0xFF6A4CF5), Color(0xFF2E62E6)],
   );
+}
+
+/// Dark-mode atmosphere for the patient screens, taken from the Zyndio
+/// Ambassador Network site (ambassadors.zyndio.com) that the client asked the
+/// app's dark screen to mimic (walkthrough, 19 Nov 2026): soft blue, violet
+/// and sky glows on the deep navy canvas, and glassy navy cards with a
+/// blue-tinted hairline. Text keeps the [ZyndioColors.dark] tokens; every
+/// card stop below keeps textTertiary ≥ 4.5:1 (see theme_test).
+abstract final class ZyndioNight {
+  /// Top-left glow: blue-600 at 22%.
+  static const Color glowBlue = Color(0x382563EB);
+
+  /// Top-right glow: violet-600 at 20%.
+  static const Color glowViolet = Color(0x337C3AED);
+
+  /// Bottom glow: sky-500 at 10%.
+  static const Color glowSky = Color(0x1A0EA5E9);
+
+  /// Card gradient, top-left to bottom-right (the site's 145° navy panels).
+  static const Color cardStart = Color(0xFF0E1730);
+  static const Color cardMid = Color(0xFF0F1C38);
+  static const Color cardEnd = Color(0xFF161A40);
+  static const List<Color> card = [cardStart, cardMid, cardEnd];
+
+  /// Card hairline: blue-300 at 18%.
+  static const Color cardBorder = Color(0x2E93C5FD);
 }
 
 /// TC-025 semantic colours, light (`$value`) and dark (`app.dark`).
@@ -881,6 +909,19 @@ class ZyndioTc025Colors extends ThemeExtension<ZyndioTc025Colors> {
 extension ZyndioTc025X on BuildContext {
   ZyndioTc025Colors get z25 =>
       Theme.of(this).extension<ZyndioTc025Colors>() ?? ZyndioTc025Colors.light;
+}
+
+/// `context.zc` → [ZyndioColors] for the active brightness, falling back to
+/// the light/dark constants when a theme (e.g. a bare test MaterialApp) does
+/// not register the extension.
+extension ZyndioColorsX on BuildContext {
+  ZyndioColors get zc {
+    final theme = Theme.of(this);
+    return theme.extension<ZyndioColors>() ??
+        (theme.brightness == Brightness.dark
+            ? ZyndioColors.dark
+            : ZyndioColors.light);
+  }
 }
 
 /// Zyndio Theme Configuration

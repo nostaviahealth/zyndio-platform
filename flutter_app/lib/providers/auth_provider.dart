@@ -266,13 +266,25 @@ class AuthNotifier extends Notifier<AsyncValue<void>> {
 
   /// Emails a 6-digit code. Succeeds the same way for any well-formed email
   /// (PSU-ENUM-01), so the UI always moves on to code entry.
-  Future<void> requestLoginCode(String email) =>
-      _invokePatientAuth('patient-request-login-code', {'email': email});
+  Future<void> requestLoginCode(String email) async {
+    if (kDemoLoginEnabled) {
+      await Future.delayed(const Duration(milliseconds: 250));
+      return;
+    }
+    await _invokePatientAuth('patient-request-login-code', {'email': email});
+  }
 
   /// Redeems [code] for [email] and stores the resulting session. Throws
   /// [PatientAuthException] with `invalid_code`, `code_expired`, `locked`
   /// (with [PatientAuthException.retryAfterSeconds]) or `rate_limited`.
   Future<void> verifyLoginCode(String email, String code) async {
+    if (kDemoLoginEnabled) {
+      state = const AsyncValue.loading();
+      await Future.delayed(const Duration(milliseconds: 250));
+      ref.read(demoSessionProvider.notifier).start();
+      state = const AsyncValue.data(null);
+      return;
+    }
     if (!_isInitialized) {
       state = const AsyncValue.loading();
       await Future.delayed(const Duration(milliseconds: 400));

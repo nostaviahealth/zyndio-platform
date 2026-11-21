@@ -13,6 +13,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import '../data/chat_repository.dart';
 import '../data/health_repository.dart';
+import '../data/precision_nutrition.dart';
 import '../services/azure_openai_service.dart';
 import '../services/wearable_context_service.dart';
 import '../services/shared_health_cache.dart';
@@ -706,7 +707,7 @@ class ChatNotifier extends Notifier<ChatState> {
 
       // === CTA (COMPACT) ===
       buffer.writeln("\nCTA ACTIONS: When directing user to an app action, append after text in \`\`\`cta fences. Max 2.");
-      buffer.writeln('Actions: navigate_to_meal_log, navigate_to_upload, navigate_to_protocol, navigate_to_wearables, navigate_to_paywall');
+      buffer.writeln('Actions: navigate_to_meal_log, navigate_to_upload, navigate_to_protocol, navigate_to_wearables, navigate_to_supplements, navigate_to_paywall');
       buffer.writeln('Format: [{"label":str,"action":str}]. Only in text responses, NOT in protocol/simulation/meal_plan.');
 
       // === SMART CONTEXT INJECTION ===
@@ -809,9 +810,14 @@ class ChatNotifier extends Notifier<ChatState> {
           final latestReport = labReports.first;
           buffer.writeln("\nLATEST LAB RESULTS (${latestReport.date}):");
           for (var marker in latestReport.markers) {
-              buffer.writeln("- ${marker.name}: ${marker.value} (Range: ${marker.range}) [${marker.status}]"); 
+              buffer.writeln("- ${marker.name}: ${marker.value} (Range: ${marker.range}) [${marker.status}]");
           }
       }
+
+      // Supplement suggestions come from Zyndio's own line (client
+      // walkthrough, 19 Nov 2026), tied to the lab results above.
+      buffer.writeln('');
+      buffer.writeln(precisionNutritionAiContext());
 
       // === PARALLEL CONTEXT INJECTION (wearable + correlation + food + memory) ===
       state = state.copyWith(loadingStatus: "Retrieving health history...");

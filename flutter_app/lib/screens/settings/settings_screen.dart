@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_cropper/image_cropper.dart';
@@ -16,6 +17,7 @@ import '../../providers/feature_flags_provider.dart';
 import '../../providers/patient_provider.dart';
 import '../../providers/programme_journey_provider.dart';
 import '../../providers/purchase_provider.dart';
+import '../../providers/theme_mode_provider.dart';
 import '../../services/milestone_reminders.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/tc025/tc025_widgets.dart';
@@ -60,137 +62,144 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final c = Theme.of(context).extension<ZyndioColors>()!;
     final extras = ref.watch(featureFlagsProvider).patientExtrasEnabled;
-    return Scaffold(
-      backgroundColor: context.z25.screenBg,
-      body: SafeArea(
-        bottom: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
-          children: [
-            _Header(onBack: () => context.pop()),
-            const SizedBox(height: 16),
-            _ProfileCard(onEditPhoto: _changePhoto),
-            const SizedBox(height: 24),
-            if (extras) ...[
-              const _MembershipRow(),
+    // Settings has no app bar, so state the status bar style here: otherwise
+    // it keeps whatever the last page set (e.g. white icons) after going back.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: context.nc.isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      child: ZyndioBackdropScaffold(
+        body: SafeArea(
+          bottom: false,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+            children: [
+              _Header(onBack: () => context.pop()),
+              const SizedBox(height: 16),
+              _ProfileCard(onEditPhoto: _changePhoto),
               const SizedBox(height: 24),
-            ],
-            const ZyndioSectionLabel('Your records'),
-            _Group(rows: [
-              _Row(
-                icon: LucideIcons.flaskConical,
-                title: 'My lab records',
-                subtitle: 'Reports you and your clinic have added',
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => const MyLabRecordsScreen())),
-              ),
-              _Row(
-                icon: LucideIcons.activity,
-                title: 'Connected health data',
-                subtitle: 'Apple Health or Health Connect',
-                onTap: () => context.pushNamed('connections'),
-              ),
-              _Row(
-                icon: LucideIcons.link,
-                title: 'Link clinic record',
-                subtitle: 'Connect this account to your clinic record',
-                onTap: () => context.push('/link-record'),
-              ),
-              _Row(
-                icon: LucideIcons.download,
-                title: 'Export health data',
-                subtitle: 'A PDF summary to share with your doctor',
-                onTap: () => context.push('/settings/export_health_data'),
-              ),
-            ]),
-            const SizedBox(height: 24),
-            const ZyndioSectionLabel('Privacy and sharing'),
-            _Group(rows: [
-              _Row(
-                icon: LucideIcons.share2,
-                title: 'Partner outcomes sharing',
-                subtitle: 'Optional. Change your choice at any time.',
-                onTap: () => context.push('/settings/partner_outcomes'),
-              ),
-              _Row(
-                icon: LucideIcons.fileSignature,
-                title: 'Telehealth consent',
-                subtitle: 'Informed consent for care',
-                onTap: () => context.push('/settings/consent'),
-              ),
-              _Row(
-                icon: LucideIcons.lock,
-                title: 'Privacy Notice',
-                onTap: () => context.push('/settings/privacy'),
-              ),
-              _Row(
-                icon: LucideIcons.fileText,
-                title: 'Terms of Service',
-                onTap: () => context.push('/settings/terms'),
-              ),
-            ]),
-            const SizedBox(height: 24),
-            const ZyndioSectionLabel('Notifications'),
-            _Group(rows: [
-              _Row(
-                icon: LucideIcons.inbox,
-                title: 'Notification inbox',
-                onTap: () => context.push('/notifications'),
-              ),
-              _Row(
-                icon: LucideIcons.bellRing,
-                title: 'Allow notifications',
-                subtitle: 'Reminders for your scans and labs. No health details are shown.',
-                onTap: _allowNotifications,
-              ),
-            ]),
-            const SizedBox(height: 24),
-            if (extras) ...[
-              const _ExtrasToolsSection(),
+              if (extras) ...[
+                const _MembershipRow(),
+                const SizedBox(height: 24),
+              ],
+              const ZyndioSectionLabel('Your records'),
+              _Group(rows: [
+                _Row(
+                  icon: LucideIcons.flaskConical,
+                  title: 'My lab records',
+                  subtitle: 'Reports you and your clinic have added',
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const MyLabRecordsScreen())),
+                ),
+                _Row(
+                  icon: LucideIcons.activity,
+                  title: 'Connected health data',
+                  subtitle: 'Apple Health or Health Connect',
+                  onTap: () => context.pushNamed('connections'),
+                ),
+                _Row(
+                  icon: LucideIcons.link,
+                  title: 'Link clinic record',
+                  subtitle: 'Connect this account to your clinic record',
+                  onTap: () => context.push('/link-record'),
+                ),
+                _Row(
+                  icon: LucideIcons.download,
+                  title: 'Export health data',
+                  subtitle: 'A PDF summary to share with your doctor',
+                  onTap: () => context.push('/settings/export_health_data'),
+                ),
+              ]),
               const SizedBox(height: 24),
-            ],
-            const MoreFromZyndioSection(),
-            const ZyndioSectionLabel('Help'),
-            _Group(rows: [
-              _Row(
-                icon: LucideIcons.lifeBuoy,
-                title: 'Help centre',
-                subtitle: 'Answers to common questions',
-                onTap: () => context.push('/settings/help'),
-              ),
-              _Row(
-                icon: LucideIcons.mail,
-                title: 'Contact support',
-                subtitle: 'For app questions. Clinical questions go to your care team.',
-                onTap: () => _sendEmail('support@zyndio.example', 'Support request'),
-              ),
-              _Row(
-                icon: LucideIcons.scale,
-                title: 'Open source licences',
-                onTap: () => showLicensePage(
-                  context: context,
-                  applicationName: 'Zyndio',
-                  applicationLegalese: '© 2026 Zyndio. All rights reserved.',
-                  useRootNavigator: true,
+              const ZyndioSectionLabel('Privacy and sharing'),
+              _Group(rows: [
+                _Row(
+                  icon: LucideIcons.share2,
+                  title: 'Partner outcomes sharing',
+                  subtitle: 'Optional. Change your choice at any time.',
+                  onTap: () => context.push('/settings/partner_outcomes'),
+                ),
+                _Row(
+                  icon: LucideIcons.fileSignature,
+                  title: 'Telehealth consent',
+                  subtitle: 'Informed consent for care',
+                  onTap: () => context.push('/settings/consent'),
+                ),
+                _Row(
+                  icon: LucideIcons.lock,
+                  title: 'Privacy Notice',
+                  onTap: () => context.push('/settings/privacy'),
+                ),
+                _Row(
+                  icon: LucideIcons.fileText,
+                  title: 'Terms of Service',
+                  onTap: () => context.push('/settings/terms'),
+                ),
+              ]),
+              const SizedBox(height: 24),
+              const ZyndioSectionLabel('Appearance'),
+              const AppearanceCard(),
+              const SizedBox(height: 24),
+              const ZyndioSectionLabel('Notifications'),
+              _Group(rows: [
+                _Row(
+                  icon: LucideIcons.inbox,
+                  title: 'Notification inbox',
+                  onTap: () => context.push('/notifications'),
+                ),
+                _Row(
+                  icon: LucideIcons.bellRing,
+                  title: 'Allow notifications',
+                  subtitle: 'Reminders for your scans and labs. No health details are shown.',
+                  onTap: _allowNotifications,
+                ),
+              ]),
+              const SizedBox(height: 24),
+              if (extras) ...[
+                const _ExtrasToolsSection(),
+                const SizedBox(height: 24),
+              ],
+              const MoreFromZyndioSection(),
+              const ZyndioSectionLabel('Help'),
+              _Group(rows: [
+                _Row(
+                  icon: LucideIcons.lifeBuoy,
+                  title: 'Help centre',
+                  subtitle: 'Answers to common questions',
+                  onTap: () => context.push('/settings/help'),
+                ),
+                _Row(
+                  icon: LucideIcons.mail,
+                  title: 'Contact support',
+                  subtitle: 'For app questions. Clinical questions go to your care team.',
+                  onTap: () => _sendEmail('support@zyndio.example', 'Support request'),
+                ),
+                _Row(
+                  icon: LucideIcons.scale,
+                  title: 'Open source licences',
+                  onTap: () => showLicensePage(
+                    context: context,
+                    applicationName: 'Zyndio',
+                    applicationLegalese: '© 2026 Zyndio. All rights reserved.',
+                    useRootNavigator: true,
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 28),
+              _SignOutButton(onTap: _signOut),
+              const SizedBox(height: 16),
+              _DeleteAccountCard(onTap: () => context.push('/delete-account')),
+              const SizedBox(height: 24),
+              Center(
+                child: Text(
+                  _appVersion.isEmpty ? 'Zyndio' : _appVersion,
+                  style: TextStyle(
+                    fontFamily: ZyndioType.family,
+                    fontSize: 12,
+                    color: c.textTertiary,
+                  ),
                 ),
               ),
-            ]),
-            const SizedBox(height: 28),
-            _SignOutButton(onTap: _signOut),
-            const SizedBox(height: 16),
-            _DeleteAccountCard(onTap: () => context.push('/delete-account')),
-            const SizedBox(height: 24),
-            Center(
-              child: Text(
-                _appVersion.isEmpty ? 'Zyndio' : _appVersion,
-                style: TextStyle(
-                  fontFamily: ZyndioType.family,
-                  fontSize: 12,
-                  color: c.textTertiary,
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -503,6 +512,60 @@ class _ProfileCard extends ConsumerWidget {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Settings → Appearance: follow the phone, or always light or dark (client
+/// walkthrough, 19 Nov 2026). The choice is saved on this device.
+class AppearanceCard extends ConsumerWidget {
+  const AppearanceCard({super.key});
+
+  static const _modes = [ThemeMode.system, ThemeMode.light, ThemeMode.dark];
+  static const _labels = ['System', 'Light', 'Dark'];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    final mode = ref.watch(themeModeProvider);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      decoration: zyndioCard(context, radius: 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Theme',
+            style: TextStyle(
+              fontFamily: ZyndioType.family,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: c.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            mode == ThemeMode.system
+                ? "Matches your phone's light or dark setting."
+                : 'Always ${_labels[_modes.indexOf(mode)].toLowerCase()}, whatever your phone uses.',
+            style: TextStyle(
+              fontFamily: ZyndioType.family,
+              fontSize: 13,
+              height: 18 / 13,
+              color: c.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ZyndioSegmentedTabs(
+            labels: _labels,
+            selected: _modes.indexOf(mode),
+            onSelected: (i) {
+              HapticFeedback.selectionClick();
+              ref.read(themeModeProvider.notifier).setMode(_modes[i]);
+            },
           ),
         ],
       ),

@@ -11,9 +11,10 @@ import '../../data/dexa_measures.dart';
 import '../../data/dexa_compare.dart';
 import '../../config/theme.dart';
 import '../../providers/body_composition_provider.dart';
+import '../../providers/feature_flags_provider.dart';
+import '../../services/zyndio_links.dart';
 import '../../widgets/programme_journey_card.dart';
 import '../../widgets/tc025/tc025_widgets.dart';
-import '../../providers/feature_flags_provider.dart';
 
 /// Progress tab (client mockup "Body Composition"): segment pills, baseline vs
 /// latest scan, four change cards per segment, and the full report. Values are
@@ -58,17 +59,22 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
         data: (rows) {
           if (rows.isEmpty) {
             return [
+              // Client walkthrough (19 Nov): someone with the app but no
+              // scan books one on zyndio.com/dexascan. In-app booking
+              // replaces it only once Appointments ships (feature flag;
+              // mock data until then).
               ZyndioStateCard(
                 icon: LucideIcons.activity,
                 title: 'No DEXASCAN results yet',
-                body:
-                    'Your body composition will appear here after a scan has been bound to your record.',
-                // Booking is mock data until Appointments ships (feature flag).
-                actionLabel:
-                    appointmentsEnabled ? 'Book my baseline scan' : null,
+                body: appointmentsEnabled
+                    ? 'Your body composition will appear here after a scan has been bound to your record.'
+                    : 'Your body composition will appear here after a scan has been bound to your record. No scan yet? Book one at zyndio.com.',
+                actionLabel: appointmentsEnabled
+                    ? 'Book my baseline scan'
+                    : 'Book a DEXASCAN',
                 onAction: appointmentsEnabled
                     ? () => context.pushNamed('appointments')
-                    : null,
+                    : () => openZyndioLink(context, ZyndioLinks.dexaScan),
               ),
             ];
           }
@@ -101,6 +107,14 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => DexaReportPage(scans: rows),
               )),
+            ),
+            const SizedBox(height: 12),
+            ZyndioListRow(
+              icon: LucideIcons.scanLine,
+              tint: ZyndioTint.teal,
+              title: 'Book a DEXASCAN',
+              subtitle: 'Schedule your next scan at zyndio.com/dexascan.',
+              onTap: () => openZyndioLink(context, ZyndioLinks.dexaScan),
             ),
           ];
         },

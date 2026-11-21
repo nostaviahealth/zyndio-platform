@@ -7,6 +7,7 @@ import 'widgets/in_app_alert_banner.dart';
 import 'providers/alert_provider.dart';
 import 'providers/wearable_sync_provider.dart';
 import 'providers/feature_flags_provider.dart';
+import 'providers/theme_mode_provider.dart';
 import 'services/extras_notification_guard.dart';
 import 'services/notification_scheduler.dart';
 import 'services/notification_service.dart';
@@ -49,14 +50,15 @@ class BrandHealthApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: BrandTheme.lightTheme,
       darkTheme: BrandTheme.darkTheme,
-      // TC-025 C4 (Q16): follow the phone's light/dark setting. The manual
-      // override (Settings switch) arrives in PR B1.
-      themeMode: ThemeMode.system,
+      // TC-025 C4 (Q16): follow the phone's light/dark setting by default;
+      // Settings → Appearance can pin light or dark (client walkthrough,
+      // 19 Nov 2026).
+      themeMode: ref.watch(themeModeProvider),
       routerConfig: router,
       builder: (context, child) {
-        // Update system UI overlay based on the phone's light/dark setting
-        final isDark =
-            MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+        // Status and navigation bar icons follow the theme in use, which is
+        // the phone's setting unless the patient picked light or dark.
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         final brightness = isDark ? Brightness.light : Brightness.dark;
         SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,

@@ -15,6 +15,9 @@ import { corsHeadersFor, jsonResponse } from '../_shared/cors.ts'
 import { serviceRoleClient } from '../_shared/requireOrgAdminActor.ts'
 import { insertNotification, writeAuditLog } from '../_shared/auditAndNotify.ts'
 import { MAX_EMAIL_LENGTH, isValidEmail, normalizeEmail } from '../_shared/validation.ts'
+import { deliverNotification } from '../_shared/emailStub.ts'
+import { runInBackground } from '../_shared/background.ts'
+import { smtpConfigFromEnv } from '../_shared/smtpMailer.ts'
 import { clientIpFrom, sha256Hex } from '../_shared/clientIp.ts'
 import { padTimingTo } from '../_shared/timingPad.ts'
 import { LOGIN_CODE_TTL_SECONDS, generateLoginCode } from '../_shared/patientLoginCode.ts'
@@ -73,12 +76,23 @@ serve(async (req) => {
     }
 
     if (typeof userId === 'string' && userId.length > 0) {
-      await insertNotification(admin, {
+      const payload = { email, token: code, expires_in_minutes: LOGIN_CODE_TTL_SECONDS / 60 }
+      const row = await insertNotification(admin, {
         userId,
         orgId: null,
         type: 'patient_login_code',
-        payload: { email, token: code, expires_in_minutes: LOGIN_CODE_TTL_SECONDS / 60 },
+        payload,
       })
+      // TC-006: email the code after responding. Sending inline would make
+      // real patients' requests measurably slower than unknown emails and
+      // undo the timing pad (PSU-ENUM-01). Without SMTP secrets (local stack,
+      // CI) the row stays 'pending' exactly as before.
+      if (smtpConfigFromEnv(Deno.env)) {
+        runInBackground(
+          deliverNotification(admin, { id: row.id, userId, type: 'patient_login_code', payload }),
+          'patient-request-login-code',
+        )
+      }
       await writeAuditLog(admin, {
         eventType: 'patient_login_code_sent',
         actorUserId: null,

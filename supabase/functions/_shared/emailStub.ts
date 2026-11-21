@@ -4,6 +4,8 @@
 // tested STUB sender" - is actually exercised end to end, not just a row
 // sitting at status='pending' forever.
 import { SupabaseClient } from 'npm:@supabase/supabase-js@2.118.0'
+import { renderNotificationEmail } from './emailTemplates.ts'
+import { type MailMessage, type SmtpConfig, SmtpError, sendMail, smtpConfigFromEnv } from './smtpMailer.ts'
 
 export interface OutboxRow {
   id: string
@@ -54,4 +56,60 @@ export async function sendNotificationStub(admin: SupabaseClient, row: OutboxRow
     })
     .eq('id', row.id)
   if (error) throw error
+}
+
+// TC-006: real delivery. Sends the row's email over SMTP when the SMTP_*
+// secrets are set and the type has a template (emailTemplates.ts); otherwise
+// falls back to the logged stub above, so local stacks and CI are unchanged.
+// Either way the row ends redacted and scrubbed, with status 'sent' or
+// 'failed' (or 'sent_stub' from the fallback). Never logs the recipient,
+// the payload or the token: only the type and an error class.
+export interface DeliveryDeps {
+  env: { get(key: string): string | undefined }
+  send: (cfg: SmtpConfig, msg: MailMessage) => Promise<void>
+}
+
+const defaultDeliveryDeps: DeliveryDeps = { env: Deno.env, send: (cfg, msg) => sendMail(cfg, msg) }
+
+export async function deliverNotification(
+  admin: SupabaseClient,
+  row: OutboxRow,
+  deps: DeliveryDeps = defaultDeliveryDeps,
+): Promise<'sent' | 'failed' | 'sent_stub'> {
+  const cfg = smtpConfigFromEnv(deps.env)
+  const email = renderNotificationEmail(row.type, row.payload)
+  if (!cfg || !email) {
+    await sendNotificationStub(admin, row)
+    return 'sent_stub'
+  }
+
+  let to = typeof row.payload.email === 'string' ? row.payload.email : ''
+  if (!to && row.userId) {
+    const { data } = await admin.auth.admin.getUserById(row.userId)
+    to = data?.user?.email ?? ''
+  }
+
+  let status: 'sent' | 'failed' = 'failed'
+  if (to) {
+    try {
+      await deps.send(cfg, { to, ...email })
+      status = 'sent'
+    } catch (err) {
+      const reason = err instanceof SmtpError ? `${err.message}${err.code ? ` (${err.code})` : ''}` : 'send_error'
+      console.error('email delivery failed', { type: row.type, reason })
+    }
+  } else {
+    console.error('email delivery failed', { type: row.type, reason: 'no_recipient' })
+  }
+
+  const { error } = await admin
+    .from('notification_outbox')
+    .update({
+      status,
+      payload: redactSentPayload(row.type, row.payload),
+      scrubbed_at: new Date().toISOString(),
+    })
+    .eq('id', row.id)
+  if (error) throw error
+  return status
 }

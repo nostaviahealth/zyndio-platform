@@ -13,7 +13,6 @@ import '../../providers/protocol_progress_provider.dart';
 import '../../providers/consistency_provider.dart';
 import '../../widgets/health_disclaimer_banner.dart';
 import '../../widgets/tc025/tc025_widgets.dart';
-import '../wearables/widgets/dashboard_card_style.dart';
 import '../../providers/blueprint_provider.dart';
 import '../../providers/navbar_provider.dart';
 
@@ -29,12 +28,12 @@ class _ProtocolScreenState extends ConsumerState<ProtocolScreen>
   int _previousIndex = 0;
   late AnimationController _progressController;
 
-  // Apple Health–style accent colors per category
+  // Category accents from the shared tint families (My Plan / Today).
   static const _categories = [
-    _Category('Lifestyle', LucideIcons.leaf, Color(0xFFA855F7)),
-    _Category('Diet', LucideIcons.utensils, Color(0xFF6366F1)),
-    _Category('Fitness', LucideIcons.dumbbell, Color(0xFFEF4444)),
-    _Category('Supplements', LucideIcons.pill, Color(0xFF10B981)),
+    _Category('Lifestyle', LucideIcons.leaf, ZyndioTint.violet),
+    _Category('Diet', LucideIcons.utensils, ZyndioTint.indigo),
+    _Category('Fitness', LucideIcons.dumbbell, ZyndioTint.rose),
+    _Category('Supplements', LucideIcons.pill, ZyndioTint.green),
   ];
 
   @override
@@ -59,8 +58,22 @@ class _ProtocolScreenState extends ConsumerState<ProtocolScreen>
     super.dispose();
   }
 
-  // Match Wearables dashboard background
-  
+  /// Loading / error / empty states: the pushed-screen scaffold (with a back
+  /// button) when opened from My Plan, the tab scaffold otherwise.
+  Widget _stateScaffold(List<Widget> children) {
+    if (Navigator.of(context).canPop()) {
+      return ZyndioDetailScaffold(
+        title: 'My Plan',
+        subtitle: 'Published by your care team.',
+        children: children,
+      );
+    }
+    return ZyndioTabScaffold(
+      title: 'My Plan',
+      subtitle: 'Published by your care team.',
+      children: children,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -68,62 +81,53 @@ class _ProtocolScreenState extends ConsumerState<ProtocolScreen>
     final protocolState = ref.watch(protocolProvider);
 
     if (protocolState.isLoading) {
-      return const ZyndioTabScaffold(
-        title: 'My Plan',
-        subtitle: 'Published by your care team.',
-        children: [
-          ZyndioStateCard(
-            icon: LucideIcons.clipboardList,
-            title: 'Loading your plan',
-            body: 'Checking for a plan your care team has published.',
-          ),
-        ],
-      );
+      return _stateScaffold(const [
+        ZyndioStateCard(
+          icon: LucideIcons.clipboardList,
+          title: 'Loading your plan',
+          body: 'Checking for a plan your care team has published.',
+        ),
+      ]);
     }
 
     if (protocolState.loadFailed) {
-      return ZyndioTabScaffold(
-        title: 'My Plan',
-        subtitle: 'Published by your care team.',
-        children: [
-          ZyndioStateCard(
-            icon: LucideIcons.triangleAlert,
-            title: "We couldn't load your plan",
-            body: 'Check your connection and try again.',
-            actionLabel: 'Try again',
-            onAction: () => ref.read(protocolProvider.notifier).fetchLibrary(),
-          ),
-        ],
-      );
+      return _stateScaffold([
+        ZyndioStateCard(
+          icon: LucideIcons.triangleAlert,
+          title: "We couldn't load your plan",
+          body: 'Check your connection and try again.',
+          actionLabel: 'Try again',
+          onAction: () => ref.read(protocolProvider.notifier).fetchLibrary(),
+        ),
+      ]);
     }
 
     final protocol = protocolState.selectedProtocol;
     if (protocol == null) {
-      return const ZyndioTabScaffold(
-        title: 'My Plan',
-        subtitle: 'Published by your care team.',
-        children: [
-          ZyndioStateCard(
-            icon: LucideIcons.clipboardList,
-            title: 'No plan yet',
-            body:
-                'Your care team will publish your plan here after your first consultation.',
-          ),
-        ],
-      );
+      return _stateScaffold(const [
+        ZyndioStateCard(
+          icon: LucideIcons.clipboardList,
+          title: 'No plan yet',
+          body:
+              'Your care team will publish your plan here after your first consultation.',
+        ),
+      ]);
     }
-    final accent = _categories[_selectedIndex].color;
+    final accent = _categories[_selectedIndex].tint;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final canPop = Navigator.of(context).canPop();
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: context.nc.isDark ? Brightness.light : Brightness.dark,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
         systemNavigationBarColor: Colors.transparent,
-        systemNavigationBarIconBrightness: context.nc.isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarIconBrightness:
+            isDark ? Brightness.light : Brightness.dark,
         systemNavigationBarContrastEnforced: false,
       ),
       child: Scaffold(
-        backgroundColor: context.nc.isDark ? Colors.transparent : context.nc.scaffoldBg,
+        backgroundColor: context.z25.screenBg,
         body: SafeArea(
           bottom: false,
           child: NotificationListener<ScrollNotification>(
@@ -141,110 +145,102 @@ class _ProtocolScreenState extends ConsumerState<ProtocolScreen>
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
-                // ── Same brand row + page header as the other tabs ──
+                // ── Same back header as the other pushed screens ──
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 4, 20, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (Navigator.of(context).canPop())
-                          IconButton(
-                            tooltip: 'Back',
-                            icon: const Icon(LucideIcons.arrowLeft),
-                            onPressed: () => Navigator.of(context).pop(),
-                          ),
-                        const Padding(
-                          padding: EdgeInsets.only(left: 12, top: 4),
-                          child: ZyndioPageHeader(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                    child: canPop
+                        ? ZyndioBackHeader(
+                            title: 'Your plan',
+                            subtitle: 'Published by your care team.',
+                            onBack: () => Navigator.of(context).pop(),
+                          )
+                        : const ZyndioPageHeader(
                             title: 'Your plan',
                             subtitle: 'Published by your care team.',
                           ),
-                        ),
-                      ],
+                  ),
+                ),
+
+                // ── Header ──
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                    child: _HeroHeader(
+                      protocol: protocol,
+                      progressController: _progressController,
+                      onViewProtocols: () => context.push('/protocols'),
                     ),
                   ),
                 ),
 
-                  // ── Header ──
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                      child: _HeroHeader(
-                        protocol: protocol,
-                        progressController: _progressController,
-                        onViewProtocols: () => context.push('/protocols'),
+                // ── Segmented Control ──
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                    child: _SegmentedControl(
+                      categories: _categories,
+                      selectedIndex: _selectedIndex,
+                      onChanged: (i) => setState(() {
+                        _previousIndex = _selectedIndex;
+                        _selectedIndex = i;
+                      }),
+                    ),
+                  ),
+                ),
+
+                // ── Content Body ──
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 400),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (child, animation) {
+                        final isIncoming = child.key == ValueKey(_selectedIndex);
+                        final slideRight = _selectedIndex >= _previousIndex;
+
+                        Offset begin;
+                        if (isIncoming) {
+                          begin = slideRight
+                              ? const Offset(0.08, 0)
+                              : const Offset(-0.08, 0);
+                        } else {
+                          begin = slideRight
+                              ? const Offset(-0.08, 0)
+                              : const Offset(0.08, 0);
+                        }
+
+                        return FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: begin,
+                              end: Offset.zero,
+                            ).animate(animation),
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: Container(
+                        key: ValueKey(_selectedIndex),
+                        child: _buildContent(protocol, accent),
                       ),
                     ),
                   ),
-  
-                  // ── Segmented Control ──
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-                      child: _SegmentedControl(
-                        categories: _categories,
-                        selectedIndex: _selectedIndex,
-                        onChanged: (i) => setState(() {
-                          _previousIndex = _selectedIndex;
-                          _selectedIndex = i;
-                        }),
-                      ),
+                ),
+
+                // ── Bottom Spacing + Disclaimer ──
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(20, 32, 20, 120),
+                    child: HealthDisclaimerBanner(
+                      message: DisclaimerMessages.protocol,
                     ),
                   ),
-  
-                  // ── Content Body ──
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 400),
-                        switchInCurve: Curves.easeOutCubic,
-                        switchOutCurve: Curves.easeInCubic,
-                        transitionBuilder: (child, animation) {
-                          final isIncoming = child.key == ValueKey(_selectedIndex);
-                          final slideRight = _selectedIndex >= _previousIndex;
-  
-                          Offset begin;
-                          if (isIncoming) {
-                            begin = slideRight
-                                ? const Offset(0.08, 0)
-                                : const Offset(-0.08, 0);
-                          } else {
-                            begin = slideRight
-                                ? const Offset(-0.08, 0)
-                                : const Offset(0.08, 0);
-                          }
-  
-                          return FadeTransition(
-                            opacity: animation,
-                            child: SlideTransition(
-                              position: Tween<Offset>(
-                                begin: begin,
-                                end: Offset.zero,
-                              ).animate(animation),
-                              child: child,
-                            ),
-                          );
-                        },
-                        child: Container(
-                          key: ValueKey(_selectedIndex),
-                          child: _buildContent(protocol, accent),
-                        ),
-                      ),
-                    ),
-                  ),
-  
-                  // ── Bottom Spacing + Disclaimer ──
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 40, 16, 120),
-                      child: const HealthDisclaimerBanner(
-                        message: DisclaimerMessages.protocol,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
+              ],
             ),
           ),
         ),
@@ -252,13 +248,13 @@ class _ProtocolScreenState extends ConsumerState<ProtocolScreen>
     );
   }
 
-  Widget _buildContent(ProtocolData protocol, Color accent) {
+  Widget _buildContent(ProtocolData protocol, ZyndioTint accent) {
     switch (_selectedIndex) {
       case 0:
         return _TaskList(
           key: const ValueKey('lifestyle'),
           tasks: protocol.lifestyle,
-          accent: _categories[0].color,
+          accent: _categories[0].tint,
           emptyText: 'No lifestyle tasks for this phase.',
         );
       case 1:
@@ -266,20 +262,20 @@ class _ProtocolScreenState extends ConsumerState<ProtocolScreen>
           key: const ValueKey('diet'),
           blueprint: protocol.diet,
           tasks: protocol.lifestyle,
-          accent: _categories[1].color,
+          accent: _categories[1].tint,
         );
       case 2:
         return _TaskList(
           key: const ValueKey('fitness'),
           tasks: protocol.fitness,
-          accent: _categories[2].color,
+          accent: _categories[2].tint,
           emptyText: 'No fitness tasks for this phase.',
         );
       case 3:
         return _TaskList(
           key: const ValueKey('supplements'),
           tasks: protocol.supplements,
-          accent: _categories[3].color,
+          accent: _categories[3].tint,
           emptyText: 'No supplements for this phase.',
           showBuyLinks: true,
         );
@@ -296,12 +292,12 @@ class _ProtocolScreenState extends ConsumerState<ProtocolScreen>
 class _Category {
   final String label;
   final IconData icon;
-  final Color color;
-  const _Category(this.label, this.icon, this.color);
+  final ZyndioTint tint;
+  const _Category(this.label, this.icon, this.tint);
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  HERO HEADER — Apple Health style white card
+//  HERO HEADER — premium white card
 // ═══════════════════════════════════════════════════════════════════
 
 class _HeroHeader extends ConsumerWidget {
@@ -317,6 +313,7 @@ class _HeroHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
     final progressState = ref.watch(protocolProgressProvider);
     final isStarted = progressState.isStarted(protocol.id);
     
@@ -332,7 +329,9 @@ class _HeroHeader extends ConsumerWidget {
     final consistency = ref.watch(consistencyProvider);
     final progress = progressState.getProgress(protocol.id, durationWeeks: durationWeeks, performanceRate: consistency.weekConsistency);
     
-    return DashboardCard(
+    return ZyndioCard(
+      radius: 24,
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -346,17 +345,18 @@ class _HeroHeader extends ConsumerWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Color(0xFF10B981).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(100),
+                    color: c.statusSuccessSubtle,
+                    borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
                     protocol.currentPhase,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Color(0xFF10B981),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                      fontFamily: ZyndioType.family,
+                      color: c.statusSuccess,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -373,8 +373,9 @@ class _HeroHeader extends ConsumerWidget {
                         child: Text(
                           'Reset',
                           style: TextStyle(
-                            color: Colors.red.withOpacity(0.7),
-                            fontSize: 12,
+                            fontFamily: ZyndioType.family,
+                            color: c.statusCritical,
+                            fontSize: 13,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -390,14 +391,15 @@ class _HeroHeader extends ConsumerWidget {
                         Text(
                           'All plans',
                           style: TextStyle(
-                            color: context.nc.textTertiary,
+                            fontFamily: ZyndioType.family,
+                            color: c.brandPrimary,
                             fontSize: 13,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                        SizedBox(width: 2),
+                        const SizedBox(width: 2),
                         Icon(LucideIcons.chevronRight,
-                            size: 16, color: context.nc.textTertiary),
+                            size: 16, color: c.brandPrimary),
                       ],
                     ),
                   ),
@@ -414,22 +416,16 @@ class _HeroHeader extends ConsumerWidget {
             children: [
               Text(
                 protocol.title,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w600,
-                  color: context.nc.textPrimary,
-                  letterSpacing: -0.6,
-                  height: 1.2,
-                ),
+                style: ZyndioType.title2.copyWith(color: c.textPrimary),
               ),
               const SizedBox(height: 6),
               Text(
                 protocol.subtitle,
                 style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: context.nc.textTertiary,
-                  letterSpacing: 0.2,
+                  fontFamily: ZyndioType.family,
+                  fontSize: 14,
+                  height: 20 / 14,
+                  color: c.textSecondary,
                 ),
               ),
             ],
@@ -439,50 +435,19 @@ class _HeroHeader extends ConsumerWidget {
 
           // Streak & Consistency Badges
           if (isStarted)
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Color(0xFFF97316).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(LucideIcons.flame, color: Color(0xFFF97316), size: 14),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${consistency.streakDays} Day Streak',
-                        style: TextStyle(
-                          color: Color(0xFFF97316),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
+                ZyndioPill(
+                  '${consistency.streakDays} Day Streak',
+                  tone: ZyndioPillTone.warning,
+                  icon: LucideIcons.flame,
                 ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Color(0xFF10B981).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(LucideIcons.checkCircle, color: Color(0xFF10B981), size: 14),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${(consistency.weekConsistency * 100).toInt()}% Consistency',
-                        style: TextStyle(
-                          color: Color(0xFF10B981),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
+                ZyndioPill(
+                  '${(consistency.weekConsistency * 100).toInt()}% Consistency',
+                  tone: ZyndioPillTone.success,
+                  icon: LucideIcons.checkCircle,
                 ),
               ],
             ),
@@ -494,24 +459,7 @@ class _HeroHeader extends ConsumerWidget {
               spacing: 6,
               runSpacing: 6,
               children: protocol.targetMetrics
-                  .map(
-                    (m) => Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: Color(0xFFF2F2F7),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        m,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: context.nc.textSecondary,
-                        ),
-                      ),
-                    ),
-                  )
+                  .map((m) => ZyndioPill(m))
                   .toList(),
             ),
           ],
@@ -520,7 +468,9 @@ class _HeroHeader extends ConsumerWidget {
           
           // Progress or Start Action
           if (!isStarted)
-            GestureDetector(
+            ZyndioGradientButton(
+              label: 'Start plan',
+              trailingArrow: false,
               onTap: () {
                 HapticFeedback.mediumImpact();
                 showModalBottomSheet(
@@ -538,23 +488,6 @@ class _HeroHeader extends ConsumerWidget {
                   ),
                 );
               },
-              child: Container(
-                width: double.infinity,
-                height: 52,
-                decoration: BoxDecoration(
-                  gradient: ZyndioGradients.brand,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                alignment: Alignment.center,
-                child: const Text(
-                  'Start plan',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
             )
           else ...[
             Row(
@@ -563,7 +496,8 @@ class _HeroHeader extends ConsumerWidget {
                 Text(
                   'Plan progress',
                   style: TextStyle(
-                    color: context.nc.textSecondary,
+                    fontFamily: ZyndioType.family,
+                    color: c.textSecondary,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
@@ -571,9 +505,11 @@ class _HeroHeader extends ConsumerWidget {
                 Text(
                   '${(progress * 100).toInt()}%',
                   style: TextStyle(
-                    color: context.nc.textPrimary,
+                    fontFamily: ZyndioType.family,
+                    color: c.textPrimary,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
+                    fontFeatures: ZyndioType.tabular,
                   ),
                 ),
               ],
@@ -583,23 +519,16 @@ class _HeroHeader extends ConsumerWidget {
               height: 8,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: context.nc.isDark ? context.nc.divider.withOpacity(0.1) : context.nc.cardBorder,
-                borderRadius: BorderRadius.circular(4),
+                color: c.bgSunken,
+                borderRadius: BorderRadius.circular(999),
               ),
               child: FractionallySizedBox(
                 alignment: Alignment.centerLeft,
                 widthFactor: progress,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Color(0xFF10B981),
-                    borderRadius: BorderRadius.circular(4),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Color(0xFF10B981).withOpacity(0.3),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                    gradient: ZyndioGradients.brand,
+                    borderRadius: BorderRadius.circular(999),
                   ),
                 ),
               ),
@@ -623,14 +552,9 @@ class _HeroHeader extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
                     color: readiness.isReady
-                        ? Color(0xFF10B981).withOpacity(0.08)
-                        : context.nc.isDark ? context.nc.divider.withOpacity(0.05) : context.nc.scaffoldBg,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: readiness.isReady
-                          ? Color(0xFF10B981).withOpacity(0.3)
-                          : context.nc.cardBorder,
-                    ),
+                        ? c.statusSuccessSubtle
+                        : c.bgSunken,
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Row(
                     children: [
@@ -638,19 +562,20 @@ class _HeroHeader extends ConsumerWidget {
                         readiness.isReady ? LucideIcons.zap : LucideIcons.clock,
                         size: 16,
                         color: readiness.isReady
-                            ? Color(0xFF10B981)
-                            : context.nc.textTertiary,
+                            ? c.statusSuccess
+                            : c.textTertiary,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           readiness.reason,
                           style: TextStyle(
-                            fontSize: 12,
+                            fontFamily: ZyndioType.family,
+                            fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: readiness.isReady
-                                ? Color(0xFF10B981)
-                                : context.nc.textSecondary,
+                                ? c.statusSuccess
+                                : c.textSecondary,
                           ),
                         ),
                       ),
@@ -668,39 +593,62 @@ class _HeroHeader extends ConsumerWidget {
   void _showResetDialog(BuildContext context, WidgetRef ref, ProtocolData protocol) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: context.nc.cardSurface,
-        title: Text('Reset Protocol?', style: TextStyle(color: context.nc.textPrimary, fontWeight: FontWeight.bold)),
-        content: Text(
-          'This will permanently delete your ${protocol.title} blueprint and restart your progress from Day 0. This cannot be undone.',
-          style: TextStyle(color: context.nc.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: TextStyle(color: Colors.white54)),
+      builder: (context) {
+        final c = Theme.of(context).extension<ZyndioColors>()!;
+        return AlertDialog(
+          backgroundColor: c.bgSurface,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: Text(
+            'Reset Protocol?',
+            style: ZyndioType.headline.copyWith(
+                color: c.textPrimary, fontWeight: FontWeight.w700),
           ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              // Perform Reset
-              await ref.read(blueprintProvider.notifier).resetBlueprint(protocol.id);
-              await ref.read(protocolProgressProvider.notifier).resetProtocol(protocol.id);
-              
-              // Show confirmation snackbar
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('${protocol.title} has been reset.'),
-                    backgroundColor: Color(0xFF10B981),
-                  ),
-                );
-              }
-            },
-            child: Text('Reset', style: TextStyle(color: Color(0xFFEF4444), fontWeight: FontWeight.bold)),
+          content: Text(
+            'This will permanently delete your ${protocol.title} blueprint and restart your progress from Day 0. This cannot be undone.',
+            style: ZyndioType.subhead.copyWith(color: c.textSecondary),
           ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  fontFamily: ZyndioType.family,
+                  color: c.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                // Perform Reset
+                await ref.read(blueprintProvider.notifier).resetBlueprint(protocol.id);
+                await ref.read(protocolProgressProvider.notifier).resetProtocol(protocol.id);
+                
+                // Show confirmation snackbar
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('${protocol.title} has been reset.'),
+                      backgroundColor: c.statusSuccess,
+                    ),
+                  );
+                }
+              },
+              child: Text(
+                'Reset',
+                style: TextStyle(
+                  fontFamily: ZyndioType.family,
+                  color: c.statusCritical,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -722,84 +670,10 @@ class _SegmentedControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 64, // Fixed height for consistent sliding
-      padding: const EdgeInsets.all(4),
-      decoration: DashboardCardStyle.decorationOf(context),
-      child: Stack(
-        children: [
-          // Sliding background indicator
-          AnimatedAlign(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeInOutCubic,
-            alignment: Alignment(
-              -1 + (selectedIndex * (2 / (categories.length - 1))),
-              0,
-            ),
-            child: FractionallySizedBox(
-              widthFactor: 1 / categories.length,
-              child: Container(
-                margin: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  color: context.nc.cardSurface,
-                  borderRadius: BorderRadius.circular(22),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.06),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // Tab Labels
-          Row(
-            children: List.generate(categories.length, (i) {
-              final cat = categories[i];
-              final isSelected = i == selectedIndex;
-
-              return Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => onChanged(i),
-                  child: AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 250),
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                      color: isSelected
-                          ? context.nc.textPrimary
-                          : context.nc.textSecondary,
-                      letterSpacing: -0.1,
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 200),
-                          child: Icon(
-                            cat.icon,
-                            key: ValueKey('icon_${cat.label}_$isSelected'),
-                            size: 18,
-                            color: isSelected
-                                ? context.nc.textPrimary
-                                : context.nc.textTertiary,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(cat.label),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            }),
-          ),
-        ],
-      ),
+    return ZyndioSegmentedTabs(
+      labels: [for (final cat in categories) cat.label],
+      selected: selectedIndex,
+      onSelected: onChanged,
     );
   }
 }
@@ -810,7 +684,7 @@ class _SegmentedControl extends StatelessWidget {
 
 class _TaskList extends StatelessWidget {
   final List<ProtocolTask> tasks;
-  final Color accent;
+  final ZyndioTint accent;
   final String emptyText;
   final bool showBuyLinks;
 
@@ -856,12 +730,12 @@ class _TaskList extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  TASK CARD — Clean, premium Apple Health style
+//  TASK CARD
 // ═══════════════════════════════════════════════════════════════════
 
 class _TaskCard extends StatefulWidget {
   final ProtocolTask task;
-  final Color accent;
+  final ZyndioTint accent;
   final bool showBuyLink;
 
   const _TaskCard({
@@ -879,20 +753,35 @@ class _TaskCardState extends State<_TaskCard> {
 
   @override
   Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
     return GestureDetector(
       onTap: () => setState(() => _expanded = !_expanded),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        decoration: DashboardCardStyle.decorationOf(context),
+        decoration: zyndioCard(context, radius: 22),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(22),
           child: IntrinsicHeight(
             child: Row(
               children: [
+                // Category accent bar
+                Container(
+                  width: 4,
+                  margin: const EdgeInsets.symmetric(vertical: 18),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: widget.accent.colors,
+                    ),
+                    borderRadius: const BorderRadius.horizontal(
+                        right: Radius.circular(4)),
+                  ),
+                ),
                 // Content
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                    padding: const EdgeInsets.fromLTRB(16, 18, 18, 18),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -904,11 +793,11 @@ class _TaskCardState extends State<_TaskCard> {
                               child: Text(
                                 widget.task.title,
                                 style: TextStyle(
+                                  fontFamily: ZyndioType.family,
                                   fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: context.nc.textPrimary,
-                                  height: 1.3,
-                                  letterSpacing: -0.3,
+                                  fontWeight: FontWeight.w600,
+                                  color: c.textPrimary,
+                                  height: 22 / 16,
                                 ),
                               ),
                             ),
@@ -918,7 +807,7 @@ class _TaskCardState extends State<_TaskCard> {
                                   ? LucideIcons.chevronUp
                                   : LucideIcons.chevronDown,
                               size: 18,
-                              color: context.nc.textTertiary,
+                              color: c.textTertiary,
                             ),
                           ],
                         ),
@@ -929,9 +818,10 @@ class _TaskCardState extends State<_TaskCard> {
                           Text(
                             widget.task.time,
                             style: TextStyle(
+                              fontFamily: ZyndioType.family,
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
-                              color: context.nc.textTertiary,
+                              color: c.textTertiary,
                             ),
                           ),
                         ],
@@ -943,32 +833,17 @@ class _TaskCardState extends State<_TaskCard> {
                           maxLines: _expanded ? 100 : 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
+                            fontFamily: ZyndioType.family,
                             fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                            color: context.nc.textSecondary,
-                            height: 1.5,
+                            color: c.textSecondary,
+                            height: 20 / 14,
                           ),
                         ),
 
                         // Frequency Pill (if expanded)
                         if (_expanded && widget.task.frequency != null) ...[
                           const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: context.nc.isDark ? context.nc.divider.withOpacity(0.1) : context.nc.cardBorder,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              widget.task.frequency!,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: context.nc.textSecondary,
-                              ),
-                            ),
-                          ),
+                          ZyndioPill(widget.task.frequency!),
                         ],
 
                         // Buy Button (if enabled)
@@ -982,15 +857,16 @@ class _TaskCardState extends State<_TaskCard> {
                               padding: const EdgeInsets.symmetric(
                                   vertical: 10, horizontal: 16),
                               decoration: BoxDecoration(
-                                color: context.nc.textPrimary,
-                                borderRadius: BorderRadius.circular(12),
+                                gradient: ZyndioGradients.brand,
+                                borderRadius: BorderRadius.circular(999),
                               ),
-                              child: Row(
+                              child: const Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
                                     'Buy Now',
                                     style: TextStyle(
+                                      fontFamily: ZyndioType.family,
                                       color: Colors.white,
                                       fontWeight: FontWeight.w600,
                                       fontSize: 13,
@@ -1021,10 +897,71 @@ class _TaskCardState extends State<_TaskCard> {
 //  DIET VIEW — Macros, Principles, Avoid, Targets
 // ═══════════════════════════════════════════════════════════════════
 
+/// Title inside a diet card ("Macros", "Principles", …).
+Widget _cardTitle(BuildContext context, String text, {Color? color}) {
+  final c = Theme.of(context).extension<ZyndioColors>()!;
+  return Text(
+    text,
+    style: ZyndioType.headline.copyWith(color: color ?? c.textPrimary),
+  );
+}
+
+/// A tinted inset row: coloured dot, label and right-aligned value.
+Widget _tintedValueRow(BuildContext context,
+    {required String label,
+    required String value,
+    required Color color,
+    Color? background,
+    required bool last}) {
+  final c = Theme.of(context).extension<ZyndioColors>()!;
+  return Container(
+    width: double.infinity,
+    margin: EdgeInsets.only(bottom: last ? 0 : 8),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    decoration: BoxDecoration(
+      color: background ?? color.withValues(alpha: 0.10),
+      borderRadius: BorderRadius.circular(14),
+    ),
+    child: Row(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: ZyndioType.family,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: c.textPrimary,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              fontFamily: ZyndioType.family,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              fontFeatures: ZyndioType.tabular,
+              color: color,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 class _DietView extends StatelessWidget {
   final DietBlueprint blueprint;
   final List<ProtocolTask> tasks;
-  final Color accent;
+  final ZyndioTint accent;
 
   const _DietView({
     super.key,
@@ -1035,12 +972,15 @@ class _DietView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // ── Macro Overview Card ──
         if (blueprint.macros.isNotEmpty)
-          DashboardCard(
+          ZyndioCard(
+            radius: 24,
+            padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1051,69 +991,26 @@ class _DietView extends StatelessWidget {
                       width: 72,
                       height: 72,
                       child: CustomPaint(
-                        painter: _MacroDonutPainter(macros: blueprint.macros),
+                        painter: _MacroDonutPainter(
+                          macros: blueprint.macros,
+                          fallback: c.textTertiary,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 20),
-                    Text(
-                      'Macros',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: context.nc.textPrimary,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
+                    _cardTitle(context, 'Macros'),
                   ],
                 ),
                 const SizedBox(height: 16),
                 // Macro rows
                 ...blueprint.macros.asMap().entries.map((entry) {
-                  final color = _getMacroColor(entry.value.label);
-                  return Container(
-                    width: double.infinity,
-                    margin: EdgeInsets.only(
-                        bottom:
-                            entry.key < blueprint.macros.length - 1 ? 8 : 0),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: color.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: color,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          entry.value.label,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: context.nc.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            entry.value.value,
-                            textAlign: TextAlign.right,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: color,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                  final color = _getMacroColor(entry.value.label, c.textTertiary);
+                  return _tintedValueRow(
+                    context,
+                    label: entry.value.label,
+                    value: entry.value.value,
+                    color: color,
+                    last: entry.key >= blueprint.macros.length - 1,
                   );
                 }),
               ],
@@ -1123,57 +1020,50 @@ class _DietView extends StatelessWidget {
         // ── Principles ──
         if (blueprint.features.isNotEmpty) ...[
           const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: DashboardCardStyle.padding,
-            decoration: DashboardCardStyle.decorationOf(context),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Principles',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: context.nc.textPrimary,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                ...blueprint.features.map((f) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          margin: const EdgeInsets.only(top: 2),
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            color:
-                                Color(0xFF10B981).withOpacity(0.1),
-                            shape: BoxShape.circle,
+          ZyndioCard(
+            radius: 24,
+            padding: const EdgeInsets.all(20),
+            child: SizedBox(
+              width: double.infinity,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _cardTitle(context, 'Principles'),
+                  const SizedBox(height: 14),
+                  ...blueprint.features.map((f) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            margin: const EdgeInsets.only(top: 1),
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(
+                              color: c.statusSuccessSubtle,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(LucideIcons.check,
+                                size: 12, color: c.statusSuccess),
                           ),
-                          child: Icon(Icons.check,
-                              size: 12, color: Color(0xFF10B981)),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            f,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: context.nc.textPrimary,
-                              height: 1.4,
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              f,
+                              style: TextStyle(
+                                fontFamily: ZyndioType.family,
+                                fontSize: 15,
+                                color: c.textPrimary,
+                                height: 20 / 15,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ],
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ),
             ),
           ),
         ],
@@ -1181,55 +1071,47 @@ class _DietView extends StatelessWidget {
         // ── Avoid ──
         if (blueprint.avoid.isNotEmpty) ...[
           const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: DashboardCardStyle.padding,
-            decoration: DashboardCardStyle.decorationOf(context).copyWith(
-              border: Border.all(color: context.nc.isDark ? Color(0xFFEF4444).withOpacity(0.3) : Color(0xFFFECACA).withOpacity(0.4)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Avoid',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFEF4444),
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                ...blueprint.avoid.map((a) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFFEE2E2),
-                            shape: BoxShape.circle,
+          ZyndioCard(
+            radius: 24,
+            padding: const EdgeInsets.all(20),
+            child: SizedBox(
+              width: double.infinity,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _cardTitle(context, 'Avoid', color: c.statusCritical),
+                  const SizedBox(height: 14),
+                  ...blueprint.avoid.map((a) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(
+                              color: c.statusCriticalSubtle,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(LucideIcons.x,
+                                size: 12, color: c.statusCritical),
                           ),
-                          child: Icon(Icons.close,
-                              size: 12, color: Color(0xFFEF4444)),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            a,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: context.nc.textPrimary,
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              a,
+                              style: TextStyle(
+                                fontFamily: ZyndioType.family,
+                                fontSize: 15,
+                                color: c.textPrimary,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ],
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ),
             ),
           ),
         ],
@@ -1237,147 +1119,55 @@ class _DietView extends StatelessWidget {
         // ── Daily Targets ──
         if (blueprint.targets.isNotEmpty) ...[
           const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: DashboardCardStyle.padding,
-            decoration: DashboardCardStyle.decorationOf(context),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Daily Targets',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: context.nc.textPrimary,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                ...blueprint.targets.asMap().entries.map((entry) {
-                  final label = entry.value.label;
-                  final value = entry.value.value;
+          ZyndioCard(
+            radius: 24,
+            padding: const EdgeInsets.all(20),
+            child: SizedBox(
+              width: double.infinity,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _cardTitle(context, 'Daily Targets'),
+                  const SizedBox(height: 14),
+                  ...blueprint.targets.asMap().entries.map((entry) {
+                    final label = entry.value.label;
+                    final value = entry.value.value;
 
-                  // Determine formatting based on label
-                  Color bgColor;
-                  Color textColor;
+                    // Determine formatting based on label
+                    final l = label.toLowerCase();
+                    final ZyndioTint? tint = l.contains('protein')
+                        ? ZyndioTint.indigo
+                        : l.contains('carb')
+                            ? ZyndioTint.amber
+                            : l.contains('fat')
+                                ? ZyndioTint.green
+                                : l.contains('calorie')
+                                    ? ZyndioTint.blue
+                                    : null;
 
-                  if (label.toLowerCase().contains('protein')) {
-                    bgColor = Color(0xFFEEF2FF); // Indigo 50
-                    textColor = Color(0xFF6366F1); // Indigo 500
-                  } else if (label.toLowerCase().contains('carb')) {
-                    bgColor = Color(0xFFFFFBEB); // Amber 50
-                    textColor = Color(0xFFF59E0B); // Amber 500
-                  } else if (label.toLowerCase().contains('fat')) {
-                    bgColor = Color(0xFFECFDF5); // Emerald 50
-                    textColor = Color(0xFF10B981); // Emerald 500
-                  } else if (label.toLowerCase().contains('calorie')) {
-                    bgColor = Color(0xFFEFF6FF); // Blue 50
-                    textColor = Color(0xFF3B82F6); // Blue 500
-                  } else {
-                    bgColor = Color(0xFFF8FAFC); // Slate 50
-                    textColor = Color(0xFF64748B); // Slate 500
-                  }
-
-                  return Container(
-                    width: double.infinity,
-                    margin: EdgeInsets.only(
-                        bottom:
-                            entry.key < blueprint.targets.length - 1 ? 8 : 0),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: context.nc.isDark ? textColor.withOpacity(0.12) : bgColor,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    child: Row(
-                      children: [
-                        // Colored Dot
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: textColor,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        // Label
-                        Text(
-                          label,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: context.nc.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        // Value
-                        Expanded(
-                          child: Text(
-                            value,
-                            textAlign: TextAlign.right,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: textColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ],
+                    return _tintedValueRow(
+                      context,
+                      label: label,
+                      value: value,
+                      color: tint?.colors.last ?? c.textSecondary,
+                      background: tint == null ? c.bgSunken : null,
+                      last: entry.key >= blueprint.targets.length - 1,
+                    );
+                  }),
+                ],
+              ),
             ),
           ),
         ],
 
         // ── Weekly Menu CTA ──
         const SizedBox(height: 16),
-        GestureDetector(
+        ZyndioListRow(
+          icon: LucideIcons.calendarCheck,
+          tint: accent,
+          title: 'Your Weekly Menu',
+          subtitle: 'View your personalized meal plan',
           onTap: () => context.push('/weekly-menu'),
-          child: DashboardCard(
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: accent.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child:
-                      Icon(LucideIcons.calendarCheck, color: accent, size: 20),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Your Weekly Menu',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: context.nc.textPrimary,
-                        ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'View your personalized meal plan',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: context.nc.textTertiary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(LucideIcons.chevronRight,
-                    size: 18, color: accent.withOpacity(0.5)),
-              ],
-            ),
-          ),
         ),
       ],
     );
@@ -1390,8 +1180,9 @@ class _DietView extends StatelessWidget {
 
 class _MacroDonutPainter extends CustomPainter {
   final List<MacroItem> macros;
+  final Color fallback;
 
-  _MacroDonutPainter({required this.macros});
+  _MacroDonutPainter({required this.macros, required this.fallback});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1399,7 +1190,7 @@ class _MacroDonutPainter extends CustomPainter {
     final radius = size.width / 2 - 8;
     const strokeWidth = 12.0;
 
-    final colors = macros.map((m) => _getMacroColor(m.label)).toList();
+    final colors = macros.map((m) => _getMacroColor(m.label, fallback)).toList();
 
     final values = macros.map((m) {
       final numStr = m.value.replaceAll(RegExp(r'[^0-9.]'), '');
@@ -1431,15 +1222,17 @@ class _MacroDonutPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _MacroDonutPainter oldDelegate) =>
+      oldDelegate.fallback != fallback;
 }
 
-Color _getMacroColor(String label) {
+/// Macro accent from the shared tint families; [fallback] for anything else.
+Color _getMacroColor(String label, Color fallback) {
   final l = label.toLowerCase();
-  if (l.contains('protein')) return Color(0xFF6366F1); // Indigo
-  if (l.contains('carb')) return Color(0xFFF59E0B); // Amber
-  if (l.contains('fat')) return Color(0xFF10B981); // Emerald
-  return Color(0xFF64748B); // Slate
+  if (l.contains('protein')) return ZyndioTint.indigo.colors.last;
+  if (l.contains('carb')) return ZyndioTint.amber.colors.last;
+  if (l.contains('fat')) return ZyndioTint.green.colors.last;
+  return fallback;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1452,31 +1245,35 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 48),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: context.nc.isDark ? context.nc.divider.withOpacity(0.1) : context.nc.navbarPillBg,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(LucideIcons.inbox,
-                  size: 32, color: context.nc.textTertiary),
+    final c = Theme.of(context).extension<ZyndioColors>()!;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
+      decoration: zyndioCard(context),
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: context.z25.tileBg,
+              shape: BoxShape.circle,
             ),
-            const SizedBox(height: 16),
-            Text(
-              text,
-              style: TextStyle(
-                fontSize: 14,
-                color: context.nc.textTertiary,
-                fontWeight: FontWeight.w500,
-              ),
+            child: Icon(LucideIcons.inbox, size: 26, color: c.textSecondary),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: ZyndioType.family,
+              fontSize: 15,
+              height: 22 / 15,
+              color: c.textSecondary,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1525,11 +1322,12 @@ class _DurationPickerSheetState extends State<_DurationPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<ZyndioColors>()!;
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       decoration: BoxDecoration(
-        color: context.nc.scaffoldBg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        color: c.bgSurface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1539,7 +1337,7 @@ class _DurationPickerSheetState extends State<_DurationPickerSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: context.nc.divider,
+              color: c.borderStrong,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -1548,21 +1346,18 @@ class _DurationPickerSheetState extends State<_DurationPickerSheet> {
           // Title
           Text(
             'Set Protocol Duration',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: context.nc.textPrimary,
-              letterSpacing: -0.5,
-            ),
+            style: ZyndioType.title3.copyWith(
+                color: c.textPrimary, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
           Text(
             widget.protocol.title,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: context.nc.textTertiary,
+              fontFamily: ZyndioType.family,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: c.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
@@ -1570,9 +1365,10 @@ class _DurationPickerSheetState extends State<_DurationPickerSheet> {
             'Your AI coach will pre-generate a day-by-day schedule for the entire duration.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 12,
-              color: context.nc.textSecondary.withOpacity(0.8),
-              height: 1.4,
+              fontFamily: ZyndioType.family,
+              fontSize: 13,
+              color: c.textTertiary,
+              height: 18 / 13,
             ),
           ),
 
@@ -1582,9 +1378,8 @@ class _DurationPickerSheetState extends State<_DurationPickerSheet> {
           Container(
             height: 160,
             decoration: BoxDecoration(
-              color: context.nc.isDark ? context.nc.scaffoldBg : Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: context.nc.cardBorder),
+              color: c.bgSunken,
+              borderRadius: BorderRadius.circular(22),
             ),
             child: Stack(
               children: [
@@ -1592,10 +1387,10 @@ class _DurationPickerSheetState extends State<_DurationPickerSheet> {
                 Center(
                   child: Container(
                     height: 44,
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    margin: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
-                      color: context.nc.textPrimary.withOpacity(0.04),
-                      borderRadius: BorderRadius.circular(12),
+                      color: c.bgSurface,
+                      borderRadius: BorderRadius.circular(999),
                     ),
                   ),
                 ),
@@ -1620,11 +1415,13 @@ class _DurationPickerSheetState extends State<_DurationPickerSheet> {
                         child: AnimatedDefaultTextStyle(
                           duration: const Duration(milliseconds: 200),
                           style: TextStyle(
-                            fontSize: isSelected ? 20 : 16,
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                            fontFamily: ZyndioType.family,
+                            fontSize: isSelected ? 18 : 16,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                            fontFeatures: ZyndioType.tabular,
                             color: isSelected
-                                ? context.nc.textPrimary
-                                : context.nc.textTertiary,
+                                ? c.brandPrimary
+                                : c.textTertiary,
                           ),
                           child: Text(
                             '$weeks weeks  •  ${weeks * 7} days',
@@ -1641,43 +1438,15 @@ class _DurationPickerSheetState extends State<_DurationPickerSheet> {
           const SizedBox(height: 24),
 
           // Confirm Button
-          GestureDetector(
+          ZyndioGradientButton(
+            label: 'Start • $_selectedWeeks Weeks',
+            icon: LucideIcons.rocket,
+            trailingArrow: false,
             onTap: () {
               HapticFeedback.heavyImpact();
               Navigator.of(context).pop();
               widget.onConfirm(_selectedWeeks);
             },
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(
-                color: context.nc.textPrimary,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: context.nc.textPrimary.withOpacity(0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              alignment: Alignment.center,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(LucideIcons.rocket, size: 18, color: context.nc.scaffoldBg),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Start • $_selectedWeeks Weeks',
-                    style: TextStyle(
-                      color: context.nc.scaffoldBg,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ),
         ],
       ),

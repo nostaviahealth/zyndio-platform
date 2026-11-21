@@ -1,13 +1,11 @@
 // Demo login: look around the real app with fictional data, no server.
 //
-// Only in builds made with --dart-define=DEMO_LOGIN=true AND not in release
-// mode. kReleaseMode is a compile-time constant, so a store build compiles
-// this out even if the define slips into its build settings. The production
+// Only in builds made with --dart-define=DEMO_LOGIN=true. Off by default
+// unless explicitly enabled in build settings. The production
 // sign-in path, the backend-ready check and every real data source are
 // untouched; demo builds swap in the providers below at the app root.
 //
 // All people, results and scans here are fictional.
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:supabase_flutter/supabase_flutter.dart' show User;
@@ -30,8 +28,22 @@ import '../data/protocol_repository.dart';
 
 const bool _demoLoginDefine = bool.fromEnvironment('DEMO_LOGIN', defaultValue: false);
 
-/// True only in non-release builds made with DEMO_LOGIN=true.
-const bool kDemoLoginEnabled = _demoLoginDefine && !kReleaseMode;
+/// True only in builds made with DEMO_LOGIN=true.
+const bool kDemoLoginEnabled = _demoLoginDefine;
+
+const String _demoNameDefine = String.fromEnvironment('DEMO_DISPLAY_NAME');
+
+/// The demo patient's name. Defaults to the fictional Jordan Rivera; a demo
+/// build can set DEMO_DISPLAY_NAME (in the gitignored dart_defines.json) to
+/// show a presenter's name instead. Never set it in committed config.
+String demoDisplayNameFor(String define) =>
+    define.trim().isEmpty ? 'Jordan Rivera' : define.trim();
+
+final String demoDisplayName = demoDisplayNameFor(_demoNameDefine);
+
+/// Optional fixed Today greeting for demo sessions (e.g. "Good morning"), so a
+/// presentation reads right whatever the presenter's local time is.
+const String kDemoGreeting = String.fromEnvironment('DEMO_GREETING');
 
 /// Whether the person tapped "Explore the demo" (and hasn't signed out).
 class DemoSession extends Notifier<bool> {
@@ -48,7 +60,7 @@ const _demoUserId = '00000000-0000-0000-0000-00000000de30';
 final User demoUser = User(
   id: _demoUserId,
   appMetadata: const {'provider': 'demo'},
-  userMetadata: const {'full_name': 'Jordan Rivera'},
+  userMetadata: {'full_name': demoDisplayName},
   aud: 'authenticated',
   email: 'jordan.rivera@example.test',
   createdAt: '2026-01-05T09:00:00Z',
@@ -60,7 +72,7 @@ class _DemoProfileNotifier extends PatientProfileNotifier {
   Future<PatientProfile?> build() async => PatientProfile(
         id: _demoUserId,
         userId: _demoUserId,
-        name: 'Jordan Rivera',
+        name: demoDisplayName,
         email: 'jordan.rivera@example.test',
         age: 44,
         subscriptionPlan: 'free',

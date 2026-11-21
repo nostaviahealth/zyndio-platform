@@ -143,16 +143,15 @@ class _MyPlanScreenState extends ConsumerState<MyPlanScreen> {
 
   List<Widget> _supplements(ProtocolData? plan) {
     final items = plan?.supplements ?? const [];
-    if (items.isEmpty) {
-      return const [
-        ZyndioStateCard(
+    // The care team's list first; the Precision Nutrition line sits below it,
+    // labelled as a shop so it never reads as part of the prescribed plan.
+    return _spaced([
+      if (items.isEmpty)
+        const ZyndioStateCard(
           icon: LucideIcons.pill,
           title: 'No supplements in your plan',
           body: 'Supplements your care team recommends will appear here.',
         ),
-      ];
-    }
-    return _spaced([
       for (final s in items)
         _PlanCard(
           icon: LucideIcons.pill,
@@ -160,6 +159,15 @@ class _MyPlanScreenState extends ConsumerState<MyPlanScreen> {
           title: s.title,
           lines: [if (s.detail.isNotEmpty) s.detail, if (s.time.isNotEmpty) s.time],
         ),
+      _PlanCard(
+        icon: LucideIcons.shoppingBag,
+        glyph: ZyndioGlyph.molecule,
+        tint: ZyndioTint.violet,
+        title: 'Zyndio Precision Nutrition',
+        lines: const ['NAD+ test kit and 7 supplements, developed with Professor Jin-Xiong She, PhD.'],
+        badge: 'Shop',
+        onTap: () => context.pushNamed('supplements'),
+      ),
     ]);
   }
 
@@ -204,6 +212,7 @@ class _MyPlanScreenState extends ConsumerState<MyPlanScreen> {
 class _PlanCard extends StatelessWidget {
   const _PlanCard({
     required this.icon,
+    this.glyph,
     required this.tint,
     required this.title,
     this.lines = const [],
@@ -213,6 +222,7 @@ class _PlanCard extends StatelessWidget {
   });
 
   final IconData icon;
+  final ZyndioGlyph? glyph;
   final ZyndioTint tint;
   final String title;
   final List<String> lines;
@@ -230,7 +240,7 @@ class _PlanCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ZyndioIconTile(icon: icon, tint: tint, size: 52),
+          ZyndioIconTile(icon: icon, glyph: glyph, tint: tint, size: 52),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
